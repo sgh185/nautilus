@@ -42,6 +42,7 @@
 #include <nautilus/random.h>
 #include <nautilus/scheduler.h>
 #include <nautilus/cpu_state.h>
+#include <nautilus/timehook.h>
 
 #ifndef NAUT_CONFIG_DEBUG_FIBERS
 #undef  DEBUG_PRINT
@@ -599,6 +600,12 @@ int nk_fiber_init()
 	    ERROR("Could not intialize fiber thread\n");
 	    return -1;
     }
+    
+    // Register time_hook instance for fibers
+    uint64_t gran = nk_time_hook_get_granularity_ns();
+    char *mask = malloc(sizeof(char));
+    void *state = malloc(sizeof(void)); // suspicious 
+    struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, state, gran, 0, mask); 
 
     return 0;
 }
@@ -767,48 +774,40 @@ static void _debug_yield(nk_fiber_t *f_to)
 }
 #endif
 
-/****** WRAPPER NK FIBER YIELD *******/
-static uint64_t rdtsc_time = 0;
-static uint64_t data[10000];
-static int a = 0;
+/****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
+static uint64_t rdtsc_wrapper_begin = 0, rdtsc_temp = 0;
+static uint64_t wrapper_data[1000];
+static int time_interval = 0;
 
 int _wrapper_nk_fiber_yield()
 {
-// nk_vc_printf("wrapper_nk_fiber_yield : running\n");
-  uint64_t curr_time = rdtsc();
-  // nk_vc_printf("Interval time : %d\n", curr_time - rdtsc_time);
-  data[a] = curr_time - rdtsc_time;
-  rdtsc_time = curr_time;
-  a++; 
-  return nk_fiber_yield();
+  rdtsc_temp = rdtsc();
+  // nk_fiber_yield();
+  wrapper_data[time_interval] = rdtsc_temp - rdtsc_wrapper_begin;
+  rdtsc_wrapper_begin = rdtsc_temp;
+  // nk_vc_printf("%d : %lu\n", time_interval, wrapper_data[time_interval]); 
+  time_interval++;
+  
+  return 0;
 }
+
 void _nk_fiber_print_data()
 {
+  nk_vc_printf("PRINTSTART\n");
+
   int i;
-  for (i = 0; i < a; i++) {
-    nk_vc_printf("%d interval: %d\n", i, data[i]);
+  for (i = 0; i < time_interval; i++) {
+    nk_vc_printf("%lu\n", wrapper_data[i]);
   } 
-    /*
-     * // Variance calculation
-     * uint64_t N = a;
-     * uint64_t sumOfSquares = 0;
-     * uint64_t total = 0;
-     * uint64_t mean = 0;
-     *  for (i = 0; i < a; i++) {
-     *    total += data[i]; 
-     *  }
-     *  mean = total / N; 
-     *  for (i = 0; i < a; i++) {
-     *    uint64_t diff = data[i] - mean;
-     *    sumOfSquares += (diff * diff);
-     *  } 
-     *  long double variance = sumOfSquares / N;
-     *  nk_vc_printf("VARIANCE OF DATA SET: %d\n", variance);
-     */ 
-    memset(data, 0, sizeof(data));
-    a = 0;
-    rdtsc_time = 0;
-    return;
+  
+  nk_vc_printf("PRINTEND\n");
+ 
+  memset(wrapper_data, 0, sizeof(wrapper_data));
+  time_interval = 0;
+  rdtsc_wrapper_begin=0;
+  rdtsc_temp = 0;
+  
+  return;
 }  
 
 /******** EXTERNAL FUNCTIONS **********/
