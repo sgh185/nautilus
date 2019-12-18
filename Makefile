@@ -9,7 +9,9 @@ ISO_NAME:=nautilus.iso
 BIN_NAME:=nautilus.bin
 SYM_NAME:=nautilus.syms
 BC_NAME:=nautilus.bc
+OPT_NAME:=nautilus_opt.bc
 LL_NAME:=nautilus.ll
+OPT_LL_NAME:=nautilus_opt.ll
 
 
 
@@ -795,10 +797,18 @@ bitcode: $(BIN_NAME)
 	extract-bc $(BIN_NAME) -o $(BC_NAME)
 	llvm-dis $(BC_NAME) -o $(LL_NAME)
 
+timing: $(BIN_NAME)
+	extract-bc $(BIN_NAME) -o $(BC_NAME)
+	llvm-dis $(BC_NAME) -o $(LL_NAME)
+	clang -emit-llvm -Xclang -load -Xclang ~/CAT/lib/CAT.so -fno-omit-frame-pointer -ffreestanding -fno-stack-protector -fno-strict-aliasing -fno-strict-overflow -mno-red-zone -mcmodel=large -Wall -Wno-unused-function -Wno-unused-variable -fno-common -Wstrict-overflow=5  -fgnu89-inline -g -m64  -Wno-pointer-sign -O0 -c -Xclang -disable-O0-optnone -o $(OPT_NAME) $(BC_NAME)
+	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
+	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
+	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
+	rm .nautilus.o
+
 ifdef NAUT_CONFIG_USE_WLLVM_WHOLE_OPT
 whole_opt: $(BIN_NAME)  
 	extract-bc $(BIN_NAME) -o $(BC_NAME)
-	opt -strip-debug $(BC_NAME)
 	clang $(CFLAGS) -c $(BC_NAME) -o .nautilus.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
 	rm .nautilus.o
