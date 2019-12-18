@@ -82,12 +82,13 @@ using namespace std;
 #define FIBER_START 2
 #define FIBER_CREATE 3
 #define IDLE_FIBER_ROUTINE 4
+#define WRAP 5
 
 // Guards for yield call injections
 #define GRAN 200
 #define CALL_GUARDS 0
 #define LOOP_GUARDS 1
-#define LOOP_OPT 1
+#define LOOP_OPT 0
 
 // Conservativeness, Latency path configurations
 #define MAXIMUM 0
@@ -101,8 +102,8 @@ using namespace std;
 #define LATCONFIG EXPECTED
 
 // Fiber function declarations
-const vector<uint32_t> NK_ids = {WRAPPER_YIELD, INNER_YIELD, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE};
-const vector<string> NK_names = {"wrapper_nk_fiber_yield", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle"};
+const vector<uint32_t> NK_ids = {WRAPPER_YIELD, INNER_YIELD, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE, WRAP};
+const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield"};
 unordered_map<uint32_t, Function *> FIBERS;
 
 namespace
@@ -173,10 +174,10 @@ struct CAT : public ModulePass
         }
 
         // Get rid of LLVM debug intrinsics
-        StripDebugInfo(M);
+        // StripDebugInfo(M);
 #if INJECT
         // Force inlining of nk_fiber_yield (should only occur in wrapper_nk_fiber_yield)
-        inlineF(DI, *(FIBERS[INNER_YIELD]));
+        // inlineF(DI, *(FIBERS[INNER_YIELD]));
 
         // Force inlining of nk_fiber_start to generate direct calls to nk_fiber_create
         inlineF(DI, *(FIBERS[FIBER_START]));
@@ -376,8 +377,8 @@ struct CAT : public ModulePass
                                      Function const *parentFuncToFind)
     {
         set<Function *> Routines;
-
-        // Iterate over uses of nk_fiber_create
+        
+	// Iterate over uses of nk_fiber_create
         for (auto &use : parentFuncToFind->uses())
         {
             User *user = use.getUser();
