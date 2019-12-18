@@ -1,0 +1,64 @@
+*** NEEDS UPDATE ***
+--- Needs readability update (consts, commenting in helper functions).
+--- Needs refactoring to eliminate code repitition (functions that use workList algorithm)
+
+
+NEW
+*** Pass that injects calls to "wrapper_nk_fiber_yield" based on a data flow analysis that calcualtes expected and maximum latencies of instructions in a module *** 
+
+Data Flow Analysis : TODO
+
+Technical Issues : TODO
+
+Conceptual Issues :
+- How to measure expected and maximum latencies of loops with unknown tripCounts. These will be peeled partially, but how should maximum and expected latencies of all successor blocks/instructions change?
+- Grouping injected calls that are placed "too close to each other" because of discrepancies between expected and maximum latencies. Could be grouped using branch instructions --- but that adds overhead.
+
+---------------
+
+OLD 
+*** Basic pass to insert and inline the "nk_fiber_yield" function call every 25 lines of code. *** 
+
+Technical issues:
+- [SOLVED]  Injecting function that doesn't exist in current module (i.e. yield)
+  Ideas --- link modules correctly (llvm-link, etc.) after bitcode is generated, etc. (CORRECT SOLUTION)
+        --- getOrCreateFunction will create a shell, stil could have an empty body (scrapped --- for dummy code)
+        --- add necessary files in addition to the -CIY flag upon compilation (scrapped --- Simone's solution?)
+        --- write a function that extracts nk_fiber_yield from some Nautilus source file and keeps it in this module (llvm-link solves this issue)
+
+- [SOLVED] Pass is invoked repeatedly since bitcode is modified each time code injections occur
+  Ideas --- End pass invocation after certain number of injections are introduced
+        --- Complete one pass invocation ONLY, prevent reinvocation of pass by introducing a marker function,
+            pass will terminate upon finding the marker function
+	--- Just edit the damn script (THIS SOLUTION CHOSEN)
+
+- [SOLVED] Marker function removed
+  Marker function deemed unnecessary (Simone), marker function signature can be utilized by other code (conceptually
+  speaking), shell for function can fail if there is no body (this pass will not include a body --- expensive)
+  Ideas --- remove marker function entirely, prevent reinvocation of pass by changing the makefile (CORRECT SOLUTION)
+
+- [SOLVED] --- Linked modules allows LLVM to find the function with M.getFunction() ; NOTE: Function::Create() with no body is dangerous
+
+- [SOLVED] --- -fgnu89-inline was possibly inlining nk_fiber_yield for this version of nautilus (not sure why), so injecting without calls to nk_fiber_yield or the function body were not present in runOnModule(), fixed by setting attribute in doInitialization to Attribute::NoInline  ;   LLVM::Module::getFunction() fails to recognize nk_fiber_yield in latest commit to Nautilus (mikedev, 7/24/19), with no memory corruption or leaked pointers.
+
+########
+
+Conceptual issues (with the pass):
+- Injecting yield calls is not smart in all occurrences (e.g. critical sections, presence of locks, etc.), smarter to inject in programmer-written routines, IGNORE at context switching/register saving functions in fiber.c, DO INJECT calls inside tight loops
+- [SOLVED] Inlining is necessary post linking, forcing inlining of nk_fiber_yield, nk_fiber_create before inlining all routines and wrapper_nk_fiber_yield ; Inlining via code may not be necessary, pass in flag "analyzer-config ipa=dynamic"
+- What should be classified as a tight loop? (Potentially technical issue, likely answered in prior compilers research)
+
+########
+
+inject script: used to install pass, link modules, build nautilus after invoking the pass. CAT-c build (Simone) is necessary in order to build nautilus with the pass.
+
+#######
+
+Conceptual ideas (research question)
+CURRENT THINKING:
+- Replicate the routine that invokes nk_simple_timing_loop(100) and nk_fiber_yield right after --- using the pass. Variance on both should be close to 0.
+- Take the time between yields --- replicate it even for routines that are more complicated. For example --- if there's a routine that does a complex matrix multiply (or something of the like), it will take more cycles/time than nk_simple_timing_loop(100). At this point, the pass needs to figure out how to simulate the number of cycles nk_simple_timing_loop(100) takes, and yields at the beginning and end of a block of instructions perceived to take the same number of cycles to execute. Using LLVM Profilers here is a possibility, llvm-exegesis/mca may be useful here.- Loops may need to be preserved and unrolled after in order to perform the injection properly.
+OTHER TRACK:
+- Generate a CFG. Look at all possible execution sequences (sequences of basic blocks). Insert a yield call into each basic block. Perform DFS to find all possible execution sequences (should catch cycles).
+- Next step --- profiler catches which execution sequences are intensive and which ones are not (this may be based on a threshold of isIntensive() == true, else). For intensive sequences, add yield calls (how many?? --- based on block size?). For non-intensive sequences, don't bother. NOTE: Preventing injection in non-intensive sequences is probably good for reducing overhead
+NOTE: Threshold between non-intensive and intensive may give some insight on the introducing yields based on TIME intervals
