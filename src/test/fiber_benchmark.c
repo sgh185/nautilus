@@ -61,7 +61,7 @@ extern struct nk_virtual_console *vc;
 extern void nk_simple_timing_loop(uint64_t);
 
 // Benchmark --- Linked List Implementation
-List_t * createList(uint64_t start, uint64_t size) __attribute__((noinline))
+__attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size) 
 {
   // List setup
   Node_t *L_head = malloc(sizeof(Node_t));
@@ -96,8 +96,7 @@ List_t * createList(uint64_t start, uint64_t size) __attribute__((noinline))
 }
 
 // Benchmark --- Binary Tree Implementation
-TreeNode_t * createTree(uint64_t start, uint64_t size) __attribute__((noinline))
-{
+__attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size) {
   // Create root
   TreeNode_t *root = malloc(sizeof(TreeNode_t));
   if (!root) return NULL;
@@ -154,8 +153,7 @@ TreeNode_t * createTree(uint64_t start, uint64_t size) __attribute__((noinline))
 
 // Create Queue for BST
 #define MAX_QUEUE_SIZE 10000
-TreeQueue_t * createQueue(void) __attribute__((noinline))
-{
+__attribute__((noinline)) TreeQueue_t * createQueue(void) {
   TreeQueue_t *new_queue = malloc(sizeof(TreeQueue_t));
   if (!new_queue) return NULL;
 
@@ -169,8 +167,7 @@ TreeQueue_t * createQueue(void) __attribute__((noinline))
 }
 
 // Create array of 25 random unsigned longs 
-uint64_t * createRandArray50() __attribute__((noinline))
-{
+__attribute__((noinline)) uint64_t * createRandArray50() {
   uint64_t *r_array = malloc(sizeof(uint64_t) * 50);
   if(!r_array) return NULL;
 
@@ -182,15 +179,13 @@ uint64_t * createRandArray50() __attribute__((noinline))
 }
 
 // Dummy function --- for floating point (non-loop) benchmarks
-void dummy_func(double a, double b, double c) __attribute__((noinline))
-{
+__attribute__((noinline)) void dummy_func(double a, double b, double c) {
   nk_vc_printf("%f, %f, %f\n", a, b, c);
   return;
 }
 
 // Dummy function --- for "sum" variables in loop benchmarks
-void sum_dummy_func(uint64_t a) __attribute__((noinline))
-{
+__attribute__((noinline)) void sum_dummy_func(uint64_t a) {
   nk_vc_printf("%d\n", a);
   return;
 }
@@ -6269,8 +6264,7 @@ R1 += R2 * R3;
   return;
 }
 
-void benchmark19(void *i, void **o) __attribute__((optnone))
-{
+__attribute__((optnone)) void benchmark19(void *i, void **o) {
   nk_fiber_set_vc(vc);
   
   perf_event_t *counter = nk_pmc_create(4);
@@ -7682,8 +7676,7 @@ R1 += R2 * R3;
   return;
 }
 
-void benchmark20(void *i, void **o) __attribute__((optnone))
-{
+__attribute__((optnone)) void benchmark20(void *i, void **o) {
   nk_fiber_set_vc(vc);
   
   volatile uint64_t R1 = (lrand48() % 50);
