@@ -296,7 +296,7 @@ static void _fiber_wrapper(nk_fiber_t* f_to)
 // If debugging is enabled, sentinent values are placed in registers
 static void _nk_fiber_init(nk_fiber_t *f)
 {
-  f->rsp = (uint64_t) f->stack + f->stack_size;
+  f->rsp = (uint64_t) f->stack + f->stack_size - 8;
   _fiber_push(f, (uint64_t) _fiber_wrapper);
   _fiber_push(f, 0xdeadbeefdeadbeeful);
   _fiber_push(f, 0xdeadbeef12345670ul);
@@ -325,7 +325,7 @@ static void _nk_fiber_init(nk_fiber_t *f)
 
 static void _nk_fiber_init(nk_fiber_t *f)
 {
-  f->rsp = (uint64_t) f->stack + f->stack_size;
+  f->rsp = (uint64_t) f->stack + f->stack_size - 8;
   _fiber_push(f, (uint64_t) _fiber_wrapper);
   _fiber_push(f, 0xdeadbeefdeadbeeful);
   _fiber_push(f, 0x0ul);
