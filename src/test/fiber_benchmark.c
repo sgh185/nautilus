@@ -50,9 +50,10 @@
 extern struct nk_virtual_console *vc;
 
 /******************* Macros/Helper Functions *******************/
+#define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 #define M 200
-#define DOT 1000
+#define DOT 100
 #define DIMENSION_SIZE(arr) ((sizeof(arr)) / (sizeof((arr)[0])))
 #define M1 20
 #define M2 40
@@ -64,13 +65,13 @@ extern void nk_simple_timing_loop(uint64_t);
 __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size) 
 {
   // List setup
-  Node_t *L_head = malloc(sizeof(Node_t));
+  Node_t *L_head = MALLOC(sizeof(Node_t));
   if (!L_head) return NULL;
 
   L_head->value = start;
   L_head->next = NULL;
   
-  List_t *LL = malloc(sizeof(List_t));
+  List_t *LL = MALLOC(sizeof(List_t));
   if (!LL) return NULL;
   
   LL->head = L_head;
@@ -82,7 +83,7 @@ __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size)
   {
     incr += (a * a) + incr;
     
-    Node_t *L_node = malloc(sizeof(Node_t));
+    Node_t *L_node = MALLOC(sizeof(Node_t));
     if (!L_node) return NULL;
     
     L_node->value = incr;
@@ -98,7 +99,7 @@ __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size)
 // Benchmark --- Binary Tree Implementation
 __attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size) {
   // Create root
-  TreeNode_t *root = malloc(sizeof(TreeNode_t));
+  TreeNode_t *root = MALLOC(sizeof(TreeNode_t));
   if (!root) return NULL;
 
   root->value = start;
@@ -115,7 +116,7 @@ __attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size)
     srand48(0);
 
     // Create new node with value val
-    TreeNode_t *newNode = malloc(sizeof(TreeNode_t));
+    TreeNode_t *newNode = MALLOC(sizeof(TreeNode_t));
     if (!newNode) return NULL;
  
     newNode->value = val;
@@ -154,10 +155,10 @@ __attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size)
 // Create Queue for BST
 #define MAX_QUEUE_SIZE 10000
 __attribute__((noinline)) TreeQueue_t * createQueue(void) {
-  TreeQueue_t *new_queue = malloc(sizeof(TreeQueue_t));
+  TreeQueue_t *new_queue = MALLOC(sizeof(TreeQueue_t));
   if (!new_queue) return NULL;
 
-  new_queue->queue = malloc(sizeof(TreeNode_t *) * MAX_QUEUE_SIZE);
+  new_queue->queue = MALLOC(sizeof(TreeNode_t *) * MAX_QUEUE_SIZE);
   if (!new_queue->queue) return NULL;
   
   new_queue->head_pos = 0;
@@ -168,7 +169,7 @@ __attribute__((noinline)) TreeQueue_t * createQueue(void) {
 
 // Create array of 25 random unsigned longs 
 __attribute__((noinline)) uint64_t * createRandArray50() {
-  uint64_t *r_array = malloc(sizeof(uint64_t) * 50);
+  uint64_t *r_array = MALLOC(sizeof(uint64_t) * 50);
   if(!r_array) return NULL;
 
   int i = 0;
@@ -328,7 +329,7 @@ void benchmark6(void *i, void **o)
 void benchmark7(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  List_t *LL = createList(7, 2000);
+  List_t *LL = createList(7, 200);
  
   if (!LL) return; 
 
@@ -352,7 +353,7 @@ void benchmark7(void *i, void **o)
 void benchmark8(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  List_t *LL = createList(11, 2000);
+  List_t *LL = createList(11, 200);
  
   if (!LL) return;
 
@@ -9220,8 +9221,8 @@ int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark1, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark2, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark1, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark2, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9230,8 +9231,8 @@ int test_fibers_bench2(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark3, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark4, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark3, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark4, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9240,8 +9241,8 @@ int test_fibers_bench3(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark5, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark6, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark5, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark6, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9250,8 +9251,8 @@ int test_fibers_bench4(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark7, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark8, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark7, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark8, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9260,8 +9261,8 @@ int test_fibers_bench5(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark9, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark10, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark9, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark10, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9270,8 +9271,8 @@ int test_fibers_bench6(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark11, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark12, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark11, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark12, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9280,8 +9281,8 @@ int test_fibers_bench7(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark13, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark14, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark13, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark14, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9290,8 +9291,8 @@ int test_fibers_bench8(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark15, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark16, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark15, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark16, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9300,8 +9301,8 @@ int test_fibers_bench9(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark17, 0, 0, 0, 0, &simple1);
-  // nk_fiber_start(benchmark18, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark17, 0, 0, FSTACK_1MB, 0, &simple1);
+  // nk_fiber_start(benchmark18, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9310,8 +9311,8 @@ int test_fibers_bench10(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark19, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark20, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark19, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark20, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9320,8 +9321,8 @@ int test_fibers_bench11(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark21, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark22, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark21, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark22, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9330,8 +9331,8 @@ int test_fibers_bench12(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark23, 0, 0, 0, 0, &simple1);
-  nk_fiber_start(benchmark24, 0, 0, 0, 0, &simple2);
+  nk_fiber_start(benchmark23, 0, 0, FSTACK_1MB, 0, &simple1);
+  nk_fiber_start(benchmark24, 0, 0, FSTACK_1MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
