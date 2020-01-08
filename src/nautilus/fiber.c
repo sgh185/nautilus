@@ -602,9 +602,9 @@ int nk_fiber_init()
     
     // Register time_hook instance for fibers
     uint64_t gran = nk_time_hook_get_granularity_ns();
-    char *mask = malloc(sizeof(char));
-    void *state = malloc(sizeof(void)); // suspicious 
-    struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, state, gran, 0, mask); 
+    // char *mask = malloc(sizeof(char));
+    // void *state = malloc(sizeof(void)); // suspicious 
+    struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0); 
 
     return 0;
 }
@@ -774,14 +774,21 @@ static void _debug_yield(nk_fiber_t *f_to)
 #endif
 
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
+#define MAX_WRAPPER_COUNT 1000
 static uint64_t rdtsc_wrapper_begin = 0, rdtsc_temp = 0;
-static uint64_t wrapper_data[1000];
+static uint64_t wrapper_data[MAX_WRAPPER_COUNT];
 static int time_interval = 0;
 
 int _wrapper_nk_fiber_yield()
 {
+  if (time_interval >= MAX_WRAPPER_COUNT) {
+    return 0;
+  }
+
   rdtsc_temp = rdtsc();
-  // nk_fiber_yield();
+  
+  nk_fiber_yield();
+  
   wrapper_data[time_interval] = rdtsc_temp - rdtsc_wrapper_begin;
   rdtsc_wrapper_begin = rdtsc_temp;
   // nk_vc_printf("%d : %lu\n", time_interval, wrapper_data[time_interval]); 
