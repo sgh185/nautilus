@@ -775,7 +775,7 @@ static void _debug_yield(nk_fiber_t *f_to)
 
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
 #define MAX_WRAPPER_COUNT 1000
-static uint64_t rdtsc_wrapper_begin = 0, rdtsc_temp = 0;
+static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0;
 static uint64_t wrapper_data[MAX_WRAPPER_COUNT];
 static int time_interval = 0;
 
@@ -785,15 +785,13 @@ int _wrapper_nk_fiber_yield()
     return 0;
   }
 
-  rdtsc_temp = rdtsc();
-  
-  nk_fiber_yield();
-  
-  wrapper_data[time_interval] = rdtsc_temp - rdtsc_wrapper_begin;
-  rdtsc_wrapper_begin = rdtsc_temp;
-  // nk_vc_printf("%d : %lu\n", time_interval, wrapper_data[time_interval]); 
+  rdtsc_wrapper_new = rdtsc();
+  wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old;
   time_interval++;
-  
+ 
+  nk_fiber_yield();
+  rdtsc_wrapper_old = rdtsc();
+
   return 0;
 }
 
@@ -810,8 +808,8 @@ void _nk_fiber_print_data()
  
   memset(wrapper_data, 0, sizeof(wrapper_data));
   time_interval = 0;
-  rdtsc_wrapper_begin=0;
-  rdtsc_temp = 0;
+  rdtsc_wrapper_new = 0;
+  rdtsc_wrapper_old = 0;
   
   return;
 }  
