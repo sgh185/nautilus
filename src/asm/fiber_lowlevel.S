@@ -82,16 +82,27 @@ ENTRY(nk_fiber_fork)
 
     #if NAUT_CONFIG_FIBER_FSAVE
 
-    /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
     /* align stack to 64 bytes */
     subq $0x1000, %rsp
     andq $-1024, %rsp
 
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%rsp)
+    movq $0, 520(%rsp)
+    movq $0, 528(%rsp)
+    movq $0, 536(%rsp)
+    movq $0, 544(%rsp)
+    movq $0, 552(%rsp)
+    movq $0, 560(%rsp)
+    movq $0, 568(%rsp)  
+
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
+
+    /* Move -1 into rax and rdx so all FPRs are saved */
+    movq $-1, %rax
+    movq $-1, %rdx
 
     /* Save FPRs onto stack with xsave */
     XSAVE 0x0(%rsp)
@@ -123,13 +134,48 @@ ENTRY(nk_fiber_yield)
 
     #if NAUT_CONFIG_FIBER_FSAVE
 
+    /* align stack to 64 bytes */
+    subq $0x1000, %rsp
+    andq $-1024, %rsp
+  
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%rsp)
+    movq $0, 520(%rsp)
+    movq $0, 528(%rsp)
+    movq $0, 536(%rsp)
+    movq $0, 544(%rsp)
+    movq $0, 552(%rsp)
+    movq $0, 560(%rsp)
+    movq $0, 568(%rsp)
+     
+    // Method 1 of zeroing out XSAVE area
+    /* Set XSAVE location to 0 
+    pushq %rdi
+    leaq 16(%rsp), %rdi
+    movq $1024, %rdx 
+    memset_loop:	
+    	movb $0, (%rdi)
+	    incq %rdi
+	    decq %rdx
+	    jnz memset_loop
+    popq %rdi
+    */
+
+    // Method 2 of zeroing out XSAVE area
+    /* Call to memset
+    pushq %rdi
+    leaq 8(%rsp), %rdi
+    movq $0, %rsi
+    movq $1024, %rdx
+    callq memset 
+    popq %rdi
+    */
+
     /* Move -1 into rax and rdx so all FPRs are saved */
     movq $-1, %rax
     movq $-1, %rdx
 
-    /* align stack to 64 bytes */
-    subq $0x1000, %rsp
-    andq $-1024, %rsp
 
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
@@ -151,7 +197,7 @@ ENTRY(_nk_fiber_context_switch)
 
     /* move -1 into rax and rdx to restore all FPRs */
     movq $-1, %rax
-    movq $-1, %rax
+    movq $-1, %rdx
 
     /* restore all FPRs from stack w/ xrstor */
     XRSTOR 0x0(%rsp)
@@ -189,19 +235,30 @@ ENTRY(nk_fiber_yield_to)
 
     #if NAUT_CONFIG_FIBER_FSAVE
 
-    /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
     /* align stack to 64 bytes */
     subq $0x1000, %rsp
     andq $-1024, %rsp
 
-    /* place new stack ptr into 3rd argument register */
-    movq %rsp, %rdx
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%rsp)
+    movq $0, 520(%rsp)
+    movq $0, 528(%rsp)
+    movq $0, 536(%rsp)
+    movq $0, 544(%rsp)
+    movq $0, 552(%rsp)
+    movq $0, 560(%rsp)
+    movq $0, 568(%rsp)  
+
+    /* Move -1 into rax and rdx so all FPRs are saved */
+    movq $-1, %rax
+    movq $-1, %rdx
 
     /* Save FPRs onto stack with xsave */
     XSAVE 0x0(%rsp)
+    
+    /* place new stack ptr into 3rd argument register */
+    movq %rsp, %rdx
 
     #endif
 
@@ -217,16 +274,27 @@ ENTRY(_nk_fiber_join_yield)
 
     #if NAUT_CONFIG_FIBER_FSAVE
 
-    /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
     /* align stack to 64 bytes */
     subq $0x1000, %rsp
     andq $-1024, %rsp
 
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%rsp)
+    movq $0, 520(%rsp)
+    movq $0, 528(%rsp)
+    movq $0, 536(%rsp)
+    movq $0, 544(%rsp)
+    movq $0, 552(%rsp)
+    movq $0, 560(%rsp)
+    movq $0, 568(%rsp)  
+
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
+
+    /* Move -1 into rax and rdx so all FPRs are saved */
+    movq $-1, %rax
+    movq $-1, %rdx
 
     /* Save FPRs onto stack with xsave */
     XSAVE 0x0(%rsp)
@@ -243,10 +311,20 @@ ENTRY(_nk_fiber_fp_save)
     pushq %rdx
     pushq %r15
     movq 0x0(%rdi), %r15
-    movq $-1, %rax
-    movq $-1, %rdx
     subq $0x1000, %r15
     andq $-1024, %r15
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%r15)
+    movq $0, 520(%r15)
+    movq $0, 528(%r15)
+    movq $0, 536(%r15)
+    movq $0, 544(%r15)
+    movq $0, 552(%r15)
+    movq $0, 560(%r15)
+    movq $0, 568(%r15)  
+    movq $-1, %rax
+    movq $-1, %rdx
     XSAVE 0x0(%r15)
     movq %r15, 0x10(%rdi)
     popq %r15
