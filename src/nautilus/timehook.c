@@ -60,9 +60,41 @@
 
 // maximum number of hooks per CPU
 #define MAX_HOOKS 16
-
-			
+#define GET_HOOK_DATA 1
+#define MAX_HOOK_DATA_COUNT 1000
+uint64_t hook_data[MAX_HOOK_DATA_COUNT], hook_fire_data[MAX_HOOK_DATA_COUNT];
+int hook_time_index = 0;
     
+void get_time_hook_data() {
+  // compute and print print hook_start --- hook_end average
+  // skip first 5 data entries
+  int i, sum = 0;
+  nk_vc_printf("hook_time_index %d\n", hook_time_index);
+  for (i = 5; i < hook_time_index; i++) {
+    nk_vc_printf("%d: %lu\n", i, hook_data[i]);
+    sum += hook_data[i]; 
+  }
+
+  double hook_data_average = (double)sum / hook_time_index;
+  nk_vc_printf("hook_data average, %lf\n", hook_data_average);
+  
+  // compute and print hook_fire_start --- hook_fire_end average
+  // skip first 5 data entries
+  sum = 0;
+  for (i = 5; i < hook_time_index; i++) {
+    nk_vc_printf("f %d: %lu\n", i, hook_fire_data[i]);
+    sum += hook_fire_data[i]; 
+  }
+
+  double hook_fire_data_average = (double)sum / hook_time_index;
+  nk_vc_printf("hook_fire_data average, %lf\n", hook_fire_data_average);
+ 
+  // reset variables
+  memset(hook_data, 0, sizeof(hook_data));
+  memset(hook_fire_data, 0, sizeof(hook_fire_data));
+  hook_time_index = 0;
+  return;
+}
 
 // per-cpu timehook
 struct _time_hook {
@@ -338,6 +370,16 @@ int nk_time_hook_unregister(struct nk_time_hook *uh)
 // this is where to focus performance improvement
 void nk_time_hook_fire()
 {
+   uint64_t rdtsc_hook_start = 0, rdtsc_hook_end = 0, rdtsc_hook_fire_start = 0, rdtsc_hook_fire_end = 0;
+   int local_hook_time_index = hook_time_index; 
+   if (hook_time_index < MAX_HOOK_DATA_COUNT) {
+     hook_time_index++;
+   }
+#ifdef GET_HOOK_DATA
+    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+      rdtsc_hook_start = rdtsc();
+    }
+#endif
     struct sys_info *sys = per_cpu_get(system);
     struct nk_time_hook_state *s = sys->cpus[my_cpu_id()]->timehook_state;
 
@@ -389,7 +431,13 @@ void nk_time_hook_fire()
     // now we actually fire the hooks.   Note that the execution of one batch of hooks
     // can race with queueing/execution of the next batch.  that's the hook
     // implementor's problem
-
+#ifdef GET_HOOK_DATA
+    rdtsc_hook_end = rdtsc();
+    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+      hook_data[local_hook_time_index] = rdtsc_hook_end - rdtsc_hook_start;
+    }
+    rdtsc_hook_fire_start = rdtsc();
+#endif
     for (i=0; i<count; i++) {
 	struct _time_hook *h = queue[i];
 	DEBUG("launching hook func=%p state=%p last=%lu cur=%lu\n",
@@ -398,7 +446,13 @@ void nk_time_hook_fire()
 	h->hook_func(h->hook_state);
 	h->last_start_cycles = cur_cycles;
     }
-	
+#ifdef GET_HOOK_DATA
+    rdtsc_hook_fire_end = rdtsc();
+    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+      hook_fire_data[local_hook_time_index] = rdtsc_hook_fire_end - rdtsc_hook_fire_start;
+    }
+#endif
+
 }
 
 

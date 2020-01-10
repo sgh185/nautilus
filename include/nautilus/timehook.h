@@ -72,5 +72,7 @@ int nk_time_hook_init();
 // called by every AP before interrupts are enabled
 int nk_time_hook_init_ap();
 
+// gather data on nk_time_hook_fire
+void get_time_hook_data(void);
 
 #endif
