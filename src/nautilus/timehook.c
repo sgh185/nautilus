@@ -120,7 +120,7 @@ struct nk_time_hook {
 struct nk_time_hook_state {
     spinlock_t      lock;
     enum { INACTIVE=0,                     // before initialization
-	   READY=1,                        // active, not currently in a callback
+	   READY_STATE=1,                        // active, not currently in a callback
 	   INPROGRESS=2} state;            // active, currently in a callback
     uint64_t        last_start_cycles;     // when we last were invoked by the compiler
     int             count;                 // how hooks we have
@@ -370,15 +370,15 @@ int nk_time_hook_unregister(struct nk_time_hook *uh)
 // this is where to focus performance improvement
 void nk_time_hook_fire()
 {
+#ifdef GET_HOOK_DATA
    uint64_t rdtsc_hook_start = 0, rdtsc_hook_end = 0, rdtsc_hook_fire_start = 0, rdtsc_hook_fire_end = 0;
    int local_hook_time_index = hook_time_index; 
    if (hook_time_index < MAX_HOOK_DATA_COUNT) {
      hook_time_index++;
    }
-#ifdef GET_HOOK_DATA
-    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-      rdtsc_hook_start = rdtsc();
-    }
+   if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+     rdtsc_hook_start = rdtsc();
+   }
 #endif
     struct sys_info *sys = per_cpu_get(system);
     struct nk_time_hook_state *s = sys->cpus[my_cpu_id()]->timehook_state;
@@ -391,7 +391,7 @@ void nk_time_hook_fire()
 	return;
     }
 
-    if (s->state!=READY) {
+    if (s->state!=READY_STATE) {
 	DEBUG("short circuiting fire because we are in state %d\n",s->state);
 	LOCAL_UNLOCK(s);
     }
@@ -425,7 +425,7 @@ void nk_time_hook_fire()
     // note that a hook could context switch away from us, so we need to do
     // handle cleanup *before* we execute any hooks
     
-    s->state = READY;
+    s->state = READY_STATE;
     LOCAL_UNLOCK(s);
 
     // now we actually fire the hooks.   Note that the execution of one batch of hooks
