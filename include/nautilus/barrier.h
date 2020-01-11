@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 #include <nautilus/spinlock.h>
+#include <nautilus/fiber.h>
 
 #define NK_BARRIER_LAST 1
 
@@ -100,6 +101,51 @@ static inline void nk_counting_barrier(volatile nk_counting_barrier_t *b)
 	}
     }
 }
+
+static inline void nk_fiber_counting_barrier(volatile nk_counting_barrier_t *b)
+{
+    uint64_t old;
+    volatile uint64_t *curp = &(b->cur);
+    long mycur = *curp;
+    volatile uint64_t *countp = &(b->count[mycur]);
+    int n = 0;
+
+    old = __sync_fetch_and_add(countp,1);
+
+    if (old==(b->size-1)) {
+        // I'm the last to the party
+	// We need to be sure that these operations occur in order 
+	// and are fully visible in order
+        *curp ^= 0x1;
+	__asm__ __volatile__ ("mfence" : : : "memory");
+        *countp = 0;
+	__asm__ __volatile__ ("mfence" : : : "memory");
+    } else {
+        while (({ __asm__ __volatile__( "movq %1, %0" : "=r"(old) : "m"(*countp) : ); old; })) {
+            /*while (({ __asm__ __volatile__( "movq %1, %0" : "=r"(old) : "m"(*countp) : ); old; }) && !(nk_fiber_queue_empty())) {
+               if (!(n%20)) {
+                    nk_fiber_yield();
+                    n++;
+                } else {
+                    n++;
+                }
+            }
+            if (old == 0) {
+              break;
+            } 
+            while (({ __asm__ __volatile__( "movq %1, %0" : "=r"(old) : "m"(*countp) : ); old; }) && nk_fiber_queue_empty()) {
+               n++; 
+            }
+            if (old == 0) {
+              break;
+            }
+            */
+            nk_fiber_yield();
+        }
+    }
+}
+
+
 
 #ifdef __cplusplus
 }

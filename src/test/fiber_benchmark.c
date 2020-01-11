@@ -37,6 +37,8 @@
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
 #include <nautilus/libccompat.h>
+#include <nautilus/timehook.h>
+#include <nautilus/barrier.h>
 #include <nautilus/pmc.h>
 
 #define DO_PRINT       0
@@ -222,6 +224,7 @@ void benchmark2(void *i, void **o)
   nk_vc_printf("Benchmark 2 is finished\n");
 
   _nk_fiber_print_data();
+  get_time_hook_data();
   return;
 }
 
@@ -329,7 +332,7 @@ void benchmark6(void *i, void **o)
 void benchmark7(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  List_t *LL = createList(7, 200);
+  List_t *LL = createList(7, 800);
  
   if (!LL) return; 
 
@@ -353,7 +356,7 @@ void benchmark7(void *i, void **o)
 void benchmark8(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  List_t *LL = createList(11, 200);
+  List_t *LL = createList(11, 800);
  
   if (!LL) return;
 
@@ -379,7 +382,6 @@ void benchmark8(void *i, void **o)
 void benchmark9(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  return;
   // Allocate on stack
   // Multiply matrices with known dimensions
   volatile uint64_t first[M1][M2];
@@ -420,7 +422,6 @@ void benchmark9(void *i, void **o)
 void benchmark10(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  return;
   // Allocate on stack
   // Multiply matrices with known dimensions
   uint64_t first[M1][M2];
@@ -463,8 +464,13 @@ void benchmark10(void *i, void **o)
 // BENCHMARK --- Binary search tree (known parameters, volatile sum, intraprocedural)
 void benchmark11(void *i, void **o)
 {
+  // barrier
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  nk_fiber_counting_barrier(bar);
+  
   nk_fiber_set_vc(vc);
-  TreeNode_t *tree = createTree(4520, 200);
+  
+  TreeNode_t *tree = createTree(4520, 800);
   uint64_t *nums = createRandArray50(); 
   uint64_t totalTraversalSum = 0;
   int a;
@@ -498,8 +504,13 @@ void benchmark11(void *i, void **o)
 
 void benchmark12(void *i, void **o)
 {
+  // barrier
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  nk_fiber_counting_barrier(bar);
+  
   nk_fiber_set_vc(vc);
-  TreeNode_t *tree = createTree(5380, 200);
+
+  TreeNode_t *tree = createTree(5380, 800);
   uint64_t *nums = createRandArray50();
   
   uint64_t totalTraversalSum = 0;
@@ -507,7 +518,7 @@ void benchmark12(void *i, void **o)
   for (a = 0; a < 50; a++)
   {
     uint64_t currTraversalSum = 0;
-    TreeNode_t *iterator = tree;
+    volatile TreeNode_t *iterator = tree;
     
     while (iterator != NULL)
     {
@@ -527,7 +538,7 @@ void benchmark12(void *i, void **o)
 
   nk_vc_printf("Benchmark 12 is finished\n");
   _nk_fiber_print_data();
-  
+  get_time_hook_data(); 
   // Purposely avoid free --- limit function calls at end of control flow to 1 call
   return;
 }
@@ -537,7 +548,6 @@ void benchmark12(void *i, void **o)
 void benchmark13(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  return;
   uint64_t R1 = (lrand48() % 50);
   uint64_t R2 = (lrand48() % 50);
   uint64_t R3 = (lrand48() % 50);
@@ -579,7 +589,6 @@ void benchmark13(void *i, void **o)
 void benchmark14(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
-  return;
   // No need to seed at this point
   uint64_t R1 = (lrand48() % 50);
   uint64_t R2 = (lrand48() % 50);
@@ -9215,14 +9224,62 @@ void benchmark24(void *i, void **o)
   return;
 }
 
+// BENCHMARK --- Barriers using timing loops
+#define TH 10000
+void benchmark25(void *i, void **o)
+{
+  nk_fiber_set_vc(vc);
+
+  // barrier
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  nk_fiber_counting_barrier(bar);
+
+  int a = 0;
+
+  // #pragma unroll M
+  while(a < TH){
+    nk_simple_timing_loop(200);
+    a++;
+  }
+
+  nk_vc_printf("Benchmark 25 is finished\n");
+  return;
+}
+
+void benchmark26(void *i, void **o)
+{
+  nk_fiber_set_vc(vc);
+  
+  // barrier
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  nk_fiber_counting_barrier(bar);
+
+  int a = 0;
+  
+  // #pragma unroll M
+  while(a < TH){
+    nk_simple_timing_loop(200);
+    a++;
+  }
+  nk_vc_printf("Benchmark 26 is finished\n");
+
+  // print wrapper interval data
+  _nk_fiber_print_data();
+
+  // print time_hook interface timing data
+  get_time_hook_data();
+  return;
+}
+
+
 /******************* Test Wrappers *******************/
 
 int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark1, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark2, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark1, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark2, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9231,8 +9288,8 @@ int test_fibers_bench2(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark3, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark4, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark3, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark4, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9241,8 +9298,8 @@ int test_fibers_bench3(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark5, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark6, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark5, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark6, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9251,8 +9308,8 @@ int test_fibers_bench4(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark7, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark8, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark7, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark8, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9261,28 +9318,45 @@ int test_fibers_bench5(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark9, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark10, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark9, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark10, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
 
+// test_fibers_bench6 uses create/run instead of start as an
+// attempt to hack a pseudo-barrier into the execution of this
+// benchmark (not very effective) --- for actual benchmarks using
+// barriers --- see test_fibers_bench13 ("timehook1")
 int test_fibers_bench6(){
+  // set up barrier
+  nk_counting_barrier_t *bar = MALLOC(sizeof(nk_counting_barrier_t));
+  nk_counting_barrier_init(bar, 2); // two fibers
+
+  // set up fibers
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark11, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark12, 0, 0, FSTACK_1MB, 0, &simple2);
-  //_nk_fiber_print_data();
+  
+  nk_fiber_start(benchmark11, (void*)bar, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark12, (void*)bar, 0, FSTACK_2MB, 0, &simple2);
+
+  /*
+  nk_fiber_create(benchmark11, 0, 0, FSTACK_2MB, &simple1);
+  nk_fiber_create(benchmark12, 0, 0, FSTACK_2MB, &simple2);
+  nk_fiber_run(simple1, F_CURR_CPU);
+  nk_fiber_run(simple2, F_CURR_CPU);
+  */  
   return 0;
+
 }
 
 int test_fibers_bench7(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark13, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark14, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark13, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark14, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9291,8 +9365,8 @@ int test_fibers_bench8(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark15, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark16, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark15, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark16, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9301,8 +9375,8 @@ int test_fibers_bench9(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark17, 0, 0, FSTACK_1MB, 0, &simple1);
-  // nk_fiber_start(benchmark18, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark17, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark18, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9311,8 +9385,8 @@ int test_fibers_bench10(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark19, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark20, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark19, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark20, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9321,8 +9395,8 @@ int test_fibers_bench11(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark21, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark22, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark21, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark22, 0, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9331,8 +9405,25 @@ int test_fibers_bench12(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark23, 0, 0, FSTACK_1MB, 0, &simple1);
-  nk_fiber_start(benchmark24, 0, 0, FSTACK_1MB, 0, &simple2);
+  nk_fiber_start(benchmark23, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark24, 0, 0, FSTACK_2MB, 0, &simple2);
+  //_nk_fiber_print_data();
+  return 0;
+}
+
+// time_hook interface timing data collection (utilizing barrier
+// functionality)
+int test_fibers_bench13(){
+  // set up barrier
+  nk_counting_barrier_t *bar = MALLOC(sizeof(nk_counting_barrier_t));
+  nk_counting_barrier_init(bar, 2); // two fibers
+
+  // set up fibers
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  nk_fiber_start(benchmark25, (void*)bar, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark26, (void*)bar, 0, FSTACK_2MB, 0, &simple2);
   //_nk_fiber_print_data();
   return 0;
 }
@@ -9425,6 +9516,13 @@ handle_fibers12 (char * buf, void * priv)
   return 0;
 }
 
+static int
+handle_fibers13 (char * buf, void * priv)
+{
+  test_fibers_bench13();
+  return 0;
+}
+
 static struct shell_cmd_impl fibers_impl1 = {
   .cmd      = "fiberbench1",
   .help_str = "fiberbench1",
@@ -9497,6 +9595,12 @@ static struct shell_cmd_impl fibers_impl12 = {
   .handler  = handle_fibers12,
 };
 
+static struct shell_cmd_impl fibers_impl13 = {
+  .cmd      = "timehook1",
+  .help_str = "timehook1",
+  .handler  = handle_fibers13,
+};
+
 
 /******************* Shell Commands *******************/
 
@@ -9512,6 +9616,8 @@ nk_register_shell_cmd(fibers_impl9);
 nk_register_shell_cmd(fibers_impl10);
 nk_register_shell_cmd(fibers_impl11);
 nk_register_shell_cmd(fibers_impl12);
+nk_register_shell_cmd(fibers_impl13);
+
 
 
 
