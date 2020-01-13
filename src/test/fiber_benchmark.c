@@ -224,7 +224,6 @@ void benchmark2(void *i, void **o)
   nk_vc_printf("Benchmark 2 is finished\n");
 
   _nk_fiber_print_data();
-  get_time_hook_data();
   return;
 }
 
@@ -381,6 +380,7 @@ void benchmark8(void *i, void **o)
 // BENCHMARK --- Matrix multiply (known dimensions, parameters, volatile sum, intraprocedural) 
 void benchmark9(void *i, void **o)
 {
+  return;
   nk_fiber_set_vc(vc);
   // Allocate on stack
   // Multiply matrices with known dimensions
@@ -421,6 +421,7 @@ void benchmark9(void *i, void **o)
 
 void benchmark10(void *i, void **o)
 {
+  return;
   nk_fiber_set_vc(vc);
   // Allocate on stack
   // Multiply matrices with known dimensions
@@ -547,6 +548,7 @@ void benchmark12(void *i, void **o)
 // BENCHMARK --- Matrix multiply (random dimensions, unknown induction variables, intraprocedural)
 void benchmark13(void *i, void **o)
 {
+  return;
   nk_fiber_set_vc(vc);
   uint64_t R1 = (lrand48() % 50);
   uint64_t R2 = (lrand48() % 50);
@@ -588,6 +590,7 @@ void benchmark13(void *i, void **o)
 
 void benchmark14(void *i, void **o)
 {
+  return;
   nk_fiber_set_vc(vc);
   // No need to seed at this point
   uint64_t R1 = (lrand48() % 50);
@@ -9231,12 +9234,11 @@ void benchmark25(void *i, void **o)
   nk_fiber_set_vc(vc);
 
   // barrier
-  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
-  nk_fiber_counting_barrier(bar);
+  // nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  // nk_fiber_counting_barrier(bar);
 
   int a = 0;
 
-  // #pragma unroll M
   while(a < TH){
     nk_simple_timing_loop(200);
     a++;
@@ -9251,12 +9253,11 @@ void benchmark26(void *i, void **o)
   nk_fiber_set_vc(vc);
   
   // barrier
-  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
-  nk_fiber_counting_barrier(bar);
+  // nk_counting_barrier_t *bar = (nk_counting_barrier_t*)i;
+  // nk_fiber_counting_barrier(bar);
 
   int a = 0;
   
-  // #pragma unroll M
   while(a < TH){
     nk_simple_timing_loop(200);
     a++;
@@ -9415,15 +9416,18 @@ int test_fibers_bench12(){
 // functionality)
 int test_fibers_bench13(){
   // set up barrier
-  nk_counting_barrier_t *bar = MALLOC(sizeof(nk_counting_barrier_t));
-  nk_counting_barrier_init(bar, 2); // two fibers
+  // nk_counting_barrier_t *bar = MALLOC(sizeof(nk_counting_barrier_t));
+  // nk_counting_barrier_init(bar, 2); // two fibers
 
   // set up fibers
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark25, (void*)bar, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(benchmark26, (void*)bar, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(benchmark25, (void*)bar, 0, FSTACK_2MB, 0, &simple1);
+  // nk_fiber_start(benchmark26, (void*)bar, 0, FSTACK_2MB, 0, &simple2);
+  nk_fiber_start(benchmark25, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark26, 0, 0, FSTACK_2MB, 0, &simple2);
+ 
   //_nk_fiber_print_data();
   return 0;
 }
