@@ -547,6 +547,10 @@ init (unsigned long mbd,
 
     runtime_init();
 
+#ifdef NAUT_CONFIG_COMPILER_TIMING
+    nk_time_hook_start();
+#endif
+
     printk("Nautilus boot thread yielding (indefinitely)\n");
 
     /* we don't come back from this */

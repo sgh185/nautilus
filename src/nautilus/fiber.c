@@ -781,15 +781,21 @@ static int time_interval = 0;
 
 int _wrapper_nk_fiber_yield()
 {
+  nk_vc_printf("time_interval now: %d\n", time_interval);
   if (time_interval >= MAX_WRAPPER_COUNT) {
     return 0;
   }
 
   rdtsc_wrapper_new = rdtsc();
   wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old;
+  
   time_interval++;
  
-  nk_fiber_yield();
+  fiber_state *state = _GET_FIBER_STATE();
+  if (state->fiber_thread == get_cur_thread()) {
+    nk_fiber_yield();
+  }
+   
   rdtsc_wrapper_old = rdtsc();
 
   return 0;
@@ -798,6 +804,8 @@ int _wrapper_nk_fiber_yield()
 void _nk_fiber_print_data()
 {
   nk_vc_printf("PRINTSTART\n");
+
+  nk_vc_printf("time_interval: %d\n", time_interval);
 
   int i;
   for (i = 0; i < time_interval; i++) {

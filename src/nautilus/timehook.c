@@ -26,6 +26,7 @@
 
 #include <nautilus/nautilus.h>
 #include <nautilus/cpu.h>
+#include <nautilus/cpu_state.h>
 #include <nautilus/naut_assert.h>
 #include <nautilus/percpu.h>
 #include <nautilus/list.h>
@@ -60,7 +61,7 @@
 
 // maximum number of hooks per CPU
 #define MAX_HOOKS 16
-#define GET_HOOK_DATA 1
+#define GET_HOOK_DATA 0
 #define MAX_HOOK_DATA_COUNT 1000
 uint64_t hook_data[MAX_HOOK_DATA_COUNT], hook_fire_data[MAX_HOOK_DATA_COUNT];
 int hook_time_index = 0;
@@ -70,10 +71,13 @@ void get_time_hook_data() {
   // skip first 5 data entries
   int i, sum = 0;
   nk_vc_printf("hook_time_index %d\n", hook_time_index);
+  
+  nk_vc_printf("th_one_start\n");
   for (i = 5; i < hook_time_index; i++) {
-    nk_vc_printf("%d: %lu\n", i, hook_data[i]);
+    nk_vc_printf("%lu\n", hook_data[i]);
     sum += hook_data[i]; 
   }
+  nk_vc_printf("th_one_end\n");
 
   double hook_data_average = (double)sum / hook_time_index;
   nk_vc_printf("hook_data average, %lf\n", hook_data_average);
@@ -81,10 +85,13 @@ void get_time_hook_data() {
   // compute and print hook_fire_start --- hook_fire_end average
   // skip first 5 data entries
   sum = 0;
+
+  nk_vc_printf("th_two_start\n");
   for (i = 5; i < hook_time_index; i++) {
-    nk_vc_printf("f %d: %lu\n", i, hook_fire_data[i]);
+    nk_vc_printf("%lu\n", hook_fire_data[i]);
     sum += hook_fire_data[i]; 
   }
+  nk_vc_printf("th_two_end\n");
 
   double hook_fire_data_average = (double)sum / hook_time_index;
   nk_vc_printf("hook_fire_data average, %lf\n", hook_fire_data_average);
@@ -363,13 +370,20 @@ int nk_time_hook_unregister(struct nk_time_hook *uh)
     
 }
 
-
+static int ready = 0;
 // this is the part that needs to be fast and low-overhead
 // it should not block, nor should anything it calls...
 // nor can they have nk_time_hook_fire() calls...
 // this is where to focus performance improvement
-void nk_time_hook_fire()
+__attribute__((noinline)) void nk_time_hook_fire()
 {
+   if (!ready) {
+     return;
+   }
+   
+
+  // nk_vc_printf("time_hook_fire called from: %p\n", __builtin_return_address(0));
+
 #ifdef GET_HOOK_DATA
    uint64_t rdtsc_hook_start = 0, rdtsc_hook_end = 0, rdtsc_hook_fire_start = 0, rdtsc_hook_fire_end = 0;
    int local_hook_time_index = hook_time_index; 
@@ -390,11 +404,16 @@ void nk_time_hook_fire()
 	DEBUG("failed to acquire lock on fire (cpu %d)\n",my_cpu_id());
 	return;
     }
+    
+    INFO("HAVE LOCK\n");
 
     if (s->state!=READY_STATE) {
 	DEBUG("short circuiting fire because we are in state %d\n",s->state);
 	LOCAL_UNLOCK(s);
+	return;
     }
+   
+    INFO("TIME_HOOK_FIRED\n");
 
     s->state = INPROGRESS;
     
@@ -424,10 +443,12 @@ void nk_time_hook_fire()
     // we now need to prepare for the next batch.
     // note that a hook could context switch away from us, so we need to do
     // handle cleanup *before* we execute any hooks
-    
+
+    // ** TODO ** --- need to limit nested "interrupts"
+
     s->state = READY_STATE;
     LOCAL_UNLOCK(s);
-
+   
     // now we actually fire the hooks.   Note that the execution of one batch of hooks
     // can race with queueing/execution of the next batch.  that's the hook
     // implementor's problem
@@ -492,4 +513,11 @@ int nk_time_hook_init_ap()
     return shared_init();
 }
 
+int nk_time_hook_start()
+{
+  INFO("TIME_HOOK_STARTED\n");
 
+  ready = 1;
+
+  return 0;
+}
