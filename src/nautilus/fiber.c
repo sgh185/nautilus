@@ -55,6 +55,7 @@
 #define FIBER_DEBUG(fmt, args...) DEBUG_PRINT("fiber: " fmt, ##args)
 #define FIBER_WARN(fmt, args...)  WARN_PRINT("fiber: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("fiber: " fmt, ##args)
+#define FIBER_TIMING 1
 
 /* Constants used for fiber thread setup and fiber fork */
 #define FIBER_THREAD_STACK_SIZE NAUT_CONFIG_FIBER_THREAD_STACK_SIZE
@@ -111,6 +112,7 @@ extern int _nk_fiber_join_yield();
 
 /* Assembly stubs for yield functions. Users use these functions to perform context switches */
 extern int nk_fiber_yield();
+extern int nk_fiber_yield_test();
 extern int nk_fiber_yield_to(nk_fiber_t* f_to, int earlyRetFlag);
 
 #if NAUT_CONFIG_FIBER_FSAVE
@@ -416,12 +418,70 @@ __attribute__((noreturn, annotate("nohook"))) static void _nk_fiber_yield_helper
     list_add_tail(&(f_from->sched_node), fiber_sched_queue);
     _UNLOCK_SCHED_QUEUE(state);
   }
+  
   // Begin context switch (register saving and stack switch)
   _nk_fiber_context_switch(f_to);
 
   // Tells compiler this point is unreachable, stops compiler warning
   __builtin_unreachable();
 }
+
+__attribute__((noreturn)) static void _nk_fiber_yield_helper_test(nk_fiber_t *f_to, fiber_state *state, nk_fiber_t* f_from)
+{
+  // If a fiber is not waiting or exiting, change its status to yielding
+  if (f_from->f_status == READY && !(f_from->is_idle)) {
+    f_from->f_status = YIELD;
+  }
+  
+  // Update fiber state and f_to's curr_cpu/status
+  _LOCK_FIBER(f_to);
+  state->curr_fiber = f_to;
+  f_to->curr_cpu = my_cpu_id();
+  f_to->f_status = RUN;
+  
+  // Unlock fibers and perform context switch
+  _UNLOCK_FIBER(f_to);
+
+  // Change the vc of the current thread if we aren't switching away from the idle fiber
+  // TODO: MAC: Might not do what I think it does
+  if (!f_from->is_idle){ 
+    nk_fiber_set_vc(f_from->vc);
+  }
+  
+  // DEBUG: Shows when we are switching to idle fiber. We want to minimize this!
+  /*if (f_to->is_idle) {
+    FIBER_INFO("_nk_fiber_yield_helper() : Switched to idle fiber on CPU %d\n", my_cpu_id());
+  }*/
+  
+  // Enqueue the current fiber (if it is not the idle fiber)
+  if (!(f_from->is_idle)) {
+    // Gets the sched queue for the current CPU
+    _LOCK_SCHED_QUEUE(state);
+    struct list_head *fiber_sched_queue = &(state->f_sched_queue);
+     
+    // DEBUG: Prints the fiber that's about to be enqueued
+    //FIBER_DEBUG("_nk_fiber_yield_helper() : About to enqueue fiber: %p \n", f_from);
+    
+    _LOCK_FIBER(f_from);
+    f_from->f_status = READY;
+    f_from->curr_cpu = my_cpu_id();
+    _UNLOCK_FIBER(f_from);
+
+    // Adds fiber we're switching away from to the current CPU's fiber queue
+    list_add_tail(&(f_from->sched_node), fiber_sched_queue);
+    _UNLOCK_SCHED_QUEUE(state);
+  }
+  #if FIBER_TIMING
+    ((uint64_t*)(f_from->output))[1] = rdtsc();
+  #endif 
+  // Begin context switch (register saving and stack switch)
+  _nk_fiber_context_switch(f_to);
+
+  // Tells compiler this point is unreachable, stops compiler warning
+  __builtin_unreachable();
+}
+
+
 
 // C portion of function sed to switch away from a fiber that was just placed on a wait queue
 // This function is called from an assembly stub, _nk_fiber_join_yield, that is implemented
@@ -1258,21 +1318,18 @@ __attribute__((noreturn, annotate("nohook"))) void _nk_fiber_yield(uint64_t rsp,
 { 
   // Checks if the current thread is the fiber thread (if not, error)
   fiber_state *state = _GET_FIBER_STATE();
+ 
+  // This function must be called by a fiber 
+  ASSERT(state->fiber_thread == get_cur_thread());
   
   // Saves current stack pointer into fiber struct
   nk_fiber_t *curr_fiber = state->curr_fiber;
   curr_fiber->rsp = rsp;
-
+ 
   #if NAUT_CONFIG_FIBER_FSAVE
   curr_fiber->fpu_state_offset = offset;
-  #endif
+  #endif 
 
-  if (state->fiber_thread != get_cur_thread()) {
-    // Abort yield somehow. Subtract from RSP and retq?
-    *(uint64_t*)(rsp+GPR_RAX_OFFSET) = -1; 
-    _nk_fiber_context_switch(curr_fiber);
-  }
-  
   // Pick a random fiber to yield to (NULL if no fiber in queue)
 
   _LOCK_SCHED_QUEUE(state);
@@ -1299,6 +1356,74 @@ __attribute__((noreturn, annotate("nohook"))) void _nk_fiber_yield(uint64_t rsp,
   *(uint64_t*)(rsp+GPR_RAX_OFFSET) = 0; 
   _nk_fiber_yield_helper(f_to, state, curr_fiber);
 }
+
+/* 
+ * _nk_fiber_yield_test (NOTE THAT THIS ISN'T CALLED DIRECTLY! Users call nk_fiber_yield())
+ *
+ * C portion of general purpose yield function. Yields execution to a randomly selected fiber.
+ * Calls to yield will first enter through assembly stub found in src/asm/fiber_lowlevel.S. They will
+ * then jump into this C code to perform part of the yield and call a yield _nk_fiber_yield_helper().
+ *
+ * ***** ALL PASSED FROM ASSEMBLY STUB *****
+ * @rsp: New stack pointer to be saved into curr_fiber.
+ * @offset: Placement of FP state on stack.
+ * 
+ *
+ * ***** "Returns" by overwriting RAX on the fiber's stack *****
+ * on error (called outside fiber thread), returns -1.
+ * on special case (idle fiber yield and no fiber available), returns 1
+ * otherwise, returns 0.
+ */
+__attribute__((noreturn)) void _nk_fiber_yield_test(uint64_t rsp, uint64_t offset)
+{ 
+  #if FIBER_TIMING
+    uint64_t time1 = rdtsc();
+  #endif 
+  // Checks if the current thread is the fiber thread (if not, error)
+  fiber_state *state = _GET_FIBER_STATE();
+ 
+  // This function must be called by a fiber 
+  ASSERT(state->fiber_thread == get_cur_thread());
+  
+  // Saves current stack pointer into fiber struct
+  nk_fiber_t *curr_fiber = state->curr_fiber;
+  curr_fiber->rsp = rsp;
+ 
+  #if NAUT_CONFIG_FIBER_FSAVE
+  curr_fiber->fpu_state_offset = offset;
+  #endif
+  #if FIBER_TIMING
+    ((uint64_t*)(curr_fiber->output))[0] = time1;
+  #endif
+
+  // Pick a random fiber to yield to (NULL if no fiber in queue)
+
+  _LOCK_SCHED_QUEUE(state);
+  nk_fiber_t *f_to = _rr_policy();
+  _UNLOCK_SCHED_QUEUE(state);
+  
+  #if NAUT_CONFIG_DEBUG_FIBERS
+  //_debug_yield(f_to);
+  #endif
+
+  // If f_to is NULL, there are no fibers in the queue
+  // We can either exit early and sleep (if curr_fiber is idle)
+  // Or we can switch to the idle fiber  
+  if (!(f_to)) { 
+    if (curr_fiber->is_idle) {
+      //Abort yield somehow? Subtract from RSP and retq?
+      *(uint64_t*)(rsp+GPR_RAX_OFFSET) = 1; 
+      _nk_fiber_context_switch(curr_fiber);
+    } else {
+        f_to = state->idle_fiber;
+    }
+  }
+  // Utility function to perform enqueue and other yield housekeeping
+  *(uint64_t*)(rsp+GPR_RAX_OFFSET) = 0; 
+  _nk_fiber_yield_helper_test(f_to, state, curr_fiber);
+}
+
+
 
 /* 
  * _nk_fiber_yield_to (NOTE THAT THIS ISN'T CALLED DIRECTLY! Users call nk_fiber_yield_to())

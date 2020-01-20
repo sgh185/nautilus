@@ -31,6 +31,7 @@
 #include <nautilus/scheduler.h>
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
+#include <nautilus/barrier.h>
 
 #define DO_PRINT       0
 
@@ -43,6 +44,8 @@
 struct nk_virtual_console *vc;
 nk_fiber_t *first_l;
 nk_fiber_t *second_l;
+uint64_t* arr1;
+uint64_t* arr2;
 
 /******************* Test Routines *******************/
 
@@ -322,7 +325,7 @@ void fiber_routine3(void *i, void **o)
   nk_vc_printf("fiber_routine3() : fiber %p is finished, a = %d\n", nk_fiber_current(), a);
 }
 
-#define N 1000000
+#define N 100000
 void first_timer(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
@@ -330,6 +333,7 @@ void first_timer(void *i, void **o)
   rdtsc();
   uint64_t start = rdtsc();
   uint64_t end = rdtsc();
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
   while(a < N){
     if (a == 2) {
         start = rdtsc();
@@ -345,11 +349,239 @@ void second_timer(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
   int a = 0;
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
   while(a < N){
     nk_fiber_yield();
     a++;
   }
   nk_vc_printf("Second Timer is finished, a = %d\n", a);
+}
+
+void print_timing_results(){
+    // Loop iterators
+    int i;
+    int j;
+    int M = N-1;
+
+    // Variables for calculating average
+    long saveTotal1 = 0, saveTotal2 = 0, yieldTotal1 = 0, yieldTotal2 = 0; 
+    long restoreTotal1 = 0, restoreTotal2 = 0, overallTotal1 = 0, overallTotal2 = 0;
+    
+    // Variables for min values
+    long maxSave = 0, maxYield = 0, maxRestore = 0, maxTotal = 0;
+
+    // Variables for min values
+    long minSave = arr1[1]-arr1[0];
+    long minYield = arr1[2]-arr1[1];
+    long minRestore = arr1[3]-arr1[2];
+    long minTotal = minSave + minYield + minRestore;
+
+    // Indexes of max value
+    int maxSaveInd = 0, maxYieldInd = 0, maxRestoreInd = 0, maxTotalInd = 0;
+
+    // Variables for standard deviation
+    long varSave1 = 0, varYield1 = 0, varRestore1 = 0, varOverall1 = 0;
+    long varSave2 = 0, varYield2 = 0, varRestore2 = 0, varOverall2 = 0;
+    long outCount = 0;
+
+    for (i=1; i < N; i++) {
+        // Calc time for register saving and call into scheduler
+        arr1[4*i] = arr1[4*i+1]-arr1[4*i];
+        saveTotal1 += arr1[4*i];
+        arr2[4*i] = arr2[4*i+1]-arr2[4*i];
+        saveTotal2 += arr2[4*i];
+
+        // Check for outlier
+        if (arr1[4*i] >= 1000000) {
+            outCount += 1;
+        }
+        if (arr2[4*i] >= 1000000) {
+            outCount += 1;
+        }
+
+        // Update min and max values accordingly
+        if (arr1[4*i] < minSave || arr2[4*i] < minSave) {
+            minSave = arr1[4*i] < arr2[4*i] ? arr1[4*i] : arr2[4*i];
+        }
+        
+        if (arr1[4*i] > maxSave || arr2[4*i] > maxSave) {
+            maxSave = arr1[4*i] > arr2[4*i] ? arr1[4*i] : arr2[4*i];
+            maxSaveInd = i;
+        }
+
+        // Calc time for "scheduler" (all yield code written in C)
+        arr1[4*i+1] = arr1[4*i+2]-arr1[4*i+1];
+        yieldTotal1 += arr1[4*i+1];
+        arr2[4*i+1] = arr2[4*i+2]-arr2[4*i+1];
+        yieldTotal2 += arr2[4*i+1];
+
+        // Check for outlier
+        if (arr1[4*i+1] >= 1000000) {
+            outCount += 1;
+        }
+        if (arr2[4*i+1] >= 1000000) {
+            outCount += 1;
+        }
+
+        // Update min and max values accordingly
+        if (arr1[4*i+1] < minYield || arr2[4*i+1] < minYield) {
+            minYield = arr1[4*i+1] < arr2[4*i+1] ? arr1[4*i+1] : arr2[4*i+1];
+        }
+        
+        if (arr1[4*i+1] > maxYield || arr2[4*i+1] > maxYield) {
+            maxYield = arr1[4*i+1] > arr2[4*i+1] ? arr1[4*i+1] : arr2[4*i+1];
+            maxYieldInd = i;
+        }
+
+        // Calc time for register restore and switch to f_to
+        arr1[4*i+2] = arr1[4*i+3]-arr1[4*i+2];
+        restoreTotal1 += arr1[4*i+2];
+        arr2[4*i+2] = arr2[4*(i-1)+3]-arr2[4*i+2];
+        restoreTotal2 += arr2[4*i+2];
+        
+        // Check for outlier
+        if (arr1[4*i+2] >= 1000000) {
+            outCount += 1;
+        }
+        if (arr2[4*i+2] >= 1000000) {
+            outCount += 1;
+        }
+
+        // Update min and max values accordingly
+        if (arr1[4*i+2] < minRestore || arr2[4*i+2] < minRestore) {
+            minRestore = arr1[4*i+2] < arr2[4*i+2] ? arr1[4*i+2] : arr2[4*i+2];
+        }
+        
+        if (arr1[4*i+2] > maxRestore || arr2[4*i+2] > maxRestore) {
+            maxRestore = arr1[4*i+2] > arr2[4*i+2] ? arr1[4*i+2] : arr2[4*i+2];
+            maxRestoreInd = i;
+        }
+
+        // Calc total time for both yields; store in arr for later use
+        arr1[4*i+3] = arr1[4*i] + arr1[4*i+1] + arr1[4*i+2];
+        overallTotal1 += arr1[4*i+3];
+        arr2[4*(i-1)+3] = arr2[4*i] + arr2[4*i+1] + arr2[4*i+2];
+        overallTotal2 += arr2[4*(i-1)+3];
+
+        // Update min and max values accordingly
+        if (arr1[4*i+3] < minTotal || arr2[4*(i-1)+3] < minTotal) {
+            minTotal = arr1[4*i+3] < arr2[4*(i-1)+3] ? arr1[4*i+3] : arr2[4*(i-1)+3];
+        }
+        
+        if (arr1[4*i+3] > maxTotal || arr2[4*(i-1)+3] > maxTotal) {
+            maxTotal = arr1[4*i+3] > arr2[4*(i-1)+3] ? arr1[4*i+3] : arr2[4*(i-1)+3];
+            maxTotalInd = i;
+        }
+        nk_vc_printf("%lu %lu %lu %lu\n", arr1[4*i], arr1[4*i+1], arr1[4*i+2], arr1[4*i+3]);
+        nk_vc_printf("%lu %lu %lu %lu\n", arr2[4*i], arr2[4*i+1], arr2[4*i+2], arr2[4*(i-1)+3]);
+        //nk_vc_printf("fib1: %lu %lu %lu\n", arr1[4*i+1]-arr1[4*i], arr1[4*i+2]-arr1[4*i+1], arr1[4*i+3]-arr1[4*i+2]);
+        //nk_vc_printf("fib2: %lu %lu %lu\n", arr2[4*i+1]-arr2[4*i], arr2[4*i+2]-arr2[4*i+1], arr2[4*(i-1)+3]-arr2[4*i+2]);
+    }
+ 
+    // Calculate averages for save, scheduler, restore, and total yield time.
+    saveTotal1 = saveTotal1/M;
+    saveTotal2 = saveTotal2/M;
+    yieldTotal1 = yieldTotal1/M;
+    yieldTotal2 = yieldTotal2/M;
+    restoreTotal1 = restoreTotal1/M;
+    restoreTotal2 = restoreTotal2/M;
+    overallTotal1 = overallTotal1/M;
+    overallTotal2 = overallTotal2/M;
+    
+    // Calculate Standard Deviation for each variable
+    for (j=2; j < N-2; j++) {
+        // For saves
+        varSave1 += (arr1[4*i] - saveTotal1) * (arr1[4*i] - saveTotal1);
+        varSave2 += (arr2[4*i] - saveTotal2) * (arr2[4*i] - saveTotal2);
+
+        // For yields
+        varYield1 += (arr1[4*i+1] - yieldTotal1) * (arr1[4*i+1] - yieldTotal1);
+        varYield2 += (arr2[4*i+1] - yieldTotal2) * (arr2[4*i+1] - yieldTotal2);
+        
+        // For restores
+        varRestore1 += (arr1[4*i+2] - restoreTotal1) * (arr1[4*i+2] - restoreTotal1);
+        varRestore2 += (arr2[4*i+2] - restoreTotal2) * (arr2[4*i+2] - restoreTotal2);
+        
+        // For total cost
+        varOverall1 += (arr1[4*i+3] - overallTotal1) * (arr1[4*i+3] - overallTotal1);
+        varOverall2 += (arr2[4*i+3] - overallTotal2) * (arr2[4*i+3] - overallTotal2);
+    }
+    
+    // Calc actual variance
+    M -= 3;
+    varSave1 /= M;
+    varSave2 /= M;
+    varYield1 /= M;
+    varYield2 /= M;
+    varRestore1 /= M;
+    varRestore2 /= M;
+    varOverall1 /= M;
+    varOverall2 /= M;
+
+    // Print results
+    nk_vc_printf("Fiber 1 - \n    Avg Save: %ld \n    Avg Yield: %ld \n    Avg Restore: %ld \n    Avg Total: %ld\n", saveTotal1, yieldTotal1, restoreTotal1, overallTotal1);
+    nk_vc_printf("Fiber1 Variance -\n    Save: %ld \n    Yield: %ld \n    Restore: %ld \n    Overall: %ld\n", varSave1, varYield1, varRestore1, varOverall1);
+    nk_vc_printf("Fiber 2 -\n    Avg Save: %ld \n    Avg Yield: %ld \n    Avg Restore: %ld \n    Avg Total: %ld\n", saveTotal2, yieldTotal2, restoreTotal2, overallTotal2);
+    nk_vc_printf("Fiber2 Variance -\n    Save: %ld \n    Yield: %ld \n    Restore: %ld \n    Overall: %ld\n", varSave2, varYield2, varRestore2, varOverall2);
+    nk_vc_printf("    Min Save: %ld    Min Yield: %ld    Min Restore: %ld    Min Total: %ld\n", minSave, minYield, minRestore, minTotal);
+    nk_vc_printf("    Max Save: %ld    Max Yield: %ld    Max Restore: %ld    Max Total: %ld\n", maxSave, maxYield, maxRestore, maxTotal);
+    nk_vc_printf("    Save Ind: %d    Yield Ind: %d    Restore Ind: %d    Total Ind: %d\n", maxSaveInd, maxYieldInd, maxRestoreInd, maxTotalInd);
+    nk_vc_printf("    Number of Outliers: %ld\n", outCount);
+    // free arrays we used for storing data   
+    free(arr1);
+    free(arr2);
+}
+
+void timer1(void *i, void **o)
+{
+  nk_fiber_set_vc(vc);
+  udelay(5000000); 
+  cli();
+  uint64_t irqCountInit;
+  uint64_t irqCountEnd;
+  struct sys_info *sys = per_cpu_get(system);
+  irqCountInit = __sync_fetch_and_or(&sys->cpus[1]->interrupt_count,0);
+  //irqCountInit = sys->cpus[1]->interrupt_count;
+  uint64_t *out_arr1 = (uint64_t*)o;
+  int a = 0;
+  rdtsc();
+  rdtsc();
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
+  while(a < N){
+    arr1[4*a] = rdtsc();
+    nk_fiber_yield_test();
+    arr2[(4*a)+3] = rdtsc();
+    arr1[(4*a)+1] = out_arr1[0];
+    arr1[(4*a)+2] = out_arr1[1];
+    a++;
+  }
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
+  irqCountEnd = __sync_fetch_and_or(&sys->cpus[1]->interrupt_count,0);
+  //irqCountEnd = sys->cpus[1]->interrupt_count;
+  sti();
+  nk_vc_printf("Initial irq count: %lu, End irq count: %lu\n", irqCountInit, irqCountEnd);
+  nk_vc_printf("First Timer is finished\n");
+}
+
+void timer2(void *i, void **o)
+{
+  nk_fiber_set_vc(vc);
+  uint64_t *out_arr2 = (uint64_t*)o;
+  int a = 0;
+  rdtsc();
+  rdtsc();
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
+  while(a < N){
+    arr2[4*a] = rdtsc();
+    nk_fiber_yield_test();
+    arr1[(4*a)+3] = rdtsc();
+    arr2[(4*a)+1] = out_arr2[0];
+    arr2[(4*a)+2] = out_arr2[1];
+    a++;
+  }
+  nk_fiber_counting_barrier((nk_counting_barrier_t*)i);
+  nk_vc_printf("Second Timer is finished\n");
+  print_timing_results();
 }
 
 extern void _nk_fiber_context_switch(nk_fiber_t *curr, nk_fiber_t *next);
@@ -568,24 +800,63 @@ int test_fiber_routine_2()
   return 0;
 }
 
-int test_fiber_timing(){
+
+int test_fiber_timing(int n){
+  int num_fibers = 2;
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)malloc(sizeof(nk_counting_barrier_t));
+  nk_counting_barrier_init(bar, num_fibers); 
   nk_fiber_t *first;
   nk_fiber_t *second;
   vc = get_cur_thread()->vc;
-  nk_vc_printf("test_fiber_timing() : virtual console %p\n", vc);
-  if (nk_fiber_create(first_timer, 0, 0, 0, &first)) {
+  //nk_vc_printf("test_fiber_timing() : virtual console %p\n", vc);
+  if (nk_fiber_create(first_timer, (void*)bar, 0, 0, &first)) {
     nk_vc_printf("test_fiber_timing() : Failed to start fiber\n");
     return -1;
   }
-  if (nk_fiber_create(second_timer, 0, 0, 0, &second)) {
+  if (nk_fiber_create(second_timer, (void*)bar, 0, 0, &second)) {
     nk_vc_printf("test_fiber_timing() : Failed to start fiber\n");
     return  -1;
   }
   // NO ERROR CHECKING (SO TIMING RESULTS ARE NOT SKEWED) 
-  nk_fiber_run(first, F_CURR_CPU);
-  nk_fiber_run(second, F_CURR_CPU);
+  nk_fiber_run(first, n);
+  nk_fiber_run(second, n);
   return 0;
 }
+
+int test_fiber_timing2(int n){
+  int num_fibers = 2;
+  nk_counting_barrier_t *bar = (nk_counting_barrier_t*)malloc(sizeof(nk_counting_barrier_t));
+  if (!bar) {
+    nk_vc_printf("test_fiber_timing() : Failed to malloc barrier\n");
+    return -1;
+  }
+  nk_counting_barrier_init(bar, num_fibers); 
+  arr1 = (uint64_t*)malloc(sizeof(uint64_t)*N*4);
+  arr2 = (uint64_t*)malloc(sizeof(uint64_t)*N*4);
+  uint64_t *out1 = (uint64_t *)malloc(sizeof(uint64_t)*2);
+  uint64_t *out2 = (uint64_t *)malloc(sizeof(uint64_t)*2);
+  if (!out1 || !out2 || !arr1 || !arr2) {
+    nk_vc_printf("test_fiber_timing() : Failed to malloc output arrays\n");
+    return -1;
+  }
+  nk_fiber_t *first;
+  nk_fiber_t *second;
+  vc = get_cur_thread()->vc;
+  nk_vc_printf("test_fiber_timing() : virtual console %p\n", vc);
+  if (nk_fiber_create(timer1, (void*)bar, (void**)out1, 0, &first)) {
+    nk_vc_printf("test_fiber_timing() : Failed to start fiber\n");
+    return -1;
+  }
+  if (nk_fiber_create(timer2, (void*)bar, (void**)out2, 0, &second)) {
+    nk_vc_printf("test_fiber_timing() : Failed to start fiber\n");
+    return  -1;
+  }
+  // NO ERROR CHECKING (SO TIMING RESULTS ARE NOT SKEWED) 
+  nk_fiber_run(first, n);
+  nk_fiber_run(second, n);
+  return 0;
+}
+
 
 
 int test_fiber_lower(){
@@ -684,9 +955,32 @@ handle_fibers9 (char * buf, void * priv)
 static int
 handle_fibers10 (char * buf, void * priv)
 {
-  test_fiber_timing();
+  test_fiber_timing(1);
   return 0;
 }
+
+
+static int
+handle_fibers100 (char * buf, void * priv)
+{
+  test_fiber_timing(10);
+  return 0;
+}
+
+static int
+handle_fibers1000 (char * buf, void * priv)
+{
+  test_fiber_timing(100);
+  return 0;
+}
+
+static int
+handle_fibers_timing (char * buf, void * priv)
+{
+  test_fiber_timing2(1);
+  return 0;
+}
+
 
 static int handle_fibers11 (char *buf, void *priv)
 {
@@ -811,6 +1105,24 @@ static struct shell_cmd_impl fibers_impl10 = {
   .handler  = handle_fibers10,
 };
 
+static struct shell_cmd_impl fibers_impl100 = {
+  .cmd      = "fibertime10",
+  .help_str = "fibertime10",
+  .handler  = handle_fibers100,
+};
+
+static struct shell_cmd_impl fibers_impl1000 = {
+  .cmd      = "fibertime100",
+  .help_str = "fibertime100",
+  .handler  = handle_fibers1000,
+};
+
+static struct shell_cmd_impl fibers_impl_timing = {
+  .cmd      = "fibertiming",
+  .help_str = "fibertiming",
+  .handler  = handle_fibers_timing,
+};
+
 static struct shell_cmd_impl fibers_impl11 = {
   .cmd      = "fibertime2",
   .help_str = "fibertime2",
@@ -853,6 +1165,9 @@ nk_register_shell_cmd(fibers_impl7);
 nk_register_shell_cmd(fibers_impl8);
 nk_register_shell_cmd(fibers_impl9);
 nk_register_shell_cmd(fibers_impl10);
+nk_register_shell_cmd(fibers_impl100);
+nk_register_shell_cmd(fibers_impl1000);
+nk_register_shell_cmd(fibers_impl_timing);
 nk_register_shell_cmd(fibers_impl11);
 nk_register_shell_cmd(fibers_impl_all);
 nk_register_shell_cmd(fibers_impl_all_1);

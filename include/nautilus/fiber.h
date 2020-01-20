@@ -137,6 +137,8 @@ int nk_fiber_start(nk_fiber_fun_t fun,
 // returns 0 otherwise 
 int nk_fiber_yield();
 
+int nk_fiber_yield_test();
+
 // Takes a fiber, a condition to yield on, and a function to check that condition
 // returns 1 if the fiber does not yield, otherwise returns ret value of nk_fiber_yield 
 int nk_fiber_conditional_yield(uint8_t (*cond_function)(void *param), void *state);

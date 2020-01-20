@@ -189,6 +189,70 @@ ENTRY(nk_fiber_yield)
     callq _nk_fiber_yield 
     /* This never returns, so not ret required*/
 
+ENTRY(nk_fiber_yield_test)
+    /* Push all GPRs onto stack */
+    FIBER_SAVE_GPRS()
+
+    /* Move new stack pointer into first argument register */
+    movq %rsp, %rdi
+
+    #if NAUT_CONFIG_FIBER_FSAVE
+
+    /* align stack to 64 bytes */
+    subq $0x1000, %rsp
+    andq $-1024, %rsp
+  
+    // Zeroing out 64 bytes starting at 512th byte of XSAVE area
+    // This is a requirement for XSAVE and XRSTOR memory locations 
+    movq $0, 512(%rsp)
+    movq $0, 520(%rsp)
+    movq $0, 528(%rsp)
+    movq $0, 536(%rsp)
+    movq $0, 544(%rsp)
+    movq $0, 552(%rsp)
+    movq $0, 560(%rsp)
+    movq $0, 568(%rsp)
+     
+    // Method 1 of zeroing out XSAVE area
+    /* Set XSAVE location to 0 
+    pushq %rdi
+    leaq 16(%rsp), %rdi
+    movq $1024, %rdx 
+    memset_loop:	
+    	movb $0, (%rdi)
+	    incq %rdi
+	    decq %rdx
+	    jnz memset_loop
+    popq %rdi
+    */
+
+    // Method 2 of zeroing out XSAVE area
+    /* Call to memset
+    pushq %rdi
+    leaq 8(%rsp), %rdi
+    movq $0, %rsi
+    movq $1024, %rdx
+    callq memset 
+    popq %rdi
+    */
+
+    /* Move -1 into rax and rdx so all FPRs are saved */
+    movq $-1, %rax
+    movq $-1, %rdx
+
+
+    /* place new stack ptr into 2nd argument register */
+    movq %rsp, %rsi
+
+    /* Save FPRs onto stack with xsave */
+    XSAVE 0x0(%rsp)
+
+    #endif
+    
+    /* call into C code to perform yield internals */
+    callq _nk_fiber_yield_test
+    /* This never returns, so not ret required*/
+
 ENTRY(_nk_fiber_context_switch)
     #if NAUT_CONFIG_FIBER_FSAVE
 
