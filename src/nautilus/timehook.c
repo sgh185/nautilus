@@ -33,6 +33,8 @@
 #include <nautilus/atomic.h>
 #include <nautilus/timehook.h>
 #include <nautilus/spinlock.h>
+#include <nautilus/shell.h>
+#include <nautilus/backtrace.h>
 
 /*
   This is the run-time support code for compiler-based timing transforms
@@ -53,11 +55,36 @@
 #define DEBUG(fmt, args...) DEBUG_PRINT("timehook: " fmt, ##args)
 #define WARN(fmt, args...)  WARN_PRINT("timehook: " fmt, ##args)
 
-
+/*
 #define LOCAL_LOCK_DECL // nothing for now
 #define LOCAL_LOCK(s) spin_lock(&s->lock)
 #define LOCAL_TRYLOCK(s) spin_try_lock(&s->lock)
 #define LOCAL_UNLOCK(s) spin_unlock(&s->lock)
+*/
+
+#define LOCAL_LOCK_DECL uint8_t __local_lock_flags
+#define LOCAL_LOCK(s) __local_lock_flags = spin_lock_irq_save(&s->lock)
+#define LOCAL_TRYLOCK(s) spin_try_lock_irq_save(&s->lock, &__local_lock_flags)
+#define LOCAL_UNLOCK(s) spin_unlock_irq_restore(&s->lock, __local_lock_flags)
+
+#define LOCAL_LOCK_NO_IRQ(s) spin_lock(&s->lock)
+#define LOCAL_TRYLOCK_NO_IRQ(s) spin_try_lock(&s->lock)
+#define LOCAL_UNLOCK_NO_IRQ(s) spin_unlock(&s->lock)
+
+
+
+#define DB(x) outb(x, 0xe9)
+#define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
+#define DHB(x) DHN(x >> 4) ; DHN(x);
+#define DHW(x) DHB(x >> 8) ; DHB(x);
+#define DHL(x) DHW(x >> 16) ; DHW(x);
+#define DHQ(x) DHL(x >> 32) ; DHL(x);
+#define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
+
+#define MAX(x, y)((x > y) ? (x) : (y))
+#define MIN(x, y)((x < y) ? (x) : (y))
+
+#define GET_STACK_CALLER_TRACE 0
 
 // maximum number of hooks per CPU
 #define MAX_HOOKS 16
@@ -65,7 +92,7 @@
 #define MAX_HOOK_DATA_COUNT 1000
 uint64_t hook_data[MAX_HOOK_DATA_COUNT], hook_fire_data[MAX_HOOK_DATA_COUNT];
 int hook_time_index = 0;
-    
+   
 void get_time_hook_data() {
   // compute and print print hook_start --- hook_end average
   // skip first 5 data entries
@@ -113,6 +140,18 @@ struct _time_hook {
     void *hook_state;                  //   ...
     uint64_t period_cycles;       // our period in cycles
     uint64_t last_start_cycles;   // when the last top-level invocation happened that invoked us
+    uint64_t early_count;
+    uint64_t early_sum;
+    uint64_t early_sum2;
+    uint64_t early_max;
+    uint64_t early_min;
+    uint64_t late_count;
+    uint64_t late_sum;
+    uint64_t late_sum2;
+    uint64_t late_max;
+    uint64_t late_min;
+    uint64_t fire_count;
+    uint64_t enabled_count;
 };
 
 
@@ -130,10 +169,62 @@ struct nk_time_hook_state {
 	   READY_STATE=1,                        // active, not currently in a callback
 	   INPROGRESS=2} state;            // active, currently in a callback
     uint64_t        last_start_cycles;     // when we last were invoked by the compiler
-    int             count;                 // how hooks we have
+    uint64_t invocation_count;
+    uint64_t try_lock_fail_count;
+    uint64_t state_fail_count;
+    int      count;                 // how hooks we have
     struct _time_hook hooks[MAX_HOOKS]; 
 };
 
+
+__attribute__((optnone)) void nk_time_hook_dump()
+{
+    int i;
+    struct sys_info *sys = per_cpu_get(system);
+
+    // for(i = 0; i < MAX_HOOKS; i++) {
+    for(i = 0; i < nk_get_num_cpus(); i++) {
+      struct nk_time_hook_state *s = sys->cpus[i]->timehook_state;
+      // nk_vc_printf("cpu %d: %d hooks", i, s->count);
+      // nk_vc_printf("  %luic  %lulf  %lusf\n", s->invocation_count, s->try_lock_fail_count, s->state_fail_count);
+      
+      int j;
+      for (j = 0; j < MAX_HOOKS; j++) {
+        if (s->hooks[j].state != INACTIVE) {
+	   struct _time_hook *h = &(s->hooks[j]);
+
+	   /*
+	   // DEBUG OUTPUT
+	   DHQ(h->late_count);
+	   DS("  ");
+	   DHQ(h->fire_count);
+	   DS("\n");
+	   */
+	   
+	   	
+	   nk_vc_printf("    *%lulc *%lufc\n", h->late_count , h->fire_count);
+	   nk_vc_printf("    %dhn %lupc %luls %luec %lulc %lufc %lut %luemi %luema %lulmi %lulma", j, h->period_cycles, h->last_start_cycles, h->early_count, h->late_count, h->fire_count, (h->early_count + h->fire_count), h->early_min, h->early_max, h->late_min, h->late_max);
+	  if (h->early_count > 0) {
+	       nk_vc_printf("  %lume %luve", (h->early_sum / h->early_count), (((h->early_sum2) - ((h->early_sum * h->early_sum) / h->early_count)) / h->early_count)); 
+	   }
+	   if (h->late_count > 0) {
+	       nk_vc_printf("  %luml %luvl", (h->late_sum / h->late_count), (((h->late_sum2) - ((h->late_sum * h->late_sum) / h->late_count)) / h->late_count)); 
+	   }
+	
+	   // Are we actually late???
+	   if (h->late_count > h->fire_count) {
+	     nk_vc_printf("\nlate\n");
+	   }
+	   
+	   nk_vc_printf("\n");
+		
+	}
+      
+      }
+    
+    }
+
+}
 
 // assumes lock held
 static struct _time_hook *alloc_hook(struct nk_time_hook_state *s)
@@ -215,7 +306,6 @@ static inline struct nk_time_hook *_nk_time_hook_register(int (*hook)(void *stat
 							  char *cpu_mask)
 {
 
-    
     struct sys_info *sys = per_cpu_get(system);
     int n = nk_get_num_cpus();
     int i;
@@ -233,7 +323,7 @@ static inline struct nk_time_hook *_nk_time_hook_register(int (*hook)(void *stat
     }
 
     memset(uh,0,HOOK_SIZE);
-
+    
     // allocate all the per CPU hooks, prepare to roll back
     for (i=0;i<n;i++) {
 	if (IS_SET(cpu_mask,i)) {
@@ -249,8 +339,11 @@ static inline struct nk_time_hook *_nk_time_hook_register(int (*hook)(void *stat
 		fail=1;
 		break;
 	    }
+	    h->early_min = -1;
+	    h->late_min = -1; 
 	    uh->per_cpu_hooks[i] = h;
 	    uh->count++;
+
 	}
     }
 
@@ -274,11 +367,11 @@ static inline struct nk_time_hook *_nk_time_hook_register(int (*hook)(void *stat
 	
 	// now we need to enable each one
 	// lock relevant per-cpu hooks
+	LOCAL_LOCK_DECL;
 	for (i=0;i<n;i++) {
-	    LOCAL_LOCK_DECL;
 	    if (uh->per_cpu_hooks[i]) { 
 		struct nk_time_hook_state *s = sys->cpus[i]->timehook_state;
-		LOCAL_LOCK(s);
+		LOCAL_LOCK_NO_IRQ(s);
 	    }
 	}
 
@@ -292,10 +385,9 @@ static inline struct nk_time_hook *_nk_time_hook_register(int (*hook)(void *stat
 
 	// now release all locks
 	for (i=0;i<n;i++) {
-	    LOCAL_LOCK_DECL;
 	    if (uh->per_cpu_hooks[i]) { 
 		struct nk_time_hook_state *s = sys->cpus[i]->timehook_state;
-		LOCAL_UNLOCK(s);
+		LOCAL_UNLOCK_NO_IRQ(s);
 	    }
 	}
 
@@ -370,7 +462,12 @@ int nk_time_hook_unregister(struct nk_time_hook *uh)
     
 }
 
+static volatile uint64_t foo;
+
 static int ready = 0;
+int ACCESS_HOOK = 0;
+uint64_t awc = 0;
+
 // this is the part that needs to be fast and low-overhead
 // it should not block, nor should anything it calls...
 // nor can they have nk_time_hook_fire() calls...
@@ -380,53 +477,130 @@ __attribute__((noinline)) void nk_time_hook_fire()
    if (!ready) {
      return;
    }
-   
 
-  // nk_vc_printf("time_hook_fire called from: %p\n", __builtin_return_address(0));
+   // Hangs --- presumably because the irq 
+   // functions are instrumented
+   // cli();
 
-#ifdef GET_HOOK_DATA
+#if GET_STACK_CALLER_TRACE
+   // Debug output --- get caller address and stack frame
+   // (roughly) based on local variable
+ 
+   int test = 0;
+   DS("r ");
+   DHQ(((uint64_t)__builtin_return_address(0)));
+   DS(" ");
+   DHQ(((uint64_t)&test));
+   DS("\n");
+#endif 
+
+
+#if GET_HOOK_DATA
    uint64_t rdtsc_hook_start = 0, rdtsc_hook_end = 0, rdtsc_hook_fire_start = 0, rdtsc_hook_fire_end = 0;
    int local_hook_time_index = hook_time_index; 
-   if (hook_time_index < MAX_HOOK_DATA_COUNT) {
-     hook_time_index++;
-   }
-   if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-     rdtsc_hook_start = rdtsc();
+   if (ACCESS_HOOK) {
+	   if (hook_time_index < MAX_HOOK_DATA_COUNT) {
+	     hook_time_index++;
+	   }
+	   if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+	     rdtsc_hook_start = rdtsc();
+	   }
    }
 #endif
+
+
     struct sys_info *sys = per_cpu_get(system);
     struct nk_time_hook_state *s = sys->cpus[my_cpu_id()]->timehook_state;
 
-    LOCAL_LOCK_DECL;
+    s->invocation_count++;
 
+    LOCAL_LOCK_DECL;
+    
     if (LOCAL_TRYLOCK(s)) {
 	// failed to get lock - we will simply not execute this round
 	DEBUG("failed to acquire lock on fire (cpu %d)\n",my_cpu_id());
+	
+	extern int ACCESS_WRAPPER;
+	if (ACCESS_WRAPPER) {
+	  // __sync_fetch_and_and(&ready, 0); // atomically write ready
+	  // BACKTRACE(INFO, 20);
+          // panic("TL failed with aw=1\n");
+	  DS("a ");
+	  DHQ(awc);
+	  awc++; 
+	  DS("\n");
+	}
+	
+
+#if GET_STACK_CALLER_TRACE
+	// Same logic as above
+	
+	DS("failed try lock ");
+	DS("r ");
+	DHQ(((uint64_t)__builtin_return_address(0)));
+        DS(" ");
+        DHQ(((uint64_t)&test));
+        DS("\n");
+	// while(1) {}
+	
+	// Set ready to 0 to print on panic, output
+	// backtrace	
+	
+	__sync_fetch_and_and(&ready, 0); // atomically write ready
+	BACKTRACE(INFO, 20);
+        panic("Try lock failed\n");
+#endif	
+
+	s->try_lock_fail_count++;	
 	return;
     }
     
-    INFO("HAVE LOCK\n");
 
     if (s->state!=READY_STATE) {
 	DEBUG("short circuiting fire because we are in state %d\n",s->state);
-	LOCAL_UNLOCK(s);
+	
+#if GET_STACK_CALLER_TRACE	
+	// Same logic as above
+	
+	DS("failed ready state ");
+	DS("r ");
+	DHQ(((uint64_t)__builtin_return_address(0)));
+        DS(" ");
+        DHQ(((uint64_t)&test));
+        DS("\n");
+	// while (1) {} 
+
+	__sync_fetch_and_and(&ready, 0); // atomically write ready
+	BACKTRACE(INFO, 20);
+        panic("Ready state failed\n");
+#endif
+
+	s->state_fail_count++;	
 	return;
     }
-   
-    INFO("TIME_HOOK_FIRED\n");
-
+    
     s->state = INPROGRESS;
     
     int i;
-    int seen;
+    int seen = 0;
 
     uint64_t cur_cycles = rdtsc();
 
     int count = 0;
     struct _time_hook *queue[MAX_HOOKS];
-    
-    for (i=0, seen=0;i<MAX_HOOKS && seen<s->count;i++) {
+  
+    uint64_t temp_late_count = 0;
+
+    // #pragma clang loop vectorize(disable)
+    for (i=0, seen=0; ((i < MAX_HOOKS) && (seen < s->count)); i++) {
+    //for (i=0; i < 15; i++) {
 	struct _time_hook *h = &s->hooks[i];
+	
+	
+	// DHL(i);
+	// DS("\n");
+	
+	
 	if (h->state==ENABLED) {
 	    seen++;
 	    if (cur_cycles >= (h->last_start_cycles + h->period_cycles)) {
@@ -435,10 +609,57 @@ __attribute__((noinline)) void nk_time_hook_fire()
 		      h->hook_func, h->hook_state, h->last_start_cycles, cur_cycles);
 		
 		    queue[count++] = h;
+		    
+		    if (h->last_start_cycles) {
+			    // Debug
+			    temp_late_count = h->late_count;
+
+			    h->late_count++;
+			    
+			    // Debug
+			    /*
+			    if ((h->late_count - temp_late_count) > 1) {
+			       DHQ(h->late_count);
+			       DS("\n");
+			    }
+			    */
+
+			    h->late_sum += (cur_cycles - (h->last_start_cycles + h->period_cycles));
+			    h->late_sum2 += (cur_cycles - (h->last_start_cycles + h->period_cycles)) * (cur_cycles - (h->last_start_cycles + h->period_cycles)); 
+			    h->late_min = MIN((cur_cycles - (h->last_start_cycles + h->period_cycles)), h->late_min);
+			    h->late_max = MAX((cur_cycles - (h->last_start_cycles + h->period_cycles)), h->late_max);
+		   }
+
+	    } else {
+	      // First call cannot be early
+	      h->early_count++;
+	      h->early_sum += (h->last_start_cycles + h->period_cycles - cur_cycles);
+	      h->early_sum2 += (h->last_start_cycles + h->period_cycles - cur_cycles) * (h->last_start_cycles + h->period_cycles - cur_cycles); 
+	      h->early_min = MIN((h->last_start_cycles + h->period_cycles - cur_cycles), h->early_min);
+	      h->early_max = MAX((h->last_start_cycles + h->period_cycles - cur_cycles), h->early_max);
 	    }
 	}
     }
+
+
+    // Goes along with DS at top of for loop
+    // __sync_fetch_and_and(&ready, 0); // atomically write ready
+    // panic("done\n");
+
+    // Extra check --- for loop debugging
+    if ((count != 1) && (count != 0)) {
+	    DS("c ");
+	    DHL(count);
+	    DS("\n");
+	    panic("Count isn't one\n");
+    }
     
+    if ((seen != 1) && (seen != 0)) {
+	    DS("s ");
+	    DHL(seen);
+	    DS("\n");
+	    panic("Seen isn't one\n");
+    }
 
     // we now need to prepare for the next batch.
     // note that a hook could context switch away from us, so we need to do
@@ -446,19 +667,26 @@ __attribute__((noinline)) void nk_time_hook_fire()
 
     // ** TODO ** --- need to limit nested "interrupts"
 
-    s->state = READY_STATE;
-    LOCAL_UNLOCK(s);
+   // s->state = READY_STATE;
+   // LOCAL_UNLOCK(s);
+
    
     // now we actually fire the hooks.   Note that the execution of one batch of hooks
     // can race with queueing/execution of the next batch.  that's the hook
     // implementor's problem
-#ifdef GET_HOOK_DATA
-    rdtsc_hook_end = rdtsc();
-    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-      hook_data[local_hook_time_index] = rdtsc_hook_end - rdtsc_hook_start;
+
+
+#if GET_HOOK_DATA
+    if (ACCESS_HOOK) {
+	    rdtsc_hook_end = rdtsc();
+	    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+	      hook_data[local_hook_time_index] = rdtsc_hook_end - rdtsc_hook_start;
+	    }
+	    rdtsc_hook_fire_start = rdtsc();
     }
-    rdtsc_hook_fire_start = rdtsc();
 #endif
+    
+    
     for (i=0; i<count; i++) {
 	struct _time_hook *h = queue[i];
 	DEBUG("launching hook func=%p state=%p last=%lu cur=%lu\n",
@@ -466,13 +694,34 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	
 	h->hook_func(h->hook_state);
 	h->last_start_cycles = cur_cycles;
+	h->fire_count++;
+
+	// Debug
+	foo = temp_late_count; 
+	/*
+	if (temp_late_count > h->fire_count) {
+	  panic("last count exceeded");
+	}
+	*/	
+
     }
-#ifdef GET_HOOK_DATA
-    rdtsc_hook_fire_end = rdtsc();
-    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-      hook_fire_data[local_hook_time_index] = rdtsc_hook_fire_end - rdtsc_hook_fire_start;
+
+
+#if GET_HOOK_DATA
+    if (ACCESS_HOOK) {
+	    rdtsc_hook_fire_end = rdtsc();
+	    if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+	      hook_fire_data[local_hook_time_index] = rdtsc_hook_fire_end - rdtsc_hook_fire_start;
+	    }
     }
 #endif
+   
+
+    // Unlocking at the end --- for loop debugging 
+    s->state = READY_STATE;
+    LOCAL_UNLOCK(s);
+
+    // sti();
 
 }
 
@@ -515,9 +764,31 @@ int nk_time_hook_init_ap()
 
 int nk_time_hook_start()
 {
-  INFO("TIME_HOOK_STARTED\n");
+  struct sys_info *sys = per_cpu_get(system);
+  struct nk_time_hook_state *s = sys->cpus[my_cpu_id()]->timehook_state;
+  s->state = READY_STATE;
+  
+  INFO("time hook started\n");
 
   ready = 1;
 
+  INFO("time hook ready set\n");
+
   return 0;
 }
+
+static int
+handle_ths(char * buf, void * priv)
+{
+  nk_time_hook_dump();
+  return 0;
+}
+
+static struct shell_cmd_impl ths_impl = {
+  .cmd      = "ths",
+  .help_str = "ths",
+  .handler  = handle_ths,
+};
+
+nk_register_shell_cmd(ths_impl);
+
