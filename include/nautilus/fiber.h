@@ -209,6 +209,8 @@ void nk_fiber_startup();
 
 // Wrapper yield for injection pass
 int _wrapper_nk_fiber_yield();
+int _nk_snapshot_time_hook();
+int _nk_null_time_hook();
 
 // Benchmark functions for injection pass
 void _nk_fiber_print_data();

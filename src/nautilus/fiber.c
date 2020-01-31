@@ -43,6 +43,8 @@
 #include <nautilus/scheduler.h>
 #include <nautilus/cpu_state.h>
 #include <nautilus/timehook.h>
+#include <nautilus/backtrace.h>
+
 
 #ifndef NAUT_CONFIG_DEBUG_FIBERS
 #undef  DEBUG_PRINT
@@ -71,6 +73,22 @@
 #define _UNLOCK_SCHED_QUEUE(state) spin_unlock(&(state->lock)) 
 #define _LOCK_FIBER(f) spin_lock(&(f->lock))
 #define _UNLOCK_FIBER(f) spin_unlock(&(f->lock))
+
+/* Time-hook testing */
+#define YIELD_HOOK 0
+#define SNAPSHOT_HOOK 1
+#define NULL_HOOK 2
+
+#define HOOK_FUNC YIELD_HOOK
+
+#define DB(x) outb(x, 0xe9)
+#define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
+#define DHB(x) DHN(x >> 4) ; DHN(x);
+#define DHW(x) DHB(x >> 8) ; DHB(x);
+#define DHL(x) DHW(x >> 16) ; DHW(x);
+#define DHQ(x) DHL(x >> 32) ; DHL(x);
+#define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
+
 
 /* Each CPU has a fiber state associated with it */
 typedef struct nk_fiber_percpu_state {
@@ -599,12 +617,36 @@ int nk_fiber_init()
 	    ERROR("Could not intialize fiber thread\n");
 	    return -1;
     }
-    
+
     // Register time_hook instance for fibers
     uint64_t gran = nk_time_hook_get_granularity_ns();
-    // char *mask = malloc(sizeof(char));
-    // void *state = malloc(sizeof(void)); // suspicious 
-    struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0); 
+    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
+    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+    /*switch(HOOK_FUNC) 
+    {
+	case YIELD_HOOK:
+	{
+          fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+	  break;
+	}
+	case SNAPSHOT_HOOK:
+	{
+    	  fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+	  break;
+	}
+	case NULL_HOOK:
+	{
+          fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+	  break;
+	}
+	default:
+	{
+	  panic("no fiber hook function found\n");
+	  break;
+	}
+    }*/
+
 
     return 0;
 }
@@ -684,6 +726,15 @@ static void __fiber_thread(void *in, void **out)
     panic("Failed to get current fiber state\n");
   }
   state->fiber_thread = get_cur_thread();
+
+#ifdef NAUT_CONFIG_COMPILER_TIMING 
+if (get_cpu()->id == 1) {
+   FIBER_INFO("CPUID --- %du\n", get_cpu()->id);
+   extern nk_thread_t *hook_compare_fiber_thread;
+   hook_compare_fiber_thread = _get_fiber_thread();
+}
+#endif
+
  
   // Starting the idle fiber
   nk_fiber_t *idle_fiber_ptr;
@@ -775,40 +826,86 @@ static void _debug_yield(nk_fiber_t *f_to)
 
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
 #define MAX_WRAPPER_COUNT 1000
-static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0;
 static uint64_t wrapper_data[MAX_WRAPPER_COUNT];
 static int time_interval = 0;
+extern int ACCESS_WRAPPER;
 
+
+static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0;
 int _wrapper_nk_fiber_yield()
 {
-  nk_vc_printf("time_interval now: %d\n", time_interval);
-  if (time_interval >= MAX_WRAPPER_COUNT) {
-    return 0;
+  // nk_vc_printf("time_interval now: %d\n", time_interval);
+  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
+    return 1;
   }
 
-  rdtsc_wrapper_new = rdtsc();
-  wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old;
+  uint64_t temp_rdtsc = rdtsc();
+  // DHL(temp);
+  // DS("\n");
+
+  // uint64_t delta = 0;
   
-  time_interval++;
- 
+  // rdtsc_wrapper_new = rdtsc();
+  // wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
+  // delta = wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
+  
+  /*
+  if (delta < 100) {
+    FIBER_INFO("ACCESS_WRAPPER: %d\n", ACCESS_WRAPPER);
+    BACKTRACE(FIBER_INFO, 20);
+    panic("Found an anomoly\n");
+  }
+  */
+  
+  // time_interval++;
+   
   fiber_state *state = _GET_FIBER_STATE();
   if (state->fiber_thread == get_cur_thread()) {
+    rdtsc_wrapper_new = temp_rdtsc;
+    wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
+    
+    time_interval++;
+   
     nk_fiber_yield();
   }
-   
+  
   rdtsc_wrapper_old = rdtsc();
 
   return 0;
 }
 
+static int old_snapshot = 0;
+int _nk_snapshot_time_hook()
+{
+  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
+    return 0;
+  }
+  
+  int curr_snapshot = rdtsc();
+  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
+  old_snapshot = curr_snapshot;
+  time_interval++;
+
+  return 0;
+}
+
+__attribute__((optnone)) int _nk_null_time_hook()
+{
+  return 0;
+}
+
 void _nk_fiber_print_data()
 {
+  nk_time_hook_dump(); 
+  	
   nk_vc_printf("PRINTSTART\n");
 
-  nk_vc_printf("time_interval: %d\n", time_interval);
+  int temp = time_interval;
+  nk_vc_printf("time_interval: %d\n", temp);
 
   int i;
-  for (i = 0; i < time_interval; i++) {
+  for (i = 0; i < temp; i++) {
+    // nk_vc_printf("%lu : %lu\n", wrapper_data[i], missed_fires[i]);
     nk_vc_printf("%lu\n", wrapper_data[i]);
   } 
   
@@ -816,9 +913,14 @@ void _nk_fiber_print_data()
  
   memset(wrapper_data, 0, sizeof(wrapper_data));
   time_interval = 0;
+
+  // For yield hook
   rdtsc_wrapper_new = 0;
   rdtsc_wrapper_old = 0;
   
+  // For snapshot hook
+  old_snapshot = 0;
+
   return;
 }  
 
