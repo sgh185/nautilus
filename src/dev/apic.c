@@ -1013,7 +1013,7 @@ uint64_t apic_realtime_to_cycles(struct apic_dev *apic, uint64_t ns)
 
 uint64_t apic_cycles_to_realtime(struct apic_dev *apic, uint64_t cycles)
 {
-    return 1000ULL*(cycles/(apic->cycles_per_us));
+    return (1000ULL*cycles)/(apic->cycles_per_us);
 }
 
 

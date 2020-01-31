@@ -174,6 +174,20 @@ struct nk_sched_config sched_cfg = {
 };
 
 
+/*static char *start_script[] = {
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1",
+	"fiberbench1"
+};*/
+
+
 
 
 static int 
@@ -545,12 +559,12 @@ init (unsigned long mbd,
 
     nk_launch_shell("root-shell",0,0,0);
 
-    runtime_init();
-
 #ifdef NAUT_CONFIG_COMPILER_TIMING
-    nk_time_hook_start();
+    nk_time_hook_start(); // was after launch shell
 #endif
 
+    runtime_init();
+    
     printk("Nautilus boot thread yielding (indefinitely)\n");
 
     /* we don't come back from this */

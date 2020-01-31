@@ -388,6 +388,10 @@ smp_ap_finish (struct cpu * core)
 
     nk_sched_start();
 
+#ifdef NAUT_CONFIG_COMPILER_TIMING
+    nk_time_hook_start();
+#endif
+
 #ifdef NAUT_CONFIG_FIBER_ENABLE
     nk_fiber_startup();
 #endif
