@@ -78,4 +78,7 @@ int nk_time_hook_start();
 // gather data on nk_time_hook_fire
 void get_time_hook_data(void);
 
+void nk_time_hook_dump(void);
+
+
 #endif
