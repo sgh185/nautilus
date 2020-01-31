@@ -26,7 +26,7 @@
  */
 
 /*
- * Transformation that injects calls to a wrapper for fiber yield function ("wrapper_nk_fiber_yield")
+ * Transformation that injects calls to a wrapper to a pseudo interrupt handler ("nk_time_hook_fire")
  * based on a data flow analysis that calcualtes expected and/or maximum latencies of bitcode 
  * instructions in a module
  */
@@ -44,6 +44,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -73,6 +74,7 @@ using namespace std;
 #define DEBUG 0
 #define LOOP_DEBUG 0
 #define INLINE 0
+#define WHOLE 1 // Whole kernel optimization
 #define INJECT 1
 #define FALSE 0
 
@@ -83,12 +85,17 @@ using namespace std;
 #define FIBER_CREATE 3
 #define IDLE_FIBER_ROUTINE 4
 #define WRAP 5
+#define INIT 6
+#define MSR 7
+#define _YIELD 8
+#define HELPER 9
 
 // Guards for yield call injections
-#define GRAN 200
+#define GRAN 4000
 #define CALL_GUARDS 0
 #define LOOP_GUARDS 1
-#define LOOP_OPT 0
+#define LOOP_OPT 1
+#define LOOP_BRANCH 1
 
 // Conservativeness, Latency path configurations
 #define MAXIMUM 0
@@ -101,9 +108,16 @@ using namespace std;
 #define CONSERV HIGHCON
 #define LATCONFIG EXPECTED
 
-// Fiber function declarations
-const vector<uint32_t> NK_ids = {WRAPPER_YIELD, INNER_YIELD, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE, WRAP};
-const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield"};
+// Fibers and special non-inject functions declarations
+const vector<uint32_t> NK_ids = {WRAPPER_YIELD, INNER_YIELD, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE, WRAP, INIT, MSR, _YIELD, HELPER};
+const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_nk_null_time_hook", "init", "_nk_fiber_print_data", "_nk_fiber_yield", "_nk_fiber_yield_helper"};
+
+// OLD CONFIGURATIONS
+//const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield", "init", "_nk_fiber_print_data", "_nk_fiber_yield", "_nk_fiber_yield_helper"};
+// const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_nk_null_time_hook", "init", "msr_read"};
+//const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield", "init"};
+// const vector<string> NK_names = {"_wrapper_nk_fiber_yield", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "nk_time_hook_fire", "init"};
+
 unordered_map<uint32_t, Function *> FIBERS;
 
 namespace
@@ -219,6 +233,34 @@ struct CAT : public ModulePass
 #if INJECT
         // IDENTIFY ROUTINES
         set<Function *> FiberRoutines = identifyRoutines(M, FIBERS[FIBER_CREATE]);
+
+#if WHOLE
+        // ADD FUNCTIONALITY FOR WHOLE KERNEL INJECTION
+        for (auto &F : M)
+        {
+            // Current hack below to prevent injection in certain functions
+            // This should be replaced with a custom pragma or function attribute
+            // in the future
+            if (&F == nullptr)
+                continue;
+            else if (F.isIntrinsic())
+                continue;
+            else if (&F == FIBERS[INIT] || &F == FIBERS[WRAPPER_YIELD] || &F == FIBERS[WRAP] || &F == FIBERS[MSR] || &F == FIBERS[_YIELD] || &F == FIBERS[HELPER])
+                continue;
+            else
+            {
+#if DEBUG
+                errs() << F.getName() << ": inst count --- " << F.getInstructionCount() << " and return: ";
+                F.getReturnType()->print(errs());
+                errs() << "\n";
+#endif
+                // Don't handle empty functions
+                if (F.getInstructionCount() > 0)
+                    FiberRoutines.insert(&F);
+            }
+        }
+#endif
+
 #endif
 
 #if DEBUG
@@ -226,6 +268,8 @@ struct CAT : public ModulePass
             DI->RoutineNames.push_back(routine->getName());
 #endif
         // INJECTION --- Determine where to inject calls, inject properly for each routine
+        // NOTE --- these are still called FiberRoutines --- needs a FIX because of
+        // Whole kernel injection
         for (auto routine : FiberRoutines)
         {
 #if DEBUG
@@ -377,8 +421,8 @@ struct CAT : public ModulePass
                                      Function const *parentFuncToFind)
     {
         set<Function *> Routines;
-        
-	// Iterate over uses of nk_fiber_create
+
+        // Iterate over uses of nk_fiber_create
         for (auto &use : parentFuncToFind->uses())
         {
             User *user = use.getUser();
@@ -449,7 +493,6 @@ struct CAT : public ModulePass
          * Depth first --- transform loops (and subloops) to a total latency size
          * that is a multiple of the granularity
          */
-            // errs() << "\n\n=====NOW ENTERING TRANFORM =====\n\n";
 #if LOOP_DEBUG
         errs() << "\n\n=====NOW ENTERING TRANFORM =====\n\n";
 #endif
@@ -496,7 +539,6 @@ struct CAT : public ModulePass
         vector<Loop *> SLs = L->getSubLoops();
         if (SLs.size() > 0)
         {
-            // errs() << "\nNOW SUBLOOPS TO TRANSFORM\n";
             for (auto SL : SLs)
             {
 #if LOOP_DEBUG
@@ -508,24 +550,44 @@ struct CAT : public ModulePass
                 transformLoop(F, SL, LI, DT, SE, AC, ORE, LG);
             }
         }
-        //return;
-
-        // errs() << "COUNT: " << count << "\n";
-        // return;
 
         if (L->isLoopSimplifyForm() && L->isLCSSAForm(DT))
         {
+            auto unrollCount = 0;
+            auto peelCount = 0;
+
             unsigned minTripMultiple = 1;
             auto tripCount = SE.getSmallConstantTripCount(L);
             auto tripMultiple = max(minTripMultiple, SE.getSmallConstantTripMultiple(L));
+            auto totalInstructionCount = getTotalLoopInstructionCount(L); // Total number of instructions in loop
 
-            auto unrollCount = tripCount;
-            auto peelCount = 0;
-            //auto unrollCount = getUnrollCount(calculatePrelimLoopLatencySize(F, LI, L));
+            // For loops with an known tripCount --- unroll fully
+            // Otherwise --- unroll based on loop latency size estimation if within
+            // "reasonable" range --- else, generate branching. Note that the
+            // magic numbers (32, 256) are currently arbitrary
 
-            // For loops with an unknown trip count, set peelCount instead
-            if (unrollCount > 100 || !unrollCount)
+            if (tripCount > 32 || !tripCount)
+            {
                 unrollCount = getUnrollCount(calculatePrelimLoopLatencySize(F, LI, L));
+#if LOOP_BRANCH
+                auto totalUnroll = unrollCount * totalInstructionCount;
+                if (totalUnroll > 256)
+                {
+                    Instruction *BranchTerminator = generateLoopIterationBranch(L, unrollCount, &LI, &DT);
+                    if (BranchTerminator == nullptr)
+                        return;
+
+                    LG.insert(BranchTerminator);
+#if LOOP_DEBUG
+                    BranchTerminator->print(errs());
+                    errs() << "\nGENERATED BRANCH in " << F.getName() << "\n";
+#endif
+                    return;
+                }
+#endif
+            }
+            else
+                unrollCount = tripCount;
 
             // Set options
             UnrollLoopOptions *ULO = new UnrollLoopOptions();
@@ -541,12 +603,9 @@ struct CAT : public ModulePass
             ULO->UnrollRemainder = false;
             ULO->ForgetAllSCEV = false;
 
-
             LoopUnrollResult unrolled = UnrollLoop(L, *ULO, &LI, &SE, &DT, &AC, &ORE, true);
 
-            if (unrolled == LoopUnrollResult::FullyUnrolled || unrolled == LoopUnrollResult::PartiallyUnrolled)
-                errs() << "\nUNROLLED SUCCESSFULLY\n";
-            else
+            if (!(unrolled == LoopUnrollResult::FullyUnrolled || unrolled == LoopUnrollResult::PartiallyUnrolled))
             {
 #if LOOP_DEBUG
 
@@ -628,6 +687,84 @@ struct CAT : public ModulePass
         BasicBlock *loopEnd = getLastLoopBlock(L);
 
         return (latencyMeasurements[loopEnd].second - latencyMeasurements[loopFront].first);
+    }
+
+    // Loop transformation policy --- insert "biased" branch
+    Instruction *generateLoopIterationBranch(Loop *L, uint64_t UnrollCount, LoopInfo *LI, DominatorTree *DT)
+    {
+        BasicBlock *EntryBlock = L->getHeader();
+        Instruction *LastLoopInst = getLastLoopBlock(L)->getTerminator();
+        if (EntryBlock == nullptr || LastLoopInst == nullptr)
+            return nullptr;
+
+        Instruction *InsertionPoint = EntryBlock->getFirstNonPHI();
+        Function *Parent = EntryBlock->getParent();
+        if (Parent == nullptr || InsertionPoint == nullptr)
+            return nullptr;
+
+        // Set up primary builder for and constants
+        IRBuilder<> topBuilder{InsertionPoint};
+        Type *int_ty = Type::getInt32Ty(Parent->getContext());
+
+        Value *PHIInitValue = ConstantInt::get(int_ty, 0);
+        Value *ResetValue = ConstantInt::get(int_ty, UnrollCount);
+        Value *Increment = ConstantInt::get(int_ty, 1);
+
+        // Generate new instructions for new phi node and new block functionality inside entry block
+        PHINode *TopPHI = topBuilder.CreatePHI(int_ty, 0);
+        Value *Iterator = topBuilder.CreateAdd(TopPHI, Increment);
+        Value *CmpInst = topBuilder.CreateICmp(ICmpInst::ICMP_EQ, Iterator, ResetValue);
+
+        // Generate new block (for loop for injection of nk_time_hook_fire)
+        Instruction *NewBlockTerminator = SplitBlockAndInsertIfThen(CmpInst, InsertionPoint, false, nullptr, DT, LI, nullptr);
+        BasicBlock *NewBlock = NewBlockTerminator->getParent();
+        if (NewBlockTerminator == nullptr)
+            return nullptr;
+
+        // Get unique predecessor and successor for new block
+        BasicBlock *NewSingleSucc = NewBlock->getUniqueSuccessor();
+        BasicBlock *NewSinglePred = NewBlock->getUniquePredecessor();
+        if (NewSinglePred == nullptr || NewSingleSucc == nullptr)
+            return nullptr;
+
+        // Generate new builder on insertion point in the successor of the new block and
+        // generate second level phi node
+        Instruction *SecondaryInsertionPoint = NewSingleSucc->getFirstNonPHI();
+        if (SecondaryInsertionPoint == nullptr)
+            return nullptr;
+
+        IRBuilder<> secondaryBuilder{NewBlockTerminator};
+        PHINode *SecondaryPHI = topBuilder.CreatePHI(int_ty, 0);
+
+        // Populate selection points for second level phi node
+        SecondaryPHI->addIncoming(Iterator, NewSinglePred);
+        SecondaryPHI->addIncoming(PHIInitValue, NewBlock);
+
+        // Populate selection points for top level phi node
+        for (auto predBB : predecessors(EntryBlock))
+        {
+            // Handle potential backedges
+            if (L->contains(predBB))
+                TopPHI->addIncoming(SecondaryPHI, predBB);
+            else
+                TopPHI->addIncoming(PHIInitValue, predBB);
+        }
+
+        return NewBlockTerminator;
+    }
+
+    // Helper for branch insertion, other methods
+    uint64_t getTotalLoopInstructionCount(Loop *L)
+    {
+        uint64_t size = 0;
+        for (auto B = L->block_begin(); B != L->block_end(); ++B)
+        {
+            BasicBlock *BB = *B;
+            size += distance(BB->instructionsWithoutDebug().begin(),
+                             BB->instructionsWithoutDebug().end());
+        }
+
+        return size;
     }
 
     // ========================= PREPARE INJECTION LOCATIONS =========================
@@ -892,7 +1029,12 @@ struct CAT : public ModulePass
             IL.insert(loopGuard);
 
         auto &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+        vector<Loop *> Loops;
         for (auto L : LI)
+            Loops.push_back(L);
+
+        for (auto L : Loops)
         {
             vector<Loop *> SLs = L->getSubLoops();
             for (auto SL : SLs)
@@ -936,8 +1078,19 @@ struct CAT : public ModulePass
                      Function *funcToInsert,
                      set<Instruction *> const &IL)
     {
-        // Build CallInst to yield, insert into routine
+        // Call instructions need to be injected with relatively
+        // "correct" debug locations --- Clang 9 will complain otherwise
+        Instruction *FirstInstWithDBG = nullptr;
+        for (auto &I : instructions(F))
+        {
+            if (I.getDebugLoc())
+            {
+                FirstInstWithDBG = &I;
+                break;
+            }
+        }
 
+        // Build CallInst to yield, insert into routine
         for (auto i : IL)
         {
 #if DEBUG
@@ -945,8 +1098,11 @@ struct CAT : public ModulePass
             i->print(errs());
             errs() << "\n";
 #endif
-            // Inject yield call
+            // Inject yield call with correct debug locations
             IRBuilder<> builder{i};
+            if (FirstInstWithDBG != nullptr)
+                builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+
             CallInst *yieldCall = builder.CreateCall(funcToInsert, None);
 
 #if DEBUG
@@ -1223,9 +1379,9 @@ struct CAT : public ModulePass
             {
                 Function *callee = call->getCalledFunction();
                 if (callee != nullptr)
-                    cost = ((callee->isIntrinsic()) || (callee->getName().startswith("llvm.lifetime"))) ? 0 : 200;
+                    cost = ((callee->isIntrinsic()) || (callee->getName().startswith("llvm.lifetime"))) ? 0 : GRAN;
                 else
-                    cost = 200; // Arbitrary
+                    cost = GRAN; // Arbitrary
             }
 
             break;
@@ -1266,22 +1422,28 @@ struct CAT : public ModulePass
         return false;
     }
 
+    // This is insanely bad --- still has undefined behavior probably
     uint64_t getUnrollCount(double num)
     {
-        uint64_t roundedIntNum = roundToNearest((uint64_t)num);
+        if (num == 0.0)
+            return 0;
+
+        uint64_t roundedIntNum = max((int)roundToNearest((uint64_t)num), 1);
         uint64_t divisor = (GRAN > roundedIntNum) ? roundedIntNum : GRAN;
+        uint64_t gcd = __gcd(roundedIntNum, (uint64_t)GRAN);
         return (((roundedIntNum * GRAN) / __gcd(roundedIntNum, (uint64_t)GRAN)) / divisor);
     }
 
+    // Absolutely the worst --- will kick soon
     uint64_t roundToNearest(uint64_t num)
     {
-        static int nearest = 25;
+        static int nearest = 20;
 
         int moduloHundred = num % 100;
         unordered_map<int, int> nearestMap; // (difference from num, multiplier)
         vector<int> differences;
 
-        for (int i = 0; i < (100 / nearest); i++)
+        for (int i = 1; i < (100 / nearest); i++)
         {
             int difference = abs((moduloHundred - (i * nearest)));
             nearestMap[difference] = i;
@@ -1303,7 +1465,7 @@ struct CAT : public ModulePass
 } // namespace
 
 char CAT::ID = 0;
-static RegisterPass<CAT> X("CAT", "Shell for code injection --- yields");
+static RegisterPass<CAT> X("CAT", "Shell for code injection --- nk_time_hook_fire");
 
 static CAT *_PassMaker = NULL;
 static RegisterStandardPasses _RegPass1(PassManagerBuilder::EP_OptimizerLast,
@@ -1312,4 +1474,4 @@ static RegisterStandardPasses _RegPass1(PassManagerBuilder::EP_OptimizerLast,
 static RegisterStandardPasses _RegPass2(PassManagerBuilder::EP_EnabledOnOptLevel0,
                                         [](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
         if(!_PassMaker){ PM.add(_PassMaker = new CAT()); } });
-        
+
