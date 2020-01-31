@@ -11,7 +11,7 @@ obj-y += test.o
 
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o \
-								   fiber_benchmark.o
+								   fiber_benchmark.o 
 
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 
