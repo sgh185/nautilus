@@ -1,0 +1,13 @@
+Continuing.
+Remote connection closed
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+panic (fmt=<optimized out>) at src/nautilus/printk.c:131
+131	   while(1);
+$1 = 4333824
+A debugging session is active.
+
+	Inferior 1 [Remote target] will be killed.
+
+Quit anyway? (y or n) Remote connection closed

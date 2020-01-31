@@ -1,0 +1,3065 @@
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1002041600 Hz and cycles per us as 2297 (core at 2297000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000016a000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fiberbench4
+root-shell> 
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x00394bd2      (core=0, thread=4)
+Current Thread=0x4 (0x00302000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:0000000000394bd2
+RSP: 0010:00000000001b7f08 RFLAGS: 00000202 Vector: 0000000d Error: 00000000
+RAX: 0000000000000001 RBX: 00000000001c3260 RCX: 0000000000000000
+RDX: 00000004bb2b6a1b RDI: 00000000000003e8 RSI: 00000000004201b8
+RBP: 00000000001b7fa8 R08: 00ff53f000ff53f0 R09: 0000000000000001
+R10: 000000000041f798 R11: 000000000041f7a0 R12: 0000000000000000
+R13: 0000000000000000 R14: 00000000001691e0 R15: 0000000000394ba0
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+[ 0] RIP: 0x003d518e RBP: 0x001b7fd8
+[ 1] RIP: 0x00392acd RBP: 0x001b7ff8
+[ 2] RIP: 0x001b8000 RBP: 0x00000000
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1001110400 Hz and cycles per us as 2298 (core at 2298000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000016a000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fibebrbench5
+root-shell> fbiberbench6
+root-shell> Benchmark 11 is finished
+
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x00394bd2      (core=0, thread=4)
+Current Thread=0x4 (0x00302000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:0000000000394bd2
+RSP: 0010:00000000001bbef8 RFLAGS: 00000202 Vector: 0000000d Error: 00000000
+RAX: 0000000000000001 RBX: 00000000001bde20 RCX: 0000000000000000
+RDX: 0000000a03e8d45d RDI: 00000000000003e8 RSI: 00000000004201b8
+RBP: 00000000001bbf98 R08: ff53f000ff53f000 R09: 0000000000000001
+R10: 000000000041f798 R11: 000000000041f7a0 R12: 0000000000000004
+R13: 0000000000000010 R14: 0000000000394ba0 R15: 00000000001b1e00
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+[ 0] RIP: 0x003d4953 RBP: 0x001bbfd8
+[ 1] RIP: 0x00392acd RBP: 0x001bbff8
+[ 2] RIP: 0x0000135e RBP: 0x00000000
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1000734400 Hz and cycles per us as 2297 (core at 2297000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000016a000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fiberbench7
+root-shell> fiberbench8
+root-shell> CPU 0 (P 4 "(fiber)"): WARNING : PMC: Cannot create perf counter, PMC system disabled
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(712): PMC: Bad event given
+Benchmark 15 is finished
+PMC: ++++++++ Perf Monitor Event Report ++++++++
+PMC: ++++++++ Perf Monitor Report End ++++++++
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(738): PMC: Bad event given
+CPU 0 (P 4 "(fiber)"): WARNING : PMC: Attempt to destroy bad event
+Benchmark 16 is finished
+PRINTSTART
+15971502385
+619116
+4658601688
+741932
+673767
+71278
+40480
+175572
+148089
+114044
+120614
+111898
+112118
+118812
+144052
+108046
+115240
+114396
+111356
+109498
+113234
+112022
+121302
+114188
+107610
+113948
+111866
+119862
+112958
+115778
+135090
+124490
+116458
+112198
+116652
+115060
+115370
+111982
+113688
+110902
+109908
+112788
+120656
+114110
+109950
+133628
+111358
+113854
+112202
+125864
+114192
+108646
+114240
+111632
+111318
+109736
+113346
+106890
+115482
+115150
+106950
+134144
+152833
+118590
+116536
+130846
+114254
+146453
+122968
+107538
+113554
+109358
+110060
+110022
+116676
+110000
+113278
+137146
+107784
+115350
+109298
+118568
+118262
+114722
+108050
+113530
+109600
+120570
+113748
+15974
+869410
+653978
+546832
+20330
+42864
+41558
+128844
+141604
+108988
+114010
+115094
+115776
+110072
+115060
+111064
+109030
+113676
+107938
+114068
+161027
+121756
+116912
+121984
+135492
+147909
+114174
+107700
+121512
+110572
+111042
+109574
+114618
+106474
+114256
+115186
+107246
+116498
+109658
+119296
+174019
+122200
+113120
+121288
+121306
+145099
+113578
+111382
+110538
+109698
+114044
+106258
+113794
+116570
+106648
+135082
+110942
+119342
+109724
+123760
+107436
+117834
+114636
+110986
+113870
+110652
+110410
+111224
+114316
+106690
+115742
+128916
+111136
+113806
+109708
+117968
+109128
+116384
+107274
+127236
+110926
+111528
+113590
+111124
+110788
+110144
+117122
+108278
+113994
+15946
+PRINTEND
+fiberbench9
+root-shell> CPU 0 (P 4 "(fiber)"): WARNING : PMC: Cannot create perf counter, PMC system disabled
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(712): PMC: Bad event given
+inf, inf, inf
+Benchmark 17 is finished
+PMC: ++++++++ Perf Monitor Event Report ++++++++
+PMC: ++++++++ Perf Monitor Report End ++++++++
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(738): PMC: Bad event given
+CPU 0 (P 4 "(fiber)"): WARNING : PMC: Attempt to destroy bad event
+PRINTSTART
+20817103691
+7565158621
+558820
+471422
+30406
+39146
+132920
+119472
+117858
+104454
+113444
+107694
+104992
+106182
+105164
+102460
+106348
+103542
+104030
+115446
+109202
+106342
+115724
+105198
+108890
+111230
+102482
+99600
+104490
+104230
+103684
+115852
+104474
+103336
+109494
+107652
+102720
+106162
+103244
+103238
+100722
+109744
+107302
+112584
+106908
+107820
+91364
+1766502
+1704410
+749026
+PRINTEND
+fiberbench10
+root-shell> CPU 0 (P 4 "(fiber)"): WARNING : PMC: Cannot create perf counter, PMC system disabled
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(712): PMC: Bad event given
+4864500000000000000, 13617900000000000000, 15220100000000000000
+Benchmark 19 is finished
+PMC: ++++++++ Perf Monitor Event Report ++++++++
+PMC: ++++++++ Perf Monitor Report End ++++++++
+CPU 0 (P 4 "(fiber)"): ERROR at src/nautilus/pmc.c(738): PMC: Bad event given
+CPU 0 (P 4 "(fiber)"): WARNING : PMC: Attempt to destroy bad event
+12715400000000000000, 5881130000000000000, 2566350000000000000
+Benchmark 20 is finished
+REAL CALL
+PRINTSTART
+34109309657
+52990
+442540
+457343
+105470
+23874
+162635
+183779
+135426
+159338
+144314
+134448
+129158
+130068
+130034
+132362
+125652
+129476
+174810
+140562
+183391
+144385
+168958
+137802
+158976
+139646
+129606
+131948
+125028
+131524
+130024
+139752
+128622
+132960
+139410
+133154
+125778
+135696
+135402
+130438
+125450
+138522
+157392
+133776
+125156
+131552
+128822
+130050
+129202
+134916
+131754
+140332
+135296
+129074
+136646
+130704
+125128
+129846
+132076
+139132
+131258
+132136
+139454
+134908
+128602
+130338
+133344
+201832
+1963908
+2289342
+51678
+410922
+336802
+59526
+15866
+30456
+23118
+143410
+132874
+132584
+134092
+148878
+127324
+129840
+129408
+130542
+124974
+127114
+129100
+128504
+136356
+138292
+129412
+129572
+122670
+127056
+127732
+131462
+124584
+126316
+126688
+129580
+134868
+127560
+126504
+126814
+124112
+133734
+141748
+129826
+130158
+133512
+140760
+134418
+125202
+133866
+131832
+129690
+128190
+128618
+131824
+130238
+125130
+140760
+138900
+144212
+126130
+130342
+129332
+128824
+154076
+424078
+149824
+147968
+133222
+137874
+142142
+140900
+180358
+1037708
+1338050
+PRINTEND
+fiberbench11
+root-shell> Benchmark 21 is finished
+Benchmark 22 is finished
+PRINTSTART
+38915992929
+115842
+10198405
+27050
+550
+404
+334
+434
+428
+374
+326
+356
+426
+360
+328
+356
+356
+366
+354
+322
+360
+354
+358
+358
+356
+374
+506
+356
+422
+326
+360
+358
+360
+364
+354
+356
+326
+358
+358
+358
+356
+376
+358
+324
+356
+354
+394
+356
+356
+366
+544
+354
+326
+356
+358
+356
+352
+380
+538
+326
+354
+358
+356
+354
+394
+362
+356
+360
+326
+356
+358
+360
+356
+362
+324
+356
+354
+358
+394
+358
+356
+356
+360
+324
+360
+362
+358
+358
+356
+326
+540
+356
+354
+360
+400
+356
+352
+360
+326
+356
+356
+358
+356
+358
+326
+360
+358
+358
+358
+356
+328
+358
+354
+392
+356
+354
+356
+358
+326
+356
+358
+354
+358
+328
+358
+358
+356
+358
+358
+394
+356
+358
+358
+326
+356
+358
+352
+356
+326
+354
+358
+354
+356
+326
+430
+356
+322
+354
+358
+354
+358
+324
+354
+362
+356
+356
+358
+326
+358
+426
+326
+356
+358
+358
+354
+360
+328
+358
+358
+356
+356
+324
+356
+358
+356
+390
+354
+358
+356
+356
+324
+356
+354
+360
+358
+328
+358
+360
+358
+358
+360
+358
+396
+356
+354
+324
+358
+356
+356
+356
+326
+358
+360
+358
+356
+356
+332
+356
+426
+322
+360
+356
+354
+358
+356
+328
+356
+354
+354
+358
+328
+356
+360
+356
+358
+396
+356
+356
+356
+326
+354
+360
+356
+360
+356
+328
+360
+352
+356
+358
+326
+422
+358
+358
+326
+358
+354
+356
+360
+328
+358
+354
+360
+358
+360
+360
+324
+430
+352
+330
+358
+360
+356
+356
+354
+328
+352
+354
+358
+324
+360
+356
+358
+396
+358
+356
+360
+358
+352
+330
+356
+356
+356
+356
+328
+356
+358
+360
+358
+394
+356
+358
+360
+354
+324
+354
+358
+356
+356
+330
+358
+378
+358
+372
+358
+358
+358
+358
+326
+424
+354
+360
+326
+358
+360
+356
+360
+358
+326
+406
+326
+356
+358
+356
+358
+396
+358
+356
+356
+328
+356
+356
+360
+356
+328
+358
+360
+356
+358
+356
+326
+428
+354
+360
+326
+356
+354
+358
+358
+324
+358
+354
+356
+358
+326
+358
+358
+360
+354
+356
+394
+358
+356
+358
+328
+356
+358
+356
+354
+330
+
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x00335bad      (core=0, thread=4)
+Current Thread=0x4 (0x00302000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:0000000000335bad
+RSP: 0010:00000000001bb910 RFLAGS: 00000046 Vector: 0000000d Error: 00000000
+RAX: 000000091d3de73a RBX: 0000000001404980 RCX: f000ff53f000ff53
+RDX: 0000000000000000 RDI: 00000000001bba00 RSI: 00000000000000f0
+RBP: 00000000001bb950 R08: 000000000039e640 R09: 0000000000000001
+R10: 00000000003fa23e R11: 00000000003f43d0 R12: 0000000000180000
+R13: 000000000030aad0 R14: 00000000001bba78 R15: 0000000000000202
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+[ 0] RIP: 0x0039e66b RBP: 0x001bb970
+[ 1] RIP: 0x003eccf8 RBP: 0x001bba68
+[ 2] RIP: 0x0030c945 RBP: 0x001bbf58
+[ 3] RIP: 0x00392b6d RBP: 0x001bbf98
+[ 4] RIP: 0x003d6622 RBP: 0x001bbfd8
+[ 5] RIP: 0x00392acd RBP: 0x001bbff8
+[ 6] RIP: 0x00000000 RBP: 0x00000000
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1000704000 Hz and cycles per us as 2296 (core at 2296000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 0000000000168000
+Nautilus boot thread yielding (indefinitely)
+root-shell> CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 00000000001a4000
+fiberbench12
+root-shell> 
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x00394bd2      (core=0, thread=3)
+Current Thread=0x3 (0x00300000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:0000000000394bd2
+RSP: 0010:00000000001b7ed8 RFLAGS: 00000206 Vector: 0000000d Error: 00000000
+RAX: 0000000000000001 RBX: 0000000000000017 RCX: 0000000000000000
+RDX: 00000001c04e6d49 RDI: 00000000000003e8 RSI: 00000000004201b8
+RBP: 00000000001b7f78 R08: ff53f000ff53f000 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+R13: 0000000000000000 R14: 0000000000000020 R15: 0000000000394ba0
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+[ 0] RIP: 0x003d5f66 RBP: 0x001b7fd8
+[ 1] RIP: 0x00392acd RBP: 0x001b7ff8
+[ 2] RIP: 0x001b8000 RBP: 0x00000000
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1001156800 Hz and cycles per us as 2298 (core at 2298000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000016a000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fiberbtest
+test_fibers() : virtual console 0000000000180000
+Fiber 2 a = 0
+Fiber 2 a = 1
+Fiber 2 a = 2
+Fiber 2 a = 3
+Fiber 2 a = 4
+Fiber 2 a = 5
+Fiber 2 a = 6
+Fiber 2 a = 7
+Fiber 2 a = 8
+Fiber 2 a = 9
+Fiber 2 is finished, a = 10
+Fiber 4 a = 0
+Fiber 4 a = 1
+Fiber 4 a = 2
+Fiber 4 a = 3
+Fiber 4 a = 4
+Fiber 4 a = 5
+Fiber 4 a = 6
+Fiber 4 a = 7
+Fiber 4 a = 8
+Fiber 4 a = 9
+Fiber 4 is finished, a = 10
+Fiber 1 a = 0
+Fiber 1 a = 1
+Fiber 1 a = 2
+Fiber 1 a = 3
+Fiber 1 a = 4
+Fiber 1 is finished, a = 5
+Fiber 3 a = 0
+Fiber 3 a = 1
+Fiber 3 is finished, a = 2
+Fiber 4 a = 0
+Fiber 4 a = 1
+Fiber 4 a = 2
+Fiber 4 a = 3
+Fiber 4 a = 4
+Fiber 4 a = 5
+Fiber 4 a = 6
+Fiber 4 a = 7
+Fiber 4 a = 8
+Fiber 4 a = 9
+Fiber 4 is finished, a = 10
+root-shell> Fiber 3 a = 0
+Fiber 3 a = 1
+Fiber 3 is finished, a = 2
+Fiber 4 a = 0
+Fiber 4 a = 1
+Fiber 4 a = 2
+Fiber 4 a = 3
+Fiber 4 a = 4
+Fiber 4 a = 5
+Fiber 4 a = 6
+Fiber 4 a = 7
+Fiber 4 a = 8
+Fiber 4 a = 9
+Fiber 4 is finished, a = 10
+fibertest21
+Don't understand "fibertest1"
+root-shell> fibertest2
+test_nested_fibers() : virtual console 0000000000180000
+root-shell> Fiber outer a = 0
+Fiber inner a = 0
+Fiber outer a = 1
+Fiber inner a = 1
+Fiber inner a = 0
+Fiber outer a = 2
+Fiber inner a = 2
+Fiber inner a = 1
+Fiber outer is finished, a = 3
+Fiber inner a = 3
+Fiber inner a = 2
+Fiber inner a = 4
+Fiber inner a = 3
+Fiber inner a = 5
+Fiber inner a = 4
+Fiber inner a = 6
+Fiber inner a = 5
+Fiber inner a = 7
+Fiber inner a = 6
+Fiber inner a = 8
+Fiber inner a = 7
+Fiber inner a = 9
+Fiber inner a = 8
+Fiber inner is finished, a = 10
+Fiber inner a = 9
+Fiber inner is finished, a = 10
+Fiber inner a = 0
+Fiber inner a = 1
+Fiber inner a = 2
+Fiber inner a = 3
+Fiber inner a = 4
+Fiber inner a = 5
+Fiber inner a = 6
+Fiber inner a = 7
+Fiber inner a = 8
+Fiber inner a = 9
+Fiber inner is finished, a = 10
+fibertest3
+root-shell> Fiber even, counter = 0 and j = 0
+Fiber odd, counter = 1
+Fiber even, counter = 2 and j = 0
+Fiber odd, counter = 3
+Fiber even, counter = 4 and j = 0
+Fiber odd, counter = 5
+Fiber even, counter = 6 and j = 0
+Fiber odd, counter = 7
+Fiber even, counter = 8 and j = 0
+Fiber odd, counter = 9
+Fiber even is finished
+Fiber odd is finished
+fibertest4
+test_yield_to() : virtual console 0000000000180000
+root-shell> fiber_fourth() : a = 0 and yielding to fiber_first = 00000000001b0f00
+Fiber_first() : a = 0 and yielding to fiber_second = 00000000001b3800
+Fiber_second() : a = 0 and yielding to fiber_third = 00000000001b3500
+fiber_third() : a = 0 and yielding to fiber_fourth = 00000000001b1f00
+fiber_fourth() : a = 1 and yielding to fiber_first = 00000000001b0f00
+Fiber_first() : a = 1 and yielding to fiber_second = 00000000001b3800
+Fiber_second() : a = 1 and yielding to fiber_third = 00000000001b3500
+fiber_third() : a = 1 and yielding to fiber_fourth = 00000000001b1f00
+fiber_fourth() : a = 2 and yielding to fiber_first = 00000000001b0f00
+Fiber_first() : a = 2 and yielding to fiber_second = 00000000001b3800
+Fiber_second() : a = 2 and yielding to fiber_third = 00000000001b3500
+fiber_third() : a = 2 and yielding to fiber_fourth = 00000000001b1f00
+fiber_fourth() : a = 3 and yielding to fiber_first = 00000000001b0f00
+Fiber_first() : a = 3 and yielding to fiber_second = 00000000001b3800
+Fiber_second() : a = 3 and yielding to fiber_third = 00000000001b3500
+fiber_third() : a = 3 and yielding to fiber_fourth = 00000000001b1f00
+fiber_fourth() : a = 4 and yielding to fiber_first = 00000000001b0f00
+Fiber_first() : a = 4 and yielding to fiber_second = 00000000001b3800
+Fiber_second() : a = 4 and yielding to fiber_third = 00000000001b3500
+fiber_third() : a = 4 and yielding to fiber_fourth = 00000000001b1f00
+fiber 4 is finished, a = 5
+Fiber 1 is finished, a = 5
+Fiber 2 is finished, a = 5
+fiber 3 is finished, a = 5
+ifibertest5
+test_fiber_join() : virtual console 0000000000180000
+root-shell> Fiber outer a = 0
+Fiber inner a = 0
+Fiber inner a = 1
+Fiber inner a = 2
+Fiber inner a = 3
+Fiber inner a = 4
+Fiber inner a = 5
+Fiber inner a = 6
+Fiber inner a = 7
+Fiber inner a = 8
+Fiber inner a = 9
+Fiber inner is finished, a = 10
+Fiber outer a = 1
+Fiber inner a = 0
+Fiber inner a = 1
+Fiber inner a = 2
+Fiber inner a = 3
+Fiber inner a = 4
+Fiber inner a = 5
+Fiber inner a = 6
+Fiber inner a = 7
+Fiber inner a = 8
+Fiber inner a = 9
+Fiber inner is finished, a = 10
+Fiber outer a = 2
+Fiber inner a = 0
+Fiber inner a = 1
+Fiber inner a = 2
+Fiber inner a = 3
+Fiber inner a = 4
+Fiber inner a = 5
+Fiber inner a = 6
+Fiber inner a = 7
+Fiber inner a = 8
+Fiber inner a = 9
+Fiber inner is finished, a = 10
+Fiber outer is finished, a = 3
+fibertest6
+test_fiber_fork() : virtual console 0000000000180000
+root-shell> fiber_fork() : This is iteration 0 of fiber 00000000001b0f00
+ and curr_f is 00000000001b3500
+fiber_fork() : This is iteration 0 of fiber (null)
+ and curr_f is 00000000001b0f00
+fiber_fork() : This is iteration 1 of fiber 00000000001b0f00
+ and curr_f is 00000000001b3500
+fiber_fork() : This is iteration 1 of fiber (null)
+ and curr_f is 00000000001b0f00
+fiber_fork() : This is iteration 2 of fiber 00000000001b0f00
+ and curr_f is 00000000001b3500
+fiber_fork() : This is iteration 2 of fiber (null)
+ and curr_f is 00000000001b0f00
+fiber_fork() : This is iteration 3 of fiber 00000000001b0f00
+ and curr_f is 00000000001b3500
+fiber_fork() : This is iteration 3 of fiber (null)
+ and curr_f is 00000000001b0f00
+fiber_fork() : This is iteration 4 of fiber 00000000001b0f00
+ and curr_f is 00000000001b3500
+fiber_fork() : This is iteration 4 of fiber (null)
+ and curr_f is 00000000001b0f00
+fiber 4 is finished, a = 5
+fiber 4 is finished, a = 5
+fibertest7
+test_fiber_fork_join() : virtual console 0000000000180000
+root-shell> fiber_fork_join() : This is iteration 0 of fiber 00000000001b3500
+fiber_fork_join() : This is iteration 1 of fiber 00000000001b3500
+fiber_fork_join() : This is iteration 2 of fiber 00000000001b3500
+fiber_fork_join() : This is iteration 3 of fiber 00000000001b3500
+fiber_fork_join() : This is iteration 4 of fiber 00000000001b3500
+fiber 00000000001b3500 is finished, a = 5
+fiber_fork_join() : This is iteration 0 of fiber 00000000001b0f00
+fiber_fork_join() : This is iteration 1 of fiber 00000000001b0f00
+fiber_fork_join() : This is iteration 2 of fiber 00000000001b0f00
+fiber_fork_join() : This is iteration 3 of fiber 00000000001b0f00
+fiber_fork_join() : This is iteration 4 of fiber 00000000001b0f00
+fiber 00000000001b0f00 is finished, a = 5
+fibertest8
+test_fiber_routine() : virtual console 0000000000180000
+root-shell> fiber_routine1() : fiber 00000000001b0f00 is finished, a = 0
+fiber_routine1() : This is iteration 0 of fiber 00000000001b1f00
+fiber_routine1() : fiber 00000000001b1f00 is finished, a = 1
+fiber_routine2() : Fiber 00000000001b8400 created
+fiber_routine1() : This is iteration 1 of fiber 00000000001b0f00
+fiber_routine1() : fiber 00000000001b0f00 is finished, a = 2
+fiber_routine2() : Fiber 00000000001b8500 created
+fiber_routine1() : This is iteration 2 of fiber 00000000001b8400
+fiber_routine1() : fiber 00000000001b8400 is finished, a = 3
+fiber_routine2() : Fiber 00000000001b1f00 created
+fiber_routine1() : This is iteration 3 of fiber 00000000001b8500
+fiber_routine1() : fiber 00000000001b8500 is finished, a = 4
+fiber_routine2() : Fiber 00000000001b0f00 created
+fiber_routine1() : This is iteration 4 of fiber 00000000001b1f00
+fiber_routine1() : fiber 00000000001b1f00 is finished, a = 5
+fiber_routine2() : Fiber 00000000001b8400 created
+fibertest9
+test_fiber_routine_2() : virtual console 0000000000180000
+root-shell> fiber_routine3() : This is iteration 0 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 1 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 2 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 3 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b1f00
+fiber_routine3() : fiber 00000000001b1f00 is finished, a = 5
+fiber_routine3() : This is iteration 0 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 1 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8600
+fiber_routine3() : fiber 00000000001b8600 is finished, a = 5
+fiber_routine3() : This is iteration 1 of fiber 00000000001b8700
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8700
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8700
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8700
+fiber_routine3() : fiber 00000000001b8700 is finished, a = 5
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8800
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8800
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8800
+fiber_routine3() : fiber 00000000001b8800 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8900
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8900
+fiber_routine3() : fiber 00000000001b8900 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8a00
+fiber_routine3() : fiber 00000000001b8a00 is finished, a = 5
+fiber_routine3() : This is iteration 1 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 2 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 3 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b1f00
+fiber_routine3() : fiber 00000000001b1f00 is finished, a = 5
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8b00
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8b00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8b00
+fiber_routine3() : fiber 00000000001b8b00 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8c00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8c00
+fiber_routine3() : fiber 00000000001b8c00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8d00
+fiber_routine3() : fiber 00000000001b8d00 is finished, a = 5
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8600
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8600
+fiber_routine3() : fiber 00000000001b8600 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8e00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8e00
+fiber_routine3() : fiber 00000000001b8e00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8f00
+fiber_routine3() : fiber 00000000001b8f00 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8700
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8700
+fiber_routine3() : fiber 00000000001b8700 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9000
+fiber_routine3() : fiber 00000000001b9000 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8800
+fiber_routine3() : fiber 00000000001b8800 is finished, a = 5
+fiber_routine3() : This is iteration 2 of fiber 00000000001b8a00
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8a00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8a00
+fiber_routine3() : fiber 00000000001b8a00 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8900
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8900
+fiber_routine3() : fiber 00000000001b8900 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9100
+fiber_routine3() : fiber 00000000001b9100 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b1f00
+fiber_routine3() : This is iteration 4 of fiber 00000000001b1f00
+fiber_routine3() : fiber 00000000001b1f00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9200
+fiber_routine3() : fiber 00000000001b9200 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8b00
+fiber_routine3() : fiber 00000000001b8b00 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b9300
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9300
+fiber_routine3() : fiber 00000000001b9300 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8c00
+fiber_routine3() : fiber 00000000001b8c00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8600
+fiber_routine3() : fiber 00000000001b8600 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8d00
+fiber_routine3() : fiber 00000000001b8d00 is finished, a = 5
+fiber_routine3() : This is iteration 3 of fiber 00000000001b8800
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8800
+fiber_routine3() : fiber 00000000001b8800 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9000
+fiber_routine3() : fiber 00000000001b9000 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8a00
+fiber_routine3() : fiber 00000000001b8a00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b9100
+fiber_routine3() : fiber 00000000001b9100 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b8b00
+fiber_routine3() : fiber 00000000001b8b00 is finished, a = 5
+fiber_routine3() : This is iteration 4 of fiber 00000000001b1f00
+fiber_routine3() : fiber 00000000001b1f00 is finished, a = 5
+fibertest10
+Don't understand "fibertest10"
+root-shell> fibertime1
+test_fiber_timing() : virtual console 0000000000180000
+root-shell> CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1001174400 Hz and cycles per us as 2298 (core at 2298000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000015e000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fibertesiime1
+test_fiber_timing() : virtual console 0000000000180000
+root-shell> CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1000752000 Hz and cycles per us as 2297 (core at 2297000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00302000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 000000000016a000
+Nautilus boot thread yielding (indefinitely)
+root-shell> fibertime2
+root-shell> 
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x0080a2f0      (core=0, thread=4)
+Current Thread=0x4 (0x00302000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:000000000080a2f0
+RSP: 0010:00000000001bc008 RFLAGS: 00000286 Vector: 0000000d Error: 00000000
+RAX: 00000000febf7faf RBX: 0000000000000000 RCX: 0000000000392acd
+RDX: 00000000001bbff8 RDI: 0000000000000000 RSI: 0000000000000000
+RBP: 0000000000000000 R08: 0000000000000000 R09: 00000000001b1e00
+R10: 0000000000000000 R11: 00000000003c475f R12: 00000000001bbfd8
+R13: 00000000001b0f00 R14: 0000000000000000 R15: 0000000000394ba0
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected AuthenticAMD Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00434b6d
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 416B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x00428000
+CPU ? (): DEBUG:   mod_end   0x00434b6d
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x00365b2c
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x00427820
+ACPI: Parsing ACPI root table (at 0x000f61f0)
+ACPI: RSDP 00000000000f61f0 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffc2a 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 0093E (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb72 00080 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffbf2 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 2 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 2MB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1000659200 Hz and cycles per us as 2297 (core at 2297000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x0130a6c0
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x0130a6c0   kmem private: 0x00809000-0x0130a6c0
+SMP: Setting up cross-core IPI event queue
+CPU 1 (P 0 "*none*"): dev: Added device with name apic1, type 1, flags 0x0
+CPU 1 (P 2 "*unnamed*"): timehook: inited
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00300000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Insufficient AMD PMC support for perf counter subsystem
+CPU 0 (P 1 "*unnamed*"): WARNING : PMC: Disabling PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 0000000000168000
+Nautilus boot thread yielding (indefinitely)
+root-shell> CPU 1 (P 2 "*unnamed*"): fiber: Starting fiber thread for CPU 1
+CPU 1 (P 2 "*unnamed*"): fiber: Fiber thread launched on cpu 1 as 00000000001a4000
+fiberbench1
+root-shell> Benchmark 1 is finished
+Benchmark 2 is finished
+PRINTSTART
+43264350383
+96498
+24957
+1871
+1413
+1393
+1429
+1407
+1426
+1595
+1352
+1405
+1361
+1350
+1386
+1365
+1358
+1527
+1420
+1359
+1358
+1414
+1359
+1413
+1426
+1573
+1387
+1447
+1356
+1373
+1359
+1386
+1340
+1530
+1368
+1362
+1371
+1419
+1344
+1377
+1355
+1570
+1420
+1352
+1368
+1362
+1361
+1362
+1365
+1527
+1404
+1396
+1377
+1370
+1362
+1365
+1367
+1635
+1365
+1386
+1392
+1398
+1384
+1343
+1380
+1524
+1386
+1389
+1340
+1365
+1359
+1367
+1377
+1601
+1380
+1371
+1368
+1447
+1386
+1353
+1386
+1604
+1380
+1361
+1435
+1386
+1390
+1404
+1356
+1579
+1352
+1353
+1389
+1346
+1374
+1371
+1362
+1560
+1396
+1352
+1383
+1408
+1496
+1359
+1365
+1364
+1371
+1398
+1384
+1373
+1377
+1393
+1343
+1355
+1380
+1350
+1380
+1401
+1377
+1374
+1414
+1364
+1371
+1398
+1384
+1352
+1438
+1377
+1362
+1349
+1383
+1359
+1352
+1377
+1359
+1386
+1438
+1383
+1377
+1340
+1377
+1340
+1377
+1343
+1343
+1353
+1355
+1420
+1368
+1374
+1371
+1456
+1359
+1352
+1362
+1395
+1374
+1377
+1362
+1346
+1349
+1377
+1389
+1353
+1355
+1356
+1438
+1423
+1386
+1365
+1377
+1358
+1389
+1380
+1353
+1432
+1368
+1429
+1407
+1414
+1358
+1384
+1352
+1417
+1371
+1349
+1386
+1371
+1352
+1374
+1392
+1347
+1367
+1353
+1352
+1411
+1358
+1350
+1352
+1472
+1359
+8605
+929736
+36984
+16554
+1638
+1389
+1319
+1334
+1383
+1429
+1380
+1410
+1377
+1442
+1401
+1374
+1402
+1361
+1368
+1358
+1365
+1346
+1365
+1349
+1374
+1350
+1453
+1343
+1374
+1374
+1392
+1371
+1383
+1377
+1371
+1380
+1426
+1365
+1358
+1380
+1368
+1368
+1419
+1347
+1346
+1355
+1353
+1401
+1405
+1429
+1340
+1374
+1358
+1347
+1358
+1386
+1374
+1374
+1426
+1460
+1358
+1350
+1364
+1368
+1365
+1346
+1380
+1374
+1365
+1423
+1352
+1346
+1377
+1359
+1389
+1346
+1343
+1371
+1380
+1426
+1343
+1417
+1386
+1356
+1386
+1426
+1355
+1377
+1362
+1358
+1377
+1386
+1377
+1390
+1364
+1374
+1411
+1380
+1352
+1392
+1368
+1362
+1432
+1358
+1387
+1361
+1346
+1347
+1429
+1358
+1432
+1359
+1386
+1429
+1359
+1417
+1376
+1341
+1361
+1392
+1356
+1389
+1365
+1380
+1361
+1368
+1359
+1370
+1353
+1380
+1441
+1359
+1364
+1353
+1383
+1404
+1344
+1373
+1387
+1346
+1371
+1367
+1390
+1416
+1347
+1364
+1442
+1380
+1426
+1401
+1337
+1405
+1352
+1405
+1343
+1374
+1386
+1346
+1371
+1368
+1361
+1420
+1441
+1380
+1423
+1402
+1346
+1429
+1346
+1430
+1340
+1374
+1358
+1346
+1359
+1386
+1383
+1380
+1426
+1460
+1352
+1368
+1380
+1362
+1373
+1396
+1392
+1423
+1346
+1426
+1343
+1429
+1423
+1390
+1444
+1362
+1380
+1361
+1365
+1361
+1347
+1346
+5382
+PRINTEND
+fiberbench12
+root-shell> fiberbench3Benchmark 1 is finished
+Benchmark 2 is finished
+PRINTSTART
+44166240455
+10344041193
+66801
+1959701432
+2090
+1368
+1210
+1210
+1200
+1454
+1236
+1264
+1278
+1234
+1282
+1282
+1336
+1394
+1232
+1252
+1238
+1272
+1252
+1312
+1300
+1458
+1310
+1330
+2258355049
+4132
+1595
+1518
+1484
+1647
+1466
+1444
+1460
+1455
+1452
+1492
+1466
+1734
+1472
+1463
+1527
+1509
+40293
+1320
+1360
+1566
+1306
+1352
+1402
+1972667380
+1648
+1226
+1334
+1498
+1280
+1230
+1268
+1282
+1274
+1272
+1228
+1448
+1236
+1268
+1222
+1252
+1224
+1266
+1224
+1442
+1308
+1272
+1270
+1298
+1408926850
+1468
+1310
+1508
+1298
+1236
+1252
+1304
+1286
+1298
+1260
+1414
+1334
+1256
+1262
+1250
+1228
+1266
+1234
+1446
+1296
+1226
+1270
+1248
+1288
+1977022512
+1480
+1402
+1374
+1350
+1234
+1296
+1264
+1220
+1248
+1482
+1222
+1302
+1270
+1274
+1264
+1236
+1334
+1438
+1256
+1266
+1290
+1226
+1260
+1248
+1826083328
+1904
+1326
+1368
+1350
+1320
+1370
+1392
+1350
+1466
+1318
+1308
+1344
+1376
+1304
+1350
+1300
+1498
+1392
+1372
+1354
+1302
+1304
+1372
+1440
+2082857464
+1660
+1302
+1310
+1286
+1276
+1276
+1272
+1424
+1252
+1306
+1256
+1280
+1308
+1288
+1278
+1394
+1272
+1230
+1296
+1330
+1244
+1268
+1278
+1476
+2119002352
+1654
+1354
+1234
+1260
+1226
+1276
+1428
+1226
+1268
+1232
+1288
+1256
+1236
+1250
+1418
+1260
+1272
+1242
+1358
+1268
+1234
+1274
+1430
+23462
+922668
+38556
+17480
+1326
+1274
+1270
+1480
+1230
+1280
+1254
+1240
+1276
+1264
+1222
+1476
+1286
+1268
+1218
+1268
+1218
+1248
+1222
+1464
+1262
+1280
+1292
+1240
+1264
+1224
+1250
+1464
+1236
+1280
+1290
+1214
+1248
+1224
+1340
+1412
+1250
+1290
+1240
+1264
+1226
+1248
+1224
+1468
+1224
+1288
+1240
+1224
+1248
+1314
+1292
+1446
+1242
+1240
+1224
+1222
+1292
+1266
+1248
+1432
+1248
+1222
+1292
+1266
+1300
+1262
+1282
+1408
+1296
+1292
+1266
+1270
+1236
+1262
+1276
+1426
+1242
+1242
+1262
+1286
+1268
+1230
+1222
+1414
+1236
+1282
+10542
+1246
+1268
+1228
+1260
+1452
+1280
+1248
+1256
+1270
+1228
+1262
+1298
+1386
+1300
+1266
+1286
+1234
+1256
+1276
+1282
+1426
+1250
+1280
+1288
+1282
+1324
+1264
+1236
+1440
+1268
+1240
+1262
+1282
+1284
+1248
+1266
+1464
+1268
+1240
+1262
+1316
+1280
+1254
+1232
+1422
+1236
+1280
+1286
+1272
+1242
+1266
+1262
+1402
+1262
+1250
+1282
+1332
+1232
+1256
+1238
+1474
+1256
+1224
+1288
+1280
+1288
+1278
+1280
+1414
+1266
+1268
+1236
+1280
+1350
+1220
+1260
+1482
+1220
+1242
+1210
+1274
+1218
+1270
+1224
+1442
+1224
+1290
+1266
+1224
+1248
+1314
+1290
+1470
+1268
+1224
+1290
+1266
+1224
+1244
+1222
+1224
+1292
+1266
+1222
+
+root-shell> 1250
+1310
+1246
+1224
+1290
+1266
+1224
+5164
+PRINTEND
+
++++ UNHANDLED EXCEPTION +++
+[General Protection Fault] (0xd) error=0x0 <#GP>
+    RIP=0x00394bd2      (core=0, thread=3)
+Current Thread=0x3 (0x00300000) "(fiber)"
+[-------------- Register Contents --------------]
+RIP: 0008:0000000000394bd2
+RSP: 0010:00000000001b4078 RFLAGS: 00000206 Vector: 0000000d Error: 00000000
+RAX: 0000000000000001 RBX: 00000000000003e7 RCX: 0000000000000000
+RDX: 000000106d096c1d RDI: 00000000000003e8 RSI: 00000000004201b8
+RBP: 00000000001b4118 R08: f000ff53f000ff53 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000001804
+R13: 00000fac00000000 R14: 0000000000394ba0 R15: 00000fa800000000
+FS: 0000000000000000(0010) GS: 0000000000802000(0000) knlGS: 0000000000000000
+CS: 0008 DS: 0010 ES: 0010 CR0: 0000000080000033
+CR2: 0000000000000000 CR3: 0000000000803000 CR4: 0000000000000620
+CR8: 0000000000000000 EFER: 0000000000000500
+[-----------------------------------------------]
+[----------------- Call Trace ------------------]
+[ 0] RIP: 0x003d56ad RBP: 0x001b7fd8
+[ 1] RIP: 0x00392acd RBP: 0x001b7ff8
+[ 2] RIP: 0x0080a2e0 RBP: 0x00000000
+PANIC at src/nautilus/idt.c(117): +++ HALTING +++

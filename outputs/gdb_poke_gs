@@ -1,0 +1,23 @@
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+Hardware watchpoint 1: *0x802050
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+$1 = 4333824
+$2 = 20996096
+Undefined command: "0x802050".  Try "help".
+Undefined command: "".  Try "help".
+Continuing.
+Hardware watchpoint 1: *0x802050
+
+Old value = 4333824
+New value = 16
+0x000000000036a475 in handle_poke (buf=<optimized out>, priv=<optimized out>)
+    at src/nautilus/mm/kmem.c:1137
+1137	                *(uint64_t*)addr = data; clflush_unaligned((void*)addr,8);

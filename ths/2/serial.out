@@ -1,0 +1,427 @@
+CPU ? (): dev: devices inited
+CPU ? (): chardev: init
+CPU ? (): blkdev: init
+CPU ? (): netdev: init
+Welcome to                                         
+    _   __               __   _  __                
+   / | / /____ _ __  __ / /_ (_)/ /__  __ _____    
+  /  |/ // __ `// / / // __// // // / / // ___/    
+ / /|  // /_/ // /_/ // /_ / // // /_/ /(__  )     
+/_/ |_/ \__,_/ \__,_/ \__//_//_/ \__,_//____/  
++===============================================+  
+ Kyle C. Hale (c) 2014 | Northwestern University   
++===============================================+  
+
+Detected GenuineIntel Processor
+CPU ? (): DEBUG: Increasing kern end to 0x00500e0e
+BOOTMEM: Setting up boot memory allocator
+BOOTMEM: Memory map[0] - [0x00000000 - 0x0009f000] <usable RAM>
+BOOTMEM: Memory map[1] - [0x000a0000 - 0x000a0000] <reserved>
+BOOTMEM: Memory map[2] - [0x000f0000 - 0x00100000] <reserved>
+BOOTMEM: Memory map[3] - [0x00100000 - 0x7fffe000] <usable RAM>
+BOOTMEM: Memory map[4] - [0x7fffe000 - 0x80000000] <reserved>
+BOOTMEM: Memory map[5] - [0xfeffc000 - 0xff000000] <reserved>
+BOOTMEM: Memory map[6] - [0xfffc0000 - 0x100000000] <reserved>
+BOOTMEM: Detected 2047.646144 MB (2049 pages) of usable System RAM
+CPU ? (): DEBUG: Multiboot info size 440B
+CPU ? (): DEBUG: Image load base: 0x100040
+CPU ? (): DEBUG: Kernel Cmd line: 
+CPU ? (): DEBUG: Boot loader: GRUB 2.04
+CPU ? (): DEBUG: Unhandled tag type (0xa)
+CPU ? (): DEBUG: Found module: 
+CPU ? (): DEBUG:   type:     0x00000003
+CPU ? (): DEBUG:   size:     0x00000011
+CPU ? (): DEBUG:   mod_start 0x004f4000
+CPU ? (): DEBUG:   mod_end   0x00500e0e
+CPU ? (): DEBUG:   args:     
+CPU ? (): DEBUG: Found symbol table module
+CPU ? (): DEBUG: Multiboot2 memory map detected
+CPU ? (): DEBUG: ELF size=20, num=0, entsize=0, shndx=0, sechdr=0x400ffffffff
+CPU ? (): DEBUG: Multiboot2 basic meminfo detected
+CPU ? (): DEBUG: Boot device: (biosdev=0xe0,slice=4294967295,part=4294967295)
+CPU ? (): DEBUG: fb addr: 0x000b8000, fb_width: 80, fb_height: 25
+CPU ? (): DEBUG: Old ACPI: rsdp=0x004f36c8
+ACPI: Parsing ACPI root table (at 0x000f6230)
+ACPI: RSDP 00000000000f6230 00014 (v00 BOCHS )
+ACPI: RSDT 000000007ffffbc1 00034 (v01 BOCHS  BXPCRSDT 00000001 BXPC 00000001)
+ACPI: root table checksum pass
+ACPI: FACP 000000007ffff1c0 00074 (v01 BOCHS  BXPCFACP 00000001 BXPC 00000001)
+ACPI: SSDT 000000007ffff234 008DD (v01 BOCHS  BXPCSSDT 00000001 BXPC 00000001)
+ACPI: APIC 000000007ffffb11 00078 (v01 BOCHS  BXPCAPIC 00000001 BXPC 00000001)
+ACPI: HPET 000000007ffffb89 00038 (v01 BOCHS  BXPCHPET 00000001 BXPC 00000001)
+ACPI: Done parsing ACPI root table
+SMP: Detected 1 CPUs
+NUMA: Parsing ACPI NUMA information...
+NUMA: DONE.
+CPU ? (): WARNING: NUMA: Associate Domains using ADHOC METHOD
+Remapping phys mem [0x00000000 - 0x100000000] with 1GB pages
+CPU ? (): KMEM: Malloc configured to support a maximum of: 0x7ff9d000 bytes of physical memory
+BOOTMEM: Adding boot memory regions to the kernel memory pool:
+BOOTMEM:     [Domain 00 : Region 00] (0.00 MB)
+BOOTMEM:     [Domain 00 : Region 01] (2124.414976 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2124.414976 MB)
+Disabling legacy 8259 PIC
+Initializing i8254 PIT
+CPU 0 (P 0 "*none*"): dev: Added device with name i8254, type 2, flags 0x0
+CPU 0 (P 0 "*none*"): timehook: inited
+CPU 0 (P 0 "*none*"): dev: Added device with name ioapic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): waitqueue: inited
+CPU 0 (P 0 "*none*"): future: inited (seeded pool with 256 futures)
+CPU 0 (P 0 "*none*"): timer: Timers inited
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 at 1000652800 Hz and cycles per us as 2299 (core at 2299000000 Hz) calibration mode=0
+CPU 0 (P 0 "*none*"): APIC: Detected APIC 0x0 CPU cycles per tick as 36 cycles (min was 36)
+CPU 0 (P 0 "*none*"): dev: Added device with name apic0, type 1, flags 0x0
+CPU 0 (P 0 "*none*"): semaphore: inited
+CPU 0 (P 0 "*none*"): msg_queue: inited
+CPU 0 (P 0 "*none*"): ps2: init
+CPU 0 (P 0 "*none*"): dev: Added device with name ps2-keyboard, type 0, flags 0x0
+PCI: Probing PCI bus...
+PCI: 0000:00:00.0 8086:1237 (rev 2)
+PCI: 0000:00:01.0 8086:7000 (rev 0)
+PCI: [0000:01.0] Multifunction Device detected
+PCI: 0000:00:01.1 8086:7010 (rev 0)
+PCI: 0000:00:01.3 8086:7113 (rev 3)
+PCI: 0000:00:02.0 1234:1111 (rev 0)
+PCI: 0000:00:03.0 8086:100e (rev 3)
+CPU 0 (P 0 "*none*"): dev: Added device with name pci0, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): dev: Added device with name isa, type 3, flags 0x0
+CPU 0 (P 0 "*none*"): Scheduler: Initializing scheduler on BSP
+CPU 0 (P 1 "*unnamed*"): group_sched: Inited
+BOOTMEM: Reclaiming boot sections and data:
+BOOTMEM:     [Boot alloc. page map] (0.264 MB)
+BOOTMEM:     [Boot page tables and stack]     (0.4096 MB)
+BOOTMEM:     =======
+BOOTMEM:     [TOTAL] (2.109704 MB)
+BOOTMEM:     Boot allocation range: 0x00800000-0x01306640
+CPU 0 (P 1 "*unnamed*"): KMEM:    boot range: 0x00800000-0x01306640   kmem private: 0x00805000-0x01306640
+SMP: Setting up cross-core IPI event queue
+MWAIT not supported
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name vga, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial-boot, type 0, flags 0x0
+CPU 0 (P 1 "*unnamed*"): chardev: register device serial0
+CPU 0 (P 1 "*unnamed*"): dev: Added device with name serial0, type 4, flags 0x0
+CPU 0 (P 1 "*unnamed*"): fiber: Initializing fibers on BSP
+CPU 0 (P 1 "*unnamed*"): fiber: Starting fiber thread for CPU 0
+CPU 0 (P 1 "*unnamed*"): fiber: Fiber thread launched on cpu 0 as 0x00102000
+CPU 0 (P 1 "*unnamed*"): vc: init
+List of VCs (space to regenerate, plus for new shell)
+
+a : default
+b : system-log
+c : vc-list
+CPU 0 (P 1 "*unnamed*"): vc: List launched
+CPU 0 (P 1 "*unnamed*"): fs: inited
+PMC: Initializing PMC subsystem
+parsing cmdline 
+CPU 0 (P 1 "*unnamed*"): Shell root-shell launched on cpu 0 as 0000000000106000
+CPU 0 (P 1 "*unnamed*"): timehook: time hook started
+CPU 0 (P 1 "*unnamed*"): timehook: time hook ready set
+Nautilus boot thread yielding (indefinitely)
+root-shell> ths
+cpu 0: 1 hooks  29287823ic  4732lf  0sf
+    *10074746lc *10074747fc
+    0hn 197pc 13255226067ls 19208343ec 10074746lc 10074747fc 29283090t 1emi 122ema 1lmi 47538555lma  74me 1435ve  56ml 419266782vl
+root-shell> ths
+cpu 0: 1 hooks  83392189ic  17814lf  0sf
+    *28049556lc *28049557fc
+    0hn 197pc 17602234419ls 55324817ec 28049556lc 28049557fc 83374374t 1emi 151ema 0lmi 47538555lma  74me 1557ve  48ml 180633029vl
+root-shell> ths
+cpu 0: 1 hooks  129834155ic  34699lf  0sf
+    *42254147lc *42254148fc
+    0hn 197pc 21130260351ls 87547245ec 42254756lc 42254757fc 129802002t 1emi 151ema 0lmi 47538555lma  73me 6536ve  50ml 140685117vl
+root-shell> ths
+cpu 0: 1 hooks  194327097ic  37919lf  0sf
+    *61233259lc *61233260fc
+    0hn 197pc 25822742599ls 133057822ec 61233900lc 61233901fc 194291723t 1emi 151ema 0lmi 47538555lma  73me 7064ve  50ml 97524525vl
+root-shell> ths
+cpu 0: 1 hooks  261288751ic  44739lf  0sf
+    *80435818lc *80435819fc
+    0hn 197pc 30574202484ls 180808192ec 80435818lc 80435819fc 261244011t 1emi 151ema 0lmi 47538555lma  73me 7012ve  50ml 74616901vl
+root-shell> ths
+cpu 0: 1 hooks  342880404ic  61334lf  0sf
+    *103653739lc *103653740fc
+    0hn 197pc 36374788080ls 239167505ec 103654409lc 103654410fc 342821915t 1emi 151ema 0lmi 47538555lma  73me 7152ve  50ml 97129926vl
+root-shell> ths
+cpu 0: 1 hooks  399324634ic  66958lf  0sf
+    *119733769lc *119733770fc
+    0hn 197pc 40372181218ls 279523905ec 119733769lc 119733770fc 399257675t 1emi 151ema 0lmi 47538555lma  73me 7212ve  50ml 88113792vl
+root-shell> ths
+cpu 0: 1 hooks  450858851ic  78168lf  0sf
+    *134391883lc *134391884fc
+    0hn 197pc 44171779502ls 316390986ec 134392541lc 134392542fc 450783528t 1emi 151ema 0lmi 132862933lma  73me 7380ve  52ml 223807757vl
+root-shell> ths
+cpu 0: 1 hooks  511457151ic  82524lf  0sf
+    *151607552lc *151607553fc
+    0hn 197pc 48445170866ls 359767073ec 151607552lc 151607553fc 511374626t 1emi 151ema 0lmi 132862933lma  73me 7328ve  51ml 201500154vl
+root-shell> ths
+cpu 0: 1 hooks  584625766ic  101227lf  0sf
+    *172401693lc *172401694fc
+    0hn 197pc 53689197280ls 412122844ec 172401693lc 172401694fc 584524538t 1emi 151ema 0lmi 134359891lma  73me 7393ve  52ml 284161980vl
+root-shell> ths
+cpu 0: 1 hooks  1058941331ic  124768lf  0sf
+    *307954720lc *307954721fc
+    0hn 197pc 87090739230ls 750864115ec 307955378lc 307955379fc 1058819494t 1emi 151ema 0lmi 134359891lma  73me 7412ve  51ml 225529321vl
+root-shell> ths
+cpu 0: 1 hooks  1111417897ic  129761lf  0sf
+    *322901376lc *322901377fc
+    0hn 197pc 90884932946ls 788389030ec 322902036lc 322902037fc 1111291067t 1emi 151ema 0lmi 134359891lma  73me 7427ve  51ml 222344973vl
+root-shell> ths
+cpu 0: 1 hooks  1186534909ic  134360lf  0sf
+    *344317323lc *344317324fc
+    0hn 197pc 96270865122ls 842085473ec 344318006lc 344318007fc 1186403480t 1emi 151ema 0lmi 134359891lma  73me 7426ve  51ml 215772693vl
+root-shell> ths
+cpu 0: 1 hooks  1227774484ic  140007lf  0sf
+    *356068758lc *356068759fc
+    0hn 197pc 99229116221ls 871565717ec 356068758lc 356068759fc 1227634476t 1emi 151ema 0lmi 134359891lma  73me 7439ve  51ml 211030075vl
+root-shell> ths
+cpu 0: 1 hooks  1275369360ic  154870lf  0sf
+    *369589865lc *369589866fc
+    0hn 197pc 102753914672ls 905626877ec 369590543lc 369590544fc 1275217421t 1emi 151ema 0lmi 136273116lma  73me 7431ve  52ml 258732154vl
+root-shell> ths
+cpu 0: 1 hooks  1311546783ic  158802lf  0sf
+    *379981691lc *379981692fc
+    0hn 197pc 105448958479ls 931408519ec 379982392lc 379982393fc 1311390912t 1emi 151ema 0lmi 136273116lma  72me 7439ve  52ml 258512762vl
+root-shell> ths
+cpu 0: 1 hooks  1348850609ic  158934lf  0sf
+    *390617957lc *390617958fc
+    0hn 197pc 108206365746ls 958075987ec 390618618lc 390618619fc 1348694606t 1emi 151ema 0lmi 136273116lma  72me 7450ve  52ml 257922977vl
+root-shell> ths
+cpu 0: 1 hooks  1395051518ic  164164lf  0sf
+    *403766286lc *403766287fc
+    0hn 197pc 111585697470ls 991123322ec 403766962lc 403766963fc 1394890285t 1emi 151ema 0lmi 136273116lma  72me 7441ve  52ml 256339341vl
+root-shell> fiberbench1
+root-shell> cpu 0: 1 hooks  1465157625ic  179815lf  0sf
+    *423699220lc *423699221fc
+    0hn 197pc 116548081724ls 39900063ec 423699220lc 423699221fc 463599284t 1emi 151ema 0lmi 136273116lma  1147me 187484ve  52ml 245524790vl
+PRINTSTART
+time_interval: 0
+PRINTEND
+ths
+cpu 0: 1 hooks  1547305844ic  198552lf  0sf
+    *447072013lc *447072014fc
+    0hn 197pc 122556059824ls 98659027ec 447072670lc 447072671fc 545731698t 1emi 151ema 0lmi 204273101lma  507me 81560ve  53ml 330266008vl
+root-shell> fiberbench1
+root-shell> cpu 0: 1 hooks  1639404523ic  213789lf  0sf
+    *473313117lc *473313118fc
+    0hn 197pc 129181771036ls 164501366ec 473313773lc 473313774fc 637815140t 1emi 151ema 0lmi 204273101lma  333me 52773ve  53ml 317819838vl
+PRINTSTART
+time_interval: 200
+129129552630
+298
+270
+244
+270
+270
+268
+268
+266
+276
+268
+282
+272
+264
+242
+216
+214
+242
+216
+214
+242
+244
+226
+218
+244
+264
+240
+214
+216
+242
+240
+216
+244
+262
+246
+216
+216
+240
+238
+216
+216
+282
+214
+242
+252
+220
+214
+242
+214
+220
+216
+242
+214
+216
+244
+238
+216
+240
+216
+240
+214
+216
+242
+238
+216
+230
+214
+242
+216
+214
+240
+240
+216
+254
+240
+240
+216
+214
+242
+214
+216
+314
+214
+242
+242
+212
+216
+242
+240
+260
+214
+242
+240
+212
+216
+242
+214
+216
+244
+238
+216
+216
+240
+214
+214
+242
+242
+212
+242
+242
+214
+216
+240
+242
+214
+238
+242
+216
+214
+242
+244
+212
+242
+242
+214
+214
+240
+216
+216
+238
+242
+216
+214
+242
+214
+216
+240
+238
+216
+242
+240
+216
+218
+238
+242
+216
+240
+240
+214
+216
+242
+212
+216
+242
+240
+216
+214
+242
+214
+212
+242
+242
+214
+216
+244
+212
+216
+242
+240
+214
+240
+242
+216
+212
+242
+242
+214
+242
+240
+216
+214
+238
+216
+216
+240
+242
+218
+212
+242
+216
+214
+240
+240
+216
+216
+238
+216
+216
+240
+242
+PRINTEND
+ths
+cpu 0: 1 hooks  1691219700ic  219063lf  0sf
+    *488095269lc *488095270fc
+    0hn 197pc 137386052790ls 201526841ec 488095269lc 488095270fc 689622111t 1emi 151ema 0lmi 204273101lma  285me 44261ve  62ml 505478530vl
+root-shell> ths
+cpu 0: 1 hooks  1791273832ic  236318lf  0sf
+    *516594251lc *516594252fc
+    0hn 197pc 144493043238ls 809954139ec 516594251lc 516594252fc 1326548391t 1emi 151ema 0lmi 204273101lma  71me 11728ve  61ml 512855848vl
+root-shell> ths
+cpu 0: 1 hooks  1831897441ic  252261lf  0sf
+    *528152957lc *528152958fc
+    0hn 197pc 147460037730ls 839003099ec 528152957lc 528152958fc 1367156057t 1emi 151ema 0lmi 204273101lma  71me 11570ve  61ml 536347905vl
+root-shell> ths
+cpu 0: 1 hooks  1890036630ic  265130lf  0sf
+    *545028676lc *545028677fc
+    0hn 197pc 151812073794ls 880255971ec 545029337lc 545029338fc 1425285309t 1emi 151ema 0lmi 204273101lma  71me 11378ve  61ml 557143499vl
+root-shell> 

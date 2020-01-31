@@ -1,0 +1,134 @@
+Hardware watchpoint 1: *0x802050
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+$1 = 20996096
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+$2 = 4333824
+$3 = 20996096
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+Undefined command: "registers".  Try "help".
+rax            0x0	0
+rbx            0x339120	3379488
+rcx            0xc0000101	3221225729
+rdx            0x0	0
+rsi            0x5f8e7f	6262399
+rdi            0x1406028	20996136
+rbp            0x7f3ffbe0	0x7f3ffbe0
+rsp            0x7f3ffbd0	0x7f3ffbd0
+r8             0x1405900	20994304
+r9             0x3f5600	4150784
+r10            0x0	0
+r11            0x1405900	20994304
+r12            0x304e40	3165760
+r13            0x422100	4333824
+r14            0x344130	3424560
+r15            0x4276a0	4355744
+rip            0x32a747	0x32a747 <idle+135>
+eflags         0x256	[ PF AF ZF IF ]
+cs             0x8	8
+ss             0x10	16
+ds             0x10	16
+es             0x10	16
+fs             0x10	16
+gs             0x10	16
+rax            0x0	0
+rbx            0x339120	3379488
+rcx            0xc0000101	3221225729
+rdx            0x0	0
+rsi            0x5f8e7f	6262399
+rdi            0x1406028	20996136
+rbp            0x7f3ffbe0	0x7f3ffbe0
+rsp            0x7f3ffbd0	0x7f3ffbd0
+r8             0x1405900	20994304
+r9             0x3f5600	4150784
+r10            0x0	0
+r11            0x1405900	20994304
+r12            0x304e40	3165760
+r13            0x422100	4333824
+r14            0x344130	3424560
+r15            0x4276a0	4355744
+rip            0x32a747	0x32a747 <idle+135>
+eflags         0x256	[ PF AF ZF IF ]
+cs             0x8	8
+ss             0x10	16
+ds             0x10	16
+es             0x10	16
+fs             0x10	16
+gs             0x10	16
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+idle (in=<optimized out>, out=<optimized out>) at src/nautilus/idle.c:63
+63		if (!irqs_enabled()) { 
+rax            0x0	0
+rbx            0x339120	3379488
+rcx            0xc0000101	3221225729
+rdx            0x0	0
+rsi            0x5f8e7f	6262399
+rdi            0x1406028	20996136
+rbp            0x7f3ffbe0	0x7f3ffbe0
+rsp            0x7f3ffbd0	0x7f3ffbd0
+r8             0x1405900	20994304
+r9             0x3f5600	4150784
+r10            0x0	0
+r11            0x1405900	20994304
+r12            0x304e40	3165760
+r13            0x422100	4333824
+r14            0x344130	3424560
+r15            0x4276a0	4355744
+rip            0x32a747	0x32a747 <idle+135>
+eflags         0x256	[ PF AF ZF IF ]
+cs             0x8	8
+ss             0x10	16
+ds             0x10	16
+es             0x10	16
+fs             0x10	16
+gs             0x10	16
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+panic (fmt=<optimized out>) at src/nautilus/printk.c:131
+131	   while(1);
+rax            0xa	10
+rbx            0x0	0
+rcx            0xc0000101	3221225729
+rdx            0x0	0
+rsi            0x0	0
+rdi            0x0	0
+rbp            0x19ffdf0	0x19ffdf0
+rsp            0x19ffc80	0x19ffc80
+r8             0x1	1
+r9             0x3f5670	4150896
+r10            0x0	0
+r11            0xfffffffd	4294967293
+r12            0x304e40	3165760
+r13            0x3	3
+r14            0x0	0
+r15            0x19ffec0	27262656
+rip            0x304db0	0x304db0 <panic+256>
+eflags         0x46	[ PF ZF ]
+cs             0x8	8
+ss             0x10	16
+ds             0x10	16
+es             0x10	16
+fs             0x10	16
+gs             0x10	16
+$4 = 4333824
+Continuing.
+Remote connection closed

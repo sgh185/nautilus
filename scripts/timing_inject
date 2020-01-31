@@ -1,0 +1,4 @@
+source /project/llvm/9.0.0/enable
+source ~/wllvm-test/bin/activate
+export PATH=~/tools/bin:$PATH
+export LLVM_COMPILER=clang
