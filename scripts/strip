@@ -1,0 +1,3 @@
+opt --strip-debug nautilus_opt.bc -o strip.bc
+llvm-dis strip.bc
+vim strip.ll
