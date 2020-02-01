@@ -9316,7 +9316,7 @@ int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(benchmark1, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(benchmark1, 0, 0, FSTACK_2MB, 1, &simple1);
   // nk_fiber_start(benchmark2, 0, 0, FSTACK_2MB, 1, &simple2);
   //_nk_fiber_print_data();
   return 0;

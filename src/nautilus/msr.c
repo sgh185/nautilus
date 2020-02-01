@@ -34,7 +34,7 @@ msr_write (uint32_t msr, uint64_t data)
 }
 
 
-inline uint64_t 
+__attribute__((annotate("nohook"))) inline uint64_t 
 msr_read (uint32_t msr) 
 {
     uint32_t lo, hi;

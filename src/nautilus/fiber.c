@@ -371,7 +371,7 @@ static void _nk_fiber_init(nk_fiber_t *f)
 
 // Helper function called by C portions of nk_fiber_yield and nk_fiber_yield_to.
 // Sets up the context switch between f_from and f_to
-__attribute__((noreturn)) static void _nk_fiber_yield_helper(nk_fiber_t *f_to, fiber_state *state, nk_fiber_t* f_from)
+__attribute__((noreturn, annotate("nohook"))) static void _nk_fiber_yield_helper(nk_fiber_t *f_to, fiber_state *state, nk_fiber_t* f_from)
 {
   // If a fiber is not waiting or exiting, change its status to yielding
   if (f_from->f_status == READY && !(f_from->is_idle)) {
@@ -622,7 +622,7 @@ int nk_fiber_init()
     uint64_t gran = nk_time_hook_get_granularity_ns();
     // struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
     // struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
-    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran, 1, 0);
     /*switch(HOOK_FUNC) 
     {
 	case YIELD_HOOK:
@@ -832,7 +832,7 @@ extern int ACCESS_WRAPPER;
 
 
 static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0;
-int _wrapper_nk_fiber_yield()
+__attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 {
   // nk_vc_printf("time_interval now: %d\n", time_interval);
   if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
@@ -875,7 +875,7 @@ int _wrapper_nk_fiber_yield()
 }
 
 static int old_snapshot = 0;
-int _nk_snapshot_time_hook()
+__attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 {
   if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
     return 0;
@@ -889,7 +889,7 @@ int _nk_snapshot_time_hook()
   return 0;
 }
 
-__attribute__((optnone)) int _nk_null_time_hook()
+__attribute__((optnone, annotate("nohook"))) int _nk_null_time_hook()
 {
   return 0;
 }
@@ -1121,7 +1121,7 @@ int nk_fiber_start(nk_fiber_fun_t fun,
  * on special case (idle fiber yield and no fiber available), returns 1
  * otherwise, returns 0.
  */
-__attribute__((noreturn)) void _nk_fiber_yield(uint64_t rsp, uint64_t offset)
+__attribute__((noreturn, annotate("nohook"))) void _nk_fiber_yield(uint64_t rsp, uint64_t offset)
 { 
   // Checks if the current thread is the fiber thread (if not, error)
   fiber_state *state = _GET_FIBER_STATE();

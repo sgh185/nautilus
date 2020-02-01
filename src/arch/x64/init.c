@@ -287,7 +287,7 @@ static int launch_vmm_environment()
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
 
-void
+__attribute__((annotate("nohook"))) void
 init (unsigned long mbd,
       unsigned long magic)
 {

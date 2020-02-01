@@ -45,6 +45,8 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -74,24 +76,18 @@ using namespace std;
 #define DEBUG 0
 #define LOOP_DEBUG 0
 #define INLINE 0
-#define WHOLE 1 // Whole kernel optimization
+#define WHOLE 1 // Whole kernel injection
 #define INJECT 1
 #define FALSE 0
 
-// Fiber functions
-#define WRAPPER_YIELD 0
-#define INNER_YIELD 1
-#define FIBER_START 2
-#define FIBER_CREATE 3
-#define IDLE_FIBER_ROUTINE 4
-#define WRAP 5
-#define INIT 6
-#define MSR 7
-#define _YIELD 8
-#define HELPER 9
+// Special Routines --- necessary for functionality
+#define HOOK_FIRE 0
+#define FIBER_START 1
+#define FIBER_CREATE 2
+#define IDLE_FIBER_ROUTINE 3
 
 // Guards for yield call injections
-#define GRAN 4000
+#define GRAN 200
 #define CALL_GUARDS 0
 #define LOOP_GUARDS 1
 #define LOOP_OPT 1
@@ -108,17 +104,14 @@ using namespace std;
 #define CONSERV HIGHCON
 #define LATCONFIG EXPECTED
 
-// Fibers and special non-inject functions declarations
-const vector<uint32_t> NK_ids = {WRAPPER_YIELD, INNER_YIELD, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE, WRAP, INIT, MSR, _YIELD, HELPER};
-const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_nk_null_time_hook", "init", "_nk_fiber_print_data", "_nk_fiber_yield", "_nk_fiber_yield_helper"};
-
-// OLD CONFIGURATIONS
-//const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield", "init", "_nk_fiber_print_data", "_nk_fiber_yield", "_nk_fiber_yield_helper"};
-// const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_nk_null_time_hook", "init", "msr_read"};
-//const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "_wrapper_nk_fiber_yield", "init"};
-// const vector<string> NK_names = {"_wrapper_nk_fiber_yield", "nk_fiber_yield", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle", "nk_time_hook_fire", "init"};
-
-unordered_map<uint32_t, Function *> FIBERS;
+// Functions necessary to find in order to inject (hook_fire, fiber_start/create for fiber explicit injections)
+const vector<uint32_t> NK_ids = {HOOK_FIRE, FIBER_START, FIBER_CREATE, IDLE_FIBER_ROUTINE};
+const vector<string> NK_names = {"nk_time_hook_fire", "nk_fiber_start", "nk_fiber_create", "__nk_fiber_idle"};
+const string ANNOTATION = "llvm.global.annotations";
+const string NOHOOK = "nohook";
+unordered_map<uint32_t, Function *> SpecialRoutines;
+vector<string> NoHookFunctionNames;
+vector<Function *> NoHookFunctions;
 
 namespace
 {
@@ -146,6 +139,7 @@ struct CAT : public ModulePass
 {
     static char ID;
     debugInfo *DI;
+    GlobalVariable *GV = nullptr; // custom attribute
 
     CAT() : ModulePass(ID) {}
 
@@ -156,17 +150,32 @@ struct CAT : public ModulePass
 #endif
         /*
         - Function is not ready to be transformed at this point, metadata is not set
-        - Other transformations from the clang command (most likely -fgnu89-inline or -O2) modifies
-          the bitcode in a way that keeping a pointer to wrapper_nk_fiber_yield may not contain
-          the same info seen in doInitialization to the info seen in runOnModule
+        - Other transformations may inline special functions or "nohook" attributed
+          functions --- force noinline to preserve function bodies
         */
 
-        // wrapper function, create function needs to be preserved --- set to NoInline
+        // necessary functions (NK_names) will be set to noinline automatically
         for (auto CALL : NK_names)
         {
             auto func = M.getFunction(CALL);
             if (func != nullptr)
                 func->addFnAttr(Attribute::NoInline);
+        }
+
+        // gather all functions with "nohook" attributes --- add noinline attributes
+        // to those functions as well
+        GV = M.getGlobalVariable(ANNOTATION);
+        if (GV != nullptr)
+        {
+            vector<Function *> AnnotatedFunctions;
+			gatherAnnotatedFunctions(AnnotatedFunctions);
+			for (auto AF : AnnotatedFunctions)
+            {
+				if (AF != nullptr)
+                    AF->addFnAttr(Attribute::NoInline);
+
+                NoHookFunctionNames.push_back(AF->getName());
+            }
         }
 
         return false;
@@ -177,29 +186,34 @@ struct CAT : public ModulePass
 #if FALSE
         return false;
 #endif
-        // Find fiber_functions again --- safe to transform here, granted functions not discarded
+        // Find special functions again --- safe to transform here, granted functions not discarded
+        // --- if any functions are discarded, get out
         for (auto i : NK_ids)
         {
             auto func = M.getFunction(NK_names[i]);
-            if (func != NULL)
-                FIBERS[i] = func;
+            if (func != nullptr)
+                SpecialRoutines[i] = func;
             else
-                return false;
+                abort();
         }
 
-        // Get rid of LLVM debug intrinsics
-        // StripDebugInfo(M);
+        // Populate NoHookFunctions --- prevent injection in these functions later; gathering
+        // these functions here because doInitialization may have altered/inlined some of the
+        // functions in optimization process
+        for (auto NHFN : NoHookFunctionNames)
+        {
+            auto func = M.getFunction(NHFN);
+            if (func != nullptr)
+                NoHookFunctions.push_back(func);
+        }
+
 #if INJECT
-        // Force inlining of nk_fiber_yield (should only occur in wrapper_nk_fiber_yield)
-        // inlineF(DI, *(FIBERS[INNER_YIELD]));
-
         // Force inlining of nk_fiber_start to generate direct calls to nk_fiber_create
-        inlineF(DI, *(FIBERS[FIBER_START]));
-
+        inlineF(DI, *(SpecialRoutines[FIBER_START]));
 #endif
 
 #if DEBUG
-        for (auto const &[id, func] : FIBERS)
+        for (auto const &[id, func] : SpecialRoutines)
         {
             if (!func)
                 func->print(errs());
@@ -221,7 +235,7 @@ struct CAT : public ModulePass
                     if (auto *call = dyn_cast<CallInst>(&I))
                     {
                         Function *callee = call->getCalledFunction();
-                        if (callee == FIBERS[WRAPPER_YIELD])
+                        if (callee == SpecialRoutines[HOOK_FIRE])
                             DI->InitCallsToYield.push_back(call);
                     }
                 }
@@ -231,11 +245,11 @@ struct CAT : public ModulePass
 #endif
 
 #if INJECT
-        // IDENTIFY ROUTINES
-        set<Function *> FiberRoutines = identifyRoutines(M, FIBERS[FIBER_CREATE]);
+        // Identify routines --- specific to fibers
+        set<Function *> Routines = identifyRoutines(M, SpecialRoutines[FIBER_CREATE]);
 
 #if WHOLE
-        // ADD FUNCTIONALITY FOR WHOLE KERNEL INJECTION
+        // Identify and add to routines --- for whole kernel injection
         for (auto &F : M)
         {
             // Current hack below to prevent injection in certain functions
@@ -245,32 +259,28 @@ struct CAT : public ModulePass
                 continue;
             else if (F.isIntrinsic())
                 continue;
-            else if (&F == FIBERS[INIT] || &F == FIBERS[WRAPPER_YIELD] || &F == FIBERS[WRAP] || &F == FIBERS[MSR] || &F == FIBERS[_YIELD] || &F == FIBERS[HELPER])
+            else if (&F == SpecialRoutines[HOOK_FIRE] || (find(NoHookFunctions.begin(), NoHookFunctions.end(), &F) != NoHookFunctions.end()))
                 continue;
-            else
-            {
 #if DEBUG
-                errs() << F.getName() << ": inst count --- " << F.getInstructionCount() << " and return: ";
-                F.getReturnType()->print(errs());
-                errs() << "\n";
+            errs() << F.getName() << ": inst count --- " << F.getInstructionCount() << " and return: ";
+            F.getReturnType()->print(errs());
+            errs() << "\n";
 #endif
-                // Don't handle empty functions
-                if (F.getInstructionCount() > 0)
-                    FiberRoutines.insert(&F);
-            }
+            // Don't handle empty functions
+            if (F.getInstructionCount() > 0)
+                Routines.insert(&F);
         }
 #endif
 
 #endif
 
 #if DEBUG
-        for (auto routine : FiberRoutines)
+        for (auto routine : Routines)
             DI->RoutineNames.push_back(routine->getName());
 #endif
         // INJECTION --- Determine where to inject calls, inject properly for each routine
-        // NOTE --- these are still called FiberRoutines --- needs a FIX because of
-        // Whole kernel injection
-        for (auto routine : FiberRoutines)
+        // NOTE --- these are still called Routines
+        for (auto routine : Routines)
         {
 #if DEBUG
             errs() << "\n\n\n\n\n\n\nCURR FUNCTION:\n " << routine->getName() << "\n";
@@ -313,7 +323,7 @@ struct CAT : public ModulePass
             /*
              * INJECT CALLS TO YIELD
              */
-            injectYield(*routine, FIBERS[WRAPPER_YIELD], InjectionLocations);
+            injectYield(*routine, SpecialRoutines[HOOK_FIRE], InjectionLocations);
 
 #if DEBUG
             SmallVector<pair<const BasicBlock *, const BasicBlock *>, 32> Edges;
@@ -393,8 +403,8 @@ struct CAT : public ModulePass
 
 #if INLINE
         // INLINING --- inline the wrapper_nk_fiber_yield, inline all routines
-        inlineF(DI, *(FIBERS[WRAPPER_YIELD]));
-        for (auto routine : FiberRoutines)
+        inlineF(DI, *(SpecialRoutines[HOOK_FIRE]));
+        for (auto routine : Routines)
             inlineF(DI, *routine);
 #endif
 
@@ -408,8 +418,54 @@ struct CAT : public ModulePass
         return false;
     }
 
+    void gatherAnnotatedFunctions(vector<Function *> &AnnotatedFunctions)
+    {
+        // First operand is the global annotations array --- get and parse
+        // NOTE --- the fields have to be accessed through VALUE->getOperand(0),
+        // which appears to be a layer of indirection for these values
+        auto *AnnotatedArr = cast<ConstantArray>(GV->getOperand(0));
+        for (auto OP = AnnotatedArr->operands().begin(); OP != AnnotatedArr->operands().end(); OP++)
+        {
+            // Each element in the annotations array is a ConstantStruct --- its
+            // fields can be accessed through the first operand (indirection). There are two
+            // fields --- Function *, GlobalVariable * (function ptr, annotation)
+
+            auto *AnnotatedStruct = cast<ConstantStruct>(OP);
+            auto *FunctionAsStructOp = AnnotatedStruct->getOperand(0)->getOperand(0);         // first field
+            auto *GlobalAnnotationAsStructOp = AnnotatedStruct->getOperand(1)->getOperand(0); // second field
+
+            // Set the function and global, respectively. Both have to exist to
+            // be considered.
+            Function *AnnotatedF = dyn_cast<Function>(FunctionAsStructOp);
+            GlobalVariable *AnnotatedGV = dyn_cast<GlobalVariable>(GlobalAnnotationAsStructOp);
+
+            if (AnnotatedF == nullptr || AnnotatedGV == nullptr)
+                continue;
+
+            // Check the annotation --- if it matches the NOHOOK global in the
+            // pass --- push back to apply (X) transform as necessary later
+            ConstantDataArray *ConstStrArr = dyn_cast<ConstantDataArray>(AnnotatedGV->getOperand(0));
+            if (ConstStrArr == nullptr)
+                continue;
+
+            if (ConstStrArr->getAsCString() != NOHOOK)
+                continue;
+
+            AnnotatedFunctions.push_back(AnnotatedF);
+        }
+
+#if DEBUG
+        for (auto AF : AnnotatedFunctions)
+        {
+            errs() << AF->getName() << "\n";
+        }
+#endif
+
+        return;
+    }
+
     /*
-     * identifyRoutines (REFACTORED)
+     * identifyRoutines (REFACTORED) --- specific to fibers implementation
      * 
      * Iterates over all call instructions. For every CallInst that calls nk_fiber_create, 
      * fetch the first argument of that call (which will be a fcn ptr). Return a set of those
@@ -432,7 +488,7 @@ struct CAT : public ModulePass
                 auto firstArg = call->getArgOperand(0);
                 if (auto *routine = dyn_cast<Function>(firstArg))
                 {
-                    if (routine != FIBERS[IDLE_FIBER_ROUTINE])
+                    if (routine != SpecialRoutines[IDLE_FIBER_ROUTINE])
                         Routines.insert(routine); // save the pointer
                 }
             }
@@ -503,7 +559,6 @@ struct CAT : public ModulePass
             L->print(errs());
             for (auto B = L->block_begin(); B != L->block_end(); ++B)
                 (*B)->print(errs());
-            errs() << "HELLO THERE\n";
 #endif
             transformLoop(F, L, LI, DT, SE, AC, ORE, LG);
         }
@@ -532,7 +587,7 @@ struct CAT : public ModulePass
         }
         else
         {
-            errs() << "NULLPTR IV ---\n";
+            errs() << "NULLPTR IV ---\n\n";
         }
         //return;
 #endif
@@ -561,6 +616,12 @@ struct CAT : public ModulePass
             auto tripMultiple = max(minTripMultiple, SE.getSmallConstantTripMultiple(L));
             auto totalInstructionCount = getTotalLoopInstructionCount(L); // Total number of instructions in loop
 
+#if LOOP_DEBUG
+            errs() << "\n\nNOW NUMBERS:\n";
+            errs() << "     TripCount: " << tripCount << "\n";
+            errs() << "     TripMultiple: " << tripMultiple << "\n";
+            errs() << "     TotalInstructionCount: " << totalInstructionCount << "\n";
+#endif
             // For loops with an known tripCount --- unroll fully
             // Otherwise --- unroll based on loop latency size estimation if within
             // "reasonable" range --- else, generate branching. Note that the
@@ -568,9 +629,20 @@ struct CAT : public ModulePass
 
             if (tripCount > 32 || !tripCount)
             {
+                auto LLS = calculatePrelimLoopLatencySize(F, LI, L);
                 unrollCount = getUnrollCount(calculatePrelimLoopLatencySize(F, LI, L));
+
+#if LOOP_DEBUG
+                errs() << "IN BRANCH --- tripCount > 32 || !tripCount\n";
+                errs() << "     LoopLatencySize: " << LLS << "\n";
+                errs() << "     unrollCount via GetUnrollCount: " << unrollCount << "\n";
+#endif
+
 #if LOOP_BRANCH
                 auto totalUnroll = unrollCount * totalInstructionCount;
+#if LOOP_DEBUG
+                errs() << "             totalUnroll (unrollCount * totalInstructionCount): " << totalUnroll << "\n";
+#endif
                 if (totalUnroll > 256)
                 {
                     Instruction *BranchTerminator = generateLoopIterationBranch(L, unrollCount, &LI, &DT);
@@ -644,8 +716,17 @@ struct CAT : public ModulePass
             BasicBlock *currBlock = workList.front();
             workList.pop();
 
+#if LOOP_DEBUG
+            errs() << "Current Block: \n";
+            currBlock->print(errs());
+#endif
+
             vector<double> predBBLatencies;
             bool readyToCompute = true;
+
+#if LOOP_DEBUG
+            errs() << "All terminator latencies of predecessors of currBlock in loop:\n";
+#endif
 
             for (auto predBB : predecessors(currBlock))
             {
@@ -658,6 +739,11 @@ struct CAT : public ModulePass
                     break;
                 }
 
+#if LOOP_DEBUG
+                errs() << "Pred:\n";
+                predBB->print(errs());
+                errs() << "Terminator latency: " << latencyMeasurements[predBB].second << "\n\n";
+#endif
                 predBBLatencies.push_back(latencyMeasurements[predBB].second);
             }
 
@@ -667,13 +753,39 @@ struct CAT : public ModulePass
                 continue;
             }
 
+#if LOOP_DEBUG
+            errs() << "Back to currBlock:\n";
+            if (predBBLatencies.size() > 0)
+                errs() << "configLatencyCalculation result of predBBLatencies: " << configLatencyCalculation(predBBLatencies) << "\n";
+#endif
             double frontLatency = getLatency(&(currBlock->front()));
+
+#if LOOP_DEBUG
+            errs() << "I: ";
+            (&(currBlock->front()))->print(errs());
+            errs() << "\nSingular Latency: " << frontLatency << "\n";
+#endif
             if (predBBLatencies.size() > 0)
                 frontLatency += configLatencyCalculation(predBBLatencies);
 
+#if LOOP_DEBUG
+            errs() << "Accumulated Latency: " << frontLatency << "\n\n";
+#endif
             double propagatingLatency = frontLatency;
             for (auto iter = ++currBlock->begin(); iter != currBlock->end(); ++iter)
+            {
+#if LOOP_DEBUG
+                errs() << "I: ";
+                (&*iter)->print(errs());
+                errs() << "\nSingular Latency: " << getLatency(&*iter) << "\n";
+#endif
                 propagatingLatency += getLatency(&*iter);
+#if LOOP_DEBUG
+                errs() << "Accumulated Latency: " << propagatingLatency << "\n\n";
+#endif
+            }
+
+            errs() << "\n\n\n";
 
             pair<double, double> frontAndTerminator;
             frontAndTerminator.first = frontLatency;
@@ -682,6 +794,17 @@ struct CAT : public ModulePass
             latencyMeasurements[currBlock] = frontAndTerminator;
             visited[currBlock] = true;
         }
+
+#if LOOP_DEBUG
+        errs() << "BB latency sizes (format: front, last):\n";
+        for (auto const &[BB, lat] : latencyMeasurements)
+        {
+            errs() << "BB: \n";
+            BB->print(errs());
+            errs() << "LATENCY MEASUREMENTS: " << lat.first << ", " << lat.second << "\n";
+        }
+        errs() << "\n\n";
+#endif
 
         BasicBlock *loopFront = *(L->block_begin());
         BasicBlock *loopEnd = getLastLoopBlock(L);

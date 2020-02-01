@@ -84,7 +84,7 @@
 #define MAX(x, y)((x > y) ? (x) : (y))
 #define MIN(x, y)((x < y) ? (x) : (y))
 
-#define GET_STACK_CALLER_TRACE 0
+#define GET_STACK_CALLER_TRACE 1
 
 // maximum number of hooks per CPU
 #define MAX_HOOKS 16
@@ -477,7 +477,7 @@ nk_thread_t *hook_compare_fiber_thread = 0;
 // it should not block, nor should anything it calls...
 // nor can they have nk_time_hook_fire() calls...
 // this is where to focus performance improvement
-__attribute__((noinline)) void nk_time_hook_fire()
+__attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 {
    // return;
    if (!ready) {
@@ -488,19 +488,19 @@ __attribute__((noinline)) void nk_time_hook_fire()
    // Hangs --- presumably because the irq 
    // functions are instrumented
    // cli();
-
+   int test = 0;
+/*
 #if GET_STACK_CALLER_TRACE
    // Debug output --- get caller address and stack frame
    // (roughly) based on local variable
  
-   int test = 0;
    DS("r ");
    DHQ(((uint64_t)__builtin_return_address(0)));
    DS(" ");
    DHQ(((uint64_t)&test));
    DS("\n");
 #endif 
-
+*/
 
 #if GET_HOOK_DATA
    uint64_t rdtsc_hook_start = 0, rdtsc_hook_end = 0, rdtsc_hook_fire_start = 0, rdtsc_hook_fire_end = 0;
@@ -525,7 +525,7 @@ __attribute__((noinline)) void nk_time_hook_fire()
 
     LOCAL_LOCK_DECL;
     
-    if (LOCAL_TRYLOCK_NO_IRQ(s)) {
+    if (LOCAL_TRYLOCK(s)) {
 	// failed to get lock - we will simply not execute this round
 	DEBUG("failed to acquire lock on fire (cpu %d)\n",my_cpu_id());
 /*	
@@ -539,7 +539,7 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	  awc++; 
 	  DS("\n");
 	}
-	
+*/	
 
 #if GET_STACK_CALLER_TRACE
 	// Same logic as above
@@ -556,12 +556,12 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	// backtrace	
 	
 	__sync_fetch_and_and(&ready, 0); // atomically write ready
-	BACKTRACE(INFO, 20);
+	// BACKTRACE(INFO, 20);
         panic("Try lock failed\n");
 #endif	
 
-	s->try_lock_fail_count++;	
-*/
+	// s->try_lock_fail_count++;	
+
 	// DS("t \n");
 	return;
     }
@@ -569,7 +569,7 @@ __attribute__((noinline)) void nk_time_hook_fire()
 
     if (s->state!=READY_STATE) {
 	DEBUG("short circuiting fire because we are in state %d\n",s->state);
-/*	
+	
 #if GET_STACK_CALLER_TRACE	
 	// Same logic as above
 	
@@ -582,14 +582,14 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	// while (1) {} 
 
 	__sync_fetch_and_and(&ready, 0); // atomically write ready
-	BACKTRACE(INFO, 20);
+	// BACKTRACE(INFO, 20);
         panic("Ready state failed\n");
 #endif
 
-	s->state_fail_count++;	
-*/
+	// s->state_fail_count++;	
+
 	// DS("f \n");
-	LOCAL_UNLOCK_NO_IRQ(s);	
+	LOCAL_UNLOCK(s);	
 	return;
     }
     
@@ -614,7 +614,13 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	// DHL(i);
 	// DS("\n");
 	
-	
+	// TESTING IDEAS 
+	// - Remove second if statment (cur_cycles ... ) --- maintain an invariant
+	//   that there's only one hook in the entire kernel that's active
+	// - Disable injection at 4000 and run a for loop somewhere that just calls
+	//   nk_time_hook_fire. Compare the queueing time with no injections (just for
+	//   loop) and with injections (everywhere)	
+
 	if (h->state==ENABLED) {
 	    seen++;
 	    if (cur_cycles >= (h->last_start_cycles + h->period_cycles)) {
@@ -652,6 +658,13 @@ __attribute__((noinline)) void nk_time_hook_fire()
 	      h->early_min = MIN((h->last_start_cycles + h->period_cycles - cur_cycles), h->early_min);
 	      h->early_max = MAX((h->last_start_cycles + h->period_cycles - cur_cycles), h->early_max);
 	    }*/
+	} else {
+	    DS("ne ");
+	    DHL(h->state);
+	    DS("\n");
+	    __sync_fetch_and_and(&ready, 0);
+	    panic("h->state isn't one\n");
+	
 	}
     }
 
@@ -661,20 +674,34 @@ __attribute__((noinline)) void nk_time_hook_fire()
     // panic("done\n");
 
     // Extra check --- for loop debugging
-    /*
-    if ((count != 1) && (count != 0)) {
-	    DS("c ");
-	    DHL(count);
-	    DS("\n");
-	    panic("Count isn't one\n");
+#if GET_STACK_CALLER_TRACE	
+    if (my_cpu_id() == 1)
+    {
+	    if (s->count != 1) {
+		    DS("sc ");
+		    DHL(s->count);
+		    DS("\n");
+		    __sync_fetch_and_and(&ready, 0);
+		    panic("s->count isn't one\n");
+	    }
+	    
+	    if ((count != 1) && (count != 0)) {
+		    DS("c ");
+		    DHL(count);
+		    DS("\n");
+		    __sync_fetch_and_and(&ready, 0);
+		    panic("Count isn't one\n");
+	    }
+	    
+	    if ((seen != 1) && (seen != 0)) {
+		    DS("s ");
+		    DHL(seen);
+		    DS("\n");
+		    __sync_fetch_and_and(&ready, 0);
+		    panic("Seen isn't one\n");
+	    }
     }
-    
-    if ((seen != 1) && (seen != 0)) {
-	    DS("s ");
-	    DHL(seen);
-	    DS("\n");
-	    panic("Seen isn't one\n");
-    }*/
+#endif 
 
     // we now need to prepare for the next batch.
     // note that a hook could context switch away from us, so we need to do
@@ -683,7 +710,7 @@ __attribute__((noinline)) void nk_time_hook_fire()
     // ** TODO ** --- need to limit nested "interrupts"
 
     s->state = READY_STATE;
-    LOCAL_UNLOCK_NO_IRQ(s);
+    LOCAL_UNLOCK(s);
 
    
     // now we actually fire the hooks.   Note that the execution of one batch of hooks
