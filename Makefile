@@ -800,7 +800,8 @@ bitcode: $(BIN_NAME)
 timing: $(BIN_NAME)
 	extract-bc $(BIN_NAME) -o $(BC_NAME)
 	llvm-dis $(BC_NAME) -o $(LL_NAME)
-	clang -emit-llvm -Xclang -load -Xclang ~/CAT/lib/CAT.so -fno-omit-frame-pointer -ffreestanding -fno-stack-protector -fno-strict-aliasing -fno-strict-overflow -mno-red-zone -mcmodel=large -Wall -Wno-unused-function -Wno-unused-variable -fno-common -Wstrict-overflow=5  -fgnu89-inline -g -m64  -Wno-pointer-sign -O0 -c -Xclang -disable-O0-optnone -o $(OPT_NAME) $(BC_NAME)
+	# ./scripts/pass_build
+	clang -emit-llvm -Xclang -load -Xclang ~/CAT/lib/CAT.so -fno-omit-frame-pointer -ffreestanding -fno-stack-protector -fno-strict-aliasing -fno-strict-overflow -mno-red-zone -mcmodel=large -Wall -Wno-unused-function -Wno-unused-variable -fno-common -Wstrict-overflow=5  -fgnu89-inline -g -m64  -Wno-pointer-sign -O0 -c -Xclang -disable-O0-optnone -o $(OPT_NAME) $(BC_NAME) &> loop.out
 	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
 	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`

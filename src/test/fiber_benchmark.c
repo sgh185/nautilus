@@ -511,9 +511,9 @@ void benchmark11(void *i, void **o)
       if (nums[a] == currValue)
         break;      
       else if (nums[a] > currValue)
-	iterator = iterator->right;
+		iterator = iterator->right;
       else
-	iterator = iterator->left;        
+		iterator = iterator->left;        
     } 
 
     totalTraversalSum += currTraversalSum; 
@@ -551,9 +551,9 @@ void benchmark12(void *i, void **o)
       if (nums[a] == currValue)
         break;      
       else if (nums[a] > currValue)
-	iterator = iterator->right;
+		iterator = iterator->right;
       else
-	iterator = iterator->left;        
+		iterator = iterator->left;        
     } 
     
     totalTraversalSum += currTraversalSum; 
@@ -9291,7 +9291,9 @@ void benchmark26(void *i, void **o)
   // nk_fiber_counting_barrier(bar);
 
   int a = 0;
-  
+ 
+  nk_simple_timing_loop(200000000);
+
   ACCESS_HOOK = ACCESS_WRAPPER = 1;
   
   while(a < TH){

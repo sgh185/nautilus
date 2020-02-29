@@ -1,0 +1,7 @@
+#! /usr/bin/sh
+
+source /project/llvm/9.0.0/enable # For Zythos cluster
+nwd=$(pwd)
+cd ./src/llvm/fiber-injection/CAT-c/ # Execute from top level Makefile
+./run_me.sh
+cd $nwd # Nautilus working directory --- very suspicious
