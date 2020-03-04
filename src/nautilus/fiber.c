@@ -621,8 +621,8 @@ int nk_fiber_init()
     // Register time_hook instance for fibers
     uint64_t gran = nk_time_hook_get_granularity_ns();
     // struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
-    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
-    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran, 1, 0);
+    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran, 1, 0);
+    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran, 1, 0);
     /*switch(HOOK_FUNC) 
     {
 	case YIELD_HOOK:

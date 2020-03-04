@@ -8,10 +8,11 @@ obj-y += futures.o
 obj-y += bsp.o
 obj-y += net_udp_echo.o
 obj-y += test.o
+obj-y += enc/
 
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o \
-								   fiber_benchmark.o 
+								   fiber_timehook.o 
 
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 
