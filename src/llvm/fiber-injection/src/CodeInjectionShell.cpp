@@ -87,7 +87,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Guards for yield call injections
-#define GRAN 200
+#define GRAN 1000
 #define CALL_GUARDS 0
 #define LOOP_GUARDS 1
 #define LOOP_OPT 1
@@ -1503,7 +1503,9 @@ struct CAT : public ModulePass
                 Function *callee = call->getCalledFunction();
                 if (callee != nullptr)
                     cost = ((callee->isIntrinsic()) || (callee->getName().startswith("llvm.lifetime"))) ? 0 : GRAN;
-                else
+				else if (isa<InlineAsm>(call->getCalledValue()))
+					cost = 10; // Unclear
+				else
                     cost = GRAN; // Arbitrary
             }
 
