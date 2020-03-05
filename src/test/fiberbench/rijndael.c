@@ -34,7 +34,7 @@
  */ 
 
 #include <nautilus/nautilus.h>
-#include <test/enc/rijndael.h>
+#include <test/fiberbench/rijndael.h>
 
 #define FULL_UNROLL
 

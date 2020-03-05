@@ -46,7 +46,7 @@
  */ 
 
 #include <nautilus/nautilus.h>
-#include <test/enc/sha1.h>
+#include <test/fiberbench/sha1.h>
 
 /*
  * 32-bit integer manipulation macros (big endian)

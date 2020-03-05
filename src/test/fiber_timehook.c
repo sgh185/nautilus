@@ -35,10 +35,10 @@
 #include <nautilus/barrier.h>
 #include <nautilus/pmc.h>
 #include <test/fibers.h>
-#include <test/enc/sha1.h>
-#include <test/enc/rijndael.h>
-#include <test/enc/md5.h>
-
+#include <test/fiberbench/sha1.h>
+#include <test/fiberbench/rijndael.h>
+#include <test/fiberbench/md5.h>
+#include <test/fiberbench/knn.h>
 
 #define DO_PRINT       0
 
@@ -51,6 +51,9 @@
 // --------------------------------------------------------------------------------
 
 //******************* Macros/Helper Functions/Globals *******************/
+// Seeding macro
+#define SEED() (srand48(rdtsc() % 128))
+
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
@@ -126,6 +129,7 @@ __attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size)
 	T_root->right = NULL;
 
 	// Fill tree
+	SEED();
 	int i;
 	for (i = 0; i < size; i++)
 	{
@@ -199,7 +203,9 @@ __attribute__((noinline)) TreeQueue_t * createQueue(void) {
 
 // Create array of random unsigned integers
 __attribute__((noinline)) uint64_t * createRandArray(uint64_t size) {
-	
+
+	SEED();
+
 	// Allocate array of length "size"
 	uint64_t *r_array = MALLOC(sizeof(uint64_t) * size);
 	if(!r_array) { return NULL; }
@@ -521,6 +527,8 @@ void mm_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start_1 = rdtsc();
+
 	// Fill first and second matricies
 	for (a = 0; a < M1; a++) {
 		for (b = 0; b < M2; b++) {
@@ -546,10 +554,14 @@ void mm_2(void *i, void **o)
 			result[a][b] = sum;
 		}
 	}
-	  
+
+	uint64_t finish = rdtsc();	
+
 	ACCESS_WRAPPER = 0;
   
 	_nk_fiber_print_data();
+	
+	nk_vc_printf("finish - start: %lu\n", finish - start_1);
   
 	return;
 }
@@ -659,6 +671,8 @@ void bt_traversal_2(void *i, void **o)
 void rand_mm_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
+	
+	SEED();
 
 	// Generate random dimensions
 	uint64_t R1 = (lrand48() % 50);
@@ -714,6 +728,8 @@ void rand_mm_1(void *i, void **o)
 void rand_mm_2(void *i, void **o)
 {
  	nk_fiber_set_vc(vc);
+
+	SEED();
 
 	// Generate random dimensions
 	uint64_t R1 = (lrand48() % 50);
@@ -881,6 +897,8 @@ void operations_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 
+	SEED();
+
 	uint64_t count = (lrand48() % 10000), c, d;
 	volatile double sum = 0;
 	volatile double a = 44.32, b = 2.29;
@@ -909,11 +927,15 @@ void operations_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 
+	SEED();
+
 	uint64_t count = (lrand48() % 10000), c, d;
 	volatile double sum = 0;
 	volatile double a = 47.11, b = 5.2789;
 
 	ACCESS_WRAPPER = 1;
+
+	uint64_t start = rdtsc();
 
 	// Do computation
 	for (c = 0; c < 40; c++)
@@ -927,10 +949,14 @@ void operations_2(void *i, void **o)
 
 		sum /= (count / b);
 	}
+	
+	uint64_t finish = rdtsc();
 
 	ACCESS_WRAPPER = 0;
 
 	_nk_fiber_print_data();
+	
+	nk_vc_printf("finish - start: %lu\n", finish - start);
 
 	return;
 }
@@ -1198,24 +1224,32 @@ void md5_2(void *i, void **o)
 void fib_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
-
-	uint64_t fib_num = lrand48() % 75;
 	
-	// Allocate table on stack
-	uint64_t memo[fib_num + 2];
-	memset(memo, 0, sizeof(memo));
+	int a = 0;
+	SEED();
 
 	ACCESS_WRAPPER = 1;
+
+	while (a < M)
+	{
+		uint64_t fib_num = lrand48() % 75;
+		
+		// Allocate table on stack
+		uint64_t memo[fib_num + 2];
+		memset(memo, 0, sizeof(memo));
+		
+		// Set base cases
+		memo[0] = 0;
+		memo[1] = 1;
+
+		uint64_t k;
+		for (k = 0; k < fib_num; k++) {
+			memo[k] = memo[k - 1] + memo[k - 2];
+		}
 	
-	// Set base cases
-	memo[0] = 0;
-	memo[1] = 1;
-
-	uint64_t k;
-	for (k = 0; k < fib_num; k++) {
-		memo[k] = memo[k - 1] + memo[k - 2];
+		a++;
 	}
-
+	
 	ACCESS_WRAPPER = 0;
 	
 	return;
@@ -1224,26 +1258,98 @@ void fib_1(void *i, void **o)
 void fib_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
-
-	uint64_t fib_num = lrand48() % 75;
-	
-	// Allocate table on stack
-	uint64_t memo[fib_num + 2];
-	memset(memo, 0, sizeof(memo));
+		
+	int a = 0;
+	SEED();
 
 	ACCESS_WRAPPER = 1;
-	
-	// Set base cases
-	memo[0] = 0;
-	memo[1] = 1;
 
-	uint64_t k;
-	for (k = 0; k < fib_num; k++) {
-		memo[k] = memo[k - 1] + memo[k - 2];
+	while (a < M)
+	{
+		uint64_t fib_num = lrand48() % 75;
+		
+		// Allocate table on stack
+		uint64_t memo[fib_num + 2];
+		memset(memo, 0, sizeof(memo));
+
+		// Set base cases
+		memo[0] = 0;
+		memo[1] = 1;
+
+		uint64_t k;
+		for (k = 0; k < fib_num; k++) {
+			memo[k] = memo[k - 1] + memo[k - 2];
+		}
+	
+		a++;
 	}
 
 	ACCESS_WRAPPER = 0;
 	
+	_nk_fiber_print_data();
+	
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 15 --- knn classifier (knn_1, knn_2)
+void knn_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	uint32_t k = 3, dims = 5, num_ex = 20;
+	
+	ACCESS_WRAPPER = 1;
+	
+	// Set up classifier
+	struct KNNContext *ctx = KNN_build_context(k, dims, num_ex, distance_manhattan, aggregate_median);
+
+	// Build a new point to classify
+	struct KNNPoint *kp = KNN_build_point(dims);
+
+	// Classify the point
+	double classification = KNN_classify(kp, ctx);
+
+	// Clean up
+	KNN_point_destroy(kp);
+	KNN_context_destroy(ctx);	
+
+	ACCESS_WRAPPER = 0;
+	
+	return;
+}
+
+void knn_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	uint32_t k = 3, dims = 5, num_ex = 20;
+	
+	ACCESS_WRAPPER = 1;
+	
+	// Set up classifier
+	struct KNNContext *ctx = KNN_build_context(k, dims, num_ex, distance_manhattan, aggregate_median);
+
+	// Build a new point to classify
+	struct KNNPoint *kp = KNN_build_point(dims);
+
+	// Classify the point
+	double classification = KNN_classify(kp, ctx);
+
+	// Clean up
+	KNN_point_destroy(kp);
+	KNN_context_destroy(ctx);	
+
+	ACCESS_WRAPPER = 0;
+	
+	_nk_fiber_print_data();
+
+	nk_vc_printf("class: %f\n", classification);
+
 	return;
 }
 // ------
@@ -1397,6 +1503,16 @@ int test_fibers_bench14(){
   return 0;
 }
 
+int test_fibers_bench15(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(knn_1, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(knn_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  return 0;
+}
+
+
 // --------------------------------------------------------------------------------
 
 /******************* Test Handlers *******************/
@@ -1453,21 +1569,21 @@ handle_fibers7 (char * buf, void * priv)
 static int
 handle_fibers8 (char * buf, void * priv)
 {
-  test_fibers_bench7();
+  test_fibers_bench8();
   return 0;
 }
 
 static int
 handle_fibers9 (char * buf, void * priv)
 {
-  test_fibers_bench7();
+  test_fibers_bench9();
   return 0;
 }
 
 static int
 handle_fibers10 (char * buf, void * priv)
 {
-  test_fibers_bench7();
+  test_fibers_bench10();
   return 0;
 }
 
@@ -1495,9 +1611,17 @@ handle_fibers13 (char * buf, void * priv)
 static int
 handle_fibers14 (char * buf, void * priv)
 {
-  test_fibers_bench13();
+  test_fibers_bench14();
   return 0;
 }
+
+static int
+handle_fibers15 (char * buf, void * priv)
+{
+  test_fibers_bench15();
+  return 0;
+}
+
 
 // --------------------------------------------------------------------------------
 
@@ -1585,6 +1709,12 @@ static struct shell_cmd_impl fibers_impl14 = {
   .handler  = handle_fibers14,
 };
 
+static struct shell_cmd_impl fibers_impl15 = {
+  .cmd      = "fiberbench15",
+  .help_str = "fiberbench15",
+  .handler  = handle_fibers15,
+};
+
 
 // --------------------------------------------------------------------------------
 
@@ -1604,6 +1734,7 @@ nk_register_shell_cmd(fibers_impl11);
 nk_register_shell_cmd(fibers_impl12);
 nk_register_shell_cmd(fibers_impl13);
 nk_register_shell_cmd(fibers_impl14);
+nk_register_shell_cmd(fibers_impl15);
 
 
 

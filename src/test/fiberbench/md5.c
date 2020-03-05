@@ -46,7 +46,7 @@
  */ 
 
 #include <nautilus/nautilus.h>
-#include <test/enc/md5.h>
+#include <test/fiberbench/md5.h>
 
 /*
  * 32-bit integer manipulation macros (little endian)

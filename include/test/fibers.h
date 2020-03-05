@@ -22,6 +22,12 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
+
+/*
+ * Data structures for subset of microbenchmarks used for 
+ * compiler-timing testing via fibers
+ */ 
+
 #ifndef __TEST_FIBERS_H__
 #define __TEST_FIBERS_H__
 
