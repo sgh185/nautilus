@@ -60,23 +60,16 @@
 //using namespace std;
 
 typedef int bool;
-//#define pthread_barrier_t nk_counting_barrier_t
 #define fiber_barrier_t nk_counting_barrier_t
 
-//#define pthread_barrier_init(p,n,c) nk_counting_barrier_init(p,c)
 #define fiber_barrier_init(p,n,c) nk_counting_barrier_init(p,c)
-//#define pthread_barrier_wait(p) do { if (!skipbarrier) { DEBUG("barrier start %s:%d\n",__FILE__,__LINE__); nk_counting_barrier(p); DEBUG("barrier end %s:%d\n",__FILE__,__LINE__);} } while (0)
+//#define fiber_barrier_wait(p) do { if (!skipbarrier) { DEBUG("barrier start %s:%d\n",__FILE__,__LINE__); nk_counting_barrier(p); DEBUG("barrier end %s:%d\n",__FILE__,__LINE__);} } while (0)
 #define fiber_barrier_wait(p) do { if (!skipbarrier) { nk_fiber_counting_barrier(p);} } while (0)
-//#define pthread_barrier_destroy(p) // leak away...
 #define fiber_barrier_destroy(p) // leak away...
 
-//#define pthread_mutex_t spinlock_t
-//#define PTHREAD_MUTEX_INITIALIZER SPINLOCK_INITIALIZER
 #define fiber_mutex_t spinlock_t
 #define FIBER_MUTEX_INITIALIZER SPINLOCK_INITIALIZER
 
-//#define pthread_mutex_lock(m) spin_lock(m)
-//#define pthread_mutex_unlock(m) spin_unlock(m)
 #define fiber_mutex_lock(m) spin_lock(m)
 #define fiber_mutex_unlock(m) spin_unlock(m)
 
@@ -122,11 +115,8 @@ static int fiber_cond_broadcast(volatile fiber_cond_t *c)
     return 0;
 }
 
-//#define pthread_t nk_thread_id_t
 #define fiber_t nk_fiber_t
 
-//#define pthread_create(tp,ap,f,i) nk_thread_start((nk_thread_fun_t)f,i,0,0,TSTACK_DEFAULT,tp,-1)
-//#define pthread_join(tp,ap) nk_join(tp,ap)
 #define fiber_create(tp,ap,f,i) nk_fiber_start((nk_thread_fun_t)f,i,0,FSTACK_DEFAULT,-1,tp)
 #define fiber_join(tp,ap) nk_fiber_join(tp)
 
@@ -1108,36 +1098,15 @@ static void* localSearchSub(void* arg_) {
   char buf[80];
 
   sprintf(buf,"scorg-%d",arg->pid);
-/*
-  nk_thread_name(get_cur_thread(),buf);
 
-  DEBUG("join group\n");
-  
-    if (group) {
-	nk_thread_group_join(group);
-    }
-*/
-  DEBUG("wait on others to join group\n");
-
+  // TODO MAC: May not be needed
   nk_fiber_counting_barrier(arg->barrier_children); // wait for everyone to join group
-  /*  
-    if (schedconst) {
-	DEBUG("group change constraint\n");
-	// do a group change constraint
-	nk_group_sched_change_constraints(group,schedconst);
-    } else {
-	DEBUG("no group change constraint\n");
-    }
-  */
-    DEBUG("pkmedian starts\n");
-
+  DEBUG("pkmedian starts\n");
         
   pkmedian(arg->points,arg->kmin,arg->kmax,arg->kfinal,arg->pid,arg->barrier_children);
 
-  if (group) {
-      DEBUG("group leave\n");
-      nk_thread_group_leave(group);
-  }
+  // Let the "parent" fiber know you're done before exiting
+  // This way the parent fiber doesn't have to nk_fiber_join() with each child
   nk_fiber_counting_barrier(arg->barrier_parent);
   return NULL;
 }
@@ -1147,12 +1116,6 @@ static void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
   double t1 = gettime();
 #endif
 
-/*
-  if (schedconst) {
-      // set up a group for our use
-      group = nk_thread_group_create("foofighters");
-  }
-*/
     fiber_barrier_t barrier;
     fiber_barrier_t barrier2;
 #ifdef ENABLE_FIBERS
@@ -1177,18 +1140,15 @@ static void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
 #ifdef ENABLE_FIBERS
       int targetproc = startproc!=-1 ? startproc+i : -1;
       nk_fiber_start((nk_fiber_fun_t)localSearchSub,(void*)&arg[i],0,FSTACK_DEFAULT,targetproc,fibers+i);
-      // fiber_create(fibers+i,NULL,localSearchSub,(void*)&arg[i]);
 #else
       localSearchSub(&arg[0]);
 #endif
     }
 
-   // for ( int i = 0; i < nproc; i++) {
 #ifdef ENABLE_FIBERS
-      //fiber_join(fibers[i],NULL);
-      nk_fiber_counting_barrier(&barrier2);
+    // wait for all the children to hit this barrier before moving on
+    nk_fiber_counting_barrier(&barrier2);
 #endif
-   // }
 
     dela(fibers);
     dela(arg);
@@ -1196,18 +1156,11 @@ static void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
     fiber_barrier_destroy(&barrier);
 #endif
 
-/*
-    if (group) {
-	nk_thread_group_delete(group);
-    }
-*/
-
 #ifdef PROFILE
   double t2 = gettime();
   time_local_search += t2-t1;
 #endif
 
-  
 }
 
 typedef struct _PStream {
@@ -1372,6 +1325,8 @@ int test_fiber_streamcluster(int numt, int startp, int nobarrier,
 #endif
 
   // configured as per run script
+
+// Size of test is decided by command line input
 switch(testsize)
 {
   case 0:
@@ -1502,6 +1457,9 @@ switch(testsize)
   return 0;
 }
 
+// Since only fibers can use fiber barriers, we must start the streamcluster
+// test using a "parent" fiber. This allows us to interact with all the child
+// fibers that are created during the test
 static void fiber_sc(void *i, void **o)
 {
   struct sys_info * sys = per_cpu_get(system);
