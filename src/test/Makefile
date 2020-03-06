@@ -12,7 +12,8 @@ obj-y += fiberbench/
 
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o \
-								   fiber_timehook.o 
+								   fiber_timehook.o \
+								   streamcluster_fiber.o 
 
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 

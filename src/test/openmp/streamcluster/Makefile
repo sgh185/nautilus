@@ -3,7 +3,6 @@
 CFLAGS += -fopenmp
 
 obj-y += streamcluster_omp.o 
-#obj-y += streamcluster_original.o 
-obj-y += streamcluster_fiber.o 
+obj-y += streamcluster_original.o 
 
 
