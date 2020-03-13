@@ -37,6 +37,7 @@
 #include <nautilus/errno.h>
 #include <nautilus/random.h>
 #include <dev/hpet.h>
+#include <nautilus/log_data.h>
 
 
 int errno=0;
@@ -639,17 +640,20 @@ int getc(FILE* arg)
 
 int fileno(FILE* f)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 
 int isatty(int fd)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 
 //LUA SPECIFIC....................
 size_t strftime(char *str, size_t maxsize, const char *format, const struct tm *timeptr)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 int feof(FILE * x)
@@ -665,6 +669,7 @@ char *fgets(char *str, int n, FILE *stream)
 }
 void *memchr(const void *str, int c, size_t n)
 {
+    UNDEF_FUN_ERR();
     return NULL;
 }
 /*void longjmp(int *x, int __y)
@@ -677,12 +682,15 @@ int setjmp(int *x)
     return 0;
 } */
 double fabs(double __x){
+    UNDEF_FUN_ERR();
     return abs(__x);
 }
 double atan(double __x){
+    UNDEF_FUN_ERR();
     return 45.000;
 }
 double atan2(double y, double x){
+    UNDEF_FUN_ERR();
     return 135.00;
 }
 double fmod(double y, double x){
@@ -702,20 +710,23 @@ double fmodnew(int y, int x){
 double modf(double y, double *x){
   *x = 0;
 //	printk("\n in modf");
+    UNDEF_FUN_ERR();
   return 0.000;
 }
 double frexp(double x, int *e){
+  UNDEF_FUN_ERR();
   *e = 0;
   return 0.5;
 }
 double ldexp(double x, int exp){
+  UNDEF_FUN_ERR();
   return x;
 }
 
 
 int ischar(unsigned char *str)
 {
-
+    UNDEF_FUN_ERR();
 	return 1;
 }
 
@@ -724,6 +735,7 @@ int ischar(unsigned char *str)
 /*----------*/
 double abs(double x)
 {
+UNDEF_FUN_ERR();
 //should return absolute value of x
 if (x<0)
 	return -1*x;
@@ -732,82 +744,238 @@ else
 }
 double sin(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double sinh(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double cos(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double cosh(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 time_t mktime(struct tm *timeptr)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 struct tm *localtime(const time_t *timer)
 {
+    UNDEF_FUN_ERR();
     return NULL;
 }
 struct tm *gmtime(const time_t *timer)
 {
+    UNDEF_FUN_ERR();
     return NULL;
 }
 int strcoll(const char *str1, const char *str2)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 double tan(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double tanh(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double asin(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double acos(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double ceil(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double floor(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double difftime(time_t time1, time_t time2)
 {
+    UNDEF_FUN_ERR();
     return 0;
 }
 double sqrt(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double pow(double x, double y)
 {
+UNDEF_FUN_ERR();
 return x;
 }
+
+
+/*
+ * Double-precision log(x) function.
+ *
+ * Copyright (c) 2018, Arm Limited.
+ * SPDX-License-Identifier: MIT
+ */
+
+#define __MUSL_LOG_T __log_data.tab
+#define __MUSL_LOG_T2 __log_data.tab2
+#define __MUSL_LOG_B __log_data.poly1
+#define __MUSL_LOG_A __log_data.poly
+#define __MUSL_LOG_Ln2hi __log_data.ln2hi
+#define __MUSL_LOG_Ln2lo __log_data.ln2lo
+#define __MUSL_LOG_N (1 << __MUSL_LOG_TABLE_BITS)
+#define __MUSL_LOG_OFF 0x3fe6000000000000
+#define __MUSL_asuint64(f) ((union{double _f; uint64_t _i;}){f})._i
+#define __MUSL_asdouble(i) ((union{uint64_t _i; double _f;}){i})._f
+#define __MUSL_predict_true(x) __builtin_expect(!!(x), 1)
+#define __MUSL_predict_false(x) __builtin_expect(x, 0)
+#define WANT_ROUNDING 1
+#define INFINITY __builtin_inff()
+#ifndef double_t
+#define double_t double
+#endif
+static inline double __musl_fp_barrier(double x)
+{
+	volatile double y = x;
+	return y;
+}
+
+static double __musl_math_divzero(uint32_t sign)
+{
+	return __musl_fp_barrier(sign ? -1.0 : 1.0) / 0.0;
+}
+
+static double __musl_math_invalid(double x)
+{
+    return (x - x) / (x - x);
+}
+
+static inline double __musl_eval_as_double(double x)
+{
+	double y = x;
+	return y;
+}
+
+/* Top 16 bits of a double.  */
+static inline uint32_t top16(double x)
+{
+	return __MUSL_asuint64(x) >> 48;
+}
+
 double log(double x)
 {
-return x;
+	double_t w, z, r, r2, r3, y, invc, logc, kd, hi, lo;
+	uint64_t ix, iz, tmp;
+	uint32_t top;
+	int k, i;
+
+	ix = __MUSL_asuint64(x);
+	top = top16(x);
+#define __MUSL_LOG_LO __MUSL_asuint64(1.0 - 0x1p-4)
+#define __MUSL_LOG_HI __MUSL_asuint64(1.0 + 0x1.09p-4)
+	if (__MUSL_predict_false(ix - __MUSL_LOG_LO < __MUSL_LOG_HI - __MUSL_LOG_LO)) {
+		/* Handle close to 1.0 inputs separately.  */
+		/* Fix sign of zero with downward rounding when x==1.  */
+		if (WANT_ROUNDING && __MUSL_predict_false(ix == __MUSL_asuint64(1.0)))
+			return 0;
+		r = x - 1.0;
+		r2 = r * r;
+		r3 = r * r2;
+		y = r3 *
+		    (__MUSL_LOG_B[1] + r * __MUSL_LOG_B[2] + r2 * __MUSL_LOG_B[3] +
+		     r3 * (__MUSL_LOG_B[4] + r * __MUSL_LOG_B[5] + r2 * __MUSL_LOG_B[6] +
+			   r3 * (__MUSL_LOG_B[7] + r * __MUSL_LOG_B[8] + r2 * __MUSL_LOG_B[9] + r3 * __MUSL_LOG_B[10])));
+		/* Worst-case error is around 0.507 ULP.  */
+		w = r * 0x1p27;
+		double_t rhi = r + w - w;
+		double_t rlo = r - rhi;
+		w = rhi * rhi * __MUSL_LOG_B[0]; /* __MUSL_LOG_B[0] == -0.5.  */
+		hi = r + w;
+		lo = r - hi + w;
+		lo += __MUSL_LOG_B[0] * rlo * (rhi + r);
+		y += lo;
+		y += hi;
+		return __musl_eval_as_double(y);
+	}
+	if (__MUSL_predict_false(top - 0x0010 >= 0x7ff0 - 0x0010)) {
+		/* x < 0x1p-1022 or inf or nan.  */
+		if (ix * 2 == 0)
+			return __musl_math_divzero(1);
+		if (ix == __MUSL_asuint64(INFINITY)) /* log(inf) == inf.  */
+			return x;
+		if ((top & 0x8000) || (top & 0x7ff0) == 0x7ff0)
+			return __musl_math_invalid(x);
+		/* x is subnormal, normalize it.  */
+		ix = __MUSL_asuint64(x * 0x1p52);
+		ix -= 52ULL << 52;
+	}
+
+	/* x = 2^k z; where z is in range [__MUSL_LOG_OFF,2*__MUSL_LOG_OFF) and exact.
+	   The range is split into N subintervals.
+	   The ith subinterval contains z and c is near its center.  */
+	tmp = ix - __MUSL_LOG_OFF;
+	i = (tmp >> (52 - __MUSL_LOG_TABLE_BITS)) % __MUSL_LOG_N;
+	//k = (int64_t)tmp >> 52; /* arithmetic shift */
+	k = (long)tmp >> 52; /* arithmetic shift */
+	iz = ix - (tmp & 0xfffULL << 52);
+	invc = __MUSL_LOG_T[i].invc;
+	logc = __MUSL_LOG_T[i].logc;
+	z = __MUSL_asdouble(iz);
+
+	/* log(x) = log1p(z/c-1) + log(c) + k*Ln2.  */
+	/* r ~= z/c - 1, |r| < 1/(2*__MUSL_LOG_N).  */
+#if __FP_FAST_FMA
+	/* rounding error: 0x1p-55/__MUSL_LOG_N.  */
+	r = __builtin_fma(z, invc, -1.0);
+#else
+	/* rounding error: 0x1p-55/__MUSL_LOG_N + 0x1p-66.  */
+	r = (z - __MUSL_LOG_T2[i].chi - __MUSL_LOG_T2[i].clo) * invc;
+#endif
+	kd = (double_t)k;
+
+	/* hi + lo = r + log(c) + k*Ln2.  */
+	w = kd * __MUSL_LOG_Ln2hi + logc;
+	hi = w + r;
+	lo = w - hi + r + kd * __MUSL_LOG_Ln2lo;
+
+	/* log(x) = lo + (log1p(r) - r) + hi.  */
+	r2 = r * r; /* rounding error: 0x1p-54/__MUSL_LOG_N^2.  */
+	/* Worst case error if |y| > 0x1p-5:
+	   0.5 + 4.13/__MUSL_LOG_N + abs-poly-error*2^57 ULP (+ 0.002 ULP without fma)
+	   Worst case error if |y| > 0x1p-4:
+	   0.5 + 2.06/__MUSL_LOG_N + abs-poly-error*2^56 ULP (+ 0.001 ULP without fma).  */
+	y = lo + r2 * __MUSL_LOG_A[0] +
+	    r * r2 * (__MUSL_LOG_A[1] + r * __MUSL_LOG_A[2] + r2 * (__MUSL_LOG_A[3] + r * __MUSL_LOG_A[4])) + hi;
+	return __musl_eval_as_double(y);
 }
+
 double log10(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 double exp(double x)
 {
+UNDEF_FUN_ERR();
 return x;
 }
 
