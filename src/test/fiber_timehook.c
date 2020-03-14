@@ -65,6 +65,9 @@
 #define M2 40
 #define M3 30
 
+// Conditions
+#define RET_CHECK 1
+
 extern struct nk_virtual_console *vc;
 extern void nk_simple_timing_loop(uint64_t);
 
@@ -73,6 +76,12 @@ extern void nk_simple_timing_loop(uint64_t);
 // is collected (using methods in src/nautilus/fiber.c)
 // and vice versa.
 int ACCESS_WRAPPER = 0;
+
+extern void *address_hook_0;
+extern void *address_hook_1;
+extern void *address_hook_2;
+extern void *address_hook_3;
+extern void *long_hook;
 
 // Linked List Implementation
 __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size) 
@@ -973,7 +982,7 @@ void time_hook_test(void *i, void **o)
 
 	int a = 0;
 
-	ACCESS_HOOK = 1;
+	ACCESS_HOOK = ACCESS_WRAPPER = 1;
 
 	while(a < TH)
 	{
@@ -981,7 +990,7 @@ void time_hook_test(void *i, void **o)
 		a++;
 	}
 
-	ACCESS_HOOK = 0;
+	ACCESS_HOOK = ACCESS_WRAPPER = 0;
 
 	get_time_hook_data();
 
@@ -1006,15 +1015,15 @@ void rijndael_1(void *i, void **o)
 	unsigned char *src = (unsigned char *) (MALLOC(sizeof(unsigned char) * bit_size));
 	unsigned char *dst = (unsigned char *) (MALLOC(sizeof(unsigned char) * bit_size));
 	rijndael_ctx *new_ctx = (rijndael_ctx *) (MALLOC(sizeof(rijndael_ctx)));
-	
+
+	// Set key and src to random set of bytes
+	nk_get_rand_bytes(key, len);
+	nk_get_rand_bytes(src, len);
+
 	ACCESS_WRAPPER = 1;
 	
 	while(a < M)
 	{
-		// Set key and src to random set of bytes
-		nk_get_rand_bytes(key, len);
-		nk_get_rand_bytes(src, len);
-
 		// Set up context struct with key	
 		rijndael_set_key(new_ctx, key, bit_size, 1); // Set up for encryption
 
@@ -1048,14 +1057,14 @@ void rijndael_2(void *i, void **o)
 	unsigned char *dst = (unsigned char *) (MALLOC(sizeof(unsigned char) * bit_size));
 	rijndael_ctx *new_ctx = (rijndael_ctx *) (MALLOC(sizeof(rijndael_ctx)));
 
+	// Set key and src to random set of bytes
+	nk_get_rand_bytes(key, len);
+	nk_get_rand_bytes(src, len);
+
 	ACCESS_WRAPPER = 1;
 	
 	while(a < M)
 	{
-		// Set key and src to random set of bytes
-		nk_get_rand_bytes(key, len);
-		nk_get_rand_bytes(src, len);
-
 		// Set up context struct with key	
 		rijndael_set_key(new_ctx, key, bit_size, 1); // Set up for encryption
 
@@ -1094,12 +1103,12 @@ void sha1_1(void *i, void **o)
 	// NOTE --- relying on error checking from MALLOC
 	unsigned char *input = (unsigned char *) (MALLOC(sizeof(unsigned char) * input_size));
 	unsigned char *output = (unsigned char *) (MALLOC(sizeof(unsigned char) * sha_output_size));
+
+	// Set input to random bytes
+	nk_get_rand_bytes(input, input_size);
 	
 	while(a < M)
 	{
-		// Set input to random bytes
-		nk_get_rand_bytes(input, input_size);
-
 		// Generate hash
 		sha1(input, input_size, output);
 
@@ -1127,11 +1136,11 @@ void sha1_2(void *i, void **o)
 	unsigned char *input = (unsigned char *) (MALLOC(sizeof(unsigned char) * input_size));
 	unsigned char *output = (unsigned char *) (MALLOC(sizeof(unsigned char) * sha_output_size));
 
+	// Set input to random bytes
+	nk_get_rand_bytes(input, input_size);
+
 	while(a < M)
 	{
-		// Set input to random bytes
-		nk_get_rand_bytes(input, input_size);
-
 		// Generate hash
 		sha1(input, input_size, output);
 
@@ -1158,18 +1167,19 @@ void md5_1(void *i, void **o)
 	const int md5_output_size = 16;
 	int a = 0, input_size = 192; // 192 byte input
 	
-	ACCESS_WRAPPER = 1;
 	
 	// Allocate all pieces necessary for SHA-1 implementation
 	// NOTE --- relying on error checking from MALLOC
 	unsigned char *input = (unsigned char *) (MALLOC(sizeof(unsigned char) * input_size));
 	unsigned char *output = (unsigned char *) (MALLOC(sizeof(unsigned char) * md5_output_size));
+
+	// Set input to random bytes
+	nk_get_rand_bytes(input, input_size);
 	
+	ACCESS_WRAPPER = 1;
+
 	while(a < M)
 	{
-		// Set input to random bytes
-		nk_get_rand_bytes(input, input_size);
-
 		// Generate hash
 		md5(input, input_size, output);
 
@@ -1190,18 +1200,18 @@ void md5_2(void *i, void **o)
 	const int md5_output_size = 16;
 	int a = 0, input_size = 192; // 192 byte input
 	
-	ACCESS_WRAPPER = 1;
-	
 	// Allocate all pieces necessary for SHA-1 implementation
 	// NOTE --- relying on error checking from MALLOC
 	unsigned char *input = (unsigned char *) (MALLOC(sizeof(unsigned char) * input_size));
 	unsigned char *output = (unsigned char *) (MALLOC(sizeof(unsigned char) * md5_output_size));
 	
+	// Set input to random bytes
+	nk_get_rand_bytes(input, input_size);
+	
+	ACCESS_WRAPPER = 1;
+	
 	while(a < M)
 	{
-		// Set input to random bytes
-		nk_get_rand_bytes(input, input_size);
-
 		// Generate hash
 		md5(input, input_size, output);
 
@@ -1213,6 +1223,13 @@ void md5_2(void *i, void **o)
 	_nk_fiber_print_data();
 	
 	// No freeing --- FIX
+#if RET_CHECK
+	nk_vc_printf("addr0: %p\n", address_hook_0);
+	nk_vc_printf("addr1: %p\n", address_hook_1);
+	nk_vc_printf("addr2: %p\n", address_hook_2);
+	nk_vc_printf("addr3: %p\n", address_hook_3);
+	nk_vc_printf("long: %p\n", long_hook);
+#endif
 	
 	return;
 }
@@ -1287,7 +1304,15 @@ void fib_2(void *i, void **o)
 	ACCESS_WRAPPER = 0;
 	
 	_nk_fiber_print_data();
-	
+
+#if RET_CHECK
+	nk_vc_printf("addr0: %p\n", address_hook_0);
+	nk_vc_printf("addr1: %p\n", address_hook_1);
+	nk_vc_printf("addr2: %p\n", address_hook_2);
+	nk_vc_printf("addr3: %p\n", address_hook_3);
+	nk_vc_printf("long: %p\n", long_hook);
+#endif
+
 	return;
 }
 // ------
@@ -1348,7 +1373,67 @@ void knn_2(void *i, void **o)
 	
 	_nk_fiber_print_data();
 
-	nk_vc_printf("class: %f\n", classification);
+	// nk_vc_printf("class: %f\n", classification);
+#if RET_CHECK
+	nk_vc_printf("addr0: %p\n", address_hook_0);
+	nk_vc_printf("addr1: %p\n", address_hook_1);
+	nk_vc_printf("addr2: %p\n", address_hook_2);
+	nk_vc_printf("addr3: %p\n", address_hook_3);
+	nk_vc_printf("long: %p\n", long_hook);
+#endif
+
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 16 --- prim's algorithm, mst (graph_1, graph_2) --- NOT completed
+void graph_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	int nvtx = 20, weighted = 0;
+
+	ACCESS_WRAPPER = 1;
+	
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+
+	// Clean up
+	destroy_graph(g);	
+
+
+	ACCESS_WRAPPER = 0;
+
+	printf("The graph: %p\n", g);
+
+	return;
+}
+
+void graph_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	int nvtx = 20, weighted = 1;
+	
+	nk_vc_printf("The graph: g\n");
+
+	ACCESS_WRAPPER = 1;
+	
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+
+	// Clean up
+	destroy_graph(g);	
+
+	ACCESS_WRAPPER = 0;
+	
+	_nk_fiber_print_data();
+
+	nk_vc_printf("The graph: %p\n", g);
 
 	return;
 }
@@ -1362,8 +1447,8 @@ int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(timing_loop_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(timing_loop_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(timing_loop_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1371,8 +1456,8 @@ int test_fibers_bench2(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(s_timing_loop_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(s_timing_loop_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(s_timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(s_timing_loop_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1380,8 +1465,8 @@ int test_fibers_bench3(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(dot_prod_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(dot_prod_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(dot_prod_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(dot_prod_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1389,8 +1474,8 @@ int test_fibers_bench4(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(ll_traversal_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(ll_traversal_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(ll_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(ll_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1398,8 +1483,8 @@ int test_fibers_bench5(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(mm_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(mm_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(mm_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1423,8 +1508,8 @@ int test_fibers_bench6(){
 
 #else
   
-  // nk_fiber_start(bt_traversal_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(bt_traversal_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(bt_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(bt_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
 
 #endif
   
@@ -1436,8 +1521,8 @@ int test_fibers_bench7(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(rand_mm_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(rand_mm_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(rand_mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(rand_mm_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1445,8 +1530,8 @@ int test_fibers_bench8(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(bt_lo_traversal_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(bt_lo_traversal_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(bt_lo_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(bt_lo_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1454,8 +1539,8 @@ int test_fibers_bench9(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(operations_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(operations_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(operations_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(operations_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1463,7 +1548,7 @@ int test_fibers_bench10(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  nk_fiber_start(time_hook_test, 0, 0, FSTACK_2MB, 0, &simple1);
+  nk_fiber_start(time_hook_test, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
   return 0;
 }
 
@@ -1471,8 +1556,8 @@ int test_fibers_bench11(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(rijndael_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(rijndael_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(rijndael_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(rijndael_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1480,8 +1565,8 @@ int test_fibers_bench12(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(sha1_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(sha1_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(sha1_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(sha1_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1489,8 +1574,8 @@ int test_fibers_bench13(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(md5_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(md5_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(md5_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(md5_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1498,8 +1583,8 @@ int test_fibers_bench14(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(fib_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(fib_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(fib_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(fib_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1507,8 +1592,17 @@ int test_fibers_bench15(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(knn_1, 0, 0, FSTACK_2MB, 0, &simple1);
-  nk_fiber_start(knn_2, 0, 0, FSTACK_2MB, 0, &simple2);
+  // nk_fiber_start(knn_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(knn_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  return 0;
+}
+
+int test_fibers_bench16(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(graph_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(graph_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1622,6 +1716,14 @@ handle_fibers15 (char * buf, void * priv)
   return 0;
 }
 
+static int
+handle_fibers16 (char * buf, void * priv)
+{
+  test_fibers_bench16();
+  return 0;
+}
+
+
 
 // --------------------------------------------------------------------------------
 
@@ -1715,6 +1817,12 @@ static struct shell_cmd_impl fibers_impl15 = {
   .handler  = handle_fibers15,
 };
 
+static struct shell_cmd_impl fibers_impl16 = {
+  .cmd      = "fiberbench16",
+  .help_str = "fiberbench16",
+  .handler  = handle_fibers16,
+};
+
 
 // --------------------------------------------------------------------------------
 
@@ -1735,6 +1843,7 @@ nk_register_shell_cmd(fibers_impl12);
 nk_register_shell_cmd(fibers_impl13);
 nk_register_shell_cmd(fibers_impl14);
 nk_register_shell_cmd(fibers_impl15);
+nk_register_shell_cmd(fibers_impl16);
 
 
 

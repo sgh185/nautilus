@@ -107,7 +107,7 @@ void KNN_point_destroy(struct KNNPoint *point)
 void KNN_point_array_destroy(struct KNNPoint **point_arr)
 {
 	int length = LEN(point_arr), i;
-	for (i = 0; i < length; i++){
+	for (i = 0; i < length; i++) {
 		KNN_point_destroy(point_arr[i]);
 	}
 
@@ -147,7 +147,7 @@ double KNN_classify(struct KNNPoint *point, struct KNNContext *ctx)
 	int k = (int) (ctx->k);
 	struct KNNPoint* k_nearest[k];
 
-	for (i = 0; i < k; i++){
+	for (i = 0; i < k; i++) {
 		k_nearest[i] = sorted_order[i];
 	}
 
@@ -156,7 +156,7 @@ double KNN_classify(struct KNNPoint *point, struct KNNContext *ctx)
 
 	// Cleanup
 	free(sorted_distances);
-	free(sorted_order);
+	KNN_point_array_destroy(sorted_order);
 
 	return classification;
 }
