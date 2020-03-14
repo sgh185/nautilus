@@ -63,20 +63,64 @@ typedef struct TreeQueue
   uint64_t tail_pos; // Index of next available entry to add a tree node to queue
 } TreeQueue_t;
 
+typedef struct Vertex_t Vertex;
 
-List_t * createList(uint64_t start, uint64_t size);
+typedef struct Vertex_t
+{
+	int id;
+	int num_neighbors;
+	int *neighbor_weights;
+	Vertex **neighbors;
+} Vertex;
 
-TreeNode_t * createTree(uint64_t start, uint64_t size);
+// A very nicely redundant data structure
+typedef struct Edge_t
+{
+	int weight;
+	Vertex *endpt_1;
+	Vertex *endpt_2;
+} Edge;
 
-TreeQueue_t * createQueue(void);
+typedef struct Graph_t
+{
+	int num_vertices;
+	int num_edges;
+	Vertex **vertices;
+} Graph;
 
-uint64_t * createRandArray(uint64_t size);
+// Linked-list set up
+List_t *createList(uint64_t start, uint64_t size);
 
-/*
-List_t * createList(uint64_t start, uint64_t size);
-TreeNode_t * createTree(uint64_t start, uint64_t size);
-TreeQueue_t * createQueue(uint64_t queue_size);
-uint64_t * createRandArray(uint64_t size);
-*/
+// Binary tree set up
+TreeNode_t *createTree(uint64_t start, uint64_t size);
+
+TreeQueue_t *createQueue(void);
+
+// Undirected graph implementation --- new (complicated)
+// so there's a lot of pointer traversal
+
+// Set up
+Graph *generate_full_graph(int num_vtx, int weighted);
+
+Vertex *build_new_vertex(int id, int max_neighbors);
+Graph *build_new_graph(int num_vtx);
+Vertex *copy_vertex(Vertex *vtx);
+int add_vertex_to_graph(Vertex *vtx, Graph *g);
+void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted);
+
+// Clean up
+void destroy_vertex(Vertex *vtx);
+void destroy_vertex_array(Vertex **vertices);
+void destroy_graph(Graph *g);
+
+// Graph utility
+int check_vertex(Vertex *vtx);
+int inline max_edges(Graph *g);
+
+// Utility
+uint64_t *createRandArray(uint64_t size);
+
+
+
 
 #endif

@@ -1,4 +1,4 @@
-/* 
+/*
  * This file is part of the Nautilus AeroKernel developed
  * by the Hobbes and V3VEE Projects with funding from the 
  * United States National  Science Foundation and the Department of Energy.  
@@ -77,7 +77,7 @@
 /* Time-hook testing */
 #define YIELD_HOOK 0
 #define SNAPSHOT_HOOK 1
-#define NULL_HOOK 2
+#define NULL_HOOK 0
 
 #define HOOK_FUNC YIELD_HOOK
 
@@ -620,24 +620,36 @@ int nk_fiber_init()
 
     // Register time_hook instance for fibers
     uint64_t gran = nk_time_hook_get_granularity_ns();
-    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
-    struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran, 1, 0);
-    // struct nk_time_hook *fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran, 1, 0);
-    /*switch(HOOK_FUNC) 
+    struct nk_time_hook *fiber_hook;
+
+#if YIELD_HOOK
+	fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
+#endif
+
+#if SNAPSHOT_HOOK
+    fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
+#endif
+
+#if NULL_HOOK
+	fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran, NK_TIME_HOOK_ALL_CPUS, 0);
+#endif
+
+#if 0
+	switch(HOOK_FUNC) 
     {
 	case YIELD_HOOK:
 	{
-          fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+      fiber_hook = nk_time_hook_register(_wrapper_nk_fiber_yield, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
 	  break;
 	}
 	case SNAPSHOT_HOOK:
 	{
-    	  fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+      fiber_hook = nk_time_hook_register(_nk_snapshot_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
 	  break;
 	}
 	case NULL_HOOK:
 	{
-          fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
+      fiber_hook = nk_time_hook_register(_nk_null_time_hook, 0, gran,NK_TIME_HOOK_ALL_CPUS, 0);
 	  break;
 	}
 	default:
@@ -645,8 +657,8 @@ int nk_fiber_init()
 	  panic("no fiber hook function found\n");
 	  break;
 	}
-    }*/
-
+    }
+#endif
 
     return 0;
 }
@@ -664,7 +676,7 @@ static int _check_empty(void *s)
     // nk_fiber_run will wake up fiber_thread if a fiber is added to queue when it is sleeping
 // WAIT: yields continuously, but will put fiber thread onto wait queue if no fibers are available
     // nk_fiber_run will wake up fiber_thread when a fiber is added to the queue
-static void __nk_fiber_idle(void *in, void **out)
+__attribute__((annotate("nohook"))) static void __nk_fiber_idle(void *in, void **out)
 {
   while (1) {
     // If we have fiber thread spin enabled
@@ -728,7 +740,7 @@ static void __fiber_thread(void *in, void **out)
   state->fiber_thread = get_cur_thread();
 
 #ifdef NAUT_CONFIG_COMPILER_TIMING 
-if (get_cpu()->id == 1) {
+if (get_cpu()->id == TARGET_CPU) {
    FIBER_INFO("CPUID --- %du\n", get_cpu()->id);
    extern nk_thread_t *hook_compare_fiber_thread;
    hook_compare_fiber_thread = _get_fiber_thread();
@@ -826,14 +838,50 @@ static void _debug_yield(nk_fiber_t *f_to)
 
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
 #define MAX_WRAPPER_COUNT 1000
-static uint64_t wrapper_data[MAX_WRAPPER_COUNT];
-static int time_interval = 0;
-extern int ACCESS_WRAPPER;
+static uint64_t wrapper_data[MAX_WRAPPER_COUNT]; // Array to record intervals between nk_time_hook_fire calls
+static int time_interval = 0; // Index of wrapper_data
+static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0; // Deprecated functionality
+extern int ACCESS_WRAPPER; // Permissions global
 
+static uint64_t last = 0; // Analogous to rdtsc_wrapper_old
+static uint64_t count = 0; // Analogous to time_interval
 
-static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0;
+static uint64_t idle_count = 0; // Statistics
+
 __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 {
+
+#if 1
+
+  // Determine if we're on the target CPU and we're on the
+  // fiber thread of that target CPU
+  if ((my_cpu_id() == TARGET_CPU) &&
+      (get_cur_thread() == get_cpu()->f_state->fiber_thread)) { 
+
+	// Determine if we're on a non-idle fiber on 
+	// the fiber thread
+    if (!(nk_fiber_current()->is_idle)) { 
+
+	  // Determine if we have enough capacity in our data array
+	  // and if we have access/"permissions" to yield --- then
+	  // yield if necessary
+      if (ACCESS_WRAPPER && (count < MAX_WRAPPER_COUNT)) { 
+		wrapper_data[count++] =  rdtsc() - last;
+		nk_fiber_yield();
+		last = rdtsc();
+      }
+
+	// We want to get a sense of how many times we're
+	// running in the idle fiber (under WAIT configuration)
+    } else {
+      idle_count++;
+      // DS("Hit idle\n");
+    }
+
+  }
+
+// Possibly deprecated functionality below
+#else
   // nk_vc_printf("time_interval now: %d\n", time_interval);
   if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
     return 1;
@@ -847,9 +895,9 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
   
   // rdtsc_wrapper_new = rdtsc();
   // wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
-  // delta = wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
+  // nk_vc_printf("time_interval now: %d\n", time_interval);
   
-  /*
+/*
   if (delta < 100) {
     FIBER_INFO("ACCESS_WRAPPER: %d\n", ACCESS_WRAPPER);
     BACKTRACE(FIBER_INFO, 20);
@@ -859,36 +907,94 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
   
   // time_interval++;
    
-  fiber_state *state = _GET_FIBER_STATE();
-  if (state->fiber_thread == get_cur_thread()) {
+  // fiber_state *state = _GET_FIBER_STATE();
+  // if (state->fiber_thread == get_cur_thread()) {
+  extern nk_thread_t *hook_compare_fiber_thread;
+  if ((hook_compare_fiber_thread == get_cur_thread())
+	  && (!(nk_fiber_current()->is_idle)))  
+  {
     rdtsc_wrapper_new = temp_rdtsc;
     wrapper_data[time_interval] = rdtsc_wrapper_new - rdtsc_wrapper_old; 
     
     time_interval++;
    
     nk_fiber_yield();
-  }
   
-  rdtsc_wrapper_old = rdtsc();
+	rdtsc_wrapper_old = rdtsc();
+  } else { 
+  	DS("e");
+	DS("\n");
+  }
 
+#endif
+  
   return 0;
+
 }
 
+// Globals --- testing and snapshot functionality
 static int old_snapshot = 0;
+void *address_hook_0 = 0;
+void *address_hook_1 = 0;
+void *address_hook_2 = 0;
+void *address_hook_3 = 0;
+void *long_hook = 0;
+
 __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 {
   if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
     return 0;
   }
+
+  // --- OLD --- Checking to see if we're on some fiber thread --- 
+  // fiber_state *state = _GET_FIBER_STATE();
+  // if (state->fiber_thread == get_cur_thread()) {
   
-  int curr_snapshot = rdtsc();
-  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
-  old_snapshot = curr_snapshot;
-  time_interval++;
+  
+  // --- Checking to see if we're on the fiber thread of the target CPU --- 
+  extern nk_thread_t *hook_compare_fiber_thread; // Get fiber thread of target CPU
+
+  if ((hook_compare_fiber_thread == get_cur_thread())
+	  && (!(nk_fiber_current()->is_idle)))  
+  {
+	  	 
+	  int curr_snapshot = rdtsc(); 
+	  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
+	  
+	  // We want to get a sense of where the callers are coming
+	  // from --- want to confirm that the calls are coming from
+	  // a running fiber (non-idle) on the target CPU and not
+	  // some other thread or fiber
+	  if (address_hook_0 == 0) {
+		if (wrapper_data[time_interval] < 3000) { 
+			address_hook_0 = __builtin_return_address(0); 
+			address_hook_1 = __builtin_return_address(1); 
+			address_hook_2 = __builtin_return_address(2); 
+			address_hook_3 = __builtin_return_address(3); 
+		}
+	  }
+
+	  // If we have a large interval for some reason --- figure
+	  // out the caller and stash it somewhere
+	  if (long_hook == 0) {
+
+		if ((wrapper_data[time_interval] > 40000) 
+			&& (wrapper_data[time_interval] < 60000)) {   
+		  long_hook = __builtin_return_address(2); 
+		}
+	  
+	  }
+
+	  old_snapshot = curr_snapshot;
+	  time_interval++;
+
+  }
 
   return 0;
 }
 
+// Null hook used for testing purposes --- determine how long an
+// bare invocation of nk_time_hook_fire takes
 __attribute__((optnone, annotate("nohook"))) int _nk_null_time_hook()
 {
   return 0;
@@ -900,6 +1006,7 @@ void _nk_fiber_print_data()
   	
   nk_vc_printf("PRINTSTART\n");
 
+  // int temp = count;
   int temp = time_interval;
   nk_vc_printf("time_interval: %d\n", temp);
 
@@ -908,11 +1015,20 @@ void _nk_fiber_print_data()
     // nk_vc_printf("%lu : %lu\n", wrapper_data[i], missed_fires[i]);
     nk_vc_printf("%lu\n", wrapper_data[i]);
   } 
+ 
+  extern uint64_t early_count;
+  extern uint64_t late_count;
+
+  nk_vc_printf("early count: %lu\n", early_count);
+  nk_vc_printf("late count: %lu\n", late_count);
+
+  nk_vc_printf("idle count: %lu\n",idle_count);
   
   nk_vc_printf("PRINTEND\n");
  
   memset(wrapper_data, 0, sizeof(wrapper_data));
   time_interval = 0;
+  last = count = 0;
 
   // For yield hook
   rdtsc_wrapper_new = 0;
