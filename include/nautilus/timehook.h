@@ -27,6 +27,10 @@
 #ifndef __TIME_HOOK__
 #define __TIME_HOOK__
 
+
+// Target CPU for testing --- 'timehook1' test
+#define TARGET_CPU 10
+
 /*
   This mechanism allows you to register to receive callbacks with some
   rate.  These callbacks are *not* driven by timer interrupts, but
