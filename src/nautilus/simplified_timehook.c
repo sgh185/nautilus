@@ -86,7 +86,8 @@
 #define MIN(x, y)((x < y) ? (x) : (y))
 
 // Instrument timehook fire if this is enabled
-#define GET_HOOK_DATA 1
+#define GET_HOOK_DATA 0
+#define GET_FIBER_DATA 1
 #define MAX_HOOK_DATA_COUNT 1000
 uint64_t hook_data[MAX_HOOK_DATA_COUNT], hook_fire_data[MAX_HOOK_DATA_COUNT];
 int hook_time_index = 0;
@@ -558,7 +559,7 @@ nk_thread_t *hook_compare_fiber_thread = 0;
 // Per-cpu access for nk_time_hook_fire --- if NO
 // option is set --- fire executes on all CPUs
 #define ONLY_CPU_ONE 0 // Execute only on CPU 1
-#define RANGE 0 // Execute in a range of CPUs (determined by NUM_CPUS_PHI)
+#define RANGE 1 // Execute in a range of CPUs (determined by NUM_CPUS_PHI)
 #define RANGE_NOT_ZERO 0 // Execute in a range of CPUs EXCLUDING CPU 1 (determined by NUM_CPUS_PHI) 
 #define NUM_CPUS_PHI 64 // Number of CPUs to execute on
 
@@ -569,11 +570,14 @@ nk_thread_t *hook_compare_fiber_thread = 0;
 #define USE_LOCK_AND_SET 0 // Simple state setting and per-cpu locking/checks
 
 // Testing --- permissions global
+#define MAX_WRAPPER_COUNT 1000
 extern int ACCESS_WRAPPER;
+extern int time_interval;
+extern uint64_t last;
+extern uint64_t wrapper_data[MAX_WRAPPER_COUNT];
 
 __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 {
-       
    // Some CPU is not yet up --- usually
    // before all per-cpu and/or time-hook
    // state is correctly set
@@ -582,7 +586,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
    }
 
    int mycpu = my_cpu_id();
-      
+
 // PAD: CONSIDER SEEING WHAT HAPPENS WHEN WE DO cpu<n for different
 // VALUES OF n 
 
@@ -605,6 +609,35 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
    if (!((mycpu < (NUM_CPUS_PHI)) && (mycpu > 0))) { 
 	   return;
    }
+#endif
+
+
+// CHANGE --- move data collection for yield hooks into
+// nk_time_hook_fire --- much more straightforward to 
+// read and control
+#if GET_FIBER_DATA
+
+  // Determine if we're on the target CPU and we're on the
+  // fiber thread of that target CPU
+  if ((mycpu == TARGET_CPU)
+	  && (hook_compare_fiber_thread == get_cur_thread())) {
+
+	// Determine if we're on a non-idle fiber on 
+	// the fiber thread
+    if (!(nk_fiber_current()->is_idle)) { 
+
+	  // Determine if we have enough capacity in our data array
+	  // and if we have access/"permissions" to yield --- then
+	  // yield if necessary
+      if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
+		wrapper_data[time_interval++] =  rdtsc() - last;
+		last = rdtsc();
+      }
+	
+	}
+  
+  }
+
 #endif
 
 
@@ -654,8 +687,8 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 #if USE_SET
    if (CACHE_MANAGED_STATE(mycpu).state != READY_STATE) {
        DEBUG("short circuiting fire because we are in state %d\n",CACHE_MANAGED_STATE(mycpu).state);
-   	   DS("n");
-	   DS("\n");
+   	   // DS("n");
+	   // DS("\n");
 #if IRQ
 	   hook_irq_enable_restore(flags);
 #endif

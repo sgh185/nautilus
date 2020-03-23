@@ -76,8 +76,8 @@
 
 /* Time-hook testing */
 #define YIELD_HOOK 0
-#define SNAPSHOT_HOOK 1
-#define NULL_HOOK 0
+#define SNAPSHOT_HOOK 0
+#define NULL_HOOK 1
 
 #define HOOK_FUNC YIELD_HOOK
 
@@ -126,7 +126,7 @@ static fiber_state* _get_fiber_state()
 }
 
 // returns the fiber currently running on the current CPU
-nk_fiber_t* nk_fiber_current()
+__attribute__((annotate("nohook"))) nk_fiber_t* nk_fiber_current()
 {
   return _get_fiber_state()->curr_fiber;
 }
@@ -838,12 +838,12 @@ static void _debug_yield(nk_fiber_t *f_to)
 
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
 #define MAX_WRAPPER_COUNT 1000
-static uint64_t wrapper_data[MAX_WRAPPER_COUNT]; // Array to record intervals between nk_time_hook_fire calls
-static int time_interval = 0; // Index of wrapper_data
+uint64_t wrapper_data[MAX_WRAPPER_COUNT]; // Array to record intervals between nk_time_hook_fire calls
+int time_interval = 0; // Index of wrapper_data
 static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0; // Deprecated functionality
 extern int ACCESS_WRAPPER; // Permissions global
 
-static uint64_t last = 0; // Analogous to rdtsc_wrapper_old
+uint64_t last = 0; // Analogous to rdtsc_wrapper_old
 static uint64_t count = 0; // Analogous to time_interval
 
 static uint64_t idle_count = 0; // Statistics
@@ -865,23 +865,40 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 	  // Determine if we have enough capacity in our data array
 	  // and if we have access/"permissions" to yield --- then
 	  // yield if necessary
-      if (ACCESS_WRAPPER && (count < MAX_WRAPPER_COUNT)) { 
-		wrapper_data[count++] =  rdtsc() - last;
-		nk_fiber_yield();
-		last = rdtsc();
-      }
+		
+#if 0
 
+	  if (ACCESS_WRAPPER) { nk_fiber_yield(); }
+
+#else
+
+	  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
+		uint64_t temp_time = rdtsc();
+		wrapper_data[time_interval++] = temp_time - last;
+		last = temp_time;
+		nk_fiber_yield();
+		// last = rdtsc();
+      }
+	  
+#endif
+
+	}
+
+	/*
 	// We want to get a sense of how many times we're
 	// running in the idle fiber (under WAIT configuration)
     } else {
       idle_count++;
       // DS("Hit idle\n");
     }
+	*/
 
   }
 
+#endif
+
 // Possibly deprecated functionality below
-#else
+#if 0
   // nk_vc_printf("time_interval now: %d\n", time_interval);
   if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
     return 1;
