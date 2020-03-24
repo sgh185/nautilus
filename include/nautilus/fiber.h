@@ -256,6 +256,28 @@ void _nk_fiber_print_data();
     movq 104(%rsp), %rbx; \
     addq $128, %rsp;
 
+#if NAUT_CONFIG_XSAVE_SUPPORT
+#define FIBER_SAVE_FPRS(targ) XSAVE 0x0(%targ)
+#define FIBER_RESTORE_FPRS(targ) XRSTOR 0x0(%targ)
+#define FIBER_ZERO_FP_AREA(targ) \
+    movq $0, 512(%targ) \
+    movq $0, 520(%targ) \
+    movq $0, 528(%targ) \
+    movq $0, 536(%targ) \
+    movq $0, 544(%targ) \
+    movq $0, 552(%targ) \
+    movq $0, 560(%targ) \
+    movq $0, 568(%targ) 
+#define FIBER_LOAD_XSAVE_REGS() \
+    movq $-1, %rax \
+    movq $-1, %rdx
+#else
+#define FIBER_SAVE_FPRS(targ) FXSAVE (%targ)
+#define FIBER_RESTORE_FPRS(targ) FXRSTOR (%targ) 
+#define FIBER_ZERO_FP_AREA(targ)
+#define FIBER_LOAD_XSAVE_REGS()
+#endif
+
 /******* Experimental way to context switch *******/
 
 /*

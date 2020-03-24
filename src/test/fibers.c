@@ -329,6 +329,8 @@ void fiber_routine3(void *i, void **o)
 void first_timer(void *i, void **o)
 {
   nk_fiber_set_vc(vc);
+  udelay(5000000); 
+  cli();
   int a = 0;
   rdtsc();
   uint64_t start = rdtsc();
@@ -342,7 +344,8 @@ void first_timer(void *i, void **o)
     a++;
   }
   end = rdtsc();
-  nk_vc_printf("First Timer is finished, a = %d, cycle count = %d, cycles per iteration = %d\n", a, end-start, (end-start)/N);
+  sti();
+  nk_vc_printf("First Timer is finished, a = %d, cycle count = %lu, cycles per iteration = %lu\n", a, end-start, (end-start)/N);
 }
 
 void second_timer(void *i, void **o)
@@ -376,7 +379,7 @@ void print_timing_results(){
     long minRestore = arr1[3]-arr1[2];
     long minTotal = minSave + minYield + minRestore;
 
-    // Indexes of max value
+    // Indices of max value
     int maxSaveInd = 0, maxYieldInd = 0, maxRestoreInd = 0, maxTotalInd = 0;
 
     // Variables for standard deviation
@@ -808,7 +811,7 @@ int test_fiber_timing(int n){
   nk_fiber_t *first;
   nk_fiber_t *second;
   vc = get_cur_thread()->vc;
-  //nk_vc_printf("test_fiber_timing() : virtual console %p\n", vc);
+  nk_vc_printf("test_fiber_timing() : virtual console %p\n", vc);
   if (nk_fiber_create(first_timer, (void*)bar, 0, 0, &first)) {
     nk_vc_printf("test_fiber_timing() : Failed to start fiber\n");
     return -1;
@@ -854,6 +857,79 @@ int test_fiber_timing2(int n){
   // NO ERROR CHECKING (SO TIMING RESULTS ARE NOT SKEWED) 
   nk_fiber_run(first, n);
   nk_fiber_run(second, n);
+  return 0;
+}
+
+void print_creation_results(){
+    // Loop iterators
+    int i;
+
+    // Variables for calculating average
+    long creationTotal = 0; 
+    long meanCreation = 0; 
+    
+    // Variables for max values
+    long maxCreation = arr1[0];
+
+    // Variables for min values
+    long minCreation = arr1[0];
+
+    // Indices of max value
+    int maxInd = 0;
+
+    // Variables for standard deviation
+    long varCreation = 0;
+    
+    nk_vc_printf("PRINTSTART\n");
+    for (i=0; i < N; i++) {
+        minCreation = arr1[i] < minCreation ? arr1[i] : minCreation;
+        maxCreation = arr1[i] > maxCreation ? arr1[i] : maxCreation;
+        creationTotal += arr1[i];
+        nk_vc_printf("%lu\n", arr1[i]);
+    }
+    nk_vc_printf("PRINTEND\n");
+ 
+    // Calculate averages for save, scheduler, restore, and total yield time.
+    meanCreation = creationTotal/N;
+    
+    // Calculate Standard Deviation for each variable
+    for (i=0; i < N; i++) {
+        varCreation += (arr1[i] - meanCreation) * (arr1[i] - meanCreation);
+    }
+    
+    // Calc actual variance
+    varCreation /= N;
+
+    // Print results
+    nk_vc_printf("    Min Creation: %ld    Max Creation: %ld    Average Creation: %ld    Variance: %ld\n", minCreation, maxCreation, meanCreation, varCreation);
+    // free arrays we used for storing data   
+    free(arr1);
+}
+
+
+
+int test_fiber_creation(int n){
+  arr1 = (uint64_t*)malloc(sizeof(uint64_t)*N);
+  uint64_t start = 0, end = 0;
+  int j;
+  if (!arr1) {
+    nk_vc_printf("test_fiber_creation() : Failed to malloc output arrays\n");
+    return -1;
+  }
+  nk_fiber_t *first;
+  vc = get_cur_thread()->vc;
+  udelay(5000000);
+  cli();
+  for (j = 0; j < N ; j++){ 
+    start = rdtsc();
+    nk_fiber_create(timer1, 0, 0, 0, &first);
+    end = rdtsc();
+    arr1[j] = end-start;
+    free(first->stack);
+    free(first);
+  }
+  sti();
+  print_creation_results();
   return 0;
 }
 
@@ -981,6 +1057,12 @@ handle_fibers_timing (char * buf, void * priv)
   return 0;
 }
 
+static int
+handle_fibers_creation (char * buf, void * priv)
+{
+  test_fiber_creation(1);
+  return 0;
+}
 
 static int handle_fibers11 (char *buf, void *priv)
 {
@@ -1123,6 +1205,13 @@ static struct shell_cmd_impl fibers_impl_timing = {
   .handler  = handle_fibers_timing,
 };
 
+static struct shell_cmd_impl fibers_impl_creation = {
+  .cmd      = "fibercreation",
+  .help_str = "fibercreation",
+  .handler  = handle_fibers_creation,
+};
+
+
 static struct shell_cmd_impl fibers_impl11 = {
   .cmd      = "fibertime2",
   .help_str = "fibertime2",
@@ -1168,6 +1257,7 @@ nk_register_shell_cmd(fibers_impl10);
 nk_register_shell_cmd(fibers_impl100);
 nk_register_shell_cmd(fibers_impl1000);
 nk_register_shell_cmd(fibers_impl_timing);
+nk_register_shell_cmd(fibers_impl_creation);
 nk_register_shell_cmd(fibers_impl11);
 nk_register_shell_cmd(fibers_impl_all);
 nk_register_shell_cmd(fibers_impl_all_1);

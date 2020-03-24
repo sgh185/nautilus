@@ -88,24 +88,19 @@ ENTRY(nk_fiber_fork)
 
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%rsp)
-    movq $0, 520(%rsp)
-    movq $0, 528(%rsp)
-    movq $0, 536(%rsp)
-    movq $0, 544(%rsp)
-    movq $0, 552(%rsp)
-    movq $0, 560(%rsp)
-    movq $0, 568(%rsp)  
+    /* this does nothing if fxsave is being used */
+    FIBER_ZERO_FP_AREA(rsp)
 
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
 
     /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
+    /* this does nothing if fxsave is being used */
+    FIBER_LOAD_XSAVE_REGS()
 
     /* Save FPRs onto stack with xsave */
-    XSAVE 0x0(%rsp)
+    //XSAVE 0x0(%rsp)
+    FIBER_SAVE_FPRS(rsp)
 
     #endif
 
@@ -140,14 +135,8 @@ ENTRY(nk_fiber_yield)
   
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%rsp)
-    movq $0, 520(%rsp)
-    movq $0, 528(%rsp)
-    movq $0, 536(%rsp)
-    movq $0, 544(%rsp)
-    movq $0, 552(%rsp)
-    movq $0, 560(%rsp)
-    movq $0, 568(%rsp)
+    /* this does nothing if fxsave is being used */
+    FIBER_ZERO_FP_AREA()
      
     // Method 1 of zeroing out XSAVE area
     /* Set XSAVE location to 0 
@@ -173,15 +162,14 @@ ENTRY(nk_fiber_yield)
     */
 
     /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
+    /* this does nothing if fxsave is being used */
+    FIBER_LOAD_XSAVE_REGS()
 
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
 
     /* Save FPRs onto stack with xsave */
-    XSAVE 0x0(%rsp)
+    FIBER_SAVE_FPRS(rsp)
 
     #endif
     
@@ -204,48 +192,17 @@ ENTRY(nk_fiber_yield_test)
   
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%rsp)
-    movq $0, 520(%rsp)
-    movq $0, 528(%rsp)
-    movq $0, 536(%rsp)
-    movq $0, 544(%rsp)
-    movq $0, 552(%rsp)
-    movq $0, 560(%rsp)
-    movq $0, 568(%rsp)
+    FIBER_ZERO_FP_AREA(rsp)
      
-    // Method 1 of zeroing out XSAVE area
-    /* Set XSAVE location to 0 
-    pushq %rdi
-    leaq 16(%rsp), %rdi
-    movq $1024, %rdx 
-    memset_loop:	
-    	movb $0, (%rdi)
-	    incq %rdi
-	    decq %rdx
-	    jnz memset_loop
-    popq %rdi
-    */
-
-    // Method 2 of zeroing out XSAVE area
-    /* Call to memset
-    pushq %rdi
-    leaq 8(%rsp), %rdi
-    movq $0, %rsi
-    movq $1024, %rdx
-    callq memset 
-    popq %rdi
-    */
-
     /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
+    /* this does nothing if fxsave is being used */
+    FIBER_LOAD_XSAVE_REGS()
 
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
 
     /* Save FPRs onto stack with xsave */
-    XSAVE 0x0(%rsp)
+    FIBER_SAVE_FPRS(rsp)
 
     #endif
     
@@ -260,12 +217,11 @@ ENTRY(_nk_fiber_context_switch)
     movq 0x10(%rdi), %rsp
 
     /* move -1 into rax and rdx to restore all FPRs */
-    movq $-1, %rax
-    movq $-1, %rdx
+    /* this does nothing if fxsave is being used */
+    FIBER_LOAD_XSAVE_REGS()
 
     /* restore all FPRs from stack w/ xrstor */
-    XRSTOR 0x0(%rsp)
-
+    FIBER_RESTORE_FPRS(rsp)
     #endif
    
     /* changes stack ptr to new fiber's stack */
@@ -305,21 +261,13 @@ ENTRY(nk_fiber_yield_to)
 
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%rsp)
-    movq $0, 520(%rsp)
-    movq $0, 528(%rsp)
-    movq $0, 536(%rsp)
-    movq $0, 544(%rsp)
-    movq $0, 552(%rsp)
-    movq $0, 560(%rsp)
-    movq $0, 568(%rsp)  
+    FIBER_ZERO_FP_AREA(rsp)
 
     /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
+    FIBER_LOAD_XSAVE_REGS()
 
     /* Save FPRs onto stack with xsave */
-    XSAVE 0x0(%rsp)
+    FIBER_SAVE_FPRS(rsp)
     
     /* place new stack ptr into 3rd argument register */
     movq %rsp, %rdx
@@ -344,24 +292,16 @@ ENTRY(_nk_fiber_join_yield)
 
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%rsp)
-    movq $0, 520(%rsp)
-    movq $0, 528(%rsp)
-    movq $0, 536(%rsp)
-    movq $0, 544(%rsp)
-    movq $0, 552(%rsp)
-    movq $0, 560(%rsp)
-    movq $0, 568(%rsp)  
+    FIBER_ZERO_FP_AREA(rsp)  
 
     /* place new stack ptr into 2nd argument register */
     movq %rsp, %rsi
 
     /* Move -1 into rax and rdx so all FPRs are saved */
-    movq $-1, %rax
-    movq $-1, %rdx
-
+    FIBER_LOAD_XSAVE_REGS()
+ 
     /* Save FPRs onto stack with xsave */
-    XSAVE 0x0(%rsp)
+    FIBER_SAVE_FPRS(rsp)
 
     #endif
     
@@ -374,23 +314,28 @@ ENTRY(_nk_fiber_fp_save)
     pushq %rax
     pushq %rdx
     pushq %r15
+    // Move fiber stack location into r15
     movq 0x0(%rdi), %r15
+
+    // Align stack to 64 bytes
     subq $0x1000, %r15
     andq $-1024, %r15
+
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
-    movq $0, 512(%r15)
-    movq $0, 520(%r15)
-    movq $0, 528(%r15)
-    movq $0, 536(%r15)
-    movq $0, 544(%r15)
-    movq $0, 552(%r15)
-    movq $0, 560(%r15)
-    movq $0, 568(%r15)  
+    FIBER_ZERO_FP_AREA(r15)
+    
+    /* Move -1 into rax and rdx so all FPRs are saved */
     movq $-1, %rax
     movq $-1, %rdx
-    XSAVE 0x0(%r15)
+    
+    // Use XSAVE or FXSAVE
+    FIBER_SAVE_FPRS(r15)
+
+    // Put new stack location into fiber struct
     movq %r15, 0x10(%rdi)
+
+    // Pop registers and return
     popq %r15
     popq %rdx
     popq %rax

@@ -535,7 +535,7 @@ config VIRTUAL_CONSOLE_SERIAL_MIRROR_ALL
 	      how much priority fibers effectively have in the system.
 
     config FIBER_FSAVE
-       depends on FIBER_ENABLE && XSAVE_SUPPORT
+       depends on FIBER_ENABLE
        bool "Save floating point state for fibers"
        default true
        help 
