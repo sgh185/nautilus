@@ -26,6 +26,11 @@ public:
     void PrintBBLatencies();
     void PrintInstLatencies();
 
+    // ------- Utility ------
+    bool IsBackEdge(BasicBlock *From, BasicBlock *To);
+    bool IsContainedInSubLoop(BasicBlock *BB);
+    bool IsContainedInLoop(BasicBlock *BB);
+
     // Public for simplicity
     vector<BasicBlock *> Blocks;
 
@@ -86,8 +91,5 @@ private:
     // ------- Utility -------
     void _organizeFunctionBackedges();
     void _setupDFASets();
-    bool _isBackEdge(BasicBlock *From, BasicBlock *To);
     uint64_t _buildLoopBlocks(Loop *L);
-    bool _isContainedInSubLoop(BasicBlock *BB);
-    bool _isContainedInLoop(BasicBlock *BB);
 };

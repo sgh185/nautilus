@@ -3,7 +3,7 @@
 using namespace std;
 using namespace llvm;
 
-const double ExpansionFactor = 2.4; // Weight to account for LLCs that are small due to 
+const double ExpansionFactor = 2.4; // Weight to account for LLSs that are small due to 
                                     // possible vectorization in the middle-end or clever 
                                     // instruction selection at the backend
 const uint64_t MaxExtensionCount = 12;
@@ -14,7 +14,7 @@ const uint64_t MaxMargin = 50; // Number of cycles maximum to miss (by compile-t
 // - EXTEND --- unroll the loop --- based on a calculated factor
 // - BRANCH --- inject a biased branch into the loop --- based on a calculated factor
 // - MANUAL --- determine callback locations manually via LatencyDFA traversal, 
-//              occurs when the LLC is large
+//              occurs when the LLS is large
 enum TransformOption {EXTEND, BRANCH, MANUAL};
 
 class LoopTransform
@@ -29,6 +29,9 @@ public:
     void ExtendLoop(uint64_t ExtensionCount);
     set<Instruction *> *GetCallbackLocations() { return &CallbackLocations; }
     TransformOption GetTransformationTy() { return this->Extend; }
+
+    void PrintCurrentLoop();
+
 
 private:
     Loop *L;
@@ -45,6 +48,7 @@ private:
 
     // Initialization state
     bool CorrectForm=false;
+    MDNode *CBNode;
 
     // Transform info, statistics
     TransformOption Extend=TransformOption::BRANCH; // default
@@ -56,8 +60,15 @@ private:
                                          // the new basic block inserted (biased branch)
 
     void _transformSubLoops();
-    void _designateGuardViaPredecessors();
+    
+    Instruction *_buildCallbackBlock(CmpInst *CI, Instruction *InsertionPoint, const string MD);
+    void _buildIterator(PHINode *&NewPHI, Instruction *&Iterator);
+    void _setIteratorPHI(PHINode *ThePHI, Value *Init, Value *Iterator);
+    void _buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, PHINode *IteratorPHI);
+    void _designateTopGuardViaPredecessors();
+    void _designateBottomGuardViaExits();
+    void _collectUnrolledCallbackLocations();
     bool _canVectorizeLoop() { return true; } // TODO 
-    uint64_t _calculateLoopExtensionStats(uint64_t LLC, uint64_t *MarginOffset);
+    uint64_t _calculateLoopExtensionStats(uint64_t LLS, uint64_t *MarginOffset);
     Instruction *_findOffsetInst(uint64_t MarginOffset);
 };

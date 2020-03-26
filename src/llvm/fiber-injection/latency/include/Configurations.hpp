@@ -44,12 +44,20 @@ using namespace std;
 // Pass settings
 #define DEBUG 1
 #define LOOP_DEBUG 1
+#define INLINE 0
+#define WHOLE 1 // Whole kernel injection
+#define INJECT 1
 #define FALSE 0
 
-// Policies
-#define LOOP_GUARD 1
+// Special Routines --- necessary for functionality
+#define HOOK_FIRE 0
+#define FIBER_START 1
+#define FIBER_CREATE 2
+#define IDLE_FIBER_ROUTINE 3
 
-#define GRAN 100
+// Policies
+#define GRAN 110
+#define LOOP_GUARD 1
 
 #define MAXIMUM 0
 #define EXPECTED 1
@@ -66,3 +74,27 @@ using namespace std;
 #define LOOP_DEBUG_INFO(str) do { if (LOOP_DEBUG) { errs() << str; } } while (0)
 #define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
 #define LOOP_OBJ_INFO(obj) do { if (LOOP_DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
+
+// Metadata strings
+extern const string CALLBACK_LOC;
+extern const string UNROLL_MD;
+extern const string MANUAL_MD;
+extern const string BIASED_MD;
+extern const string TOP_MD;
+extern const string BOTTOM_MD;
+extern const string BB_MD;
+extern const string LOOP_MD;
+extern const string FUNCTION_MD;
+
+// Functions necessary to find in order to inject (hook_fire, fiber_start/create for fiber explicit injections)
+extern const vector<uint32_t> NKIDs;
+extern const vector<string> NKNames;
+
+// No hook function names functionality --- (non-injectable)
+extern const string ANNOTATION;
+extern const string NOHOOK;
+
+// Globals
+extern unordered_map<uint32_t, Function *> *SpecialRoutines;
+extern vector<string> *NoHookFunctionSignatures;
+extern vector<Function *> *NoHookFunctions;

@@ -29,15 +29,23 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy, int32_t ConservPolicy)
     this->IndividualLatencies = unordered_map<BasicBlock *, double>();
     this->AccumulatedLatencies = unordered_map<BasicBlock *, double>();
     this->LastCallbackLatencies = unordered_map<BasicBlock *, double>();
+    
+    for (auto BB : Blocks)
+    {
+        IndividualLatencies[BB] = 0;
+        AccumulatedLatencies[BB] = 0;
+        LastCallbackLatencies[BB] = 0;
+    }
+
     this->PredLatencyGraph = unordered_map<BasicBlock *, unordered_map<BasicBlock *, double> *>();
     this->LastCallbackLatencyGraph = unordered_map<BasicBlock *, unordered_map<BasicBlock *, double> *>();
-    this->CallbackLocations = set<Instruction *>();
     for (auto BB : Blocks)
     {
         PredLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
         LastCallbackLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
     }
 
+    this->CallbackLocations = set<Instruction *>();
 
     this->BackEdges = unordered_map<BasicBlock *, set<BasicBlock *>>();
     _organizeFunctionBackedges();
@@ -73,14 +81,23 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, int32_t Co
     this->IndividualLatencies = unordered_map<BasicBlock *, double>();
     this->AccumulatedLatencies = unordered_map<BasicBlock *, double>();
     this->LastCallbackLatencies = unordered_map<BasicBlock *, double>();
+    
+    for (auto BB : Blocks)
+    {
+        IndividualLatencies[BB] = 0;
+        AccumulatedLatencies[BB] = 0;
+        LastCallbackLatencies[BB] = 0;
+    }
+
     this->PredLatencyGraph = unordered_map<BasicBlock *, unordered_map<BasicBlock *, double> *>();
     this->LastCallbackLatencyGraph = unordered_map<BasicBlock *, unordered_map<BasicBlock *, double> *>();
-    this->CallbackLocations = set<Instruction *>();
     for (auto BB : Blocks)
     {
         PredLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
         LastCallbackLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
     }
+
+    this->CallbackLocations = set<Instruction *>();
 
     this->BackEdges = unordered_map<BasicBlock *, set<BasicBlock *>>();
     _organizeFunctionBackedges();
@@ -363,7 +380,7 @@ void LatencyDFA::_buildINAndOUT()
 
 bool LatencyDFA::_DFAChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 {
-    if (_isBackEdge(CurrBlock, PredBB))
+    if (IsBackEdge(CurrBlock, PredBB))
         return true;
 
     // Loop specific
@@ -424,14 +441,18 @@ set<Instruction *> *LatencyDFA::BuildIntervalsFromZero()
         WorkListDriver(Checks, Setup, Worker);
     }
 
+    DEBUG_INFO("NOW CALLBACKS\n");
+    for (auto I : CallbackLocations)
+        OBJ_INFO(I);
+
     return &CallbackLocations;
 }
 
 bool LatencyDFA::_loopBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 {
-    if ((_isBackEdge(CurrBlock, PredBB))
+    if ((IsBackEdge(CurrBlock, PredBB))
         || (!(L->contains(PredBB)))
-        || (_isContainedInSubLoop(PredBB)))
+        || (IsContainedInSubLoop(PredBB)))
         return true;
 
     return false;
@@ -439,8 +460,9 @@ bool LatencyDFA::_loopBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 
 bool LatencyDFA::_functionBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 {
-    if ((_isBackEdge(CurrBlock, PredBB))
-        || (_isContainedInLoop(PredBB)))
+    if ((IsBackEdge(CurrBlock, PredBB))
+        || (IsContainedInLoop(PredBB))
+        || (Utils::HasCallbackMetadata(PredBB->getTerminator())))
         return true;
 
     return false;
@@ -457,20 +479,55 @@ void LatencyDFA::_buildLastCallbacksGraph(BasicBlock *BB, vector<BasicBlock *> &
 
 void LatencyDFA::_markCallbackLocations(BasicBlock *BB)
 {
+    // If function analysis --- ignore loops
+    // If loop analysis --- ignore subloops
+
+    // Redundant --- FIX
+
+    if (L != nullptr)
+    {
+        if ((!(L->contains(BB)))
+            || (IsContainedInSubLoop(BB)))
+            return;
+    }
+    else
+    {
+        if (IsContainedInLoop(BB))
+            return;
+    }
+
+    // If the block is marked with callback metadata, we
+    // don't want to mark for injection
+    if (Utils::HasCallbackMetadata(BB->getTerminator()))
+        return;
+
     Instruction *EntryPoint = &(BB->front());
     double IncomingLastCallback = _calculateEntryPointLastCallback(BB);
 
+    DEBUG_INFO("\n\n\nIncomingLastCallback: " + 
+               to_string(IncomingLastCallback) +
+               "\n\n");
+
     for (auto &I : *BB)
     {
+        OBJ_INFO((&I));
+
         if (isa<PHINode>(&I))
             continue;
-            
+
+        DEBUG_INFO("OUT[I]: " + to_string(OUT[&I]) + "\n");
+
         if ((OUT[&I] - IncomingLastCallback) > GRAN)
         {
+            DEBUG_INFO("Resetting\n");
+            const string MDStr = (L == nullptr) ? FUNCTION_MD : LOOP_MD;
+            Utils::SetCallbackMetadata(&I, MDStr);
             CallbackLocations.insert(&I);
             IncomingLastCallback = OUT[&I];
         }
     }
+
+    DEBUG_INFO("\n\n\n");
 
     LastCallbackLatencies[BB] = IncomingLastCallback;
 
@@ -661,13 +718,13 @@ void LatencyDFA::_organizeFunctionBackedges()
 }
 
 /*
- * _isBackEdge()
+ * IsBackEdge()
  * 
  * Determines if a pair of basic blocks are a backedge according
  * to the backedges map generated by _organizeFunctionBackedges
  */ 
 
-bool LatencyDFA::_isBackEdge(BasicBlock *From, BasicBlock *To)
+bool LatencyDFA::IsBackEdge(BasicBlock *From, BasicBlock *To)
 {
     if (BackEdges.find(From) != BackEdges.end())
     {
@@ -680,7 +737,7 @@ bool LatencyDFA::_isBackEdge(BasicBlock *From, BasicBlock *To)
 }
 
 /*
- * _isContainedInSubLoop() --- FIX (not general)
+ * IsContainedInSubLoop() --- FIX (not general)
  * 
  * Determines if a basic block is part of a subloop --- this is
  * an important analysis piece for LatencyDFAs on loops, if we are
@@ -688,7 +745,7 @@ bool LatencyDFA::_isBackEdge(BasicBlock *From, BasicBlock *To)
  * outermost loop level for function analysis
  */ 
 
-bool LatencyDFA::_isContainedInSubLoop(BasicBlock *BB)
+bool LatencyDFA::IsContainedInSubLoop(BasicBlock *BB)
 {
     // If function level analysis
     if (L == nullptr)
@@ -706,7 +763,7 @@ bool LatencyDFA::_isContainedInSubLoop(BasicBlock *BB)
 }
 
 /*
- * _isContainedInLoop()
+ * IsContainedInLoop()
  * 
  * Determines if a basic block is part of a loop --- if the 
  * LatencyDFA is on a loop --- check the current object's 
@@ -715,8 +772,10 @@ bool LatencyDFA::_isContainedInSubLoop(BasicBlock *BB)
  * analyzed for function-level analysis)
  */ 
 
-bool LatencyDFA::_isContainedInLoop(BasicBlock *BB)
+bool LatencyDFA::IsContainedInLoop(BasicBlock *BB)
 {
+    DEBUG_INFO("ISCONTAINEDINLOOP\n");
+    BB->print(errs());
     bool Contained = false;
 
     if (L != nullptr) // Loop level analysis
@@ -732,6 +791,7 @@ bool LatencyDFA::_isContainedInLoop(BasicBlock *BB)
                 Contained |= true;
         }
     }
+    DEBUG_INFO("CONTAINED: " + to_string(Contained) + "\n\n\n");
 
     return Contained;
 }

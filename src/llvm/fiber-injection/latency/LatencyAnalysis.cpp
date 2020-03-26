@@ -63,12 +63,12 @@ struct CAT : public ModulePass
 
             // Function level DFA --- acquire the accumulated latency
             // calculations and pass them on to the loop transformer
-            LatencyDFA *FunctionLDFA = new LatencyDFA(&F, LI, EXPECTED, MEDCON);
-            FunctionLDFA->ComputeDFA();
-            auto FCallbackLocations = FunctionLDFA->BuildIntervalsFromZero();
+            // LatencyDFA *FunctionLDFA = new LatencyDFA(&F, LI, EXPECTED, MEDCON);
+            // FunctionLDFA->ComputeDFA();
+            // auto FCallbackLocations = FunctionLDFA->BuildIntervalsFromZero();
 
-            for (auto I : *FCallbackLocations)
-                InjectionLocations.insert(I);
+            // for (auto I : *FCallbackLocations)
+            //     InjectionLocations.insert(I);
 
             for (auto I : InjectionLocations)
             {

@@ -48,7 +48,7 @@ double operations(double a, double b)
 		test += a + b + 33.22;
 		int j;
 
-#if 1	
+#if 1 
 		#pragma nounroll
 		for (j = 0; j < 800; j++)
 		{
@@ -79,18 +79,28 @@ uint64_t fib(void)
 	memo[1] = 1;
 
 	uint64_t k;
-	for (k = 0; k < fib_num; k++) {
+	for (k = 2; k < fib_num; k++) {
 		memo[k] = memo[k - 1] + memo[k - 2];
 	}
 
 	interval = rdtsc() - interval;
 	printf("Fib Interval: %lu\n", interval);
 
+	volatile int j = 0;
+	double a = 123.123;
+	a *= (123 * (j + 1) * 823.21);
+	
+	float test = 234.11111111;
+	a /= ((double) test * 123.111 - memo[k]);
+	uint64_t ret = memo[k] * (uint64_t) a;
+	return ret;
+
 	return memo[k];
 }
 
 int main()
 {
+	return 0;
 	int i;
 	volatile int sum = 0;
 	
@@ -106,7 +116,7 @@ int main()
 
 #endif
 
-#if 0
+#if 1
 	for (i = 0; i < 10000; i++)
 	{
 		sum += (myF(i) + nextF(i));
@@ -118,10 +128,18 @@ int main()
 
 	// sum += (int) fib();
 
+	int *l = (int *) malloc(sizeof(int));
+	while (l != NULL)
+	{
+		*l = i;
+		l++;
+		i++;
+	}
+
 	int j = index;
 	printf("Index: %d\n", index);
 	for (i = 1; i < j; i++)
-		printf("Timing Interval: %lu\n", data[i]);
+		printf("Timing Interval: %lu, %p\n", data[i], l);
 
 	return sum;
 }
