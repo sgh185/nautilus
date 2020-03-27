@@ -136,7 +136,7 @@ ENTRY(nk_fiber_yield)
     // Zeroing out 64 bytes starting at 512th byte of XSAVE area
     // This is a requirement for XSAVE and XRSTOR memory locations 
     /* this does nothing if fxsave is being used */
-    FIBER_ZERO_FP_AREA()
+    FIBER_ZERO_FP_AREA(rsp)
      
     // Method 1 of zeroing out XSAVE area
     /* Set XSAVE location to 0 
