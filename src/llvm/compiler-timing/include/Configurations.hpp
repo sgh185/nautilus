@@ -1,3 +1,40 @@
+/*
+ * This file is part of the Nautilus AeroKernel developed
+ * by the Hobbes and V3VEE Projects with funding from the 
+ * United States National  Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  The Hobbes Project is a collaboration
+ * led by Sandia National Laboratories that includes several national 
+ * laboratories and universities. You can find out more at:
+ * http://www.v3vee.org  and
+ * http://xstack.sandia.gov/hobbes
+ *
+ * Copyright (c) 2019, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2019, Simone Campanoni <simonec@eecs.northwestern.edu>
+ * Copyright (c) 2019, Peter A. Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2019, The V3VEE Project  <http://www.v3vee.org> 
+ *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
+ * All rights reserved.
+ *
+ * Authors: Souradip Ghosh <sgh@u.northwestern.edu>
+ *          Simone Campanoni <simonec@eecs.northwestern.edu>
+ *          Peter A. Dinda <pdinda@northwestern.edu>
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "LICENSE.txt".
+ */
+
+/*
+ * Configurations.hpp
+ * ----------------------------------------
+ * 
+ * Store all includes, macros, settings/configurations, 
+ * globals, and potential inputs necessary for compiler
+ * timing transform.
+ * 
+ */ 
+
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Function.h"
@@ -42,8 +79,8 @@ using namespace llvm;
 using namespace std;
 
 // Pass settings
-#define DEBUG 1
-#define LOOP_DEBUG 1
+#define DEBUG 0
+#define LOOP_DEBUG 0
 #define INLINE 0
 #define WHOLE 1 // Whole kernel injection
 #define INJECT 1
@@ -56,7 +93,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Policies
-#define GRAN 110
+#define GRAN 2000
 #define LOOP_GUARD 1
 
 #define MAXIMUM 0

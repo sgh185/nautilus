@@ -50,6 +50,7 @@ namespace Utils
 
     // Basic transformations
     void InlineNKFunction(Function *F);
+    void InjectCallback(set<Instruction *> &InjectionLocations, Function *F);
 
     // Metadata handling
     void SetCallbackMetadata(Instruction *I, const string MD);
@@ -62,4 +63,7 @@ namespace Debug
 {
     void PrintFNames(vector<Function *> &Functions);
     void PrintFNames(set<Function *> &Functions);
+    void PrintCurrentLoop(Loop *L);
+    void PrintCurrentFunction(Function *F);
+    void PrintCallbackLocations(set<Instruction *> &CallbackLocations);
 }

@@ -1,26 +1,58 @@
+/*
+ * This file is part of the Nautilus AeroKernel developed
+ * by the Hobbes and V3VEE Projects with funding from the 
+ * United States National  Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  The Hobbes Project is a collaboration
+ * led by Sandia National Laboratories that includes several national 
+ * laboratories and universities. You can find out more at:
+ * http://www.v3vee.org  and
+ * http://xstack.sandia.gov/hobbes
+ *
+ * Copyright (c) 2019, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2019, Simone Campanoni <simonec@eecs.northwestern.edu>
+ * Copyright (c) 2019, Peter A. Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2019, The V3VEE Project  <http://www.v3vee.org> 
+ *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
+ * All rights reserved.
+ *
+ * Authors: Souradip Ghosh <sgh@u.northwestern.edu>
+ *          Simone Campanoni <simonec@eecs.northwestern.edu>
+ *          Peter A. Dinda <pdinda@northwestern.edu>
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "LICENSE.txt".
+ */
+
 #include "../include/LatencyDFA.hpp"
 
 using namespace std::placeholders;
 
-LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy, int32_t ConservPolicy)
+// Loop analysis
+LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy, 
+                       int32_t ConservPolicy, bool TopLevelAnalysis)
 {
     if (L == nullptr)
         abort(); // Serious
  
+    // Set loop, bjuild the loop blocks
+    this->L = L;
+    this->TopLevelAnalysis = TopLevelAnalysis;
     this->Blocks = vector<BasicBlock *>();
     if (!(_buildLoopBlocks(L)))
         abort(); // Serious
 
     // Set state
-    this->L = L;
     this->LI = nullptr;
-    this->F = Blocks.front()->getParent();
     this->EntryBlock = L->getHeader();
+    this->F = EntryBlock->getParent();
     this->PropagationPolicy = PropPolicy;
     this->ConservativenessPolicy = ConservPolicy;
     this->LoopInstructionCount = 0;
     this->LoopLatencySize = 0;
 
+    // Set DFA data structures
     this->GEN = unordered_map<Instruction *, double>();
     this->IN = unordered_map<Instruction *, double>();
     this->OUT = unordered_map<Instruction *, double>();
@@ -30,6 +62,7 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy, int32_t ConservPolicy)
     this->AccumulatedLatencies = unordered_map<BasicBlock *, double>();
     this->LastCallbackLatencies = unordered_map<BasicBlock *, double>();
     
+    // Initialize analysis results data structures
     for (auto BB : Blocks)
     {
         IndividualLatencies[BB] = 0;
@@ -45,13 +78,16 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy, int32_t ConservPolicy)
         LastCallbackLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
     }
 
+    // Set callback locations data structure
     this->CallbackLocations = set<Instruction *>();
 
     this->BackEdges = unordered_map<BasicBlock *, set<BasicBlock *>>();
     _organizeFunctionBackedges();
 }
 
-LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, int32_t ConservPolicy)
+// Function analysis
+LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, 
+                       int32_t ConservPolicy, bool TopLevelAnalysis)
 {
     if (F == nullptr)
         abort(); // Serious
@@ -63,21 +99,30 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, int32_t Co
     for (auto L : *LI)
         Loops.push_back(L);
 
+    // Set analysis state
     this->PropagationPolicy = PropPolicy;
     this->ConservativenessPolicy = ConservPolicy;
     this->LoopInstructionCount = 0;
     this->LoopLatencySize = 0;
 
+    this->TopLevelAnalysis = TopLevelAnalysis;
     this->Blocks = vector<BasicBlock *>();
     this->EntryBlock = &(F->getEntryBlock());
-    for (auto &B : *F)
-        Blocks.push_back(&B);
 
+    for (auto &B : *F)
+    {
+        if (!(this->TopLevelAnalysis)
+            || (_isValidBlock(&B)))
+            Blocks.push_back(&B);
+    }
+
+    // Set DFA data structures
     this->GEN = unordered_map<Instruction *, double>();
     this->IN = unordered_map<Instruction *, double>();
     this->OUT = unordered_map<Instruction *, double>();
     _setupDFASets();
 
+    // Initialize analysis results data structures
     this->IndividualLatencies = unordered_map<BasicBlock *, double>();
     this->AccumulatedLatencies = unordered_map<BasicBlock *, double>();
     this->LastCallbackLatencies = unordered_map<BasicBlock *, double>();
@@ -96,7 +141,8 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, int32_t Co
         PredLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
         LastCallbackLatencyGraph[BB] = new unordered_map<BasicBlock *, double>();
     }
-
+    
+    // Set callback locations data structure
     this->CallbackLocations = set<Instruction *>();
 
     this->BackEdges = unordered_map<BasicBlock *, set<BasicBlock *>>();
@@ -104,7 +150,7 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy, int32_t Co
 }
 
 /*
- * ComputeDFA()
+ * ComputeDFA
  * 
  * Execute DFA --- DFA equations are discussed in internal methods,
  * IN and OUT sets are in separate pieces (individual latencies and
@@ -140,6 +186,7 @@ void LatencyDFA::ComputeDFA()
     return;
 }
 
+
 /*
  * GetAccumulatedLatency(Instruction *)
  * 
@@ -154,6 +201,7 @@ double LatencyDFA::GetAccumulatedLatency(Instruction *I)
 
     return OUT[I];
 }
+
 
 /*
  * GetAccumulatedLatency(BasicBlock *)
@@ -171,6 +219,7 @@ double LatencyDFA::GetAccumulatedLatency(BasicBlock *BB)
     return AccumulatedLatencies[BB];
 }
 
+
 /*
  * GetIndividualLatency(Instruction *)
  * 
@@ -185,6 +234,7 @@ double LatencyDFA::GetIndividualLatency(Instruction *I)
 
     return GEN[I];
 }
+
 
 /*
  * GetIndividualLatency(BasicBlock *)
@@ -204,12 +254,25 @@ double LatencyDFA::GetIndividualLatency(BasicBlock *BB)
     return IndividualLatencies[BB];
 }
 
+/*
+ * WorkListDriver
+ * 
+ * Driver for executing the worklist algorithm for various purposes --- requires
+ * a checks function, setup function, and worker function --- checks function
+ * is responsible for organizing the predecessor blocks necessary for analysis,
+ * the setup function is responsible for any data structure/worker algorithm
+ * initialization/setup, the worker function executes the workload specific
+ * to the variant of the worklist algorithm
+ */ 
+
 template<typename ChecksFunc, typename SetupFunc, typename WorkerFunc>
 void LatencyDFA::WorkListDriver(ChecksFunc &CF, SetupFunc &SF, WorkerFunc &WF)
 {
     queue<BasicBlock *> WorkList;
     unordered_map<BasicBlock *, bool> Visited;
 
+    // Add all blocks to the WorkList --- parameter functions
+    // will determine how to use the blocks
     for (auto BB : Blocks)
     {
         Visited[BB] = false;
@@ -228,6 +291,7 @@ void LatencyDFA::WorkListDriver(ChecksFunc &CF, SetupFunc &SF, WorkerFunc &WF)
 
         for (auto PredBB : predecessors(CurrBlock))
         {
+            // Checks function
             if (CF(this, CurrBlock, PredBB))
                 continue;
 
@@ -248,14 +312,25 @@ void LatencyDFA::WorkListDriver(ChecksFunc &CF, SetupFunc &SF, WorkerFunc &WF)
 
         Visited[CurrBlock] = true;
 
+        // Set up any other analysis, etc.
         SF(this, CurrBlock, ValidPreds);
+
+        // Execute the worker
         WF(this, CurrBlock);
     }
+
+    return;
 }
 
 // ----------------------------------------------------------------------------------
 
 // DFA
+
+/*
+ * _setupDFASets
+ * 
+ * Initialize all instruction DFA values to 0
+ */ 
 
 void LatencyDFA::_setupDFASets()
 {
@@ -271,6 +346,7 @@ void LatencyDFA::_setupDFASets()
 
     return;
 }  
+
 
 /*
  * _buildGEN
@@ -346,6 +422,7 @@ void LatencyDFA::_buildIndividualLatencies()
     return;
 }
 
+
 /*
  * _buildINAndOUT
  * 
@@ -378,18 +455,34 @@ void LatencyDFA::_buildINAndOUT()
     return;
 }
 
+
+/*
+ * _DFAChecks
+ * 
+ * Checks function for DFA with WorkListDriver --- if the predecessor of 
+ * a current block during the analysis is a backedge or does not belong to the 
+ * blocks vector --- ignore it
+ */ 
+
 bool LatencyDFA::_DFAChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 {
-    if (IsBackEdge(CurrBlock, PredBB))
-        return true;
-
-    // Loop specific
-    if ((L != nullptr)
-        && (!(L->contains(PredBB))))
+    if ((IsBackEdge(CurrBlock, PredBB))
+        || (find(Blocks.begin(), Blocks.end(), PredBB) == Blocks.end()))
         return true;
 
     return false;
 }
+
+
+/*
+ * _buildPredLatencyGraph
+ * 
+ * Setup DFA function for WorkListDriver --- for all valid predecessors collected
+ * in the WorkListDriver --- we build the predecessor latency node for the 
+ * current block being analyzed --- i.e. for each predecessor of the current
+ * block, map the predecessor blocks (from Preds) and its accumulated latencies
+ * to the current block
+ */ 
 
 void LatencyDFA::_buildPredLatencyGraph(BasicBlock *BB, vector<BasicBlock *> &Preds)
 {
@@ -399,6 +492,16 @@ void LatencyDFA::_buildPredLatencyGraph(BasicBlock *BB, vector<BasicBlock *> &Pr
 
     return;
 }     
+
+
+/*
+ * _modifyINAndOUT
+ * 
+ * Worker DFA function for WorkListDriver --- calculate the entry point latency
+ * for the block (using the pred latency graph), and propagate the scalar
+ * transformation to complete the IN and OUT sets for instructions of the current
+ * block, set the accumulated latency of the block to the terminator OUT set
+ */ 
 
 void LatencyDFA::_modifyINAndOUT(BasicBlock *BB)
 {
@@ -420,53 +523,70 @@ void LatencyDFA::_modifyINAndOUT(BasicBlock *BB)
     return;
 }
 
-// ---
+
+// ----------------------------------------------------------------------------------
+
+// Interval analysis
+
+/*
+ * BuildIntervalsFromZero
+ * 
+ * Utilize the worklist algorithm to generate callback instructions via 
+ * interval analysis. A traversal similar to the latency DFA is conducted 
+ * to find callback locations --- once a callback location is found, the 
+ * last callback location is reset and the "propagating" value is reset
+ * to 0, until another instruction is found whose difference between its
+ * accumulated latency and the last callback location exceeds the granularity
+ * 
+ * Returns the set of callback locations found
+ * 
+ * This is a top-level/same-depth analysis, as loop analysis and transformations
+ * are conducted separately in the LoopTransform class
+ * 
+ * Critical edges are ignored on the basis that they don't exist b/c the 
+ * framework for compiler-timing runs the LCSSA and LoopSimplify passes on
+ * the kernel bitcode prior to these custom transformations
+ */ 
 
 set<Instruction *> *LatencyDFA::BuildIntervalsFromZero()
 {
-    if (L != nullptr)
-    {
-        auto Checks = bind(mem_fn(&LatencyDFA::_loopBlockChecks), _1, _2, _3);
-        auto Setup = bind(mem_fn(&LatencyDFA::_buildLastCallbacksGraph), _1, _2, _3);
-        auto Worker = bind(mem_fn(&LatencyDFA::_markCallbackLocations), _1, _2);
+    auto Checks = bind(mem_fn(&LatencyDFA::_intervalBlockChecks), _1, _2, _3);
+    auto Setup = bind(mem_fn(&LatencyDFA::_buildLastCallbacksGraph), _1, _2, _3);
+    auto Worker = bind(mem_fn(&LatencyDFA::_markCallbackLocations), _1, _2);
 
-        WorkListDriver(Checks, Setup, Worker);
-    }
-    else    
-    {
-        auto Checks = bind(mem_fn(&LatencyDFA::_functionBlockChecks), _1, _2, _3);
-        auto Setup = bind(mem_fn(&LatencyDFA::_buildLastCallbacksGraph), _1, _2, _3);
-        auto Worker = bind(mem_fn(&LatencyDFA::_markCallbackLocations), _1, _2);
-
-        WorkListDriver(Checks, Setup, Worker);
-    }
-
-    DEBUG_INFO("NOW CALLBACKS\n");
-    for (auto I : CallbackLocations)
-        OBJ_INFO(I);
+    WorkListDriver(Checks, Setup, Worker);
 
     return &CallbackLocations;
 }
 
-bool LatencyDFA::_loopBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
+
+/*
+ * _intervalBlockChecks
+ * 
+ * Checks function for interval analysis with the WorkListDriver --- if 
+ * the predecessor block is part of a backedge or is not considered a valid
+ * block (see _isValidBlock), ignore the block
+ */ 
+
+bool LatencyDFA::_intervalBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
 {
     if ((IsBackEdge(CurrBlock, PredBB))
-        || (!(L->contains(PredBB)))
-        || (IsContainedInSubLoop(PredBB)))
+        || (!(_isValidBlock(PredBB))))
         return true;
 
     return false;
-}   
+}
 
-bool LatencyDFA::_functionBlockChecks(BasicBlock *CurrBlock, BasicBlock *PredBB)
-{
-    if ((IsBackEdge(CurrBlock, PredBB))
-        || (IsContainedInLoop(PredBB))
-        || (Utils::HasCallbackMetadata(PredBB->getTerminator())))
-        return true;
 
-    return false;
-}   
+/*
+ * _buildLastCallbacksGraph
+ * 
+ * Setup function for interval analysis with the WorkListDriver --- for all 
+ * valid predecessors collected in the WorkListDriver --- we build the last 
+ * callback latency node for the current block being analyzed --- i.e. for 
+ * each predecessor of the current block, map the predecessor blocks (from 
+ * Preds) and its last callback latencies to the current block
+ */ 
 
 void LatencyDFA::_buildLastCallbacksGraph(BasicBlock *BB, vector<BasicBlock *> &Preds)
 {
@@ -477,49 +597,39 @@ void LatencyDFA::_buildLastCallbacksGraph(BasicBlock *BB, vector<BasicBlock *> &
     return;
 }   
 
+
+/*
+ * _markCallbackLocations
+ * 
+ * Mark the callback locations via the interval analysis --- if the current 
+ * block is not "valid," ignore it. Otherwise, calculate the last callback
+ * location via _calculateEntryPointLastCallback, and iterate through the block
+ * to find new callback locations IFF the difference in the last callback
+ * latency and the accumulated latency of a particular instruction exceeds the
+ * user selected interval (the granularity). Record the last callback latency 
+ * for the block and return
+ */ 
+
 void LatencyDFA::_markCallbackLocations(BasicBlock *BB)
 {
-    // If function analysis --- ignore loops
-    // If loop analysis --- ignore subloops
-
-    // Redundant --- FIX
-
-    if (L != nullptr)
-    {
-        if ((!(L->contains(BB)))
-            || (IsContainedInSubLoop(BB)))
-            return;
-    }
-    else
-    {
-        if (IsContainedInLoop(BB))
-            return;
-    }
-
-    // If the block is marked with callback metadata, we
-    // don't want to mark for injection
-    if (Utils::HasCallbackMetadata(BB->getTerminator()))
+    // Ignore block if it's invalid
+    if (!(_isValidBlock(BB)))
         return;
 
     Instruction *EntryPoint = &(BB->front());
     double IncomingLastCallback = _calculateEntryPointLastCallback(BB);
 
-    DEBUG_INFO("\n\n\nIncomingLastCallback: " + 
-               to_string(IncomingLastCallback) +
-               "\n\n");
-
     for (auto &I : *BB)
     {
-        OBJ_INFO((&I));
-
+        // Ignore PHINodes --- by default, we are fine here, as PHINodes
+        // have GEN[PHI] = 0, so there must be another instruction with
+        // the same accumulated latency as a PHINode
         if (isa<PHINode>(&I))
             continue;
 
-        DEBUG_INFO("OUT[I]: " + to_string(OUT[&I]) + "\n");
-
+        // We found a new callback location --- mark and reset
         if ((OUT[&I] - IncomingLastCallback) > GRAN)
         {
-            DEBUG_INFO("Resetting\n");
             const string MDStr = (L == nullptr) ? FUNCTION_MD : LOOP_MD;
             Utils::SetCallbackMetadata(&I, MDStr);
             CallbackLocations.insert(&I);
@@ -527,12 +637,12 @@ void LatencyDFA::_markCallbackLocations(BasicBlock *BB)
         }
     }
 
-    DEBUG_INFO("\n\n\n");
-
     LastCallbackLatencies[BB] = IncomingLastCallback;
 
     return;
 }
+
+
 // ----------------------------------------------------------------------------------
 
 // Policy (or policy based methods)
@@ -612,6 +722,7 @@ double LatencyDFA::_calculateEntryPointLastCallback(BasicBlock *CurrBlock)
     return _configConservativenessCalculation(LastCallbackLatencies);
 }
 
+
 /*
  * _configLatencyCalculation
  * 
@@ -633,6 +744,7 @@ double LatencyDFA::_configLatencyCalculation(vector<double> &PL)
         abort();
     }
 }
+
 
 /*
  * _configConservativenessCalculation
@@ -659,6 +771,7 @@ double LatencyDFA::_configConservativenessCalculation(vector<double> &PL)
     }
 }
 
+
 // ----------------------------------------------------------------------------------
 
 // Utility
@@ -681,7 +794,9 @@ uint64_t LatencyDFA::_buildLoopBlocks(Loop *L)
         BasicBlock *CurrBB = *B;
 
         // Build blocks vector
-        Blocks.push_back(CurrBB);
+        if ((!TopLevelAnalysis)
+            && (_isValidBlock(CurrBB)))
+            Blocks.push_back(CurrBB);
 
         // Calculate number of instructions
         size += distance(CurrBB->instructionsWithoutDebug().begin(),
@@ -692,6 +807,36 @@ uint64_t LatencyDFA::_buildLoopBlocks(Loop *L)
 
     return size;
 }
+
+
+/*
+ * _isValidBlock
+ * 
+ * Determine if a block is "valid" for top-level/same-depth analysis --- if
+ * metadata exists in the block, if the block is part of a loop/subloop, or
+ * the block is outside the loop (for loop level analysis), it is not "valid"
+ */ 
+
+bool LatencyDFA::_isValidBlock(BasicBlock *BB)
+{
+    if (L != nullptr)
+    {
+        if ((!(L->contains(BB)))
+            || (IsContainedInSubLoop(BB)))
+            return false;
+    }
+    else
+    {
+        if (IsContainedInLoop(BB))
+            return false;
+    }
+
+    if (Utils::HasCallbackMetadata(BB->getTerminator()))
+        return false;
+
+    return true;
+}
+
 
 /*
  * _organizeFunctionBackedges()
@@ -717,6 +862,7 @@ void LatencyDFA::_organizeFunctionBackedges()
     return;
 }
 
+
 /*
  * IsBackEdge()
  * 
@@ -735,6 +881,7 @@ bool LatencyDFA::IsBackEdge(BasicBlock *From, BasicBlock *To)
 
     return false;
 }
+
 
 /*
  * IsContainedInSubLoop() --- FIX (not general)
@@ -762,6 +909,7 @@ bool LatencyDFA::IsContainedInSubLoop(BasicBlock *BB)
     return Contained;
 }
 
+
 /*
  * IsContainedInLoop()
  * 
@@ -774,8 +922,6 @@ bool LatencyDFA::IsContainedInSubLoop(BasicBlock *BB)
 
 bool LatencyDFA::IsContainedInLoop(BasicBlock *BB)
 {
-    DEBUG_INFO("ISCONTAINEDINLOOP\n");
-    BB->print(errs());
     bool Contained = false;
 
     if (L != nullptr) // Loop level analysis
@@ -787,14 +933,15 @@ bool LatencyDFA::IsContainedInLoop(BasicBlock *BB)
     {
         for (auto Loop : Loops)
         {
+            OBJ_INFO(Loop);
             if (Loop->contains(BB))
                 Contained |= true;
         }
     }
-    DEBUG_INFO("CONTAINED: " + to_string(Contained) + "\n\n\n");
 
     return Contained;
 }
+
 
 // ----------------------------------------------------------------------------------
 

@@ -1,3 +1,30 @@
+/*
+ * This file is part of the Nautilus AeroKernel developed
+ * by the Hobbes and V3VEE Projects with funding from the 
+ * United States National  Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  The Hobbes Project is a collaboration
+ * led by Sandia National Laboratories that includes several national 
+ * laboratories and universities. You can find out more at:
+ * http://www.v3vee.org  and
+ * http://xstack.sandia.gov/hobbes
+ *
+ * Copyright (c) 2019, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2019, Simone Campanoni <simonec@eecs.northwestern.edu>
+ * Copyright (c) 2019, Peter A. Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2019, The V3VEE Project  <http://www.v3vee.org> 
+ *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
+ * All rights reserved.
+ *
+ * Authors: Souradip Ghosh <sgh@u.northwestern.edu>
+ *          Simone Campanoni <simonec@eecs.northwestern.edu>
+ *          Peter A. Dinda <pdinda@northwestern.edu>
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "LICENSE.txt".
+ */
+
 #include "../include/Utils.hpp"
 
 using namespace Utils;
@@ -21,6 +48,7 @@ void Utils::ExitOnInit()
     if (FALSE)
         exit(0);
 }
+
 
 /*
  * GatherAnnotatedFunctions
@@ -80,6 +108,7 @@ void Utils::GatherAnnotatedFunctions(GlobalVariable *GV,
     return;
 }
 
+
 // ----------------------------------------------------------------------------------
 
 // Utils --- Function tracking/identification
@@ -115,6 +144,7 @@ set<Function *> *Utils::IdentifyFiberRoutines()
 
     return Routines;
 }
+
 
 /*
  * IdentifyAllNKFunctions
@@ -152,6 +182,7 @@ void Utils::IdentifyAllNKFunctions(Module &M, set<Function *> &Routines)
 
     return;
 }
+
 
 // ----------------------------------------------------------------------------------
 
@@ -220,9 +251,67 @@ void Utils::InlineNKFunction(Function *F)
     return;
 }
 
+
+/*
+ * InjectCallback
+ * 
+ * Given a set of instructions that act as "injection locations,"
+ * inject callbacks to the callback function (nk_time_hook_fire) at
+ * each of these locations --- debug information is set accordingly
+ * as well
+ * 
+ */
+
+void Utils::InjectCallback(set<Instruction *> &InjectionLocations, Function *F)
+{
+    // Call instructions for the callback function need to be injected with 
+    // relatively "correct" debug locations --- Clang 9 will complain otherwise
+    Instruction *FirstInstWithDBG = nullptr;
+    for (auto &I : instructions(F))
+    {
+        if (I.getDebugLoc())
+        {
+            FirstInstWithDBG = &I;
+            break;
+        }
+    }
+
+    // Inject callback invocations at all locations specified in the set
+    for (auto IL : InjectionLocations)
+    {
+        DEBUG_INFO("Current IL: ");
+        OBJ_INFO(IL);
+
+        // Inject callback invocation with correct debug locations
+        IRBuilder<> Builder{IL};
+        if (FirstInstWithDBG != nullptr)
+            Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+
+        CallInst *CBInvocation = Builder.CreateCall((*SpecialRoutines)[HOOK_FIRE], None);
+
+        // Sanity check
+        if (CBInvocation == nullptr)
+        {
+            DEBUG_INFO("---Injection failed---\n");
+            abort();
+        }
+    }
+
+    return;
+}
+
 // ----------------------------------------------------------------------------------
 
-// Utils --- Transformations
+// Utils --- Metadata
+
+/*
+ * SetCallbackMetadata
+ * 
+ * Sets callback location metadata for an instruction --- each instruction is
+ * set with metadata kind = "cb.loc" and a specified metadata that describes 
+ * the policy used to determine the callback location (kind = MD)
+ */ 
+
 void Utils::SetCallbackMetadata(Instruction *I, const string MD)
 {       
     // Build metadata node
@@ -237,6 +326,17 @@ void Utils::SetCallbackMetadata(Instruction *I, const string MD)
 
     return;
 }
+
+
+/*
+ * HasCallbackMetadata
+ * 
+ * - Parses metadata for an instruction --- queries for "cb.loc" metadata 
+ * - Parses metadata for a loop --- collects the instructions that contain
+ *   metadata kind = "cb.loc"
+ * - Parses metadata for a function --- collects the instructions that 
+ *   contain metadata kind = "cb.loc"
+ */
 
 bool Utils::HasCallbackMetadata(Instruction *I)
 {
@@ -282,6 +382,7 @@ bool Utils::HasCallbackMetadata(Function *F, set<Instruction *> &InstructionsWit
     return true;
 }
 
+
 // ----------------------------------------------------------------------------------
 
 // Debug
@@ -315,6 +416,56 @@ void Debug::PrintFNames(set<Function *> &Functions)
 
         DEBUG_INFO(F->getName() + "\n");
     }
+
+    return;
+}
+
+void Debug::PrintCurrentLoop(Loop *L)
+{
+    DEBUG_INFO("Current Loop:\n");
+    if (L == nullptr)
+    {
+        DEBUG_INFO("Nullptr Loop");
+        DEBUG_INFO("\n\n\n---\n\n\n");
+        return;
+    }
+    
+    OBJ_INFO(L);
+
+    for (auto B = L->block_begin(); B != L->block_end(); ++B)
+    {
+        BasicBlock *CurrBB = *B;
+        OBJ_INFO(CurrBB);
+    }
+
+    DEBUG_INFO("\n\n\n---\n\n\n");
+
+    return;
+}
+
+void Debug::PrintCurrentFunction(Function *F)
+{
+    DEBUG_INFO("Current Function:\n");
+    if (F == nullptr)
+    {
+        DEBUG_INFO("Nullptr Function");
+        DEBUG_INFO("\n\n\n---\n\n\n");
+        return;
+    }
+
+    OBJ_INFO(F);
+    DEBUG_INFO("\n\n\n---\n\n\n");
+
+    return;
+}
+
+void Debug::PrintCallbackLocations(set<Instruction *> &CallbackLocations)
+{
+    DEBUG_INFO("Callback Locations\n");
+    for (auto CL : CallbackLocations)
+        OBJ_INFO(CL);
+
+    DEBUG_INFO("\n\n\n---\n\n\n");
 
     return;
 }
