@@ -11,15 +11,11 @@
  * http://xstack.sandia.gov/hobbes
  *
  * Copyright (c) 2019, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2019, Simone Campanoni <simonec@eecs.northwestern.edu>
- * Copyright (c) 2019, Peter A. Dinda <pdinda@northwestern.edu>
  * Copyright (c) 2019, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
  * Authors: Souradip Ghosh <sgh@u.northwestern.edu>
- *          Simone Campanoni <simonec@eecs.northwestern.edu>
- *          Peter A. Dinda <pdinda@northwestern.edu>
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
@@ -46,6 +42,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseBitVector.h"
@@ -74,7 +71,7 @@ using namespace std;
 
 // Pass settings
 #define DEBUG 0
-#define LOOP_DEBUG 0
+#define LOOP_DEBUG 0 
 #define INLINE 0
 #define WHOLE 1 // Whole kernel injection
 #define INJECT 1
@@ -87,7 +84,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Guards for yield call injections
-#define GRAN 1000
+#define GRAN 2000
 #define CALL_GUARDS 0
 #define LOOP_GUARDS 1
 #define LOOP_OPT 1
@@ -1377,154 +1374,162 @@ struct CAT : public ModulePass
             abort();
         }
     }
+	
+	double getInlineAsmLatency(string IAString)
+	{
+		double cost = 10; // default latency
+		if (IAString.substr(0, 3) == "mov") // Terrible
+			cost = 1; // Fog
+		else if (IAString == "pause")
+			cost = 25; // Fog
 
-    double getLatency(Instruction *I) // CMU Data (~10 years old)
-    {                                 // Instruction Latency for Core 2, 65nm
-        int opcode = I->getOpcode();
-        double cost;
-        switch (opcode)
-        {
-        // Terminator instructions
-        case Instruction::Ret:
-            cost = 1;
-            break;
-        case Instruction::Br:
-            cost = 0;
-            break;
-        case Instruction::Switch:
-            cost = 0;
-            break;
-        // Standard binary operators
-        case Instruction::Add:
-            cost = 1;
-            break;
-        case Instruction::FAdd:
-            cost = 4;
-            break;
-        case Instruction::Sub:
-            cost = 1;
-            break;
-        case Instruction::FSub:
-            cost = 4;
-            break;
-        case Instruction::Mul:
-            cost = 3;
-            break;
-        case Instruction::FMul:
-            cost = 4;
-            break;
-        case Instruction::UDiv:
-            cost = 17;
-            break;
-        case Instruction::SDiv:
-            cost = 17;
-            break;
-        case Instruction::FDiv:
-            cost = 24;
-            break;
-        case Instruction::URem:
-            cost = 17;
-            break;
-        case Instruction::SRem:
-            cost = 17;
-            break;
-        case Instruction::FRem:
-            cost = 24;
-            break;
-        // logical operators (integer operands)
-        case Instruction::Shl:
-            cost = 7;
-            break;
-        case Instruction::LShr:
-            cost = 7;
-            break;
-        case Instruction::AShr:
-            cost = 7;
-            break;
-        case Instruction::And:
-            cost = 1;
-            break;
-        case Instruction::Or:
-            cost = 1;
-            break;
-        case Instruction::Xor:
-            cost = 1;
-            break;
-        // Vector ops
-        case Instruction::ExtractElement:
-            cost = 0;
-            break; // TODO
-        case Instruction::InsertElement:
-            cost = 0;
-            break; // TODO
-        case Instruction::ShuffleVector:
-            cost = 0;
-            break; // TODO
-        // Aggregate ops
-        case Instruction::ExtractValue:
-            cost = 0;
-            break; // TODO
-        case Instruction::InsertValue:
-            cost = 0;
-            break; // TODO
-        // Memory ops
-        case Instruction::Alloca:
-            cost = 2;
-            break;
-        case Instruction::Load:
-            cost = 2;
-            break;
-        case Instruction::Store:
-            cost = 2;
-            break;
-        case Instruction::Fence:
-            cost = 0;
-            break; // TODO
-        case Instruction::AtomicCmpXchg:
-            cost = 0;
-            break; // TODO
-        case Instruction::AtomicRMW:
-            cost = 0;
-            break; // TODO
-        case Instruction::GetElementPtr:
-            cost = 1;
-            break;
-            // Cast operators
-        case Instruction::PHI:
-            cost = 0; // this is on purpose --- gets around the PHIGroup issue
-            break;
-        case Instruction::ICmp:
-            cost = 6; // this is random
-            break;
-        case Instruction::Call:
-        {
-            if (auto *call = dyn_cast<CallInst>(I)) // don't want to involve LLVM internals
-            {
-                Function *callee = call->getCalledFunction();
-                if (callee != nullptr)
-                    cost = ((callee->isIntrinsic()) || (callee->getName().startswith("llvm.lifetime"))) ? 0 : GRAN;
-				else if (isa<InlineAsm>(call->getCalledValue()))
-					cost = 10; // Unclear
-				else
-                    cost = GRAN; // Arbitrary
-            }
+		return cost;
+	}
 
-            break;
-        }
-        default:
-        {
-#if DEBUG
-            errs() << "DEFAULT\n";
-            I->print(errs());
-            errs() << "\n";
-#endif
-            cost = 8; // this is random
-            break;
-        }
-        }
+	double getLatency(Instruction *I) 
+	{
+		int opcode = I->getOpcode();
+		double cost = 0;
 
-        return cost;
-    }
+		switch (opcode)
+		{
+		// Terminator instructions
+		case Instruction::Call:
+		{
+			if (auto *Call = dyn_cast<CallInst>(I)) // don't want to involve LLVM internals
+			{
+				// Handle InlineAsm (in the worst way possible)
+				if (auto *IA = dyn_cast<InlineAsm>(Call->getCalledValue()))
+					cost = getInlineAsmLatency(IA->getAsmString());
+
+				// Handle real callees
+				Function *Callee = Call->getCalledFunction();
+
+				// Possible intrinsic, assembly stub, etc.
+				if ((Callee == nullptr)
+					|| (Callee->isIntrinsic()) // llvm.stacksave() ??? 
+					|| (Callee->getName().startswith("llvm.lifetime"))) // Unclear
+					break;
+				else cost = 3; // Fog --- Knights Landing, generic Intel
+			}
+
+			break;
+		}
+		case Instruction::Ret:
+			cost = 2; // Fog
+			break;
+		case Instruction::Br:
+		case Instruction::IndirectBr: // NEW
+		case Instruction::Unreachable: // NEW
+		case Instruction::Switch: // FIX
+			break;
+
+		// Standard binary operators --- NOTE --- Fog numbers 
+		// for Knights landing much higher
+		case Instruction::Add:
+		case Instruction::Sub:
+			cost = 1;
+			break;
+		case Instruction::Mul:
+			cost = 3;
+			break;
+		case Instruction::FAdd:
+		case Instruction::FSub:
+		case Instruction::FMul:
+			cost = 4;
+			break;
+		case Instruction::UDiv:
+		case Instruction::SDiv:
+		case Instruction::URem:
+		case Instruction::SRem:
+			cost = 17;
+			break;
+		case Instruction::FDiv:
+		case Instruction::FRem:
+			cost = 24;
+			break;
+			
+		// Logical operators (integer operands)
+		case Instruction::Shl:
+		case Instruction::LShr:
+		case Instruction::AShr:
+			cost = 7;
+			break;
+		case Instruction::And:
+		case Instruction::Or:
+		case Instruction::Xor:
+			cost = 1;
+			break;
+
+		// Vector ops
+		case Instruction::ExtractElement:
+		case Instruction::InsertElement:
+		case Instruction::ShuffleVector:
+		case Instruction::ExtractValue:
+		case Instruction::InsertValue:
+			break; 
+
+		// Memory ops
+		case Instruction::Alloca: // Prev = 2
+			break;
+		case Instruction::Load:
+		case Instruction::Store:
+			cost = 4; // L1
+			break;
+		
+		// Atomics related
+		// case Instruction::Fence:
+		case Instruction::AtomicCmpXchg:
+			cost = 24; // Fog
+			break;
+		case Instruction::AtomicRMW:
+			cost = 11; // Fog
+			break;
+
+		// Control flow 
+		case Instruction::ICmp:
+			cost = 1; // Fog
+			break;
+		case Instruction::FCmp:
+			cost = 7; // Fog
+			break; 
+
+		// Cast operators --- NEW
+		case Instruction::IntToPtr:
+		case Instruction::PtrToInt:
+		case Instruction::BitCast: // Prev = 1
+			break;
+		case Instruction::ZExt:
+		case Instruction::SExt:
+		case Instruction::Trunc:
+		case Instruction::FPExt:
+		case Instruction::FPTrunc:
+		case Instruction::AddrSpaceCast:
+			cost = 1;
+			break; 
+		case Instruction::FPToUI:
+		case Instruction::FPToSI:
+		case Instruction::SIToFP:
+		case Instruction::UIToFP:
+			cost = 6; // Fog
+			break;
+
+		// LLVM IR specifics
+		case Instruction::PHI:
+		case Instruction::VAArg:
+		case Instruction::GetElementPtr: // Unclear
+			break;
+		case Instruction::Select: // NEW
+			cost = 10; // Unclear
+			break;
+		
+		default:
+			cost = 4; // Unclear
+			break;
+		}
+
+		return cost;
+	}
 
     BasicBlock *getLastLoopBlock(Loop *L)
     {
@@ -1562,7 +1567,7 @@ struct CAT : public ModulePass
     // Absolutely the worst --- will kick soon
     uint64_t roundToNearest(uint64_t num)
     {
-        static int nearest = 20;
+		static int nearest = 10;
 
         int moduloHundred = num % 100;
         unordered_map<int, int> nearestMap; // (difference from num, multiplier)
