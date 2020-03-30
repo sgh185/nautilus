@@ -40,7 +40,7 @@ struct KNNContext
 	uint32_t k;
 	uint32_t num_examples;
 	double (*distance_metric)(struct KNNPoint *, struct KNNPoint *);
-	double (*aggregator)(struct KNNPoint **);	
+	double (*aggregator)(struct KNNPoint **, uint32_t);	
 	struct KNNPoint **examples;
 	uint32_t dimensions;
 };
@@ -50,8 +50,8 @@ struct KNNPoint *KNN_build_point(uint32_t dims);
 struct KNNPoint *KNN_copy_point(struct KNNPoint *point);
 struct KNNContext *KNN_build_context(uint32_t k, uint32_t dims, uint32_t num_ex,
 							  double (*dm)(struct KNNPoint *f, struct KNNPoint *s), 
-							  double (*agg)(struct KNNPoint **a));
-void KNN_point_destroy(struct KNNPoint *point);
+							  double (*agg)(struct KNNPoint **a, uint32_t len));
+void KNN_point_array_destroy(struct KNNPoint **point_arr, uint32_t length);
 void KNN_point_destroy(struct KNNPoint *point);
 void KNN_context_destroy(struct KNNContext *ctx);
 
@@ -64,9 +64,9 @@ double distance_euclidean_squared(struct KNNPoint *first, struct KNNPoint *secon
 double distance_manhattan(struct KNNPoint *first, struct KNNPoint *second);
 
 // Aggregators
-double aggretate_mean(struct KNNPoint **arr);
-double aggregate_median(struct KNNPoint **arr);
-double aggergate_mode(struct KNNPoint **arr);
+double aggretate_mean(struct KNNPoint **arr, uint32_t length);
+double aggregate_median(struct KNNPoint **arr, uint32_t length);
+double aggergate_mode(struct KNNPoint **arr, uint32_t length);
 
 // Sorting --- very suspicious
 void _swap(double *a, double *b);
@@ -75,11 +75,11 @@ int _partition(double *arr, int low, int high);
 int _partition_KNN(double *arr, struct KNNPoint **KNN_arr, int low, int high);
 void _quicksort_KNN(double *arr, struct KNNPoint **KNN_arr, int low, int high);
 void _quicksort(double *arr, int low, int high);
-double *quicksort(double *arr);
-double *quicksort_with_order(double *arr, struct KNNPoint **examples, struct KNNPoint **order_arr);
+double *quicksort(double *arr, uint32_t length);
+double *quicksort_with_order(double *arr, struct KNNPoint **examples, struct KNNPoint **order_arr, uint32_t length);
 
 // Utility
 int inline check_pair(struct KNNPoint *first, struct KNNPoint *second);
 int inline check_point(struct KNNPoint *point);
-double *extract_classifications(struct KNNPoint **arr);
+double *extract_classifications(struct KNNPoint **arr, uint32_t length_arr);
 

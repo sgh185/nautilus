@@ -57,7 +57,7 @@
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
-#define M 300 // Loop iteration --- timing loops
+#define M 5000 // Loop iteration --- timing loops
 #define DOT 1000 // Dot product induction variable
 
 // Dimensions for arrays --- matrix multiply
@@ -67,6 +67,7 @@
 
 // Conditions
 #define RET_CHECK 1
+#define LOOP_CHECK 0 
 
 extern struct nk_virtual_console *vc;
 extern void nk_simple_timing_loop(uint64_t);
@@ -1269,6 +1270,8 @@ void fib_1(void *i, void **o)
 	
 	ACCESS_WRAPPER = 0;
 	
+	_nk_fiber_print_data();
+	
 	return;
 }
 
@@ -1279,31 +1282,60 @@ void fib_2(void *i, void **o)
 	int a = 0;
 	SEED();
 
+#if LOOP_CHECK
+	uint64_t loop_times[M];
+	int loop_index = 0;
+#endif
+
 	ACCESS_WRAPPER = 1;
+		
+	uint64_t fib_num = 50; //lrand48() % 75;
+	
+	// Allocate table on stack
+	volatile uint64_t memo[fib_num + 2];
 
 	while (a < M)
 	{
-		uint64_t fib_num = lrand48() % 75;
 		
-		// Allocate table on stack
-		uint64_t memo[fib_num + 2];
-		memset(memo, 0, sizeof(memo));
+		// memset(memo, 0, sizeof(memo));
 
 		// Set base cases
 		memo[0] = 0;
 		memo[1] = 1;
 
 		uint64_t k;
+
+#if LOOP_CHECK
+		uint64_t loop_time = rdtsc();
+#endif
+
 		for (k = 0; k < fib_num; k++) {
 			memo[k] = memo[k - 1] + memo[k - 2];
 		}
-	
+
+#if LOOP_CHECK
+		loop_times[loop_index] = rdtsc() - loop_time;
+		loop_index++;
+#endif
+
 		a++;
 	}
 
 	ACCESS_WRAPPER = 0;
 	
 	_nk_fiber_print_data();
+
+#if LOOP_CHECK
+	nk_vc_printf("loop_times\n");
+	uint64_t sum = 0;
+	int k;
+	for (k = 0; k < M; k++) {
+		nk_vc_printf("%lu\n", loop_times[k]);
+		sum += loop_times[k];
+	}
+
+	nk_vc_printf("average loop_times: %lu\n", (sum / M));
+#endif
 
 #if RET_CHECK
 	nk_vc_printf("addr0: %p\n", address_hook_0);
@@ -1367,13 +1399,15 @@ void knn_2(void *i, void **o)
 
 	// Clean up
 	KNN_point_destroy(kp);
+	
 	KNN_context_destroy(ctx);	
 
 	ACCESS_WRAPPER = 0;
 	
 	_nk_fiber_print_data();
 
-	// nk_vc_printf("class: %f\n", classification);
+	nk_vc_printf("class: %f\n", classification);
+
 #if RET_CHECK
 	nk_vc_printf("addr0: %p\n", address_hook_0);
 	nk_vc_printf("addr1: %p\n", address_hook_1);
