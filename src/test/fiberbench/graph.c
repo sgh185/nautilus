@@ -31,6 +31,7 @@
 #include <test/fibers.h>
 #include <nautilus/random.h>
 #include <nautilus/libccompat.h>
+#include <nautilus/stack.h>
 
 // Useful macros
 #define MIN(a, b) ( ((a) < (b)) ? (a) : (b) )
@@ -42,10 +43,8 @@
 #define MAX_WEIGHT 32
 
 // ---------------- Undirected graph implementation ----------------
-// Made in a complicated way --- lots of pointer traversal
 
-
-Vertex *build_new_vertex(int id, int max_neighbors)
+Vertex *build_new_vertex(uint32_t id, int max_neighbors)
 {
 	// Allocate vertex	
 	Vertex *new_vertex = (Vertex *) (MALLOC(sizeof(Vertex)));
@@ -53,17 +52,19 @@ Vertex *build_new_vertex(int id, int max_neighbors)
 	// Set fields
 	new_vertex->id = id;
 	new_vertex->num_neighbors = 0;
-	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * max_neighbors));
+	new_vertex->neighbor_ids = (uint32_t *) (MALLOC(sizeof(uint32_t) * max_neighbors));
 	new_vertex->neighbor_weights = (int *) (MALLOC(sizeof(int) * max_neighbors));
+	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * max_neighbors));
 
 	// Zero initialize
-	memset(new_vertex->neighbors, 0, sizeof(*(new_vertex->neighbors)));
-	memset(new_vertex->neighbor_weights, 0, sizeof(*(new_vertex->neighbor_weights)));
+	memset(new_vertex->neighbor_ids , -1, (sizeof(uint32_t) * max_neighbors));
+	memset(new_vertex->neighbor_weights, 0, (sizeof(int) * max_neighbors));
+	memset(new_vertex->neighbors, 0, (sizeof(Vertex *) * max_neighbors));
 
 	return new_vertex;	
 }
 
-Vertex *copy_vertex(Vertex *vtx)
+Vertex *copy_vertex(Vertex *vtx, int max_neighbors)
 {	
 	// Allocate new vertex for copy
 	Vertex *new_vertex = (Vertex *) (MALLOC(sizeof(Vertex)));
@@ -71,21 +72,28 @@ Vertex *copy_vertex(Vertex *vtx)
 	// Set fields accordingly
 	new_vertex->id = vtx->id;
 	new_vertex->num_neighbors = vtx->num_neighbors;
-	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * vtx->num_neighbors));
-	new_vertex->neighbor_weights = (int *) (MALLOC(sizeof(int) * vtx->num_neighbors));
+	new_vertex->neighbor_ids = (uint32_t *) (MALLOC(sizeof(uint32_t) * max_neighbors));
+	new_vertex->neighbor_weights = (int *) (MALLOC(sizeof(int) * max_neighbors));
+	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * max_neighbors));
+
+	// Zero initialize
+	memset(new_vertex->neighbor_ids , 0, (sizeof(uint32_t) * max_neighbors));
+	memset(new_vertex->neighbor_weights, 0, (sizeof(int) * max_neighbors));
+	memset(new_vertex->neighbors, 0, (sizeof(Vertex *) * max_neighbors));
 
 	// avoiding memcpy
-	int i;
-	for (i = 0; i < vtx->num_neighbors; i++) {
-		new_vertex->neighbors[i] = vtx->neighbors[i];
-		new_vertex->neighbor_weights[i] = vtx->neighbor_weights[i];
+	int i, n_n = (int) (vtx->num_neighbors);
+	for (i = 0; i < n_n; i++) {
+		uint32_t next_id = vtx->neighbor_ids[i];
+		new_vertex->neighbors[next_id] = vtx->neighbors[next_id];
+		new_vertex->neighbor_weights[next_id] = vtx->neighbor_weights[next_id];
 	}
 
 	return new_vertex;
 
 }
 
-Graph *build_new_graph(int num_vtx)
+Graph *build_new_graph(uint32_t num_vtx)
 {
 	// Allocate graph
 	Graph *new_graph = (Graph *) (MALLOC(sizeof(Graph)));
@@ -96,7 +104,9 @@ Graph *build_new_graph(int num_vtx)
 	new_graph->vertices = (Vertex **) (MALLOC(sizeof(Vertex *) * num_vtx));
 
 	// Zero initialize
-	memset(new_graph->vertices, 0, sizeof(*(new_graph->vertices)));
+	memset(new_graph->vertices, 0, (sizeof(Vertex *) * num_vtx));
+
+	print_graph(new_graph);
 
 	return new_graph;
 }
@@ -119,7 +129,7 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 {
 	// Quick error checking
 	if (!(check_vertex(vtx))) { return; }
-
+	
 	// Check if we're at max edges
 	if (g->num_edges >= max_edges(g)) { return; }
 
@@ -130,7 +140,7 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 
 	int i = 0;
 	
-	// SEED();
+	SEED();
 	
 	// Tricky loop b/c of then number of internal branches
 	while (i < new_edges)
@@ -141,15 +151,15 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 		// Find a random id (of a vertex) to build an
 		// edge with, depending on conditions
 	
-		int new_id = (int) (lrand48() % (g->num_vertices));
-	
-		// If the vertex with new_id doesn't exist
-		if (!(g->vertices[new_id])) { continue; }
-
+		uint32_t new_id = (uint32_t) (lrand48() % (g->num_vertices));
+		
+		// Don't allow self edges --- HACK
+		if (new_id == vtx->id) { continue; }  
+		
 		Vertex *potential_neighbor = g->vertices[new_id];
 		
-		// If there's the edge is already there at position new_id
-		// (and vice versa) --- very unlikely
+		// If the edge is already there at position new_id
+		// (and vice versa)
 		if ((vtx->neighbors[new_id] == potential_neighbor) 
 			|| (potential_neighbor->neighbors[vtx->id] == vtx)) { continue; }
 		
@@ -162,7 +172,9 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 		// to the respective vertices set the weights correctly,
 		// increment information counters
 		potential_neighbor->neighbors[vtx->id] = vtx;
+		potential_neighbor->neighbor_ids[potential_neighbor->num_neighbors] = vtx->id;
 		vtx->neighbors[new_id] = potential_neighbor;
+		vtx->neighbor_ids[vtx->num_neighbors] = new_id;
 
 		int weight;
 		if (!weighted) { weight = 1; }
@@ -188,13 +200,13 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 	return; 
 }
 
-Graph *generate_full_graph(int num_vtx, int weighted)
+Graph *generate_full_graph(uint32_t num_vtx, int weighted)
 {
 	// Build the shell
 	Graph *g = build_new_graph(num_vtx);
 	
 	// Populate with vertices
-	int i;
+	uint32_t i;
 	for (i = 0; i < g->num_vertices; i++) {
 		g->vertices[i] = build_new_vertex(i, g->num_vertices);
 	}
@@ -217,6 +229,8 @@ Graph *generate_full_graph(int num_vtx, int weighted)
 void destroy_vertex(Vertex *vtx)
 {
 	if (!check_vertex(vtx)) { return; }
+	free(vtx->neighbor_ids);
+	free(vtx->neighbor_weights);
 	free(vtx->neighbors); // Freeing the actual vertices in
 						  // the grph will cause recursion
 						  // and invalid pointer frees
@@ -225,9 +239,9 @@ void destroy_vertex(Vertex *vtx)
 	return;
 }
 
-void destroy_vertex_array(Vertex **vertices)
+void destroy_vertex_array(Vertex **vertices, uint32_t length)
 {
-	int length = LEN(vertices), i;
+	int i;
 	for (i = 0; i < length; i++) {
 		destroy_vertex(vertices[i]);
 	}
@@ -239,7 +253,7 @@ void destroy_vertex_array(Vertex **vertices)
 
 void destroy_graph(Graph *g)
 {
-	destroy_vertex_array(g->vertices);
+	destroy_vertex_array(g->vertices, g->num_vertices);
 	free(g);
 
 	return;	
@@ -247,17 +261,38 @@ void destroy_graph(Graph *g)
 
 
 // Graph utility
-int check_vertex(Vertex *vtx)
+__attribute__((always_inline)) int inline check_vertex(Vertex *vtx)
 {
 	if (!vtx) { return 0; }
+	if (!(vtx->neighbor_ids)) { return 0; }
+	if (!(vtx->neighbor_weights)) { return 0; }
 	if (!(vtx->neighbors)) { return 0; }
 
 	return 1;	
 }
 
-int inline max_edges(Graph *g)
+__attribute__((always_inline)) int inline max_edges(Graph *g)
 {
 	return (g->num_vertices * (g->num_vertices - 1)) / 2;
+}
+
+void print_graph(Graph *g)
+{
+	int i;
+	for (i = 0; i < g->num_vertices; i++)
+	{
+		nk_vc_printf("Next ID: %d\n", i);
+		
+		Vertex *curr = g->vertices[i];
+		int j;
+		for (j = 0; j < curr->num_neighbors; j++) {
+			nk_vc_printf("%d ", curr->neighbor_ids[j]);
+		}
+
+		nk_vc_printf("\n\n");		
+	}
+
+	return;
 }
 
 
@@ -265,33 +300,117 @@ int inline max_edges(Graph *g)
 // ------------------------------------------
 // Graph algorithms
 
-/*
 // Cycle detection
-#define MAX_CYCLES 8 // A cutoff more than anything
+NK_STACK_DECL(uint32_t);
 
 // Returns the first cycle that detect_cycles finds
 // or returns NULL
-Vertex **detect_cycles(Graph *g)
+int detect_cycles(Graph *g)
 {
 	int max_cycle_size = g->num_vertices;
 
 	// Pick a random starting point
+	SEED();
 	Vertex *start_vtx = g->vertices[(lrand48() % g->num_vertices)];
-	if (!(check_vertex(start_vtx))) { return NULL; }
+	if (!(check_vertex(start_vtx))) { return 0; }
 
-	// Build the necessary structures
+	// Build the necessary data structures
 	
-	// Visited array
-	int *visited_ids = (int *) (MALLOC(sizeof(int) * g->num_vertices));
-	memset(visited_ids, 0, sizeof(visited_ids));
+	// Tracking data structures --- bitsets better and structures can be optimized, but this is easy
+	uint32_t visited_ids[g->num_vertices], stack_ids[g->num_vertices], adder_ids[g->num_vertices];
+	memset(visited_ids, 0, sizeof(visited_ids)); // All visited vertices 
+	memset(stack_ids, 0, sizeof(stack_ids)); // All vertices that are currently in the stack --- easier than parsing the stack
+	memset(adder_ids, -1, sizeof(adder_ids)); // The mapping between a vertex and the neighbor vertex that added it to the stack
+											  // This is a hack to prevent "cycles of 2" in an undirected graph --- makes no sense
 
-	// 
-	int *current_path = (int *) (MALLOC(sizeof(int) * g->num_vertices));
-   	memset(current_path, 0, sizeof(current_path);	
+	// Stack for DFS
+	nk_stack_uint32_t *visit_stack = nk_stack_get(uint32_t); 
 
+	// Setup --- add first vertex to data structures
+	nk_stack_push(uint32_t, visit_stack, start_vtx->id);
+	visited_ids[start_vtx->id] |= 1;
+	stack_ids[start_vtx->id] |= 1;
+
+	int cycle_found = 0;
+
+	// DFS
+	do
+	{
+		// Get the next vertex ID and vertex pointer off the stack
+		uint32_t curr_id = nk_stack_pop(uint32_t, visit_stack);
+		Vertex *curr_vertex = g->vertices[curr_id];
+
+		// Loop through the neighbors of the vertices 
+		uint32_t neigh_id;
+		int i, new_id = 0;
+		for (i = 0; i < (curr_vertex->num_neighbors); i++)
+		{
+			neigh_id = curr_vertex->neighbor_ids[i];
+		
+			// If we found a vertex that hasn't been visited --- record
+			// it aand break --- essential for DFS	
+			if (!(visited_ids[neigh_id]))
+			{
+				new_id |= 1;
+				visited_ids[neigh_id] |= 1;
+				break;
+			}
+
+			// If the neighbor is already in the stack, and the neighbor
+			// wasn't the one to add the current vertex to the stack, we've
+			// found a cycle
+			if ((stack_ids[neigh_id])
+				&& (adder_ids[curr_id] != neigh_id))
+			{
+				cycle_found |= 1;
+				break;
+			}
+		}
+		
+		// Push the current vertex back to the stack and exit DFS
+		if (cycle_found) 
+		{ 
+			nk_stack_push(uint32_t, visit_stack, curr_id);
+			nk_stack_push(uint32_t, visit_stack, neigh_id);
+			break;
+		}
+
+		// If we have a new vertex to examine, push the current
+		// vertex back to the stack, THEN push the new neighbor
+		// vertex to examine --- mark the new vertex as currently
+		// in the stack, and mark the adder mapping accordinglu 
+		if (new_id)
+		{
+			nk_stack_push(uint32_t, visit_stack, curr_id);
+			nk_stack_push(uint32_t, visit_stack, neigh_id);
+			stack_ids[neigh_id] |= 1;
+			adder_ids[neigh_id] = curr_id;
+		}
+		else { stack_ids[curr_id] ^= 1; } // Mark the current vertex as 
+										  // removed from the stack
+
+	} while (!(nk_stack_empty(visit_stack)));
+	
+	// We've found a cycle --- to figure out what the cycle is, pop off the 
+	// first vertex ID from the stack, and look for the next occurrence
+	// of that vertex ID in the stack --- that chain will be the cycle
+	if (!cycle_found) 
+	{ 
+		nk_stack_destroy(visit_stack);	
+		return 0; 
+	}
+
+#if 0
+	uint32_t start_id = nk_stack_pop(uint32_t, visit_stack), next_id;
+
+	do 
+	{
+		next_id = nk_stack_pop(uint32_t, visit_stack);
+		nk_vc_printf("Next ID: %d\n", next_id);
+	} while ((start_id != next_id) && (!(nk_stack_empty(visit_stack))));
+#endif
+
+	nk_stack_destroy(visit_stack);	
+
+	return 1;
 }
-*/
-
-
-
-

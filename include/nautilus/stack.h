@@ -55,6 +55,7 @@ extern "C" {
 		type *data; \
 	} nk_stack_##type;
 
+
 // Generic type methods generation
 #define NK_STACK_DECL(type) \
 	_NK_STACK_TYPE_INIT(type) \
@@ -64,7 +65,6 @@ extern "C" {
 		stk->data = (type *) (MALLOC_CHECK(sizeof(type) * INIT_SIZE)); \
 		memset(stk->data, 0, (sizeof(type) * INIT_SIZE)); \
 	} \
-	USED static inline int nk_stack_##type##_empty(nk_stack_##type *stk) { return (!(stk->iterator)); } \
 	USED nk_stack_##type *nk_stack_##type##_get() { \
 		nk_stack_##type *stk = ((nk_stack_##type *) MALLOC_CHECK(sizeof(nk_stack_##type))); \
 		_nk_stack_##type##_init(stk); \
@@ -79,7 +79,7 @@ extern "C" {
 		(stk->iterator)++; \
 	} \
 	USED static type nk_stack_##type##_pop(nk_stack_##type *stk) { \
-		if (nk_stack_##type##_empty(stk)) { STACK_PRINT("Stack empty\n"); return 0; } \
+		if (nk_stack_empty(stk)) { STACK_PRINT("Stack empty\n"); return 0; } \
 		type temp_value = stk->data[(stk->iterator - 1)]; \
 		stk->data[(stk->iterator - 1)] = 0; \
 		(stk->iterator)--; \
@@ -87,12 +87,11 @@ extern "C" {
 	} \
 
 // Kernel method declarations
+#define nk_stack_empty(stk) (!(stk->iterator)) 
 #define nk_stack_get(type) nk_stack_##type##_get()
-#define nk_stack_empty(type, stk) nk_stack_##type##_empty(stk)
 #define nk_stack_push(type, stk, element) nk_stack_##type##_push(stk, element)
 #define nk_stack_pop(type, stk) nk_stack_##type##_pop(stk)
-
-NK_STACK_DECL(int);
+#define nk_stack_destroy(stk) { free(stk->data); free(stk); }
 
 #ifdef __cplusplus
 }

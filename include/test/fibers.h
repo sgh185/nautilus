@@ -67,24 +67,17 @@ typedef struct Vertex_t Vertex;
 
 typedef struct Vertex_t
 {
-	int id;
-	int num_neighbors;
+	uint32_t id;
+	uint32_t num_neighbors;
+	uint32_t *neighbor_ids;
 	int *neighbor_weights;
 	Vertex **neighbors;
 } Vertex;
 
-// A very nicely redundant data structure
-typedef struct Edge_t
-{
-	int weight;
-	Vertex *endpt_1;
-	Vertex *endpt_2;
-} Edge;
-
 typedef struct Graph_t
 {
-	int num_vertices;
-	int num_edges;
+	uint32_t num_vertices;
+	uint32_t num_edges;
 	Vertex **vertices;
 } Graph;
 
@@ -100,22 +93,26 @@ TreeQueue_t *createQueue(void);
 // so there's a lot of pointer traversal
 
 // Set up
-Graph *generate_full_graph(int num_vtx, int weighted);
+Graph *generate_full_graph(uint32_t num_vtx, int weighted);
 
-Vertex *build_new_vertex(int id, int max_neighbors);
-Graph *build_new_graph(int num_vtx);
-Vertex *copy_vertex(Vertex *vtx);
+Vertex *build_new_vertex(uint32_t id, int max_neighbors);
+Graph *build_new_graph(uint32_t num_vtx);
+Vertex *copy_vertex(Vertex *vtx, int max_neighbors);
 int add_vertex_to_graph(Vertex *vtx, Graph *g);
 void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted);
 
 // Clean up
 void destroy_vertex(Vertex *vtx);
-void destroy_vertex_array(Vertex **vertices);
+void destroy_vertex_array(Vertex **vertices, uint32_t length);
 void destroy_graph(Graph *g);
 
 // Graph utility
 int check_vertex(Vertex *vtx);
 int inline max_edges(Graph *g);
+void print_graph(Graph *g);
+
+// Analysis
+int detect_cycles(Graph *g);
 
 // Utility
 uint64_t *createRandArray(uint64_t size);

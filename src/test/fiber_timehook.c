@@ -39,6 +39,7 @@
 #include <test/fiberbench/rijndael.h>
 #include <test/fiberbench/md5.h>
 #include <test/fiberbench/knn.h>
+#include <nautilus/stack.h>
 
 #define DO_PRINT       0
 
@@ -49,6 +50,8 @@
 #endif
 
 // --------------------------------------------------------------------------------
+
+NK_STACK_DECL(int);
 
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
@@ -1428,21 +1431,23 @@ void graph_1(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	int nvtx = 20, weighted = 0;
+	uint32_t nvtx = 20;
+	int weighted = 0;
 
 	ACCESS_WRAPPER = 1;
 	
 	// Build randomized graph
 	Graph *g = generate_full_graph(nvtx, weighted);
 
+	volatile int a = detect_cycles(g);
+	
 	// Clean up
 	destroy_graph(g);	
 
-
 	ACCESS_WRAPPER = 0;
 
-	printf("The graph: %p\n", g);
-
+	print_graph(g);
+	
 	return;
 }
 
@@ -1451,23 +1456,24 @@ void graph_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	int nvtx = 20, weighted = 1;
+	uint32_t nvtx = 20; 
+	int weighted = 0;
 	
-	nk_vc_printf("The graph: g\n");
-
 	ACCESS_WRAPPER = 1;
 	
 	// Build randomized graph
 	Graph *g = generate_full_graph(nvtx, weighted);
+
+	volatile int a = detect_cycles(g);
 
 	// Clean up
 	destroy_graph(g);	
 
 	ACCESS_WRAPPER = 0;
 	
-	_nk_fiber_print_data();
+	print_graph(g);
 
-	nk_vc_printf("The graph: %p\n", g);
+	_nk_fiber_print_data();
 
 	return;
 }
