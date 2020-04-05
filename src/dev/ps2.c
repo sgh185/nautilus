@@ -253,6 +253,15 @@ nk_keycode_t kbd_translate(nk_scancode_t scan)
   nk_keycode_t cur;
   nk_keycode_t flag;
   
+  // Handling of escape scancodes e0 and e1 --- if 
+  // this is not handled, the line "cur = table[scan]"
+  // will be looking at memory outside the table
+  // array --- bogus values, and eventually output 
+  // inaccurate characters to the screen
+  if ((scan == ESCAPE_SCANCODE_1)
+	  || (scan == ESCAPE_SCANCODE_2)) {
+    return NO_KEY;
+  }
 
   // update the flags
 

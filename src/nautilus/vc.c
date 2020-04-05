@@ -1182,6 +1182,7 @@ int nk_vc_getchar_extended(int wait)
     case KEY_KPRIGHT:
     case KEY_KPPLUS:
     case KEY_KPEND:
+    case KEY_KPPGUP:
     case KEY_KPDOWN:
     case KEY_KPPGDN:
     case KEY_KPINSERT:

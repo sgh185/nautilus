@@ -45,6 +45,10 @@ typedef uint16_t nk_scancode_t;
 #define KBD_CMD_REG  0x64
 #define KBD_STATUS_REG  0x64
 
+// "Escape" scancodes
+#define ESCAPE_SCANCODE_1 0xE0
+#define ESCAPE_SCANCODE_2 0xE1
+
 // Special tags to indicate unavailabilty
 #define NO_KEY      ((nk_keycode_t)(0xffff))
 #define NO_SCANCODE ((nk_scancode_t)(0xffff))
