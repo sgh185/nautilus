@@ -52,7 +52,7 @@ extern "C" {
 
 #define NK_DYNARRAY_INIT(type) \
 	typedef struct { \
-		uint32_t size, capacity; \
+		size_t size, capacity; \
 		spinlock_t lock; \
 		type *data; \
 	} nk_dynarray_##type ;
@@ -124,6 +124,25 @@ extern "C" {
 	popped; \
 })
 
+#define nk_dynarray_insert(da, elm, idx) ({ \
+	if ((idx >= (da)->size) \
+		|| (idx < 0)) { \
+		DYNARRAY_PRINT("index out of bounds\n"); \
+	} \
+	else { \
+		((da)->size)++; \
+		_nk_dynarray_resize(da); \
+		memmove(((da)->data + idx + 1), ((da)->data + idx), ((da)->size - idx - 1)); \
+		(da)->data[idx] = elm; \
+	} \
+})
+
+#define nk_dynarray_insert_atomic(da, elm, idx) ({ \
+	uint8_t flags = spin_lock_irq_save(&((da)->lock)); \
+	nk_dynarray_insert(da, elm, idx); \
+	spin_unlock_irq_restore(&((da)->lock), flags); \
+})
+
 #define nk_dynarray_erase(da, idx) ({ \
 	if ((idx >= (da)->size) \
 		|| (idx < 0)) { \
@@ -132,7 +151,7 @@ extern "C" {
 	else { \
 		memmove(((da)->data + idx), ((da)->data + idx + 1), ((da)->size - idx)); \
 		((da)->size)--; \
-		((da)->data[(da)->size]) = 0; \
+		(da)->data[(da)->size] = 0; \
 	} \
 })
 		
@@ -143,7 +162,7 @@ extern "C" {
 })
 
 #define nk_dynarray_clear(da) ({ \
-	memset((da)->data, 0, (da)->capacity); \
+	memset((da)->data, 0, (sizeof((da)->data[0]) * ((da)->capacity))); \
 	(da)->size = 0; \
 })
 
@@ -180,6 +199,11 @@ extern "C" {
 		DYNARRAY_PRINT("%d ", val); \
 	} \
 	DYNARRAY_PRINT("\n"); \
+})
+
+#define nk_dynarray_destroy(da) ({ \
+	free((da)->data); \
+	free(da); \
 })
 
 #ifdef __cplusplus
