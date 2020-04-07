@@ -353,6 +353,17 @@ void nk_vc_print_scbuf(struct nk_vc_scbuf *sb)
 	return;
 }
 
+void _save_cur_line(struct nk_virtual_console *vc, struct nk_vc_scbuf *sb)
+{
+	int i, j;
+	uint16_t *line_to_save = sb->scbuf[sb->line_num];
+	for (i = (VGA_WIDTH * (VGA_HEIGHT - 1)), j = 0; i < (VGA_WIDTH * VGA_HEIGHT); i++, j++) {
+		line_to_save[j] = vc->BUF[i];	
+	}
+
+	return;
+}
+
 void _scbuf_up(struct nk_virtual_console *vc)
 {
 #if SCROLL_DEBUG
@@ -371,12 +382,7 @@ void _scbuf_up(struct nk_virtual_console *vc)
 
 	if (!(sb->scrolled)) 
 	{
-		int i, j;
-		uint16_t *line_to_save = sb->scbuf[sb->line_num];
-		for (i = (VGA_WIDTH * (VGA_HEIGHT - 1)), j = 0; i < (VGA_WIDTH * VGA_HEIGHT); i++, j++) {
-			line_to_save[j] = vc->BUF[i];	
-		}
-	
+		_save_cur_line(vc, sb);
 		sb->scrolled |= 1;
 	}
 
@@ -480,6 +486,50 @@ void nk_vc_scbuf_down()
 		BUF_LOCK_CONF;
 		BUF_LOCK(vc);
 		_scbuf_down(vc);
+		BUF_UNLOCK(vc);
+	}
+
+	return;
+}
+
+void _reset_buf(struct nk_virtual_console *vc)
+{
+	struct nk_vc_scbuf *sb = vc->scroll_buf;
+	if (sb->line_ptr == sb->line_num) { return; }
+
+	int line_iter = sb->line_num - (VGA_HEIGHT - 1),
+		i, j;
+
+	for (i = 0; i < VGA_HEIGHT; i++)
+	{
+		uint16_t *cur_line = sb->scbuf[line_iter];
+		for (j = 0; j < VGA_WIDTH; j++) {
+			vc->BUF[(i * VGA_WIDTH) + j] = cur_line[j];	
+		}
+
+		line_iter = MODF(line_iter);
+	}
+
+	sb->line_ptr = sb->line_num;
+	sb->scrolled &= 0;
+
+	copy_vc_to_display(vc);
+#ifdef NAUT_CONFIG_XEON_PHI
+	phi_cons_notify_redraw();
+#endif
+
+	return;
+}
+
+void nk_vc_reset_buf()
+{
+	struct nk_virtual_console *vc = get_cur_thread()->vc;
+
+	if (!vc) { vc = default_vc; }
+	if (vc) { 
+		BUF_LOCK_CONF;
+		BUF_LOCK(vc);
+		_reset_buf(vc);
 		BUF_UNLOCK(vc);
 	}
 
@@ -1565,7 +1615,27 @@ start:
 
     for (i = 0; i < n-1; i++) {
 
-        buf[i] = nk_vc_getchar();
+        char next_char = (char) (nk_vc_getchar());
+
+#if SCROLL
+
+		if (next_char == ((char) (KEY_KPUP & 0xFF))) {
+            // buf[i] = 0;
+			nk_vc_scbuf_up();
+			continue;
+		}
+
+		if (next_char == ((char) (KEY_KPDOWN & 0xFF))) {
+            // buf[i] = 0;
+			nk_vc_scbuf_down();
+			continue;
+		}
+		
+		nk_vc_reset_buf();
+
+#endif
+
+		buf[i] = next_char;
 
         if (buf[i] == ASCII_BS) {
 
@@ -1583,22 +1653,6 @@ start:
 
             continue;
         }
-
-#if SCROLL
-
-		if (buf[i] == ((char) (KEY_KPUP & 0xFF))) {
-            buf[i] = 0;
-			nk_vc_scbuf_up();
-			continue;
-		}
-
-		if (buf[i] == ((char) (KEY_KPDOWN & 0xFF))) {
-            buf[i] = 0;
-			nk_vc_scbuf_down();
-			continue;
-		}
-
-#endif
 
         if (buf[i] == '\t') {
             int skipped = notifier ? notifier(buf, priv, i) : 0;
