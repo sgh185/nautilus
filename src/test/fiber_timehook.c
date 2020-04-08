@@ -40,6 +40,7 @@
 #include <test/fiberbench/md5.h>
 #include <test/fiberbench/knn.h>
 #include <nautilus/stack.h>
+#include <nautilus/dynarray.h>
 
 #define DO_PRINT       0
 
@@ -52,7 +53,7 @@
 // --------------------------------------------------------------------------------
 
 NK_STACK_DECL(int);
-
+NK_DYNARRAY_DECL(int);
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
 #define SEED() (srand48(rdtsc() % 128))
@@ -60,7 +61,7 @@ NK_STACK_DECL(int);
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
-#define M 5000 // Loop iteration --- timing loops
+#define M 1000 // Loop iteration --- timing loops
 #define DOT 1000 // Dot product induction variable
 
 // Dimensions for arrays --- matrix multiply
@@ -70,7 +71,7 @@ NK_STACK_DECL(int);
 
 // Conditions
 #define RET_CHECK 1
-#define LOOP_CHECK 0 
+#define LOOP_CHECK 0
 
 extern struct nk_virtual_console *vc;
 extern void nk_simple_timing_loop(uint64_t);
@@ -270,6 +271,8 @@ void timing_loop_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc();
+
 	while(a < M)
 	{
 		nk_simple_timing_loop(200);
@@ -277,6 +280,8 @@ void timing_loop_2(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
+
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	// Print out timing data --- end of test
 	_nk_fiber_print_data();
@@ -322,6 +327,8 @@ void s_timing_loop_2(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	// Print out timing data --- end of test
 	_nk_fiber_print_data();
@@ -397,6 +404,7 @@ void dot_prod_2(void *i, void **o)
 	
 	ACCESS_WRAPPER = 0;
 	
+	
 	// Print out timing data --- end of test
 	_nk_fiber_print_data();
 
@@ -447,6 +455,8 @@ void ll_traversal_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc();
+
 	// Set up iterator for list
 	volatile uint64_t sum = 0;
 	Node_t *iterator = LL->head;
@@ -459,6 +469,8 @@ void ll_traversal_2(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("\nThe interval: %lu", rdtsc() - start);
 
 	_nk_fiber_print_data();
   
@@ -646,6 +658,8 @@ void bt_traversal_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc();
+
 	// Calculate a sum using "nums", sum is calculated in the following
 	// way: the tree is traversed to search for each number in "nums"
 	// and all nodes' "val" fields that are visited during the the tree
@@ -669,6 +683,8 @@ void bt_traversal_2(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	_nk_fiber_print_data();
 	
@@ -791,6 +807,8 @@ void rand_mm_2(void *i, void **o)
 	}
 	  
 	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
   
   	_nk_fiber_print_data();
 	
@@ -894,6 +912,8 @@ void bt_lo_traversal_2(void *i, void **o)
  
 
 	ACCESS_WRAPPER = 0; 
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
   
 	_nk_fiber_print_data();
 	
@@ -1085,6 +1105,8 @@ void rijndael_2(void *i, void **o)
 	
 	_nk_fiber_print_data();
 	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
 	// No freeing --- FIX
 
 	return;
@@ -1133,8 +1155,6 @@ void sha1_2(void *i, void **o)
 	const int sha_output_size = 20;
 	int a = 0, input_size = 192; // 192 byte input
 	
-	ACCESS_WRAPPER = 1;
-	
 	// Allocate all pieces necessary for SHA-1 implementation
 	// NOTE --- relying on error checking from MALLOC
 	unsigned char *input = (unsigned char *) (MALLOC(sizeof(unsigned char) * input_size));
@@ -1142,6 +1162,8 @@ void sha1_2(void *i, void **o)
 
 	// Set input to random bytes
 	nk_get_rand_bytes(input, input_size);
+	
+	ACCESS_WRAPPER = 1;
 
 	while(a < M)
 	{
@@ -1154,6 +1176,8 @@ void sha1_2(void *i, void **o)
 	ACCESS_WRAPPER = 0;
 	
 	_nk_fiber_print_data();
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
 	// No freeing --- FIX
 	
@@ -1224,6 +1248,8 @@ void md5_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
 	_nk_fiber_print_data();
 	
 	// No freeing --- FIX
@@ -1291,11 +1317,13 @@ void fib_2(void *i, void **o)
 #endif
 
 	ACCESS_WRAPPER = 1;
-		
+	
+	uint64_t start = rdtsc();
+
 	uint64_t fib_num = 50; //lrand48() % 75;
 	
 	// Allocate table on stack
-	volatile uint64_t memo[fib_num + 2];
+	uint64_t memo[fib_num + 2];
 
 	while (a < M)
 	{
@@ -1312,7 +1340,7 @@ void fib_2(void *i, void **o)
 		uint64_t loop_time = rdtsc();
 #endif
 
-		for (k = 0; k < fib_num; k++) {
+		for (k = 2; k < fib_num; k++) {
 			memo[k] = memo[k - 1] + memo[k - 2];
 		}
 
@@ -1326,6 +1354,8 @@ void fib_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+
 	_nk_fiber_print_data();
 
 #if LOOP_CHECK
@@ -1338,6 +1368,15 @@ void fib_2(void *i, void **o)
 	}
 
 	nk_vc_printf("average loop_times: %lu\n", (sum / M));
+#endif
+
+#if 1
+	volatile uint64_t sum_all = 0;
+	for (int x = 0; x < fib_num; x++) {
+		sum_all += memo[x];
+	}
+
+	nk_vc_printf("sum: %lu\n", sum_all);
 #endif
 
 #if RET_CHECK
@@ -1407,6 +1446,8 @@ void knn_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
 	_nk_fiber_print_data();
 
 	nk_vc_printf("class: %f\n", classification);
@@ -1454,7 +1495,7 @@ void graph_1(void *i, void **o)
 void graph_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
-
+#if 0
 	// Declare parameters
 	uint32_t nvtx = 20; 
 	int weighted = 0;
@@ -1474,6 +1515,44 @@ void graph_2(void *i, void **o)
 	print_graph(g);
 
 	_nk_fiber_print_data();
+
+#endif
+	nk_dynarray_int *stack = nk_dynarray_get(int);
+	
+	nk_dynarray_push(stack, 2);
+	nk_dynarray_print(stack);
+
+	nk_dynarray_push(stack, 4);
+	nk_dynarray_push(stack, 13);
+	nk_dynarray_print(stack); 
+
+	int index = nk_dynarray_find(stack, 13);
+	int index_fake = nk_dynarray_find(stack, 0);
+	nk_vc_printf("\nindex: %d", index);
+	nk_vc_printf("\nindex_fake: %d\n", index_fake);
+
+	nk_dynarray_push(stack, 18);
+	nk_vc_printf("size: %d\n", nk_dynarray_get_size(stack));
+	nk_dynarray_erase(stack, index);
+	nk_vc_printf("\nasdf\n");
+	nk_dynarray_print(stack);
+	nk_vc_printf("asdf\n");
+	nk_vc_printf("size: %d\n", nk_dynarray_get_size(stack));
+
+	nk_dynarray_insert(stack, 10, 2);
+	nk_dynarray_print(stack);
+
+	int w, val; 
+	nk_dynarray_reverse(stack, w, val) {
+		nk_vc_printf("w: %d, val: %d\n", w, val);
+	}
+
+#if 0
+	int popped = nk_dynarray_pop(stack);
+	nk_dynarray_print(stack);
+	nk_vc_printf("\npopped: %d", popped);
+	nk_vc_printf("\nsize: %d", nk_dynarray_get_size(stack));
+#endif
 
 	return;
 }
