@@ -53,7 +53,7 @@
 // --------------------------------------------------------------------------------
 
 NK_STACK_DECL(int);
-NK_DYNARRAY_DECL(int);
+// NK_DYNARRAY_DECL(int);
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
 #define SEED() (srand48(rdtsc() % 128))
@@ -319,6 +319,8 @@ void s_timing_loop_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc(); 
+	
 	while(a < M)
 	{
 		if (a % 25 == 0) { nk_simple_timing_loop(200000000); }
@@ -779,6 +781,8 @@ void rand_mm_2(void *i, void **o)
 	int a, b, c;
 
 	ACCESS_WRAPPER = 1;
+	
+	uint64_t start_1 = rdtsc();
 
 	// Fill first and second matricies
 	for (a = 0; a < R1; a++) {
@@ -808,7 +812,7 @@ void rand_mm_2(void *i, void **o)
 	  
 	ACCESS_WRAPPER = 0;
 	
-	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start_1);
   
   	_nk_fiber_print_data();
 	
@@ -884,6 +888,8 @@ void bt_lo_traversal_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc();
+	
 	// Calculate sum of nodes via level-order traversal
 	while (iterator != NULL)
 	{
@@ -1087,6 +1093,8 @@ void rijndael_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 1;
 	
+	uint64_t start = rdtsc();
+	
 	while(a < M)
 	{
 		// Set up context struct with key	
@@ -1165,6 +1173,8 @@ void sha1_2(void *i, void **o)
 	
 	ACCESS_WRAPPER = 1;
 
+	uint64_t start = rdtsc();
+
 	while(a < M)
 	{
 		// Generate hash
@@ -1238,6 +1248,8 @@ void md5_2(void *i, void **o)
 	
 	ACCESS_WRAPPER = 1;
 	
+	uint64_t start = rdtsc();
+
 	while(a < M)
 	{
 		// Generate hash
@@ -1430,6 +1442,8 @@ void knn_2(void *i, void **o)
 	
 	ACCESS_WRAPPER = 1;
 	
+	uint64_t start = rdtsc();
+
 	// Set up classifier
 	struct KNNContext *ctx = KNN_build_context(k, dims, num_ex, distance_manhattan, aggregate_median);
 
@@ -1466,8 +1480,8 @@ void knn_2(void *i, void **o)
 
 
 // ------
-// Benchmark 16 --- prim's algorithm, mst (graph_1, graph_2) --- NOT completed
-void graph_1(void *i, void **o)
+// Benchmark 16 --- cycle detection (cycle_1, cycle_2)
+void cycle_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 
@@ -1486,22 +1500,25 @@ void graph_1(void *i, void **o)
 	destroy_graph(g);	
 
 	ACCESS_WRAPPER = 0;
-
-	print_graph(g);
+	
+	nk_vc_printf("cycle detected: %d\n", a);
 	
 	return;
 }
 
-void graph_2(void *i, void **o)
+
+void cycle_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
-#if 0
+	
 	// Declare parameters
 	uint32_t nvtx = 20; 
 	int weighted = 0;
 	
 	ACCESS_WRAPPER = 1;
-	
+
+	uint64_t start = rdtsc();
+
 	// Build randomized graph
 	Graph *g = generate_full_graph(nvtx, weighted);
 
@@ -1512,48 +1529,235 @@ void graph_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
-	print_graph(g);
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	nk_vc_printf("cycle detected: %d\n", a);
 
 	_nk_fiber_print_data();
 
-#endif
-	nk_dynarray_int *stack = nk_dynarray_get(int);
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 17 --- unweighted MST (mst_1, mst_2)
+void mst_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	uint32_t nvtx = 20;
+	int weighted = 0;
+
+	ACCESS_WRAPPER = 1;
 	
-	nk_dynarray_push(stack, 2);
-	nk_dynarray_print(stack);
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+	
+	build_mst_unweighted(g);
 
-	nk_dynarray_push(stack, 4);
-	nk_dynarray_push(stack, 13);
-	nk_dynarray_print(stack); 
+	// Clean up
+	destroy_graph(g);	
 
-	int index = nk_dynarray_find(stack, 13);
-	int index_fake = nk_dynarray_find(stack, 0);
-	nk_vc_printf("\nindex: %d", index);
-	nk_vc_printf("\nindex_fake: %d\n", index_fake);
+	ACCESS_WRAPPER = 0;
+	
+	return;
+}
 
-	nk_dynarray_push(stack, 18);
-	nk_vc_printf("size: %d\n", nk_dynarray_get_size(stack));
-	nk_dynarray_erase(stack, index);
-	nk_vc_printf("\nasdf\n");
-	nk_dynarray_print(stack);
-	nk_vc_printf("asdf\n");
-	nk_vc_printf("size: %d\n", nk_dynarray_get_size(stack));
 
-	nk_dynarray_insert(stack, 10, 2);
-	nk_dynarray_print(stack);
+void mst_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	// Declare parameters
+	uint32_t nvtx = 20; 
+	int weighted = 0;
+	
+	ACCESS_WRAPPER = 1;
 
-	int w, val; 
-	nk_dynarray_reverse(stack, w, val) {
-		nk_vc_printf("w: %d, val: %d\n", w, val);
-	}
+	uint64_t start = rdtsc();
+
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+
+	build_mst_unweighted(g);
+
+	// Clean up
+	destroy_graph(g);	
+
+	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+
+	_nk_fiber_print_data();
+
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 18 --- dijkstra (dijkstra_1, dijkstra_2)
+void dijkstra_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+
+	// Declare parameters
+	uint32_t nvtx = 20;
+	int weighted = 1;
+
+	ACCESS_WRAPPER = 1;
+	
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+	
+	dijkstra(g);
+
+	// Clean up
+	destroy_graph(g);	
+
+	ACCESS_WRAPPER = 0;
+	
+	return;
+}
+
+void dijkstra_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	// Declare parameters
+	uint32_t nvtx = 20; 
+	int weighted = 1;
+	
+	ACCESS_WRAPPER = 1;
+
+	uint64_t start = rdtsc();
+
+	// Build randomized graph
+	Graph *g = generate_full_graph(nvtx, weighted);
+
+	dijkstra(g);
+
+	// Clean up
+	destroy_graph(g);	
+
+	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+
+	_nk_fiber_print_data();
+
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 19 --- quicksort (qsort_1, qsort_2)
+#define ELEMENTS 10000
+void qsort_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	ACCESS_WRAPPER = 1;
+
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	int *sorted = quicksort_driver(testing, ELEMENTS, int);
+
+	ACCESS_WRAPPER = 0;
+
+	free(testing);
+	free(sorted);
 
 #if 0
-	int popped = nk_dynarray_pop(stack);
-	nk_dynarray_print(stack);
-	nk_vc_printf("\npopped: %d", popped);
-	nk_vc_printf("\nsize: %d", nk_dynarray_get_size(stack));
+	int x;
+	for (x = 0; x < ELEMENTS; x++) { nk_vc_printf("%d ", testing[x]); }
+	nk_vc_printf("\n");
 #endif
 
+	return;
+}
+
+void qsort_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	ACCESS_WRAPPER = 1;
+
+	uint64_t start = rdtsc();
+
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	int *sorted = quicksort_driver(testing, ELEMENTS, int);
+
+	ACCESS_WRAPPER = 0;
+
+	free(testing);
+	free(sorted);
+
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+
+#if 0
+	int x;
+	for (x = 0; x < ELEMENTS; x++) { nk_vc_printf("%d ", testing[x]); }
+	nk_vc_printf("\n");
+#endif
+
+	_nk_fiber_print_data();
+	
+	return;
+}
+// ------
+
+
+// ------
+// Benchmark 20 --- radix sort (radix_1, radix_2)
+void radix_1(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	ACCESS_WRAPPER = 1;
+
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	radix_driver(testing, ELEMENTS, 32);
+
+	ACCESS_WRAPPER = 0;
+
+	free(testing);
+
+#if 0
+	int x;
+	for (x = 0; x < ELEMENTS; x++) { nk_vc_printf("%d ", testing[x]); }
+	nk_vc_printf("\n");
+#endif
+
+	return;
+}
+
+void radix_2(void *i, void **o)
+{
+	nk_fiber_set_vc(vc);
+	
+	ACCESS_WRAPPER = 1;
+
+	uint64_t start = rdtsc();
+
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	radix_driver(testing, ELEMENTS, 32);
+
+	ACCESS_WRAPPER = 0;
+
+	free(testing);
+
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+
+#if 0
+	int x;
+	for (x = 0; x < ELEMENTS; x++) { nk_vc_printf("%d ", testing[x]); }
+	nk_vc_printf("\n");
+#endif
+
+	_nk_fiber_print_data();
+	
 	return;
 }
 // ------
@@ -1565,7 +1769,6 @@ void graph_2(void *i, void **o)
 int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
-  vc = get_cur_thread()->vc;
   // nk_fiber_start(timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
   nk_fiber_start(timing_loop_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
@@ -1720,8 +1923,44 @@ int test_fibers_bench16(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(graph_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
-  nk_fiber_start(graph_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  // nk_fiber_start(cycle_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(cycle_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  return 0;
+}
+
+int test_fibers_bench17(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(mst_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(mst_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  return 0;
+}
+
+int test_fibers_bench18(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(dijkstra_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(dijkstra_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  return 0;
+}
+
+int test_fibers_bench19(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(qsort_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(qsort_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
+  return 0;
+}
+
+int test_fibers_bench20(){
+  nk_fiber_t *simple1;
+  nk_fiber_t *simple2;
+  vc = get_cur_thread()->vc;
+  // nk_fiber_start(radix_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  nk_fiber_start(radix_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
 
@@ -1842,6 +2081,35 @@ handle_fibers16 (char * buf, void * priv)
   return 0;
 }
 
+static int
+handle_fibers17 (char * buf, void * priv)
+{
+  test_fibers_bench17();
+  return 0;
+}
+
+static int
+handle_fibers18 (char * buf, void * priv)
+{
+  test_fibers_bench18();
+  return 0;
+}
+
+static int
+handle_fibers19 (char * buf, void * priv)
+{
+  test_fibers_bench19();
+  return 0;
+}
+
+static int
+handle_fibers20 (char * buf, void * priv)
+{
+  test_fibers_bench20();
+  return 0;
+}
+
+
 
 
 // --------------------------------------------------------------------------------
@@ -1942,6 +2210,30 @@ static struct shell_cmd_impl fibers_impl16 = {
   .handler  = handle_fibers16,
 };
 
+static struct shell_cmd_impl fibers_impl17 = {
+  .cmd      = "fiberbench17",
+  .help_str = "fiberbench17",
+  .handler  = handle_fibers17,
+};
+
+static struct shell_cmd_impl fibers_impl18 = {
+  .cmd      = "fiberbench18",
+  .help_str = "fiberbench18",
+  .handler  = handle_fibers18,
+};
+
+static struct shell_cmd_impl fibers_impl19 = {
+  .cmd      = "fiberbench19",
+  .help_str = "fiberbench19",
+  .handler  = handle_fibers19,
+};
+
+static struct shell_cmd_impl fibers_impl20 = {
+  .cmd      = "fiberbench20",
+  .help_str = "fiberbench20",
+  .handler  = handle_fibers20,
+};
+
 
 // --------------------------------------------------------------------------------
 
@@ -1963,6 +2255,10 @@ nk_register_shell_cmd(fibers_impl13);
 nk_register_shell_cmd(fibers_impl14);
 nk_register_shell_cmd(fibers_impl15);
 nk_register_shell_cmd(fibers_impl16);
+nk_register_shell_cmd(fibers_impl17);
+nk_register_shell_cmd(fibers_impl18);
+nk_register_shell_cmd(fibers_impl19);
+nk_register_shell_cmd(fibers_impl20);
 
 
 

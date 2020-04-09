@@ -41,11 +41,25 @@
 #define LEN(arr) ( (sizeof(arr)) / (sizeof(arr[0])) )
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { panic("Malloc failed\n"); } __p;})
 #define SEED() (srand48(rdtsc() % 128))
-#define MAX_WEIGHT 32
+#define MAX_WEIGHT 8
+#define UINT32_MAX 0xffffffff
+#define INT32_MAX 2147483647
 
 // NK_DYNARRAY_DECL(uint32_t);
 
 // ---------------- Unnecessarily complicated undirected graph implementation ----------------
+
+uint32_t inline num_neighbors(Vertex *vtx) 
+{
+	return nk_dynarray_get_size(vtx->neighbor_ids);
+}
+
+// Hack
+int inline is_edge(Vertex *a, uint32_t id)
+{
+	if (a->neighbor_weights[id] == (INT32_MAX - 1)) { return 0; }
+	return 1;
+}
 
 Vertex *build_new_vertex(uint32_t id, int max_neighbors)
 {
@@ -54,14 +68,12 @@ Vertex *build_new_vertex(uint32_t id, int max_neighbors)
 	
 	// Set fields
 	new_vertex->id = id;
-	new_vertex->num_neighbors = 0;
-	new_vertex->neighbor_ids =  nk_dynarray_get(uint32_t);
+	new_vertex->neighbor_ids = nk_dynarray_get(uint32_t);
 	new_vertex->neighbor_weights = (int *) (MALLOC(sizeof(int) * max_neighbors));
-	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * max_neighbors));
 
 	// Zero initialize
-	memset(new_vertex->neighbor_weights, 0, (sizeof(int) * max_neighbors));
-	memset(new_vertex->neighbors, 0, (sizeof(Vertex *) * max_neighbors));
+	int i;
+	for (i = 0; i < max_neighbors; i++) { new_vertex->neighbor_weights[i] = (INT32_MAX - 1); }	
 
 	return new_vertex;	
 }
@@ -73,32 +85,19 @@ Vertex *copy_vertex(Vertex *vtx, int max_neighbors)
 	
 	// Set fields accordingly
 	new_vertex->id = vtx->id;
-	new_vertex->num_neighbors = vtx->num_neighbors;
 	new_vertex->neighbor_ids = vtx->neighbor_ids; // Incorrect --- FIX later 
 	new_vertex->neighbor_weights = (int *) (MALLOC(sizeof(int) * max_neighbors));
-	new_vertex->neighbors = (Vertex **) (MALLOC(sizeof(Vertex *) * max_neighbors));
 
 	// Zero initialize
-	memset(new_vertex->neighbor_weights, 0, (sizeof(int) * max_neighbors));
-	memset(new_vertex->neighbors, 0, (sizeof(Vertex *) * max_neighbors));
+	int i;
+	for (i = 0; i < max_neighbors; i++) { new_vertex->neighbor_weights[i] = (INT32_MAX - 1); }	
 
-	int i; uint32_t next_id;
+	uint32_t next_id;
 	nk_dynarray_foreach(vtx->neighbor_ids, i, next_id) {
-		new_vertex->neighbors[next_id] = vtx->neighbors[next_id];
 		new_vertex->neighbor_weights[next_id] = vtx->neighbor_weights[next_id];
 	}	
 
-#if 0
-	int i, n_n = (int) (vtx->num_neighbors);
-	for (i = 0; i < n_n; i++) {
-		uint32_t next_id = vtx->neighbor_ids[i];
-		new_vertex->neighbors[next_id] = vtx->neighbors[next_id];
-		new_vertex->neighbor_weights[next_id] = vtx->neighbor_weights[next_id];
-	}
-#endif
-
 	return new_vertex;
-
 }
 
 Graph *build_new_graph(uint32_t num_vtx)
@@ -133,19 +132,11 @@ int add_vertex_to_graph(Vertex *vtx, Graph *g)
 
 void add_edge(Vertex *a, Vertex *b, int weight)
 {
-	nk_vc_printf("weight: %d\n", weight);
-	
-	a->neighbors[b->id] = b;
-	b->neighbors[a->id] = a;
-
 	nk_dynarray_push((a->neighbor_ids), b->id);
 	nk_dynarray_push((b->neighbor_ids), a->id);
 
 	a->neighbor_weights[b->id] = weight;
 	b->neighbor_weights[a->id] = weight;
-
-	a->num_neighbors++;
-	b->num_neighbors++;
 
 	return;
 }
@@ -161,7 +152,7 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 	// If the number of neighbors that the vertex has 
 	// is the same as the number of possible vertices, 
 	// then we can't add any more neighbors to the vertex
-	if (vtx->num_neighbors == g->num_vertices) { return; }
+	if (num_neighbors(vtx) == g->num_vertices) { return; }
 
 	int i = 0;
 	
@@ -185,12 +176,15 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 		
 		// If the edge is already there at position new_id
 		// (and vice versa)
+		if (is_edge(vtx, new_id)) { continue; }
+
+#if 0
 		if ((vtx->neighbors[new_id] == potential_neighbor) 
 			|| (potential_neighbor->neighbors[vtx->id] == vtx)) { continue; }
-		
+#endif	
   
 		// Check if we're at max neighbors for potential neighbors
-		if (potential_neighbor->num_neighbors == g->num_vertices) { continue; }	
+		if (num_neighbors(potential_neighbor) == g->num_vertices) { continue; }	
 		
 		// Now we're ready to add --- set the corresponding
 		// positions in each neighbors array to the pointer
@@ -225,7 +219,7 @@ void build_rand_edges(Vertex *vtx, Graph *g, int new_edges, int weighted)
 		if (g->num_edges >= max_edges(g)) { return; }
 		
 		// Check if vtx is at max neighbors
-		if (vtx->num_neighbors == g->num_vertices) { return; }
+		if (num_neighbors(vtx) == g->num_vertices) { return; }
 	}
 
 	return; 
@@ -244,11 +238,9 @@ Graph *generate_full_graph(uint32_t num_vtx, int weighted)
 
 	// Build edges --- (for now, keep it "sparse" and connected,
 	// between 1 and 6 neighbors)
-	for (i = 0; i < g->num_vertices; i++) 
-	{
-		// SEED();
-		int num_neigh = (int) ((lrand48() % 5) + 1);
-		build_rand_edges(g->vertices[i], g, num_neigh, weighted);
+	// int num_neigh = (int) ((lrand48() % 5) + 1);
+	for (i = 0; i < g->num_vertices; i++) {
+		build_rand_edges(g->vertices[i], g, 2, weighted);
 	}
 
 	// Return full graph
@@ -261,9 +253,6 @@ void destroy_vertex(Vertex *vtx)
 	if (!check_vertex(vtx)) { return; }
 	nk_dynarray_destroy(vtx->neighbor_ids);
 	free(vtx->neighbor_weights);
-	free(vtx->neighbors); // Freeing the actual vertices in
-						  // the grph will cause recursion
-						  // and invalid pointer frees
 	free(vtx);
 
 	return;
@@ -296,7 +285,6 @@ __attribute__((always_inline)) int inline check_vertex(Vertex *vtx)
 	if (!vtx) { return 0; }
 	if (!(vtx->neighbor_ids)) { return 0; }
 	if (!(vtx->neighbor_weights)) { return 0; }
-	if (!(vtx->neighbors)) { return 0; }
 
 	return 1;	
 }
@@ -314,8 +302,9 @@ void print_graph(Graph *g)
 		nk_vc_printf("Next ID: %d\n", i);
 		
 		Vertex *curr = g->vertices[i];
-		// int j;
+		
 		nk_dynarray_print(curr->neighbor_ids);
+
 		int j, val;
 		nk_vc_printf("Now weights:\n");
 		nk_dynarray_foreach((curr->neighbor_ids), j, val) {
@@ -432,12 +421,13 @@ int detect_cycles(Graph *g)
 
 #if 0
 	uint32_t start_id = nk_dynarray_pop(visit_stack), next_id;
+	nk_vc_printf("Start ID: %d\n", start_id);
 
 	do 
 	{
-		next_id = nk_stack_pop(visit_stack);
+		next_id = nk_dynarray_pop(visit_stack);
 		nk_vc_printf("Next ID: %d\n", next_id);
-	} while ((start_id != next_id) && (!(nk_stack_empty(visit_stack))));
+	} while ((start_id != next_id) && (!(nk_dynarray_empty(visit_stack))));
 #endif
 
 	nk_dynarray_destroy(visit_stack);	
@@ -460,8 +450,6 @@ struct vertex_entry *build_ve(uint32_t id)
 
 void build_mst_unweighted(Graph *g)
 {
-	print_graph(g);
-
 	nk_queue_t *work_list = nk_queue_create();
 	if (!work_list) { panic("Queue creation failed --- mst\n"); }
 
@@ -502,116 +490,91 @@ void build_mst_unweighted(Graph *g)
 			   	nk_enqueue_entry(work_list, &(new_ve->id_node));	
 				nk_dynarray_push(new_neighbors, n);
 			}
-			else
-			{
-				next_vertex->neighbors[n] = 0;
-				next_vertex->neighbor_weights[n] = 0;
-				(next_vertex->num_neighbors)--;
-#if 0	
-				nk_dynarray_erase((neighbor->neighbor_ids), nk_dynarray_find((neighbor->neighbor_ids), next_id)); // Slow as hell
-				neighbor->neighbors[next_id] = 0;
-				neighbor->neighbor_weights[next_id] = 0;
-				(neighbor->num_neighbors)--;
-#endif
-			}
+			else { next_vertex->neighbor_weights[n] = (INT32_MAX - 1); }
 		}	
 
 		next_vertex->neighbor_ids = new_neighbors;
 		nk_dynarray_destroy(next_neighbors);
 	}		
 
-	print_graph(g);
-
 	return;
 }
 
-// MST --- Prim
-#define UINT32_MAX 0xffffffff
-
-// Dumbest way to get minimum weight, no bin heaps
-void get_min_weight(uint32_t *min_id, uint32_t *min_weight, uint32_t *weights, uint32_t *ids, int num_weights)
+// Simplest but probably not the most effective way to accomplish this
+void get_min_weight(int *min_weight, uint32_t *min_id, int *weights, uint32_t *ids, int num_ids)
 {
-	int i;
-	uint32_t cur_min_id = 0, cur_min_weight = UINT32_MAX;	
-	for (i = 0; i < num_weights; i++)
-	{
-		if (weights[i] < cur_min_weight) 
-		{ 
-			cur_min_weight = weights[i]; 
-			cur_min_id = ids[i];
-		}
-	}
-
-	*min_id = cur_min_id;
-	*min_weight = cur_min_weight;
-
-	return;
-}
-
-#define MODF(i, tot) ((i + 1) % tot)
-
-void prim(Graph *g)
-{
-	uint32_t added_ids[g->num_vertices]; 
-	memset(added_ids, 0, sizeof(added_ids));
-
-	print_graph(g);
-
-	// Build the new mst shell
-	Graph *mst = build_new_graph(g->num_vertices);
+	int curr_min_weight = (INT32_MAX - 1), i;
+	uint32_t curr_min_id = 0;
 	
-	// Populate with vertices
-	int i, count;
-	for (i = 0; i < mst->num_vertices; i++) {
-		mst->vertices[i] = build_new_vertex(i, mst->num_vertices);
-	}
+	for (i = 0; i < num_ids; i++)
+	{
+		if (!(weights[i] < curr_min_weight)) { continue; }
+		curr_min_id = ids[i];
+		curr_min_weight = weights[i];	
+	}	
+
+	*min_weight = curr_min_weight;
+	*min_id = curr_min_id;
+
+	return;
+}
+
+// Dijkstra
+void dijkstra(Graph *g)
+{
+	// Pick a random starting point
 
 	SEED();
-	Vertex *start_vtx = mst->vertices[(lrand48() % mst->num_vertices)];
-	uint32_t next_id = start_vtx->id;
+	Vertex *start_vtx = g->vertices[(lrand48() % g->num_vertices)];
 	if (!(check_vertex(start_vtx))) { return; }
 
-	for (i = next_id, count = 0; count < (mst->num_vertices - 1); count++, i = MODF(i, mst->num_vertices))
+	int distances[g->num_vertices];
+	uint32_t visited_ids[g->num_vertices];
+	memset(visited_ids, 0, sizeof(visited_ids));
+	
+	int i;
+	for (i = 0; i < g->num_vertices; i++) { distances[i] = (INT32_MAX - 1); }	
+
+	distances[start_vtx->id] = 0;
+
+	for (i = 0; i < g->num_vertices; i++)
 	{
-		Vertex *next_g = g->vertices[i],
-			   *next_mst = mst->vertices[i];
+		uint32_t min_id, ids[(g->num_vertices - i)], val;
+		int min_weight, weights[(g->num_vertices - i)], j, k;
 
-		uint32_t min_id, min_weight, neighbor_id, weights[next_g->num_neighbors], ids[next_g->num_neighbors];
-		int j, k = 0;
-
-		nk_dynarray_foreach((next_g->neighbor_ids), j, neighbor_id) 
+		for (j = 0, k = 0; j < g->num_vertices; j++)
 		{
-			if (added_ids[neighbor_id]) { continue; }
-			weights[k] = next_g->neighbor_weights[neighbor_id];
-			ids[k] = neighbor_id;
-			k++;
-		}
-		
-		get_min_weight(&min_id, &min_weight, weights, ids, k);
-		if (!min_id && (min_weight == UINT32_MAX)) { continue; }
+			if (visited_ids[j]) { continue; }
+		   	ids[k] = j;
+			weights[k] = distances[k];
+			k++;	
+		}	
 
-		added_ids[i] |= 1;
-		add_edge(next_mst, mst->vertices[min_id], min_weight);		
+		get_min_weight(&min_weight, &min_id, weights, ids, k);
+		if (!min_id && (min_weight == (INT32_MAX - 1))) { continue; }
+		
+		visited_ids[min_id] |= 1;	
+		Vertex *min_id_vertex = g->vertices[min_id];
+
+		nk_dynarray_foreach((min_id_vertex->neighbor_ids), j, val) 
+		{
+			int neighbor_weight = min_id_vertex->neighbor_weights[val];
+			
+			if ((distances[min_id] + neighbor_weight) < distances[val]) {
+				distances[val] = distances[min_id] + neighbor_weight;
+			}	
+		}	
 	}
 
-	print_graph(mst);
+#if 0
+	nk_vc_printf("\n\n\nThe vertex: %d\n", start_vtx->id);
+	for (i = 0; i < g->num_vertices; i++) {
+		nk_vc_printf("%d: %d, ", i, distances[i]);
+	}
+	nk_vc_printf("\n\n");
+#endif
+
+	return;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
