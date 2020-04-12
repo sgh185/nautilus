@@ -137,7 +137,6 @@ struct CAT : public ModulePass
         Utils::InlineNKFunction((*SpecialRoutines)[FIBER_START]);
         set<Function *> Routines = *(Utils::IdentifyFiberRoutines());
 
-
 #if WHOLE
 
         /*
@@ -158,9 +157,36 @@ struct CAT : public ModulePass
          * will be injected per function
          */ 
 
+#if 0 
         for (auto Routine : Routines)
         {
-            // Set injection locations data structure
+            // Gather wrapper analysis state
+            auto *DT = &getAnalysis<DominatorTreeWrapperPass>(*Routine).getDomTree();
+            auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*Routine);
+            auto *LI = &getAnalysis<LoopInfoWrapperPass>(*Routine).getLoopInfo();
+            auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>(*Routine).getSE();
+            OptimizationRemarkEmitter ORE(Routine);
+
+            vector<Loop *> Loops;
+            for (auto L : *LI)
+                Loops.push_back(L);
+
+			VERIFY_DEBUG_INFO("F: " + Routine->getName() + "\n");
+			
+            for (auto L : Loops)
+            {
+                VERIFY_OBJ_INFO(L);
+				VERIFY_DEBUG_INFO(to_string(SE->getSmallConstantTripCount(L)));
+                VERIFY_DEBUG_INFO(to_string(SE->getSmallConstantTripMultiple(L)));
+            }
+        }
+
+		return false;
+#endif
+
+        for (auto Routine : Routines)
+        {
+			// Set injection locations data structure
             set<Instruction *> InjectionLocations;
 
 
@@ -202,6 +228,14 @@ struct CAT : public ModulePass
 
             // Inject callbacks at all specified injection locations
             Utils::InjectCallback(InjectionLocations, Routine);
+
+            if (verifyFunction(*Routine, &(errs())))
+            {
+                VERIFY_DEBUG_INFO("\n");
+                VERIFY_DEBUG_INFO(Routine->getName() + "\n");
+                VERIFY_OBJ_INFO(Routine);
+                VERIFY_DEBUG_INFO("\n\n\n");
+            }
         }
 
 
@@ -237,7 +271,7 @@ struct CAT : public ModulePass
 } 
 
 char CAT::ID = 0;
-static RegisterPass<CAT> X("CAT", "Compiler-timing");
+static RegisterPass<CAT> X("ct", "Compiler-timing");
 
 static CAT *_PassMaker = NULL;
 static RegisterStandardPasses _RegPass1(PassManagerBuilder::EP_OptimizerLast,

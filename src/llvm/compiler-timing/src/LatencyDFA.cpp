@@ -49,7 +49,6 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy,
     this->F = EntryBlock->getParent();
     this->PropagationPolicy = PropPolicy;
     this->ConservativenessPolicy = ConservPolicy;
-    this->LoopInstructionCount = 0;
     this->LoopLatencySize = 0;
 
     // Set DFA data structures
@@ -179,8 +178,10 @@ void LatencyDFA::ComputeDFA()
             this->LoopLatencySize = AccumulatedLatencies[Last];
         }
 
-        LOOP_DEBUG_INFO("\nLoopLatencySize: " + 
-                        to_string(this->LoopLatencySize) + "\n");
+        DEBUG_INFO("\nLoopLatencySize: " + 
+                    to_string(this->LoopLatencySize) + " " + to_string(this->TopLevelAnalysis) + "\n");
+
+        DEBUG_INFO("LoopInstructionSize: " + to_string(GetLoopInstructionCount()) + "\n");
     }
 
     return;
@@ -801,6 +802,7 @@ uint64_t LatencyDFA::_buildLoopBlocks(Loop *L)
         // Calculate number of instructions
         size += distance(CurrBB->instructionsWithoutDebug().begin(),
                          CurrBB->instructionsWithoutDebug().end());
+
     }
 
     this->LoopInstructionCount = size;
@@ -941,7 +943,6 @@ bool LatencyDFA::IsContainedInLoop(BasicBlock *BB)
 
     return Contained;
 }
-
 
 // ----------------------------------------------------------------------------------
 

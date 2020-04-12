@@ -51,8 +51,8 @@ public:
     // ------- Analysis ------- 
     void ComputeDFA();
     set<Instruction *> *BuildIntervalsFromZero();
-    double GetLoopLatencySize() { return this->LoopLatencySize; }
-    double GetLoopInstructionCount() { return this->LoopInstructionCount; }
+    uint64_t GetLoopLatencySize() { return this->LoopLatencySize; }
+    uint64_t GetLoopInstructionCount() { return this->LoopInstructionCount; }
     double GetAccumulatedLatency(Instruction *I);
     double GetAccumulatedLatency(BasicBlock *BB);
     double GetIndividualLatency(Instruction *I);

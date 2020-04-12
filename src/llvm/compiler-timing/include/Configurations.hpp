@@ -52,6 +52,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -80,7 +81,8 @@ using namespace std;
 
 // Pass settings
 #define DEBUG 0
-#define LOOP_DEBUG 0
+#define LOOP_DEBUG 1
+#define VERIFY 1
 #define INLINE 0
 #define WHOLE 1 // Whole kernel injection
 #define INJECT 1
@@ -111,6 +113,8 @@ using namespace std;
 #define LOOP_DEBUG_INFO(str) do { if (LOOP_DEBUG) { errs() << str; } } while (0)
 #define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
 #define LOOP_OBJ_INFO(obj) do { if (LOOP_DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
+#define VERIFY_DEBUG_INFO(str) do { if (VERIFY) { errs() << str; } } while (0)
+#define VERIFY_OBJ_INFO(obj) do { if (VERIFY) { obj->print(errs()); errs() << "\n"; } } while (0)
 
 // Metadata strings
 extern const string CALLBACK_LOC;

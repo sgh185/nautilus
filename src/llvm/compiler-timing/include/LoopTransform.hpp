@@ -44,6 +44,7 @@ const double ExpansionFactor = 2.4; // Weight to account for LLSs that are small
                                     // possible vectorization in the middle-end or clever 
                                     // instruction selection at the backend
 const uint64_t MaxExtensionCount = 12;
+const uint64_t MaxLoopSize = 50;
 const uint64_t MaxExtensionSize = 0;
 const uint64_t MaxMargin = 50; // Number of cycles maximum to miss (by compile-time analysis)
 
@@ -74,6 +75,8 @@ private:
     Loop *L;
     Function *F;
     uint64_t Granularity;
+    // uint32_t SCTripCount; 
+    // uint32_t SCTripMultiple;
     LatencyDFA *LoopLDFA; // DFA --- full analysis
     LatencyDFA *LoopIDFA; // Interval analysis --- top-level/same-depth
 
@@ -103,7 +106,7 @@ private:
 
     // Pre-transformation methods
     void _transformSubLoops();
-    bool _canVectorizeLoop() { return true; } // TODO 
+    bool _canVectorizeLoop() { return false; } // TODO 
     uint64_t _calculateLoopExtensionStats(uint64_t LLS, uint64_t *MarginOffset);
 
     // Loop iteration schemes
@@ -117,8 +120,8 @@ private:
     void _designateTopGuardViaPredecessors();
 
     // Bottom guard
-    void _buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, PHINode *IteratorPHI);
-    void _designateBottomGuardViaExits();
+    void _buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, Instruction *Iterator, uint64_t ExtensionCount);
+    void _designateBottomGuardViaExits(uint64_t ExtensionCount);
 
     // Post-transformation methods
     void _collectUnrolledCallbackLocations();

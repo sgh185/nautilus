@@ -63,6 +63,9 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->AC = AC;
     this->ORE = ORE;
 
+    // this->SCTripCount = SE->getSmallConstantTripCount(L);
+    // this->SCTripMultiple = SE->getSmallConstantTripMultiple(L);
+
     // Set other data structures
     this->CallbackLocations = set<Instruction *>();
 
@@ -140,6 +143,7 @@ void LoopTransform::Transform()
 
     switch(Extend)
     {
+#if 1
     case TransformOption::EXTEND:
     {
         // Unroll the loop by an unroll factor = ExtensionCount, collect
@@ -150,11 +154,13 @@ void LoopTransform::Transform()
 
 #if LOOP_GUARD
         _designateTopGuardViaPredecessors();
-        _designateBottomGuardViaExits();
+        _designateBottomGuardViaExits(ExtensionCount);
 #endif
 
         return;
     }
+#endif
+    // case TransformOption::EXTEND:
     case TransformOption::BRANCH:
     {
         // Inject code to build the iteration counter and the branch to
@@ -164,7 +170,7 @@ void LoopTransform::Transform()
         BuildBiasedBranch(InsertionPoint, ExtensionCount);
 
 #if LOOP_GUARD
-        _designateBottomGuardViaExits();
+        _designateBottomGuardViaExits(ExtensionCount);
 #endif
         return;
     }
@@ -181,7 +187,7 @@ void LoopTransform::Transform()
 
 #if LOOP_GUARD
         _designateTopGuardViaPredecessors();
-        _designateBottomGuardViaExits();
+        _designateBottomGuardViaExits(ExtensionCount);
 #endif
 
         return;
@@ -297,6 +303,7 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
 void LoopTransform::_setIteratorPHI(PHINode *ThePHI, Value *Init, Value *Iterator)
 {
     for (auto PredBB : predecessors(L->getHeader()))
+    // for (auto PredBB : predecessors(ThePHI->getParent()))
     {
         // Handle backedges
         if (L->contains(PredBB)) // Shortcut --- for header
@@ -495,7 +502,7 @@ void LoopTransform::_designateTopGuardViaPredecessors()
  * 
  */ 
 
-void LoopTransform::_designateBottomGuardViaExits()
+void LoopTransform::_designateBottomGuardViaExits(uint64_t ExtensionCount)
 {    
     // Get exit blocks
     SmallVector<std::pair<BasicBlock *, BasicBlock *>, 8> ExitEdges;
@@ -521,13 +528,14 @@ void LoopTransform::_designateBottomGuardViaExits()
 
         Type *IntTy = Type::getInt32Ty(F->getContext());
         _setIteratorPHI(IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
-        _buildBottomGuard(Source, Exit, IteratorPHI);
+        _buildBottomGuard(Source, Exit, Iterator, ExtensionCount);
     }
 
     return; 
 }
 
-void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, PHINode *IteratorPHI)
+void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, 
+                                      Instruction *Iterator, uint64_t ExtensionCount)
 {
     // Get terminator of the source block --- inside loop
     BranchInst *SourceTerminator = dyn_cast<BranchInst>(Source->getTerminator());
@@ -578,8 +586,8 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, PHIN
     Type *IntTy = Type::getInt32Ty(F->getContext());
 
     // Build the compare instruction --- use threshold = ???
-    Value *DummyThreshold = ConstantInt::get(IntTy, 51); 
-    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_EQ, IteratorPHI, DummyThreshold);
+    Value *DummyThreshold = ConstantInt::get(IntTy, (ExtensionCount / 2)); 
+    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_EQ, Iterator, DummyThreshold);
     
     // Change condition of checks branch instruction
     ChecksBranch->setCondition(ThresholdCheck);
@@ -739,6 +747,26 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
     if (!ExtensionCount) 
         return;
 
+    // Check size of loop to unroll --- large basic block chains
+    // may cause SCEV::forgetLoop to fail (maybe)
+
+    LOOP_DEBUG_INFO("\n\n\nF: " + F->getName() + "\n");
+    LOOP_OBJ_INFO(F);
+    LOOP_DEBUG_INFO("\n\n\nTHE LOOP: ");
+    LOOP_OBJ_INFO(L);
+
+    if (LoopLDFA->GetLoopInstructionCount() > MaxLoopSize)
+    {
+        LOOP_DEBUG_INFO("Not Unrolled (size), Count: "); 
+        LOOP_DEBUG_INFO(to_string(LoopLDFA->GetLoopInstructionCount()));
+        LOOP_DEBUG_INFO("\n");
+        Debug::PrintCurrentLoop(L);
+
+        // Build a branch to handle large loop size
+        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount);
+        return;
+    }
+
     // Unroll iterations of the loop based on ExtensionCount
     uint32_t MinTripMultiple = 1;
     UnrollLoopOptions *ULO = new UnrollLoopOptions();
@@ -759,7 +787,7 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
     if (!((Unrolled == LoopUnrollResult::FullyUnrolled)
         || (Unrolled == LoopUnrollResult::PartiallyUnrolled)))
     {
-        LOOP_DEBUG_INFO("Not Unrolled: ");
+        LOOP_DEBUG_INFO("Not Unrolled (failure): ");
         Debug::PrintCurrentLoop(L);
 
         // Build a branch to handle the unroll failure
