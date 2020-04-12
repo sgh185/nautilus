@@ -332,7 +332,7 @@ int detect_cycles(Graph *g)
 	// Pick a random starting point
 	SEED();
 	Vertex *start_vtx = g->vertices[(lrand48() % g->num_vertices)];
-	if (!(check_vertex(start_vtx))) { return 0; }
+	// if (!(check_vertex(start_vtx))) { return 0; }
 
 	// Build the necessary data structures
 	
@@ -441,7 +441,7 @@ struct vertex_entry {
 	uint32_t id;
 }; 
 
-struct vertex_entry *build_ve(uint32_t id)
+__attribute__((always_inline)) struct vertex_entry *build_ve(uint32_t id)
 {
 	struct vertex_entry *ve = (struct vertex_entry *) MALLOC(sizeof(struct vertex_entry));
 	ve->id = id;
@@ -456,13 +456,13 @@ void build_mst_unweighted(Graph *g)
 	// Pick a random starting point
 	SEED();
 	Vertex *start_vtx = g->vertices[(lrand48() % g->num_vertices)];
-	if (!(check_vertex(start_vtx))) { return; }
+	// if (!(check_vertex(start_vtx))) { return; }
 
 	// Create a vertex entry, add it to the queue, mark visited
 	struct vertex_entry *start_ve = build_ve(start_vtx->id);
 
 	uint32_t visited_ids[g->num_vertices];
-	memset(visited_ids, 0, sizeof(visited_ids));
+	// memset(visited_ids, 0, sizeof(visited_ids));
 
 	nk_enqueue_entry(work_list, &(start_ve->id_node));
 	visited_ids[start_vtx->id] |= 1;
@@ -501,6 +501,7 @@ void build_mst_unweighted(Graph *g)
 }
 
 // Simplest but probably not the most effective way to accomplish this
+
 void get_min_weight(int *min_weight, uint32_t *min_id, int *weights, uint32_t *ids, int num_ids)
 {
 	int curr_min_weight = (INT32_MAX - 1), i;
@@ -521,12 +522,12 @@ void get_min_weight(int *min_weight, uint32_t *min_id, int *weights, uint32_t *i
 
 // Dijkstra
 void dijkstra(Graph *g)
+// void dijkstra(Vertex *start, Vertex **vertices, int num_vertices) 
 {
 	// Pick a random starting point
-
+#if 1 
 	SEED();
 	Vertex *start_vtx = g->vertices[(lrand48() % g->num_vertices)];
-	if (!(check_vertex(start_vtx))) { return; }
 
 	int distances[g->num_vertices];
 	uint32_t visited_ids[g->num_vertices];
@@ -537,16 +538,30 @@ void dijkstra(Graph *g)
 
 	distances[start_vtx->id] = 0;
 
+#else
+	int distances[num_vertices];
+	uint32_t visited_ids[num_vertices];
+	memset(visited_ids, 0, sizeof(visited_ids));
+	
+	int i;
+	for (i = 0; i < num_vertices; i++) { distances[i] = (INT32_MAX - 1); }	
+
+	distances[start->id] = 0;
+#endif
+
+#if 1	
 	for (i = 0; i < g->num_vertices; i++)
 	{
-		uint32_t min_id, ids[(g->num_vertices - i)], val;
-		int min_weight, weights[(g->num_vertices - i)], j, k;
+		uint32_t min_id, val;
+		uint32_t ids[g->num_vertices];
+		int min_weight, j, k; 
+		int weights[g->num_vertices];
 
 		for (j = 0, k = 0; j < g->num_vertices; j++)
 		{
 			if (visited_ids[j]) { continue; }
 		   	ids[k] = j;
-			weights[k] = distances[k];
+			weights[k] = distances[j];
 			k++;	
 		}	
 
@@ -558,17 +573,51 @@ void dijkstra(Graph *g)
 
 		nk_dynarray_foreach((min_id_vertex->neighbor_ids), j, val) 
 		{
-			int neighbor_weight = min_id_vertex->neighbor_weights[val];
+			uint32_t neighbor_weight = min_id_vertex->neighbor_weights[val];
 			
 			if ((distances[min_id] + neighbor_weight) < distances[val]) {
 				distances[val] = distances[min_id] + neighbor_weight;
 			}	
 		}	
 	}
+#else
+	for (i = 0; i < num_vertices; i++)
+	{
+		uint32_t min_id, val;
+		uint32_t ids[num_vertices];
+		int min_weight, j, k; 
+		int weights[num_vertices];
+
+		for (j = 0, k = 0; j < num_vertices; j++)
+		{
+			if (visited_ids[j]) { continue; }
+		   	ids[k] = j;
+			weights[k] = distances[j];
+			k++;	
+		}	
+
+		get_min_weight(&min_weight, &min_id, weights, ids, k);
+		if (!min_id && (min_weight == (INT32_MAX - 1))) { continue; }
+		
+		visited_ids[min_id] |= 1;	
+		Vertex *min_id_vertex = vertices[min_id];
+
+		nk_dynarray_foreach((min_id_vertex->neighbor_ids), j, val) 
+		{
+			uint32_t neighbor_weight = min_id_vertex->neighbor_weights[val];
+			
+			if ((distances[min_id] + neighbor_weight) < distances[val]) {
+				distances[val] = distances[min_id] + neighbor_weight;
+			}	
+		}	
+
+	}
+
+#endif
 
 #if 0
-	nk_vc_printf("\n\n\nThe vertex: %d\n", start_vtx->id);
-	for (i = 0; i < g->num_vertices; i++) {
+	nk_vc_printf("\n\n\nThe vertex: %d\n", start->id);
+	for (i = 0; i < num_vertices; i++) {
 		nk_vc_printf("%d: %d, ", i, distances[i]);
 	}
 	nk_vc_printf("\n\n");

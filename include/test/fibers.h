@@ -119,6 +119,7 @@ void print_graph(Graph *g);
 // Analysis
 int detect_cycles(Graph *g);
 void build_mst_unweighted(Graph *g);
+// void dijkstra(Vertex *start, Vertex **vertices, int num_vertices); 
 void dijkstra(Graph *g);
 
 // Utility

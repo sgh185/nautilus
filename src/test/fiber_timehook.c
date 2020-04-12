@@ -56,18 +56,18 @@ NK_STACK_DECL(int);
 // NK_DYNARRAY_DECL(int);
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
-#define SEED() (srand48(rdtsc() % 128))
+#define SEED() (srand48(rdtsc() % 1024))
 
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 #define M 1000 // Loop iteration --- timing loops
-#define DOT 1000 // Dot product induction variable
+#define DOT 100000 // Dot product induction variable
 
 // Dimensions for arrays --- matrix multiply
-#define M1 20 
-#define M2 40
-#define M3 30
+#define M1 200
+#define M2 400
+#define M3 300
 
 // Conditions
 #define RET_CHECK 1
@@ -89,7 +89,7 @@ extern void *address_hook_3;
 extern void *long_hook;
 
 // Linked List Implementation
-__attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size) 
+__attribute__((noinline)) List_t * createList(uint32_t start, uint32_t size) 
 {
 	// Allocate head
 	Node_t *L_head = MALLOC(sizeof(Node_t));
@@ -109,7 +109,7 @@ __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size)
 
 	// Fill list with values based on the "start"
 	// argument
-	uint64_t a, incr = start;
+	uint32_t a, incr = start;
 	for (a = 0; a < size; a++)
   	{
 		incr += (a * a) + incr;
@@ -130,8 +130,18 @@ __attribute__((noinline)) List_t * createList(uint64_t start, uint64_t size)
   	return LL;
 }
 
+// Terrible idea
+__attribute__((noinline)) void destroyTree(TreeNode_t *T)
+{
+	if (T->left) { destroyTree(T->left); }
+	if (T->right) { destroyTree(T->right); }
+	free(T);
+
+	return;
+}
+
 // Binary Tree Implementation
-__attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size) {
+__attribute__((noinline)) TreeNode_t * createTree(uint32_t start, uint32_t size) {
   
 	// Allocate root node	 
 	TreeNode_t *T_root = MALLOC(sizeof(TreeNode_t));
@@ -152,7 +162,7 @@ __attribute__((noinline)) TreeNode_t * createTree(uint64_t start, uint64_t size)
 		TreeNode_t *T_iterator = T_root;
 		
 		// Find a "random" value for the tree node
-		uint64_t val = (lrand48() % 10000); 
+		uint32_t val = (lrand48() % 10000); 
 		srand48(0);
 
 		// Allocate a new node
@@ -216,12 +226,12 @@ __attribute__((noinline)) TreeQueue_t * createQueue(void) {
 }
 
 // Create array of random unsigned integers
-__attribute__((noinline)) uint64_t * createRandArray(uint64_t size) {
+__attribute__((noinline)) uint32_t * createRandArray(uint32_t size) {
 
 	SEED();
 
 	// Allocate array of length "size"
-	uint64_t *r_array = MALLOC(sizeof(uint64_t) * size);
+	uint32_t *r_array = MALLOC(sizeof(uint32_t) * size);
 	if(!r_array) { return NULL; }
 
 	// Fill array with "random" values
@@ -346,13 +356,19 @@ void dot_prod_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	int k, first = 8, second = 134; // Arbitrary
+	
+	volatile sint16_t *b = gen_rand_array(sint16_t, DOT, 1);
+	volatile sint16_t *c = gen_rand_array(sint16_t, DOT, 1);
 
+#if 0
 	// Allocate on stack
-	uint64_t b[DOT];
-	uint64_t c[DOT];
+	volatile uint64_t b[DOT];
+	volatile uint64_t c[DOT];
+#endif
 
 	ACCESS_WRAPPER = 1;
 
+#if 0
 	// Fill arrays
 	for (k = 0; k < DOT; k++)
 	{
@@ -362,9 +378,10 @@ void dot_prod_1(void *i, void **o)
 		first += 4;
 		second += 2; 
 	}
+#endif
 
 	// Dot product
-	volatile uint64_t sum = 0;
+	volatile sint64_t sum = 0;
 	for (k = 0; k < DOT; k++) {
 		sum += (b[k] * c[k]);
 	}
@@ -378,14 +395,19 @@ void dot_prod_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	int k, first = 5, second = 127; // Arbitrary
+	
+	volatile sint16_t *b = gen_rand_array(sint16_t, DOT, 1);
+	volatile sint16_t *c = gen_rand_array(sint16_t, DOT, 1);
 
-	// Allcoate on stack
-	uint64_t b[DOT];
-	uint64_t c[DOT];
+#if 0
+	// Allocate on stack
+	volatile uint64_t b[DOT];
+	volatile uint64_t c[DOT];
+#endif
 
 	ACCESS_WRAPPER = 1;
 
-	uint64_t start = rdtsc();
+#if 0
 	// Fill arrays
 	for (k = 0; k < DOT; k++)
 	{
@@ -395,22 +417,23 @@ void dot_prod_2(void *i, void **o)
 		first += 4;
 		second += 2; 
 	}
-
-	uint64_t finish = rdtsc();
+#endif
+	
+	uint64_t start = rdtsc();
 
 	// Dot product
-	volatile uint64_t sum = 0;
+	volatile sint64_t sum = 0;
 	for (k = 0; k < DOT; k++) {
 		sum += (b[k] * c[k]);
 	}
-	
+
 	ACCESS_WRAPPER = 0;
 	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
 	// Print out timing data --- end of test
 	_nk_fiber_print_data();
 
-	nk_vc_printf("finish - start: %lu\n", finish - start);
 
 	return;
 }
@@ -419,18 +442,19 @@ void dot_prod_2(void *i, void **o)
 
 // ------
 // Benchmark 4 --- linked-list traversal (ll_traversal_1, ll_traversal_2)
+#define LL_SIZE 10000
 void ll_traversal_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
 	// Create the list
-	List_t *LL = createList(7, 800); // Start val of 7, 800 node list
+	List_t *LL = createList(7, LL_SIZE); // Start val of 7
 	if (!LL) { return; } 
 
 	ACCESS_WRAPPER = 1;
 
 	// Set up iterator for list
-	volatile uint64_t sum = 0;
+	volatile uint32_t sum = 0;
 	Node_t *iterator = LL->head;
 
 	// Traverse list, calculate sum
@@ -442,8 +466,9 @@ void ll_traversal_1(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 
-	// No frees at the end --- FIX
-	
+	iterator = LL->head;
+	while (iterator != NULL) { Node_t *temp = iterator; iterator = iterator->next; free(temp); }
+
 	return;
 }
 
@@ -452,15 +477,15 @@ void ll_traversal_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 	
 	// Create the list
-	List_t *LL = createList(11, 800); // Start val of 11, 800 node list
+	List_t *LL = createList(7, LL_SIZE); // Start val of 7
 	if (!LL) { return; } 
 
 	ACCESS_WRAPPER = 1;
-
-	uint64_t start = rdtsc();
+	
+	uint32_t start = rdtsc();
 
 	// Set up iterator for list
-	volatile uint64_t sum = 0;
+	volatile uint32_t sum = 0;
 	Node_t *iterator = LL->head;
 
 	// Traverse list, calculate sum
@@ -471,13 +496,14 @@ void ll_traversal_2(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
-	
-	nk_vc_printf("\nThe interval: %lu", rdtsc() - start);
 
+	nk_vc_printf("\nThe interval: %lu", rdtsc() - start);
+	
 	_nk_fiber_print_data();
   
-	// No frees at the end --- FIX
-	
+	iterator = LL->head;
+	while (iterator != NULL) { Node_t *temp = iterator; iterator = iterator->next; free(temp); }
+		
 	return;
 }
 // ------
@@ -490,19 +516,19 @@ void mm_1(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Allocate on stack --- known dimensions
-	uint64_t first[M1][M2];
-	uint64_t second[M2][M3];
-	uint64_t result[M1][M3];
+	volatile uint32_t first[M1][M2];
+	volatile uint32_t second[M2][M3];
+	volatile uint32_t result[M1][M3];
 
+#if 0
 	// Zero initialize
 	memset(first, 0, sizeof(first));
 	memset(second, 0, sizeof(second));
 	memset(result, 0, sizeof(result));
+#endif
 
-	uint64_t start = 4; // arbitrary
+	uint32_t start = 4; // arbitrary
 	int a, b, c;
-
-	ACCESS_WRAPPER = 1;
 
 	// Fill first and second matricies
 	for (a = 0; a < M1; a++) {
@@ -516,11 +542,13 @@ void mm_1(void *i, void **o)
 		  second[a][b] = (a * b);
 		}
 	}
+	
+	ACCESS_WRAPPER = 1;
 
 	// Naive matrix multiply
 	for (a = 0; a < M1; a++) {
 		for (b = 0; b < M3; b++) {
-			uint64_t sum = 0;     
+			uint32_t sum = 0;     
 
 			for (c = 0; c < M2; c++) {
 				sum += (first[a][c] * second[c][b]);
@@ -540,21 +568,19 @@ void mm_2(void *i, void **o)
  	nk_fiber_set_vc(vc);
 
 	// Allocate on stack --- known dimensions
-	uint64_t first[M1][M2];
-	uint64_t second[M2][M3];
-	uint64_t result[M1][M3];
+	volatile uint32_t first[M1][M2];
+	volatile uint32_t second[M2][M3];
+	volatile uint32_t result[M1][M3];
 
+#if 0
 	// Zero initialize
 	memset(first, 0, sizeof(first));
 	memset(second, 0, sizeof(second));
 	memset(result, 0, sizeof(result));
+#endif
 
-	uint64_t start = 8; // arbitrary
+	uint32_t start = 8; // arbitrary
 	int a, b, c;
-
-	ACCESS_WRAPPER = 1;
-
-	uint64_t start_1 = rdtsc();
 
 	// Fill first and second matricies
 	for (a = 0; a < M1; a++) {
@@ -569,10 +595,14 @@ void mm_2(void *i, void **o)
 		}
 	}
 
+	ACCESS_WRAPPER = 1;
+
+	uint64_t start_1 = rdtsc();
+
 	// Naive matrix multiply
 	for (a = 0; a < M1; a++) {
 		for (b = 0; b < M3; b++) {
-			uint64_t sum = 0;     
+			uint32_t sum = 0;     
 
 			for (c = 0; c < M2; c++) {
 				sum += (first[a][c] * second[c][b]);
@@ -602,14 +632,14 @@ void bt_traversal_1(void *i, void **o)
 	nk_fiber_set_vc(vc); 
 
 	// Allocate and build tree
-	TreeNode_t *tree = createTree(4520, 800); // Start val = 4520, 800 nodes
+	TreeNode_t *tree = createTree(4520, LL_SIZE); // Start val = 4520, 800 nodes
 	if (!tree) { return; }
 
 	// Generate array of random integers, 50 elements
 	int size = 50;
-	uint64_t *nums = createRandArray(size); 
+	uint32_t *nums = createRandArray(size); 
 
-	uint64_t totalTraversalSum = 0;
+	uint32_t totalTraversalSum = 0;
 	int a;
 
 	ACCESS_WRAPPER = 1;
@@ -618,14 +648,14 @@ void bt_traversal_1(void *i, void **o)
 	// way: the tree is traversed to search for each number in "nums"
 	// and all nodes' "val" fields that are visited during the the tree
 	// traversal/search are summed and added to totalTraversalSum
-	for (a = 0; a < size; a++)
+	for (a = 0; a < size; a++) // i.e. 50 searches
 	{
-		uint64_t currTraversalSum = 0;
+		uint32_t currTraversalSum = 0;
 		volatile TreeNode_t *iterator = tree;
 
 		while (iterator != NULL)
 		{
-			uint64_t currValue = iterator->value;
+			uint32_t currValue = iterator->value;
 			currTraversalSum += currValue;
 
 			if (nums[a] == currValue) { break; } 
@@ -638,7 +668,7 @@ void bt_traversal_1(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 
-	// Not freeing --- FIX
+	destroyTree(tree);
 
 	return;
 }
@@ -648,14 +678,14 @@ void bt_traversal_2(void *i, void **o)
   	nk_fiber_set_vc(vc); 
 
 	// Allocate and build tree
-	TreeNode_t *tree = createTree(5380, 800); // Start val = 5380, 800 nodes
+	TreeNode_t *tree = createTree(5380, LL_SIZE); // Start val = 5380, 800 nodes
 	if (!tree) { return; }
 
 	// Generate array of random integers, 50 elements
 	int size = 50;
-	uint64_t *nums = createRandArray(size); 
+	uint32_t *nums = createRandArray(size); 
 
-	uint64_t totalTraversalSum = 0;
+	uint32_t totalTraversalSum = 0;
 	int a;
 
 	ACCESS_WRAPPER = 1;
@@ -666,14 +696,14 @@ void bt_traversal_2(void *i, void **o)
 	// way: the tree is traversed to search for each number in "nums"
 	// and all nodes' "val" fields that are visited during the the tree
 	// traversal/search are summed and added to totalTraversalSum
-	for (a = 0; a < size; a++)
+	for (a = 0; a < size; a++) // i.e. 50 searches
 	{
-		uint64_t currTraversalSum = 0;
+		uint32_t currTraversalSum = 0;
 		volatile TreeNode_t *iterator = tree;
 
 		while (iterator != NULL)
 		{
-			uint64_t currValue = iterator->value;
+			uint32_t currValue = iterator->value;
 			currTraversalSum += currValue;
 
 			if (nums[a] == currValue) { break; } 
@@ -687,10 +717,10 @@ void bt_traversal_2(void *i, void **o)
 	ACCESS_WRAPPER = 0;
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
+	destroyTree(tree);
 
 	_nk_fiber_print_data();
-	
-	// Not freeing --- FIX
 	
 	return;
 }
@@ -699,31 +729,31 @@ void bt_traversal_2(void *i, void **o)
 
 // ------
 // Benchmark 7 --- naive matrix multiply with random dimensions (rand_mm_1, rand_mm_2) 
+#define MAX_DIMS 400
 void rand_mm_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
-	SEED();
-
 	// Generate random dimensions
-	uint64_t R1 = (lrand48() % 50);
-	uint64_t R2 = (lrand48() % 50);
-	uint64_t R3 = (lrand48() % 50);
+	uint32_t *dims = gen_rand_array(uint32_t, 3, 0);
+	uint32_t R1 = (dims[0] % MAX_DIMS) + 1;
+	uint32_t R2 = (dims[1] % MAX_DIMS) + 1;
+	uint32_t R3 = (dims[2] % MAX_DIMS) + 1;
 
 	// Allocate on stack
-	uint64_t first[R1][R2];
-	uint64_t second[R2][R3];
-	uint64_t result[R1][R3];
+	volatile uint32_t first[R1][R2];
+	volatile uint32_t second[R2][R3];
+	volatile uint32_t result[R1][R3];
 
+#if 0
 	// Zero initialize
 	memset(first, 0, sizeof(first));
 	memset(second, 0, sizeof(second));
 	memset(result, 0, sizeof(result));
+#endif
 
-	uint64_t start = 9; // arbitrary
+	uint32_t start = 9; // arbitrary
 	int a, b, c;
-
-	ACCESS_WRAPPER = 1;
 
 	// Fill first and second matricies
 	for (a = 0; a < R1; a++) {
@@ -737,11 +767,13 @@ void rand_mm_1(void *i, void **o)
 		  second[a][b] = (a * b);
 		}
 	}
+	
+	ACCESS_WRAPPER = 1;
 
 	// Naive matrix multiply
 	for (a = 0; a < R1; a++) {
 		for (b = 0; b < R3; b++) {
-			uint64_t sum = 0;     
+			uint32_t sum = 0;     
 
 			for (c = 0; c < R2; c++) {
 				sum += (first[a][c] * second[c][b]);
@@ -760,29 +792,26 @@ void rand_mm_2(void *i, void **o)
 {
  	nk_fiber_set_vc(vc);
 
-	SEED();
-
 	// Generate random dimensions
-	uint64_t R1 = (lrand48() % 50);
-	uint64_t R2 = (lrand48() % 50);
-	uint64_t R3 = (lrand48() % 50);
+	uint32_t *dims = gen_rand_array(uint32_t, 3, 0);
+	uint32_t R1 = (dims[0] % MAX_DIMS);
+	uint32_t R2 = (dims[1] % MAX_DIMS);
+	uint32_t R3 = (dims[2] % MAX_DIMS);
 
 	// Allocate on stack
-	uint64_t first[R1][R2];
-	uint64_t second[R2][R3];
-	uint64_t result[R1][R3];
+	volatile uint32_t first[R1][R2];
+	volatile uint32_t second[R2][R3];
+	volatile uint32_t result[R1][R3];
 
+#if 0
 	// Zero initialize
 	memset(first, 0, sizeof(first));
 	memset(second, 0, sizeof(second));
 	memset(result, 0, sizeof(result));
+#endif
 
-	uint64_t start = 6; // arbitrary
+	uint32_t start = 6; // arbitrary
 	int a, b, c;
-
-	ACCESS_WRAPPER = 1;
-	
-	uint64_t start_1 = rdtsc();
 
 	// Fill first and second matricies
 	for (a = 0; a < R1; a++) {
@@ -797,10 +826,14 @@ void rand_mm_2(void *i, void **o)
 		}
 	}
 
+	ACCESS_WRAPPER = 1;
+	
+	uint64_t start_1 = rdtsc();
+
 	// Naive matrix multiply
 	for (a = 0; a < R1; a++) {
 		for (b = 0; b < R3; b++) {
-			uint64_t sum = 0;     
+			uint32_t sum = 0;     
 
 			for (c = 0; c < R2; c++) {
 				sum += (first[a][c] * second[c][b]);
@@ -830,12 +863,12 @@ void bt_lo_traversal_1(void *i, void **o)
 	// Allocate and set up queue for level-order traversal
 	TreeQueue_t *LO = createQueue();
 
-	// Allocate and set up tree --- Start = 5170, 800 nodes
-	TreeNode_t *tree = createTree(5170, 800);
+	// Allocate and set up tree --- Start = 5170, 10000 nodes
+	TreeNode_t *tree = createTree(5170, LL_SIZE);
 
 	// Set up iterator for traversal
 	TreeNode_t *iterator = tree;
-	volatile uint64_t sum = 0;
+	volatile uint32_t sum = 0;
 
 	ACCESS_WRAPPER = 1;
 
@@ -867,8 +900,9 @@ void bt_lo_traversal_1(void *i, void **o)
  
 	ACCESS_WRAPPER = 0; 
 	
-	// Not freeing --- FIX
-
+	destroyTree(tree);
+	free(LO);
+		
 	return;
 }
 
@@ -879,12 +913,12 @@ void bt_lo_traversal_2(void *i, void **o)
 	// Allocate and set up queue for level-order traversal
 	TreeQueue_t *LO = createQueue();
 
-	// Allocate and set up tree --- Start = 4720, 800 nodes
-	TreeNode_t *tree = createTree(4720, 800);
+	// Allocate and set up tree --- Start = 4720, 10000 nodes
+	TreeNode_t *tree = createTree(4720, LL_SIZE);
 
 	// Set up iterator for traversal
 	TreeNode_t *iterator = tree;
-	volatile uint64_t sum = 0;
+	volatile uint32_t sum = 0;
 
 	ACCESS_WRAPPER = 1;
 
@@ -921,10 +955,11 @@ void bt_lo_traversal_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
   
+	destroyTree(tree);
+	free(LO);
+	
 	_nk_fiber_print_data();
 	
-	// Not freeing --- FIX
-
 	return;
 }
 // ------
@@ -1280,33 +1315,32 @@ void md5_2(void *i, void **o)
 
 // ------
 // Benchmark 14 --- fibonacci via dynamic programming (fib_1, fib_2)
+#define NUM_FIB 1
 void fib_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
 	int a = 0;
-	SEED();
+	uint32_t *fib_nums = gen_rand_array(uint32_t, NUM_FIB, 0);	
 
 	ACCESS_WRAPPER = 1;
 
-	while (a < M)
+	for (; a < NUM_FIB; a++)
 	{
-		uint64_t fib_num = lrand48() % 75;
+		uint64_t fib_num = fib_nums[a]; // zext
 		
-		// Allocate table on stack
-		uint64_t memo[fib_num + 2];
-		memset(memo, 0, sizeof(memo));
+		volatile uint64_t memo[2];
 		
 		// Set base cases
 		memo[0] = 0;
 		memo[1] = 1;
 
-		uint64_t k;
-		for (k = 0; k < fib_num; k++) {
-			memo[k] = memo[k - 1] + memo[k - 2];
+		int k;
+		for (k = 2; k < fib_num; k++) {
+			uint64_t temp = memo[1];
+			memo[1] = memo[0] + memo[1];
+			memo[0] = temp;
 		}
-	
-		a++;
 	}
 	
 	ACCESS_WRAPPER = 0;
@@ -1321,75 +1355,35 @@ void fib_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 		
 	int a = 0;
-	SEED();
-
-#if LOOP_CHECK
-	uint64_t loop_times[M];
-	int loop_index = 0;
-#endif
+	uint32_t *fib_nums = gen_rand_array(uint32_t, NUM_FIB, 0);	
 
 	ACCESS_WRAPPER = 1;
 	
 	uint64_t start = rdtsc();
 
-	uint64_t fib_num = 50; //lrand48() % 75;
-	
-	// Allocate table on stack
-	uint64_t memo[fib_num + 2];
-
-	while (a < M)
+	for (; a < NUM_FIB; a++)
 	{
+		uint64_t fib_num = fib_nums[a]; // zext
 		
-		// memset(memo, 0, sizeof(memo));
-
+		volatile uint64_t memo[2];
+		
 		// Set base cases
 		memo[0] = 0;
 		memo[1] = 1;
 
-		uint64_t k;
-
-#if LOOP_CHECK
-		uint64_t loop_time = rdtsc();
-#endif
-
+		int k;
 		for (k = 2; k < fib_num; k++) {
-			memo[k] = memo[k - 1] + memo[k - 2];
+			uint64_t temp = memo[1];
+			memo[1] = memo[0] + memo[1];
+			memo[0] = temp;
 		}
-
-#if LOOP_CHECK
-		loop_times[loop_index] = rdtsc() - loop_time;
-		loop_index++;
-#endif
-
-		a++;
 	}
-
+	
 	ACCESS_WRAPPER = 0;
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	_nk_fiber_print_data();
-
-#if LOOP_CHECK
-	nk_vc_printf("loop_times\n");
-	uint64_t sum = 0;
-	int k;
-	for (k = 0; k < M; k++) {
-		nk_vc_printf("%lu\n", loop_times[k]);
-		sum += loop_times[k];
-	}
-
-	nk_vc_printf("average loop_times: %lu\n", (sum / M));
-#endif
-
-#if 1
-	volatile uint64_t sum_all = 0;
-	for (int x = 0; x < fib_num; x++) {
-		sum_all += memo[x];
-	}
-
-	nk_vc_printf("sum: %lu\n", sum_all);
-#endif
 
 #if RET_CHECK
 	nk_vc_printf("addr0: %p\n", address_hook_0);
@@ -1411,24 +1405,25 @@ void knn_1(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	uint32_t k = 3, dims = 5, num_ex = 20;
-	
-	ACCESS_WRAPPER = 1;
-	
+	uint32_t k = 8, dims = 5, num_ex = 200;
+
 	// Set up classifier
 	struct KNNContext *ctx = KNN_build_context(k, dims, num_ex, distance_manhattan, aggregate_median);
 
 	// Build a new point to classify
 	struct KNNPoint *kp = KNN_build_point(dims);
-
+	
+	ACCESS_WRAPPER = 1;
+	
 	// Classify the point
 	double classification = KNN_classify(kp, ctx);
+
+	ACCESS_WRAPPER = 0;
 
 	// Clean up
 	KNN_point_destroy(kp);
 	KNN_context_destroy(ctx);	
 
-	ACCESS_WRAPPER = 0;
 	
 	return;
 }
@@ -1438,11 +1433,7 @@ void knn_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	uint32_t k = 3, dims = 5, num_ex = 20;
-	
-	ACCESS_WRAPPER = 1;
-	
-	uint64_t start = rdtsc();
+	uint32_t k = 8, dims = 5, num_ex = 2000;
 
 	// Set up classifier
 	struct KNNContext *ctx = KNN_build_context(k, dims, num_ex, distance_manhattan, aggregate_median);
@@ -1450,18 +1441,22 @@ void knn_2(void *i, void **o)
 	// Build a new point to classify
 	struct KNNPoint *kp = KNN_build_point(dims);
 
+	ACCESS_WRAPPER = 1;
+	
+	uint64_t start = rdtsc();
+
 	// Classify the point
 	double classification = KNN_classify(kp, ctx);
+
+	ACCESS_WRAPPER = 0;
+	
+	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	// Clean up
 	KNN_point_destroy(kp);
 	
 	KNN_context_destroy(ctx);	
 
-	ACCESS_WRAPPER = 0;
-	
-	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
-	
 	_nk_fiber_print_data();
 
 	nk_vc_printf("class: %f\n", classification);
@@ -1481,28 +1476,34 @@ void knn_2(void *i, void **o)
 
 // ------
 // Benchmark 16 --- cycle detection (cycle_1, cycle_2)
+#define NUM_GRAPHS 100
+
 void cycle_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
-
+	
 	// Declare parameters
-	uint32_t nvtx = 20;
+	uint32_t nvtx = 80; 
 	int weighted = 0;
 
-	ACCESS_WRAPPER = 1;
-	
 	// Build randomized graph
-	Graph *g = generate_full_graph(nvtx, weighted);
+	Graph *g[NUM_GRAPHS];
+	volatile int detected[NUM_GRAPHS]; 
 
-	volatile int a = detect_cycles(g);
+	int q;
+	for (q = 0; q < NUM_GRAPHS; q++) { g[q] = generate_full_graph(nvtx, weighted); }
 	
-	// Clean up
-	destroy_graph(g);	
+	ACCESS_WRAPPER = 1;
+
+	for (q = 0; q < NUM_GRAPHS; q++) { detected[q] = detect_cycles(g[q]); }
 
 	ACCESS_WRAPPER = 0;
 	
-	nk_vc_printf("cycle detected: %d\n", a);
-	
+	// Clean up
+	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
+
+	_nk_fiber_print_data();
+
 	return;
 }
 
@@ -1512,25 +1513,28 @@ void cycle_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 	
 	// Declare parameters
-	uint32_t nvtx = 20; 
+	uint32_t nvtx = 80; 
 	int weighted = 0;
+
+	// Build randomized graph
+	Graph *g[NUM_GRAPHS];
+	volatile int detected[NUM_GRAPHS]; 
+
+	int q;
+	for (q = 0; q < NUM_GRAPHS; q++) { g[q] = generate_full_graph(nvtx, weighted); }
 	
 	ACCESS_WRAPPER = 1;
 
 	uint64_t start = rdtsc();
 
-	// Build randomized graph
-	Graph *g = generate_full_graph(nvtx, weighted);
-
-	volatile int a = detect_cycles(g);
-
-	// Clean up
-	destroy_graph(g);	
+	for (q = 0; q < NUM_GRAPHS; q++) { detected[q] = detect_cycles(g[q]); }
 
 	ACCESS_WRAPPER = 0;
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
-	nk_vc_printf("cycle detected: %d\n", a);
+
+	// Clean up
+	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
 	_nk_fiber_print_data();
 
@@ -1546,20 +1550,25 @@ void mst_1(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	uint32_t nvtx = 20;
+	uint32_t nvtx = 80; 
 	int weighted = 0;
 
-	ACCESS_WRAPPER = 1;
-	
 	// Build randomized graph
-	Graph *g = generate_full_graph(nvtx, weighted);
-	
-	build_mst_unweighted(g);
+	Graph *g[NUM_GRAPHS];
 
-	// Clean up
-	destroy_graph(g);	
+	int q;
+	for (q = 0; q < NUM_GRAPHS; q++) { g[q] = generate_full_graph(nvtx, weighted); }
+	
+	ACCESS_WRAPPER = 1;
+
+	for (q = 0; q < NUM_GRAPHS; q++) { build_mst_unweighted(g[q]); }
 
 	ACCESS_WRAPPER = 0;
+	
+	// Clean up
+	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
+
+	_nk_fiber_print_data();
 	
 	return;
 }
@@ -1570,24 +1579,27 @@ void mst_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 	
 	// Declare parameters
-	uint32_t nvtx = 20; 
+	uint32_t nvtx = 80; 
 	int weighted = 0;
+
+	// Build randomized graph
+	Graph *g[NUM_GRAPHS];
+
+	int q;
+	for (q = 0; q < NUM_GRAPHS; q++) { g[q] = generate_full_graph(nvtx, weighted); }
 	
 	ACCESS_WRAPPER = 1;
 
 	uint64_t start = rdtsc();
 
-	// Build randomized graph
-	Graph *g = generate_full_graph(nvtx, weighted);
-
-	build_mst_unweighted(g);
-
-	// Clean up
-	destroy_graph(g);	
+	for (q = 0; q < NUM_GRAPHS; q++) { build_mst_unweighted(g[q]); }
 
 	ACCESS_WRAPPER = 0;
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
+	// Clean up
+	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
 	_nk_fiber_print_data();
 
@@ -1603,21 +1615,23 @@ void dijkstra_1(void *i, void **o)
 	nk_fiber_set_vc(vc);
 
 	// Declare parameters
-	uint32_t nvtx = 20;
+	uint32_t nvtx = 800; 
 	int weighted = 1;
 
-	ACCESS_WRAPPER = 1;
-	
 	// Build randomized graph
 	Graph *g = generate_full_graph(nvtx, weighted);
-	
-	dijkstra(g);
 
-	// Clean up
-	destroy_graph(g);	
+	ACCESS_WRAPPER = 1;
+
+	dijkstra(g);
 
 	ACCESS_WRAPPER = 0;
 	
+	// Clean up
+	destroy_graph(g);
+
+	_nk_fiber_print_data();
+
 	return;
 }
 
@@ -1626,24 +1640,24 @@ void dijkstra_2(void *i, void **o)
 	nk_fiber_set_vc(vc);
 	
 	// Declare parameters
-	uint32_t nvtx = 20; 
+	uint32_t nvtx = 800; 
 	int weighted = 1;
-	
-	ACCESS_WRAPPER = 1;
-
-	uint64_t start = rdtsc();
 
 	// Build randomized graph
 	Graph *g = generate_full_graph(nvtx, weighted);
 
-	dijkstra(g);
+	ACCESS_WRAPPER = 1;
 
-	// Clean up
-	destroy_graph(g);	
+	uint64_t start = rdtsc();
+
+	dijkstra(g);
 
 	ACCESS_WRAPPER = 0;
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
+	
+	// Clean up
+	destroy_graph(g);
 
 	_nk_fiber_print_data();
 
@@ -1659,9 +1673,10 @@ void qsort_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	
 	ACCESS_WRAPPER = 1;
 
-	int *testing = gen_rand_array(int, ELEMENTS, 1);
 	int *sorted = quicksort_driver(testing, ELEMENTS, int);
 
 	ACCESS_WRAPPER = 0;
@@ -1682,11 +1697,12 @@ void qsort_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	
 	ACCESS_WRAPPER = 1;
 
 	uint64_t start = rdtsc();
 
-	int *testing = gen_rand_array(int, ELEMENTS, 1);
 	int *sorted = quicksort_driver(testing, ELEMENTS, int);
 
 	ACCESS_WRAPPER = 0;
@@ -1715,9 +1731,10 @@ void radix_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	
 	ACCESS_WRAPPER = 1;
 
-	int *testing = gen_rand_array(int, ELEMENTS, 1);
 	radix_driver(testing, ELEMENTS, 32);
 
 	ACCESS_WRAPPER = 0;
@@ -1737,11 +1754,12 @@ void radix_2(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 	
+	int *testing = gen_rand_array(int, ELEMENTS, 1);
+	
 	ACCESS_WRAPPER = 1;
 
 	uint64_t start = rdtsc();
 
-	int *testing = gen_rand_array(int, ELEMENTS, 1);
 	radix_driver(testing, ELEMENTS, 32);
 
 	ACCESS_WRAPPER = 0;
