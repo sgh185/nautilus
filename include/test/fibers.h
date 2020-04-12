@@ -41,7 +41,7 @@ typedef struct TreeNode TreeNode_t;
 // Custom linked list
 typedef struct NodeTy
 {
-  uint64_t value;
+  uint32_t value;
   Node_t *next;
 } Node_t;
 
@@ -54,7 +54,7 @@ typedef struct LinkedList
 // Custom binary tree 
 typedef struct TreeNode
 {
-  uint64_t value;
+  uint32_t value;
   TreeNode_t *left;
   TreeNode_t *right;
 } TreeNode_t;
@@ -63,8 +63,8 @@ typedef struct TreeNode
 typedef struct TreeQueue
 {
   TreeNode_t **queue;
-  uint64_t head_pos; // Index of first tree node
-  uint64_t tail_pos; // Index of next available entry to add a tree node to queue
+  uint32_t head_pos; // Index of first tree node
+  uint32_t tail_pos; // Index of next available entry to add a tree node to queue
 } TreeQueue_t;
 
 typedef struct Vertex_t Vertex;
@@ -84,10 +84,12 @@ typedef struct Graph_t
 } Graph;
 
 // Linked-list set up
-List_t *createList(uint64_t start, uint64_t size);
+List_t *createList(uint32_t start, uint32_t size);
 
 // Binary tree set up
-TreeNode_t *createTree(uint64_t start, uint64_t size);
+TreeNode_t *createTree(uint32_t start, uint32_t size);
+
+void destroyTree(TreeNode_t *T);
 
 TreeQueue_t *createQueue(void);
 
@@ -120,7 +122,7 @@ void build_mst_unweighted(Graph *g);
 void dijkstra(Graph *g);
 
 // Utility
-uint64_t *createRandArray(uint64_t size);
+uint32_t *createRandArray(uint32_t size);
 
 // Sorting --- qsort
 #define _swap_helper(a, b) ({ \

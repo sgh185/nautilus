@@ -77,8 +77,8 @@
 
 /* Time-hook testing */
 #define YIELD_HOOK 0
-#define SNAPSHOT_HOOK 0
-#define NULL_HOOK 1
+#define SNAPSHOT_HOOK 1
+#define NULL_HOOK 0
 
 #define HOOK_FUNC YIELD_HOOK
 
@@ -1096,8 +1096,8 @@ void _nk_fiber_print_data()
   extern uint64_t early_count;
   extern uint64_t late_count;
 
-  nk_vc_printf("early count: %lu\n", early_count);
-  nk_vc_printf("late count: %lu\n", late_count);
+  nk_vc_printf("EARLYSTART\n%lu\nEARLYEND\n", early_count);
+  nk_vc_printf("LATESTART\n%lu\nLATEEND\n", late_count);
 
   nk_vc_printf("idle count: %lu\n",idle_count);
   

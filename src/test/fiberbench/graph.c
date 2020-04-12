@@ -240,7 +240,7 @@ Graph *generate_full_graph(uint32_t num_vtx, int weighted)
 	// between 1 and 6 neighbors)
 	// int num_neigh = (int) ((lrand48() % 5) + 1);
 	for (i = 0; i < g->num_vertices; i++) {
-		build_rand_edges(g->vertices[i], g, 2, weighted);
+		build_rand_edges(g->vertices[i], g, 3, weighted);
 	}
 
 	// Return full graph

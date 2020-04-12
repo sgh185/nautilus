@@ -87,7 +87,7 @@
 
 // Instrument timehook fire if this is enabled
 #define GET_HOOK_DATA 0
-#define GET_FIBER_DATA 1
+#define GET_FIBER_DATA 0
 #define MAX_HOOK_DATA_COUNT 1000
 uint64_t hook_data[MAX_HOOK_DATA_COUNT], hook_fire_data[MAX_HOOK_DATA_COUNT];
 int hook_time_index = 0;
@@ -761,7 +761,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 			   queue[count++] = h;
 
 // Get statistics
-#if 0 
+#if 1 
 			 if (mycpu == TARGET_CPU) {	
 		       if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
 			 	late_count++;
@@ -772,7 +772,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 		   }    
 
 // Get statistics
-#if 0 
+#if 1 
 		   else {
 		     if (mycpu == TARGET_CPU) {	
 		       if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {

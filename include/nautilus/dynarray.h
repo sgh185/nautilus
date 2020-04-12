@@ -65,6 +65,7 @@ extern "C" {
 		memset(new_da->data, 0, (sizeof(type) * DYNARRAY_INIT_SIZE)); \
 		new_da->size = 0; \
 		new_da->capacity = DYNARRAY_INIT_SIZE; \
+		spinlock_init(&(new_da->lock)); \
 		return new_da; \
 	} \
 
@@ -205,6 +206,10 @@ extern "C" {
 	free((da)->data); \
 	free(da); \
 })
+
+NK_DYNARRAY_DECL(int);
+NK_DYNARRAY_DECL(uint32_t);
+
 
 #ifdef __cplusplus
 }
