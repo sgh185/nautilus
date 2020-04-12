@@ -384,7 +384,8 @@ ifdef NAUT_CONFIG_USE_CLANG
 endif
 
 ifdef NAUT_CONFIG_USE_WLLVM
-  COMMON_FLAGS += -O2  # -fno-delete-null-pointer-checks
+  COMMON_FLAGS += -O2 -fno-vectorize -fno-slp-vectorize 
+  # -fno-delete-null-pointer-checks
    # -O3 will also work - PAD
 endif
 
