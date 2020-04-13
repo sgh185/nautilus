@@ -191,10 +191,10 @@ struct CAT : public ModulePass
 
 
             // Gather wrapper analysis state
-            auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>(*Routine).getSE();
-            auto *LI = &getAnalysis<LoopInfoWrapperPass>(*Routine).getLoopInfo();
             auto *DT = &getAnalysis<DominatorTreeWrapperPass>(*Routine).getDomTree();
             auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*Routine);
+            auto *LI = &getAnalysis<LoopInfoWrapperPass>(*Routine).getLoopInfo();
+            auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>(*Routine).getSE();
             OptimizationRemarkEmitter ORE(Routine);
 
 
