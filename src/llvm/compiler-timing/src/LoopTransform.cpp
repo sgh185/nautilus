@@ -398,6 +398,11 @@ void LoopTransform::_setIteratorPHI(PHINode *ThePHI, Value *Init, Value *Iterato
 
 void LoopTransform::_designateTopGuardViaPredecessors()
 {
+    // Remove top guards in recursive functions --- not handling
+    // this case leads to a storm of callbacks at runtime
+    if (!(F->doesNotRecurse()))
+        return;
+
     // Handle at outermost loop (for now)
     if (L->getLoopDepth() != 1)
         return;
@@ -671,7 +676,8 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     // This is much simpler than _designateTopGuardViaPredecessors, given that
     // this method can forge the guard via the PHINodes for the branch
 
-    if (L->getLoopDepth() == 1)
+    if ((L->getLoopDepth() == 1)
+        && (F->doesNotRecurse()))
         PHIInitValue = ConstantInt::get(IntTy, ExtensionCount - 1);
 #endif
                           
