@@ -60,7 +60,7 @@ class LoopTransform
 public:
     LoopTransform(Loop *L, Function *F,  LoopInfo *LI, DominatorTree *DT,
                   ScalarEvolution *SE, AssumptionCache *AC, 
-                  OptimizationRemarkEmitter *ORE, uint64_t Gran);
+                  OptimizationRemarkEmitter *ORE, uint64_t Gran, Loop *OutL);
 
     // ------- User transformation methods -------
     void Transform();
@@ -73,12 +73,10 @@ public:
 
 private:
     Loop *L;
+    Loop *OutL; // Outermost loop parent
     Function *F;
     uint64_t Granularity;
-    // uint32_t SCTripCount; 
-    // uint32_t SCTripMultiple;
-    LatencyDFA *LoopLDFA; // DFA --- full analysis
-    LatencyDFA *LoopIDFA; // Interval analysis --- top-level/same-depth
+    LatencyDFA *LoopIDFA; // DFA analysis --- top-level/same-depth
 
     // ------- Analysis state -------
 
@@ -111,7 +109,9 @@ private:
 
     // Loop iteration schemes
     void _buildIterator(PHINode *&NewPHI, Instruction *&Iterator);
-    void _setIteratorPHI(PHINode *ThePHI, Value *Init, Value *Iterator);
+    void _buildBranchIterator(Instruction *IterInsertionPt, PHINode *&NewTopPHI, 
+                              PHINode *&NewCallbackPHI, Instruction *&Iterator);
+    void _setIteratorPHI(Loop *LL, PHINode *ThePHI, Value *Init, Value *Iterator);
 
     // Callback blocks
     Instruction *_buildCallbackBlock(CmpInst *CI, Instruction *InsertionPoint, const string MD);

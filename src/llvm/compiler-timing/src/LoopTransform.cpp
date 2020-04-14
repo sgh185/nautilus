@@ -29,7 +29,7 @@
 
 LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *DT,
                              ScalarEvolution *SE, AssumptionCache *AC, 
-                             OptimizationRemarkEmitter *ORE,  uint64_t Gran)
+                             OptimizationRemarkEmitter *ORE,  uint64_t Gran, Loop *OutL)
 {
     // Will assume wrapper pass info is valid
 
@@ -43,14 +43,9 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->L = L;
     this->F = F;
     this->Granularity = Gran;
+    this->OutL = OutL;
 
-    // Calculate loop level DFA
-    this->LoopLDFA = new LatencyDFA(L, EXPECTED, MEDCON, false);
-    this->LoopLDFA->ComputeDFA();
-    this->LoopLDFA->PrintBBLatencies();
-    this->LoopLDFA->PrintInstLatencies();
-
-    // Calculate interval analysis --- very suspicious
+    // Calculate loop level analysis (same-depth)
     this->LoopIDFA = new LatencyDFA(L, EXPECTED, MEDCON, true);
     this->LoopIDFA->ComputeDFA();
     this->LoopIDFA->PrintBBLatencies();
@@ -99,7 +94,7 @@ void LoopTransform::_transformSubLoops()
     vector<Loop *> SubLoops = L->getSubLoopsVector();
     for (auto SL : SubLoops)
     {
-        auto SLT = new LoopTransform(SL, F, LI, DT, SE, AC, ORE, GRAN);
+        auto SLT = new LoopTransform(SL, F, LI, DT, SE, AC, ORE, GRAN, OutL);
         SLT->Transform();
 
         for (auto I : *(SLT->GetCallbackLocations()))
@@ -137,7 +132,7 @@ void LoopTransform::_transformSubLoops()
 void LoopTransform::Transform()
 {
     // Get LLS, LatencyDFA results, extension count statistics
-    uint64_t LLS = (LoopLDFA->GetLoopLatencySize()), 
+    uint64_t LLS = (LoopIDFA->GetLoopLatencySize()), 
              MarginOffset = 0,
              ExtensionCount = _calculateLoopExtensionStats(LLS, &MarginOffset);
 
@@ -258,7 +253,7 @@ Instruction *LoopTransform::_buildCallbackBlock(CmpInst *CI, Instruction *Insert
 
 
 /*
- * _buildIterator
+ * _buildIterator, _buildBranchIterator
  * 
  * Injections an interation counter into the loop --- using a PHINode that acts
  * as a pseudo-induction variable and an add instruction that acts as an iterator
@@ -266,7 +261,39 @@ Instruction *LoopTransform::_buildCallbackBlock(CmpInst *CI, Instruction *Insert
  * No optimization is performed here --- if an iteration counter in the form of
  * another PHINode already exists, we still create another one --- i.e. no 
  * analysis is performed to reuse a potential iterator
+ * 
+ * _buildBranchIterator --- an extension to buildIterator that handles multiple
+ * PHINodes for across-loop/inter-loop iteration schemes
  */
+
+void LoopTransform::_buildBranchIterator(Instruction *IterInsertionPt, PHINode *&NewTopPHI, 
+                                         PHINode *&NewCallbackPHI, Instruction *&Iterator)
+{
+    BasicBlock *Header = OutL->getHeader();
+    Instruction *InsertionPoint = Header->getFirstNonPHI();
+    if (InsertionPoint == nullptr)
+        return;
+
+    // Set up builders
+    IRBuilder<> TopBuilder{InsertionPoint};
+    IRBuilder<> CallbackBuilder{IterInsertionPt};
+    Type *IntTy = Type::getInt32Ty(F->getContext());
+
+    // Build the PHINode that handles the iterator value on each
+    // iteration of the loop, create the instruction to iterate,
+    // build phi nodes to handle inter loop iteration schemes
+    Value *Increment = ConstantInt::get(IntTy, 1);
+    NewTopPHI = TopBuilder.CreatePHI(IntTy, 0);
+    if (L->getLoopDepth() != 1)
+    {
+        NewCallbackPHI = CallbackBuilder.CreatePHI(IntTy, 0);
+        Iterator = dyn_cast<Instruction>(CallbackBuilder.CreateAdd(NewCallbackPHI, Increment));
+    }
+    else
+        Iterator = dyn_cast<Instruction>(CallbackBuilder.CreateAdd(NewTopPHI, Increment));
+
+    return;
+}
 
 void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
 {
@@ -275,15 +302,24 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
     if (InsertionPoint == nullptr)
         return;
 
-    // Set up builder 
-    IRBuilder<> IteratorBuilder{InsertionPoint};
+    DEBUG_INFO("InsertionPoint: ");
+    OBJ_INFO(InsertionPoint);
+
+    // Set up builders
+    IRBuilder<> Builder{InsertionPoint};
     Type *IntTy = Type::getInt32Ty(F->getContext());
 
     // Build the PHINode that handles the iterator value on each
     // iteration of the loop, create the instruction to iterate
     Value *Increment = ConstantInt::get(IntTy, 1);
-    PHINode *TopPHI = IteratorBuilder.CreatePHI(IntTy, 0);
-    Value *IteratorVal = IteratorBuilder.CreateAdd(TopPHI, Increment);
+    PHINode *TopPHI = Builder.CreatePHI(IntTy, 0);
+    Value *IteratorVal = Builder.CreateAdd(TopPHI, Increment);
+
+    DEBUG_INFO("TopPHI: ");
+    OBJ_INFO(TopPHI);
+
+    DEBUG_INFO("IteratorVal: ");
+    OBJ_INFO(IteratorVal);
     
     // Set values
     NewPHI = TopPHI;
@@ -300,13 +336,13 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
  * for the iteration scheme --- used in conjunction with _buildIterator
  */ 
 
-void LoopTransform::_setIteratorPHI(PHINode *ThePHI, Value *Init, Value *Iterator)
+void LoopTransform::_setIteratorPHI(Loop *LL, PHINode *ThePHI, Value *Init, Value *Iterator)
 {
-    for (auto PredBB : predecessors(L->getHeader()))
+    for (auto PredBB : predecessors(LL->getHeader()))
     // for (auto PredBB : predecessors(ThePHI->getParent()))
     {
         // Handle backedges
-        if (L->contains(PredBB)) // Shortcut --- for header
+        if (LL->contains(PredBB)) // Shortcut --- for header
             ThePHI->addIncoming(Iterator, PredBB);
         else
             ThePHI->addIncoming(Init, PredBB);
@@ -415,7 +451,7 @@ void LoopTransform::_designateTopGuardViaPredecessors()
     for (auto PredBB : predecessors(Header))
     {
         // Factor out backedges, etc.
-        if ((LoopLDFA->IsBackEdge(PredBB, Header))
+        if ((LoopIDFA->IsBackEdge(PredBB, Header))
             || L->contains(PredBB))
             continue;
 
@@ -532,7 +568,7 @@ void LoopTransform::_designateBottomGuardViaExits(uint64_t ExtensionCount)
             continue;
 
         Type *IntTy = Type::getInt32Ty(F->getContext());
-        _setIteratorPHI(IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
+        _setIteratorPHI(L, IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
         _buildBottomGuard(Source, Exit, Iterator, ExtensionCount);
     }
 
@@ -654,6 +690,20 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
 
 void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount)
 {
+    DEBUG_INFO("\n\n\nLOOPSTUFF\n\n\n");
+    DEBUG_INFO("\n" + F->getName() + "\n");
+    OBJ_INFO(L);
+    DEBUG_INFO("hasDedicatedExits: " + to_string(L->hasDedicatedExits()) + "\n");
+
+    DEBUG_INFO("HAS PREHEADER: ");
+    if (L->getLoopPreheader() != nullptr)
+        OBJ_INFO(L->getLoopPreheader());
+    
+    for (auto B : predecessors(L->getLoopPreheader()))
+    {
+        OBJ_INFO(B);
+    }
+
     // Nothing to do if ExtensionCount is 0
     if (!ExtensionCount)
         return;
@@ -677,18 +727,19 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     // this method can forge the guard via the PHINodes for the branch
 
     if ((L->getLoopDepth() == 1)
-        && (F->doesNotRecurse()))
+        && (Utils::DoesNotDirectlyRecurse(F)))
         PHIInitValue = ConstantInt::get(IntTy, ExtensionCount - 1);
 #endif
                           
     // Generate new instructions for new phi node, inject iterator, and
     // new block functionality inside entry block
     PHINode *TopPHI = nullptr;
+    PHINode *CallbackPHI = nullptr;
     Instruction *Iterator = nullptr;
 
-    _buildIterator(TopPHI, Iterator);
+    _buildBranchIterator(L->getHeader()->getFirstNonPHI(), TopPHI, CallbackPHI, Iterator);
     if ((TopPHI == nullptr)
-        || (TopPHI == nullptr))
+        || (Iterator == nullptr))
         return;
 
     // Build custom condition responsible for taking the branch vs. continuing with
@@ -710,7 +761,7 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     BasicBlock *NewSinglePred = NewBlock->getUniquePredecessor();
 
     // Generate new builder on insertion point in the successor of the new block and
-    // generate second level phi node
+    // generate second level phi node (SecondaryPHI)
     Instruction *SecondaryInsertionPoint = NewSingleSucc->getFirstNonPHI();
     if (SecondaryInsertionPoint == nullptr)
         return;
@@ -718,12 +769,61 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     IRBuilder<> SecondaryPHIBuilder{SecondaryInsertionPoint};
     PHINode *SecondaryPHI = SecondaryPHIBuilder.CreatePHI(IntTy, 0);
 
-    // Populate selection points for top level phi node
-    _setIteratorPHI(TopPHI, PHIInitValue, SecondaryPHI);
-
-    // Populate selection points for second level phi node
+    // Populate selection points for SecondaryPHI
     SecondaryPHI->addIncoming(Iterator, NewSinglePred);
     SecondaryPHI->addIncoming(ZeroValue, NewBlock);
+
+    // Set up inter-loop iteration scheme --- using the outermost loop
+    BasicBlock *OuterLatch = OutL->getLoopLatch();
+    Instruction *PBInsertionPoint = OuterLatch->getFirstNonPHI();
+    BasicBlock *UniqueExit = L->getUniqueExitBlock();
+
+    // If we're looking at an outermost loop, or we don't have loop
+    // analysis from the normalization passes --- revert to intra
+    // loop biased branch iterator and return
+    if ((L->getLoopDepth() == 1) 
+        || (!(L->hasDedicatedExits()))
+        || (PBInsertionPoint == nullptr)
+        || (UniqueExit == nullptr))
+    {
+        // Populate selection points for top level phi node (intra)
+        _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
+
+        // Mark callback location
+        CallbackLocations.insert(NewBlockTerminator);
+
+        return;
+    }
+
+    // Populate selection points for CallbackPHI --- based on predecessors 
+    // of the loop at the current depth (an inner loop)
+    for (auto PredBB : predecessors(CallbackPHI->getParent()))
+    {
+        if (L->contains(PredBB))
+            CallbackPHI->addIncoming(SecondaryPHI, PredBB);
+        else
+            CallbackPHI->addIncoming(TopPHI, PredBB);
+    }
+
+    // Build a PHINode at the latch of the outermost loop --- that 
+    // takes incoming values of the SecondaryPHI if arriving from an
+    // inner loop, or the TopPHI if coming from outside an inner loop
+    // --- call this the PropagationPHI, represents the propagation
+    // of the iterator across loops to the outermost loop 
+    IRBuilder<> PBBuilder{PBInsertionPoint};
+    PHINode *PropagationPHI = PBBuilder.CreatePHI(IntTy, 0);
+
+    for (auto PredBB : predecessors(OuterLatch))
+    {
+        if ((PredBB != UniqueExit)
+            && ((LI->getLoopFor(PredBB) != L)))
+            PropagationPHI->addIncoming(TopPHI, PredBB);
+        else
+            PropagationPHI->addIncoming(SecondaryPHI, PredBB);
+    }
+
+    // Populate selection points for top level phi node (inter)
+    _setIteratorPHI(OutL, TopPHI, PHIInitValue, PropagationPHI);
 
     // Mark callback location
     CallbackLocations.insert(NewBlockTerminator);
@@ -761,10 +861,10 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
     LOOP_DEBUG_INFO("\n\n\nTHE LOOP: ");
     LOOP_OBJ_INFO(L);
 
-    if (LoopLDFA->GetLoopInstructionCount() > MaxLoopSize)
+    if (LoopIDFA->GetLoopInstructionCount() > MaxLoopSize)
     {
         LOOP_DEBUG_INFO("Not Unrolled (size), Count: "); 
-        LOOP_DEBUG_INFO(to_string(LoopLDFA->GetLoopInstructionCount()));
+        LOOP_DEBUG_INFO(to_string(LoopIDFA->GetLoopInstructionCount()));
         LOOP_DEBUG_INFO("\n");
         Debug::PrintCurrentLoop(L);
 

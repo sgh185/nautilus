@@ -125,6 +125,7 @@ private:
     double _configConservativenessCalculation(vector<double> &PL); // Enforcing policy
     double _calculateEntryPointLatency(BasicBlock *CurrBlock); // Application of policy
     double _calculateEntryPointLastCallback(BasicBlock *CurrBlock); // Application of policy
+    void _calculateLoopLatencySize();
 
     // ------- Utility -------
     void _organizeFunctionBackedges();

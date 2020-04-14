@@ -44,9 +44,10 @@ namespace Utils
     void ExitOnInit();
     void GatherAnnotatedFunctions(GlobalVariable *GV, vector<Function *> &AF);
 
-    // Basic function tracking/identification
+    // Basic function tracking/identification/analysis
     set<Function *> *IdentifyFiberRoutines();
     void IdentifyAllNKFunctions(Module &M, set<Function *> &Routines);
+    bool DoesNotDirectlyRecurse(Function *F);
 
     // Basic transformations
     void InlineNKFunction(Function *F);

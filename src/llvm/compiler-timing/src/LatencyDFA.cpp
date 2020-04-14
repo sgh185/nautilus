@@ -43,6 +43,12 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy,
     if (!(_buildLoopBlocks(L)))
         abort(); // Serious
 
+    DEBUG_INFO("\n\n\n\n\nNOW LOOP LDFA BLOCKS:\n");
+    for (auto B : Blocks)
+    {
+        OBJ_INFO(B);
+    }
+
     // Set state
     this->LI = nullptr;
     this->EntryBlock = L->getHeader();
@@ -115,6 +121,12 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy,
             Blocks.push_back(&B);
     }
 
+    DEBUG_INFO("\n\n\n\n\nNOW FUNCTION LDFA BLOCKS:\n");
+    for (auto B : Blocks)
+    {
+        OBJ_INFO(B);
+    }
+
     // Set DFA data structures
     this->GEN = unordered_map<Instruction *, double>();
     this->IN = unordered_map<Instruction *, double>();
@@ -159,6 +171,30 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy,
  * a loop
  */ 
 
+void LatencyDFA::_calculateLoopLatencySize()
+{   
+    DEBUG_INFO("_calculateLoopLatencySize\n\n");
+    
+    // Very unoptimized method
+    for (auto Block : Blocks)
+    {
+        bool ConsiderBlock = true;
+        for (auto SuccBB : successors(Block))
+        {
+            if (IsBackEdge(Block, SuccBB))
+                continue;
+
+            if ((find(Blocks.begin(), Blocks.end(), SuccBB) != Blocks.end()))
+                ConsiderBlock &= false;
+        }
+
+        if (ConsiderBlock)
+            this->LoopLatencySize += AccumulatedLatencies[Block];
+    }
+
+    return;
+}
+
 void LatencyDFA::ComputeDFA()
 {
     // Execute DFA
@@ -169,6 +205,8 @@ void LatencyDFA::ComputeDFA()
     // Determine LLS if we have a loop
     if (L != nullptr)
     {
+        _calculateLoopLatencySize();
+#if 0
         BasicBlock *Latch = L->getLoopLatch();
         if (Latch != nullptr)
             this->LoopLatencySize = AccumulatedLatencies[Latch];
@@ -177,6 +215,7 @@ void LatencyDFA::ComputeDFA()
             BasicBlock *Last = L->getBlocksVector().back();
             this->LoopLatencySize = AccumulatedLatencies[Last];
         }
+#endif
 
         DEBUG_INFO("\nLoopLatencySize: " + 
                     to_string(this->LoopLatencySize) + " " + to_string(this->TopLevelAnalysis) + "\n");
@@ -795,8 +834,8 @@ uint64_t LatencyDFA::_buildLoopBlocks(Loop *L)
         BasicBlock *CurrBB = *B;
 
         // Build blocks vector
-        if ((!TopLevelAnalysis)
-            && (_isValidBlock(CurrBB)))
+        if ((!TopLevelAnalysis) // Very suspicious
+            || (_isValidBlock(CurrBB)))
             Blocks.push_back(CurrBB);
 
         // Calculate number of instructions
@@ -935,7 +974,6 @@ bool LatencyDFA::IsContainedInLoop(BasicBlock *BB)
     {
         for (auto Loop : Loops)
         {
-            OBJ_INFO(Loop);
             if (Loop->contains(BB))
                 Contained |= true;
         }

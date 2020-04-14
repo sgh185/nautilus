@@ -184,6 +184,43 @@ void Utils::IdentifyAllNKFunctions(Module &M, set<Function *> &Routines)
 }
 
 
+/*
+ * DoesNotDirectlyRecurse
+ * 
+ * Recognize if a function is directly recursive by examining the call
+ * instructions in the function --- this replaces the doesNotRecurse
+ * method from LLVM, which checks for the existance of the NoRecurse 
+ * function attribute
+ * 
+ */
+
+bool Utils::DoesNotDirectlyRecurse(Function *F)
+{
+    bool Found = true;
+
+    for (auto &B : *F)
+    {
+        for (auto &I : B)
+        {
+            if (auto *CI = dyn_cast<CallInst>(&I))
+            {
+                Function *Callee = CI->getCalledFunction();
+                if (Callee == F)
+                {
+                    Found &= false;
+                    break;
+                }
+            }
+        }
+
+        if (!Found)
+            break;
+    }
+
+    return Found;
+}
+
+
 // ----------------------------------------------------------------------------------
 
 // Utils --- Transformations

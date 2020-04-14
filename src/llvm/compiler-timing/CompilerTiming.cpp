@@ -189,7 +189,7 @@ struct CAT : public ModulePass
 			// Set injection locations data structure
             set<Instruction *> InjectionLocations;
 
-
+            
             // Gather wrapper analysis state
             auto *DT = &getAnalysis<DominatorTreeWrapperPass>(*Routine).getDomTree();
             auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*Routine);
@@ -208,7 +208,7 @@ struct CAT : public ModulePass
             // locations generated
             for (auto L : Loops)
             {
-                auto LT = new LoopTransform(L, Routine, LI, DT, SE, AC, &ORE, GRAN);
+                auto LT = new LoopTransform(L, Routine, LI, DT, SE, AC, &ORE, GRAN, L);
                 LT->Transform();
 
                 for (auto I : *(LT->GetCallbackLocations()))
