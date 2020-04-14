@@ -165,7 +165,7 @@ void LoopTransform::Transform()
         BuildBiasedBranch(InsertionPoint, ExtensionCount);
 
 #if LOOP_GUARD
-        _designateBottomGuardViaExits(ExtensionCount);
+        // _designateBottomGuardViaExits(ExtensionCount);
 #endif
         return;
     }
@@ -774,18 +774,27 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     SecondaryPHI->addIncoming(ZeroValue, NewBlock);
 
     // Set up inter-loop iteration scheme --- using the outermost loop
+    OBJ_INFO(L);
+    DEBUG_INFO("OUTER LATCH: \n");
     BasicBlock *OuterLatch = OutL->getLoopLatch();
+    OBJ_INFO(OuterLatch);
     Instruction *PBInsertionPoint = OuterLatch->getFirstNonPHI();
-    BasicBlock *UniqueExit = L->getUniqueExitBlock();
+
+    // Gather exit blocks
+    SmallVector<BasicBlock *, 8> ExitBlocks;
+    L->getExitBlocks(ExitBlocks);
+    vector<BasicBlock *> Exits;
+    for (auto EB : ExitBlocks) // Very unnecessary
+        Exits.push_back(EB);
 
     // If we're looking at an outermost loop, or we don't have loop
     // analysis from the normalization passes --- revert to intra
     // loop biased branch iterator and return
     if ((L->getLoopDepth() == 1) 
         || (!(L->hasDedicatedExits()))
-        || (PBInsertionPoint == nullptr)
-        || (UniqueExit == nullptr))
+        || (PBInsertionPoint == nullptr))
     {
+        DEBUG_INFO("HELP\n");
         // Populate selection points for top level phi node (intra)
         _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
 
@@ -815,7 +824,7 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
 
     for (auto PredBB : predecessors(OuterLatch))
     {
-        if ((PredBB != UniqueExit)
+        if ((find(Exits.begin(), Exits.end(), PredBB) == Exits.end())
             && ((LI->getLoopFor(PredBB) != L)))
             PropagationPHI->addIncoming(TopPHI, PredBB);
         else
