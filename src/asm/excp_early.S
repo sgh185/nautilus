@@ -75,6 +75,14 @@ GLOBAL(early_irq_common)
 
     SAVE_GPRS()
 
+#ifdef NAUT_CONFIG_FPU_SAVE
+    /* Save the FPRs just in case clang uses them... */
+    movq %gs:0x0, %rax
+    movzwq 16(%rax), %rbx
+    leaq (%rax, %rbx, 1), %rbx
+    fxsave (%rbx)
+#endif
+	
 #ifdef NAUT_CONFIG_CACHEPART
     // note that we have already saved all GPRs
     // we will also use callee-save registers to maintain state
@@ -190,6 +198,14 @@ thr_return:
 
 skip_cat_exit:
 
+#endif
+
+#ifdef NAUT_CONFIG_FPU_SAVE
+    /* restore the FPRs just in case clang uses them... */
+    movq %gs:0x0, %rax
+    movzwq 16(%rax), %rbx
+    leaq (%rax, %rbx, 1), %rbx
+    fxrstor (%rbx)
 #endif
 
     RESTORE_GPRS()
