@@ -809,7 +809,7 @@ timing: $(BIN_NAME)
 	opt -loop-simplify -lcssa $(BC_NAME) -o $(LOOP_NAME)
 	llvm-dis $(LOOP_NAME) -o $(LOOP_LL_NAME)
 	# Run compiler-timing pass	
-	opt -load ~/CAT/lib/CAT.so -ct -o $(OPT_NAME) $(LOOP_NAME) &> loop.out
+	opt -load ~/CAT/lib/CAT.so -ct $(LOOP_NAME) -o $(OPT_NAME) &> loop.out 
 	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
 	# Recompile (with full opt levels) new object files, binaries
 	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
