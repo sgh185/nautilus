@@ -144,12 +144,13 @@ void LoopTransform::Transform()
         // Unroll the loop by an unroll factor = ExtensionCount, collect
         // all other callback locations that were generated as a byproduct
         // of the unrolling process --- callback locations are marked internally
-        ExtendLoop(ExtensionCount);
+        PHINode *IterPropPHI = nullptr;
+        ExtendLoop(ExtensionCount, IterPropPHI);
         _collectUnrolledCallbackLocations();
 
 #if LOOP_GUARD
         _designateTopGuardViaPredecessors();
-        _designateBottomGuardViaExits(ExtensionCount);
+        _designateBottomGuard(ExtensionCount, IterPropPHI);
 #endif
 
         return;
@@ -162,10 +163,11 @@ void LoopTransform::Transform()
         // take based on the iteration count for the loop --- build at
         // the top of the loop --- callback locations are marked internally
         Instruction *InsertionPoint = L->getHeader()->getFirstNonPHI();
-        BuildBiasedBranch(InsertionPoint, ExtensionCount);
+        PHINode *IterPropPHI = nullptr;
+        BuildBiasedBranch(InsertionPoint, ExtensionCount, IterPropPHI);
 
 #if LOOP_GUARD
-        // _designateBottomGuardViaExits(ExtensionCount);
+        _designateBottomGuard(ExtensionCount, IterPropPHI);
 #endif
         return;
     }
@@ -182,7 +184,7 @@ void LoopTransform::Transform()
 
 #if LOOP_GUARD
         _designateTopGuardViaPredecessors();
-        _designateBottomGuardViaExits(ExtensionCount);
+        _designateBottomGuard(ExtensionCount, nullptr);
 #endif
 
         return;
@@ -487,6 +489,10 @@ void LoopTransform::_designateTopGuardViaPredecessors()
 }
 
 
+
+
+/* ------------------ DEPRECATED ---------------------
+
 /*
  * _designateBottomGuardViaExits, _buildBottomGuard
  * 
@@ -543,8 +549,8 @@ void LoopTransform::_designateTopGuardViaPredecessors()
  * 
  */ 
 
-void LoopTransform::_designateBottomGuardViaExits(uint64_t ExtensionCount)
-{    
+void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, PHINode *IterPropPHI)
+{
     // Get exit blocks
     SmallVector<std::pair<BasicBlock *, BasicBlock *>, 8> ExitEdges;
     L->getExitEdges(ExitEdges);
@@ -559,21 +565,26 @@ void LoopTransform::_designateBottomGuardViaExits(uint64_t ExtensionCount)
             || (!(isa<BranchInst>(SourceTerminator))))
             continue; // Sanity check
 
-        PHINode *IteratorPHI = nullptr;
-        Instruction *Iterator = nullptr;
+        if (IterPropPHI == nullptr)
+        {
+            PHINode *IteratorPHI = nullptr;
+            Instruction *Iterator = nullptr;
 
-        _buildIterator(IteratorPHI, Iterator);
-        if ((IteratorPHI == nullptr)
-            || (Iterator == nullptr))
-            continue;
+            _buildIterator(IteratorPHI, Iterator);
+            if ((IteratorPHI == nullptr)
+                || (Iterator == nullptr))
+                continue;
 
-        Type *IntTy = Type::getInt32Ty(F->getContext());
-        _setIteratorPHI(L, IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
-        _buildBottomGuard(Source, Exit, Iterator, ExtensionCount);
+            Type *IntTy = Type::getInt32Ty(F->getContext());
+            _setIteratorPHI(L, IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
+            _buildBottomGuard(Source, Exit, Iterator, ExtensionCount);
+        }
+        else { _buildBottomGuard(Source, Exit, IterPropPHI, ExtensionCount); }
     }
 
-    return; 
+    return;
 }
+
 
 void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, 
                                       Instruction *Iterator, uint64_t ExtensionCount)
@@ -626,9 +637,9 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
     IRBuilder<> ChecksBuilder{ChecksBranch};
     Type *IntTy = Type::getInt32Ty(F->getContext());
 
-    // Build the compare instruction --- use threshold = ???
-    Value *DummyThreshold = ConstantInt::get(IntTy, (ExtensionCount / 2)); 
-    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_EQ, Iterator, DummyThreshold);
+    // Build the compare instruction --- use threshold = 0.8
+    Value *Threshold = ConstantInt::get(IntTy, (ExtensionCount * 0.8)); 
+    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_SGT, Iterator, Threshold);
     
     // Change condition of checks branch instruction
     ChecksBranch->setCondition(ThresholdCheck);
@@ -639,6 +650,7 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
     return;
 }
 
+/* ----------------------------------------
 
 /*
  * BuildBiasedBranch
@@ -688,7 +700,7 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
  * 
  */ 
 
-void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount)
+void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount, PHINode *&IterPropPHI)
 {
     DEBUG_INFO("\n\n\nLOOPSTUFF\n\n\n");
     DEBUG_INFO("\n" + F->getName() + "\n");
@@ -794,7 +806,10 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
         || (!(L->hasDedicatedExits()))
         || (PBInsertionPoint == nullptr))
     {
-        DEBUG_INFO("HELP\n");
+        // Set the iterator phi as the secondary phi --- for
+        // the bottom guard implementation
+        IterPropPHI = SecondaryPHI;
+
         // Populate selection points for top level phi node (intra)
         _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
 
@@ -831,6 +846,8 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
             PropagationPHI->addIncoming(SecondaryPHI, PredBB);
     }
 
+    IterPropPHI = SecondaryPHI;
+
     // Populate selection points for top level phi node (inter)
     _setIteratorPHI(OutL, TopPHI, PHIInitValue, PropagationPHI);
 
@@ -856,7 +873,7 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
  * not occur often at all, but this fallback mechanism is in place
  */  
 
-void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
+void LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
 {
     // Nothing to unroll if ExtensionCount is 0
     if (!ExtensionCount) 
@@ -878,7 +895,7 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
         Debug::PrintCurrentLoop(L);
 
         // Build a branch to handle large loop size
-        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount);
+        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
         return;
     }
 
@@ -906,7 +923,7 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount)
         Debug::PrintCurrentLoop(L);
 
         // Build a branch to handle the unroll failure
-        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount);
+        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
         return;
     }
 
