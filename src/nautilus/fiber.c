@@ -76,9 +76,9 @@
 #define _UNLOCK_FIBER(f) spin_unlock(&(f->lock))
 
 /* Time-hook testing */
-#define YIELD_HOOK 0
+#define YIELD_HOOK 1
 #define SNAPSHOT_HOOK 0
-#define NULL_HOOK 1
+#define NULL_HOOK 0
 
 // #define HOOK_FUNC YIELD_HOOK
 
@@ -909,6 +909,9 @@ static uint64_t count = 0; // Analogous to time_interval
 
 static uint64_t idle_count = 0; // Statistics
 
+uint64_t overhead_count = 0; // Overhead stats
+uint32_t rdtsc_count = 0;
+
 __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 {
 
@@ -935,9 +938,16 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 
 	  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
 		uint64_t temp_time = rdtsc();
-		wrapper_data[time_interval++] = temp_time - last;
+		wrapper_data[time_interval] = temp_time - last;
+	  	overhead_data[time_interval] = overhead_count - (rdtsc_count * 32);
+	
+		overhead_count = 0;
+	  	rdtsc_count = 0;
 		last = temp_time;
+		time_interval++;
+
 		nk_fiber_yield();
+
 		// last = rdtsc();
       }
 	  
@@ -1011,7 +1021,6 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 }
 
 // Globals --- testing and snapshot functionality
-uint64_t overhead_count = 0;
 static int old_snapshot = 0;
 void *address_hook_0 = 0;
 void *address_hook_1 = 0;
@@ -1039,7 +1048,7 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 	  	 
 	  int curr_snapshot = rdtsc(); 
 	  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
-	  overhead_data[time_interval] = overhead_count;
+	  overhead_data[time_interval] = overhead_count - (rdtsc_count * 32);
 
 #if 0 
 	  // We want to get a sense of where the callers are coming
@@ -1068,6 +1077,7 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 #endif
 
 	  overhead_count = 0;
+	  rdtsc_count = 0;
 	  old_snapshot = curr_snapshot;
 	  time_interval++;
 

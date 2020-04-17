@@ -86,8 +86,8 @@
 #define MIN(x, y)((x < y) ? (x) : (y))
 
 // Instrument timehook fire if this is enabled
-#define GET_WHOLE_HOOK_DATA 0
-#define GET_HOOK_DATA 1
+#define GET_WHOLE_HOOK_DATA 1
+#define GET_HOOK_DATA 0 
 #define GET_FIBER_DATA 0
 #define MAX_HOOK_DATA_COUNT 1000
 
@@ -578,6 +578,7 @@ extern int time_interval;
 extern uint64_t last;
 extern uint64_t wrapper_data[MAX_WRAPPER_COUNT];
 extern uint64_t overhead_count;
+extern uint32_t rdtsc_count;
 
 __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 {
@@ -625,7 +626,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 
      if (!(nk_fiber_current()->is_idle)) { 
 
-       if (ACCESS_WRAPPER) { whole_rdtsc_queue = rdtsc(); }
+       if (ACCESS_WRAPPER) { whole_rdtsc_queue = rdtsc(); rdtsc_count++; }
 	 
 	 }
 	
@@ -849,6 +850,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
        if (ACCESS_WRAPPER) { 
 		   whole_rdtsc_queue = rdtsc() - whole_rdtsc_queue;
 	  	   overhead_count += whole_rdtsc_queue;
+		   rdtsc_count++;
 	   }
 	 
 	 }
@@ -858,7 +860,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 #endif
 
 
-#if GET_WHOLE_HOOK_DATA
+#if 0 // GET_WHOLE_HOOK_DATA
 
    if ((mycpu == TARGET_CPU)
 	   && (hook_compare_fiber_thread == get_cur_thread())) {
@@ -905,7 +907,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 // ------ END FIRING PORTION ------
 
 // Overhead instrumentation
-#if GET_WHOLE_HOOK_DATA
+#if 0 // GET_WHOLE_HOOK_DATA
 
    if ((mycpu == TARGET_CPU)
 	   && (hook_compare_fiber_thread == get_cur_thread())) {

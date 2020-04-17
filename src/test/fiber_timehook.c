@@ -57,6 +57,7 @@ NK_STACK_DECL(int);
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
 #define SEED() (srand48(rdtsc() % 1024))
+#define YIELDING 1
 
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
@@ -205,7 +206,7 @@ __attribute__((noinline)) TreeNode_t * createTree(uint32_t start, uint32_t size)
   	return T_root;
 }
 
-#define MAX_QUEUE_SIZE 1000
+#define MAX_QUEUE_SIZE 20000
 // Create queue for BST --- used for traversal
 __attribute__((noinline)) TreeQueue_t * createQueue(void) {
 
@@ -1039,7 +1040,7 @@ void operations_2(void *i, void **o)
 
 // ------
 // Benchmark 10  --- time_hook data collection, only one fiber
-#define TH 10000
+#define TH 100000
 extern int ACCESS_HOOK;
 void time_hook_test(void *i, void **o)
 {
@@ -1787,7 +1788,10 @@ void radix_2(void *i, void **o)
 int test_fibers_bench(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
-  // nk_fiber_start(timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+  vc = get_cur_thread()->vc; 
+#if YIELDING
+  nk_fiber_start(timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(timing_loop_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1796,7 +1800,9 @@ int test_fibers_bench2(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(s_timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(s_timing_loop_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(s_timing_loop_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1805,7 +1811,9 @@ int test_fibers_bench3(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(dot_prod_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(dot_prod_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(dot_prod_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1814,7 +1822,9 @@ int test_fibers_bench4(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(ll_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(ll_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(ll_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1823,7 +1833,9 @@ int test_fibers_bench5(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif 
   nk_fiber_start(mm_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1848,11 +1860,13 @@ int test_fibers_bench6(){
 
 #else
   
-  // nk_fiber_start(bt_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(bt_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(bt_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
 
 #endif
-  
+
   return 0;
 
 }
@@ -1861,7 +1875,9 @@ int test_fibers_bench7(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(rand_mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(rand_mm_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(rand_mm_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1870,7 +1886,9 @@ int test_fibers_bench8(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(bt_lo_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(bt_lo_traversal_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(bt_lo_traversal_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1879,7 +1897,9 @@ int test_fibers_bench9(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(operations_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(operations_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(operations_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1896,7 +1916,9 @@ int test_fibers_bench11(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(rijndael_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(rijndael_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(rijndael_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1905,7 +1927,9 @@ int test_fibers_bench12(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(sha1_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(sha1_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(sha1_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1914,7 +1938,9 @@ int test_fibers_bench13(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(md5_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(md5_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(md5_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1923,7 +1949,9 @@ int test_fibers_bench14(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(fib_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(fib_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(fib_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1932,7 +1960,9 @@ int test_fibers_bench15(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(knn_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(knn_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(knn_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1941,7 +1971,9 @@ int test_fibers_bench16(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(cycle_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(cycle_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(cycle_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1950,7 +1982,9 @@ int test_fibers_bench17(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(mst_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(mst_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(mst_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1959,7 +1993,9 @@ int test_fibers_bench18(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(dijkstra_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(dijkstra_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(dijkstra_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1968,7 +2004,9 @@ int test_fibers_bench19(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(qsort_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(qsort_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(qsort_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
@@ -1977,7 +2015,9 @@ int test_fibers_bench20(){
   nk_fiber_t *simple1;
   nk_fiber_t *simple2;
   vc = get_cur_thread()->vc;
-  // nk_fiber_start(radix_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#if YIELDING
+  nk_fiber_start(radix_1, 0, 0, FSTACK_2MB, TARGET_CPU, &simple1);
+#endif
   nk_fiber_start(radix_2, 0, 0, FSTACK_2MB, TARGET_CPU, &simple2);
   return 0;
 }
