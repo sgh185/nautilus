@@ -52,6 +52,9 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->AC = AC;
     this->ORE = ORE;
 
+    // Set other data structures
+    this->CallbackLocations = set<Instruction *>();
+
     // Handle and transform subloops first before transforming
     // the current loop
     _transformSubLoops();
@@ -65,8 +68,6 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     // this->SCTripCount = SE->getSmallConstantTripCount(L);
     // this->SCTripMultiple = SE->getSmallConstantTripMultiple(L);
 
-    // Set other data structures
-    this->CallbackLocations = set<Instruction *>();
 
     // Try and transform loops into lcssa and loop-simplify forms
     
@@ -144,19 +145,31 @@ void LoopTransform::Transform()
         // all other callback locations that were generated as a byproduct
         // of the unrolling process --- callback locations are marked internally
         PHINode *IterPropPHI = nullptr;
-        ExtendLoop(ExtensionCount, IterPropPHI);
-        _collectUnrolledCallbackLocations();
+        ExtendLoopResult ELP = ExtendLoop(ExtensionCount, IterPropPHI);
 
-#if LOOP_GUARD
-        _designateTopGuardViaPredecessors();
-        // No bottom guard designated --- ExtendLoop marks the last instruction
-        // of the loop's latch for injection --- that way, if a loop breaks out
-        // of its execution, it will drop into the latch and execute the callback
-        // set up in the latch either way --- BRANCH and MANUAL are not set up
-        // in this way
-#endif
+        switch(ELP)
+        {
+        case ELSuccess: // Proceed with unrolled loop handling
+        {
+            _collectUnrolledCallbackLocations();
+            _designateTopGuardViaPredecessors();
+            // No bottom guard designated --- ExtendLoop marks the last instruction
+            // of the loop's latch for injection --- that way, if a loop breaks out
+            // of its execution, it will drop into the latch and execute the callback
+            // set up in the latch either way --- BRANCH and MANUAL are not set up
+            // in this way
 
-        return;
+            return;
+        }
+        case ELFail: // Unrolling failed --- revert to biased branch handling
+        {
+            _designateBottomGuard(ExtensionCount, IterPropPHI);
+            return;
+        }
+        case ELFull: // No more loop --- no more handling
+        default:
+            return;
+        }
     }
     case TransformOption::BRANCH:
     {
@@ -167,11 +180,10 @@ void LoopTransform::Transform()
         PHINode *IterPropPHI = nullptr;
         BuildBiasedBranch(InsertionPoint, ExtensionCount, IterPropPHI);
 
-#if LOOP_GUARD
         // No top guard explicitly designated --- done internally in 
         // BuildBiasedBranch --- much simpler this way
         _designateBottomGuard(ExtensionCount, IterPropPHI);
-#endif
+
         return;
     }
     case TransformOption::MANUAL:
@@ -185,10 +197,9 @@ void LoopTransform::Transform()
             CallbackLocations.insert(CL);
         }
 
-#if LOOP_GUARD
+        // Set guards
         _designateTopGuardViaPredecessors();
         _designateBottomGuard(ExtensionCount, nullptr);
-#endif
 
         return;
     }
@@ -876,30 +887,26 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
  * not occur often at all, but this fallback mechanism is in place
  */  
 
-void LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
+ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
 {
     // Nothing to unroll if ExtensionCount is 0
     if (!ExtensionCount) 
-        return;
-
-    // Check size of loop to unroll --- large basic block chains
-    // may cause SCEV::forgetLoop to fail (maybe)
-
-    LOOP_DEBUG_INFO("\n\n\nF: " + F->getName() + "\n");
-    LOOP_OBJ_INFO(F);
-    LOOP_DEBUG_INFO("\n\n\nTHE LOOP: ");
-    LOOP_OBJ_INFO(L);
+        return ExtendLoopResult::ELFull; // Transform handler simply returns
 
     if (LoopIDFA->GetLoopInstructionCount() > MaxLoopSize)
     {
+        LOOP_DEBUG_INFO("F: " + F->getName() + "\n");
+        LOOP_OBJ_INFO(L);
         LOOP_DEBUG_INFO("Not Unrolled (size), Count: "); 
         LOOP_DEBUG_INFO(to_string(LoopIDFA->GetLoopInstructionCount()));
-        LOOP_DEBUG_INFO("\n");
+
         Debug::PrintCurrentLoop(L);
+        LOOP_DEBUG_INFO("\n\n\n");
 
         // Build a branch to handle large loop size
         BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
-        return;
+        
+        return ExtendLoopResult::ELFail;
     }
 
     // Unroll iterations of the loop based on ExtensionCount
@@ -922,23 +929,35 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
     if (!((Unrolled == LoopUnrollResult::FullyUnrolled)
         || (Unrolled == LoopUnrollResult::PartiallyUnrolled)))
     {
+        LOOP_DEBUG_INFO("F: " + F->getName() + "\n");
+        LOOP_OBJ_INFO(L);
         LOOP_DEBUG_INFO("Not Unrolled (failure): ");
         Debug::PrintCurrentLoop(L);
+        LOOP_DEBUG_INFO("\n\n\n");
 
         // Build a branch to handle the unroll failure
         BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
-        return;
+        
+        return ExtendLoopResult::ELFail;
+    }
+
+    if (Unrolled == LoopUnrollResult::FullyUnrolled)
+    {
+        LOOP_DEBUG_INFO("F: " + F->getName() + "\n");
+        LOOP_DEBUG_INFO("Fully unrolled --- loop no longer available\n");
+        LOOP_DEBUG_INFO("\n\n\n");
+        return ExtendLoopResult::ELFull;
     }
 
     // Collect the callback locations and add them to the set --- should be
     // the terminator of the last 
-    Instruction *LastInst = L->getLoopLatch()->getTerminator();
-    Utils::SetCallbackMetadata(LastInst, (UNROLL_MD + to_string(ExtensionCount)));
-    CallbackLocations.insert(LastInst);
+    Instruction *LatchTerminator = L->getLoopLatch()->getTerminator();
+    Utils::SetCallbackMetadata(LatchTerminator, (UNROLL_MD + to_string(ExtensionCount)));
+    CallbackLocations.insert(LatchTerminator);
 
     Debug::PrintCurrentLoop(L);
 
-    return;
+    return ExtendLoopResult::ELSuccess;
 }
 
 

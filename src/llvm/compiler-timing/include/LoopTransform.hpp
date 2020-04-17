@@ -53,7 +53,8 @@ const uint64_t MaxMargin = 50; // Number of cycles maximum to miss (by compile-t
 // - BRANCH --- inject a biased branch into the loop --- based on a calculated factor
 // - MANUAL --- determine callback locations manually via LatencyDFA traversal, 
 //              occurs when the LLS is large
-enum TransformOption {EXTEND, BRANCH, MANUAL};
+enum TransformOption { EXTEND, BRANCH, MANUAL };
+enum ExtendLoopResult { ELSuccess, ELFull, ELFail };
 
 class LoopTransform
 {
@@ -66,7 +67,7 @@ public:
     void Transform();
     void BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount,
                            PHINode *&IterPropPHI);
-    void ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI);
+    ExtendLoopResult ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI);
     
     // ------- Analysis/transformation query methods -------    
     set<Instruction *> *GetCallbackLocations() { return &CallbackLocations; }

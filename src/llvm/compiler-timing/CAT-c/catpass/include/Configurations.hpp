@@ -81,8 +81,8 @@ using namespace std;
 
 // Pass settings
 #define DEBUG 0
-#define LOOP_DEBUG 0
-#define VERIFY 1
+#define LOOP_DEBUG 1
+#define VERIFY 0
 #define INLINE 0
 #define WHOLE 1 // Whole kernel injection
 #define INJECT 1
@@ -95,7 +95,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Policies
-#define GRAN 2000
+#define GRAN 600
 #define LOOP_GUARD 1
 
 #define MAXIMUM 0
