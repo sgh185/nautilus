@@ -77,10 +77,10 @@
 
 /* Time-hook testing */
 #define YIELD_HOOK 0
-#define SNAPSHOT_HOOK 1
-#define NULL_HOOK 0
+#define SNAPSHOT_HOOK 0
+#define NULL_HOOK 1
 
-#define HOOK_FUNC YIELD_HOOK
+// #define HOOK_FUNC YIELD_HOOK
 
 #define DB(x) outb(x, 0xe9)
 #define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
@@ -899,7 +899,8 @@ static void _debug_yield(nk_fiber_t *f_to)
 /****** WRAPPER FOR TIME_HOOK AND MEASUREMENTS *******/
 #define MAX_WRAPPER_COUNT 1000
 uint64_t wrapper_data[MAX_WRAPPER_COUNT]; // Array to record intervals between nk_time_hook_fire calls
-int time_interval = 0; // Index of wrapper_data
+uint64_t overhead_data[MAX_WRAPPER_COUNT]; // Array to record intervals between nk_time_hook_fire calls
+int time_interval = 0; // Index of wrapper_data, overhead_data
 static uint64_t rdtsc_wrapper_new = 0, rdtsc_wrapper_old = 0; // Deprecated functionality
 extern int ACCESS_WRAPPER; // Permissions global
 
@@ -1010,6 +1011,7 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 }
 
 // Globals --- testing and snapshot functionality
+uint64_t overhead_count = 0;
 static int old_snapshot = 0;
 void *address_hook_0 = 0;
 void *address_hook_1 = 0;
@@ -1037,7 +1039,9 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 	  	 
 	  int curr_snapshot = rdtsc(); 
 	  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
-	  
+	  overhead_data[time_interval] = overhead_count;
+
+#if 0 
 	  // We want to get a sense of where the callers are coming
 	  // from --- want to confirm that the calls are coming from
 	  // a running fiber (non-idle) on the target CPU and not
@@ -1061,7 +1065,9 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 		}
 	  
 	  }
+#endif
 
+	  overhead_count = 0;
 	  old_snapshot = curr_snapshot;
 	  time_interval++;
 
@@ -1102,10 +1108,20 @@ void _nk_fiber_print_data()
   nk_vc_printf("idle count: %lu\n",idle_count);
   
   nk_vc_printf("PRINTEND\n");
- 
+  
+  nk_vc_printf("OVERHEADSTART\n");
+  for (i = 0; i < temp; i++) {
+    // nk_vc_printf("%lu : %lu\n", wrapper_data[i], missed_fires[i]);
+    nk_vc_printf("%lu\n", overhead_data[i]);
+  } 
+  nk_vc_printf("OVERHEADEND\n");
+
   memset(wrapper_data, 0, sizeof(wrapper_data));
+  memset(wrapper_data, 0, sizeof(overhead_data));
   time_interval = 0;
   last = count = 0;
+
+  early_count = late_count = 0;
 
   // For yield hook
   rdtsc_wrapper_new = 0;
