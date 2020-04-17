@@ -233,10 +233,6 @@ struct CAT : public ModulePass
             {
                 VERIFY_DEBUG_INFO("\n");
                 VERIFY_DEBUG_INFO(Routine->getName() + "\n");
-
-                if (Routine->getName() == "strsep")
-                    VERIFY_OBJ_INFO(Routine);
-
                 VERIFY_DEBUG_INFO("\n\n\n");
             }
         }

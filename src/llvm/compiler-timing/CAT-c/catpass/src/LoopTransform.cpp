@@ -45,18 +45,22 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->Granularity = Gran;
     this->OutL = OutL;
 
-    // Calculate loop level analysis (same-depth)
-    this->LoopIDFA = new LatencyDFA(L, EXPECTED, MEDCON, true);
-    this->LoopIDFA->ComputeDFA();
-    this->LoopIDFA->PrintBBLatencies();
-    this->LoopIDFA->PrintInstLatencies();
-
     // Set wrapper pass state
     this->LI = LI;
     this->DT = DT;
     this->SE = SE;
     this->AC = AC;
     this->ORE = ORE;
+
+    // Handle and transform subloops first before transforming
+    // the current loop
+    _transformSubLoops();
+
+    // Calculate loop level analysis (same-depth)
+    this->LoopIDFA = new LatencyDFA(L, EXPECTED, MEDCON, true);
+    this->LoopIDFA->ComputeDFA();
+    this->LoopIDFA->PrintBBLatencies();
+    this->LoopIDFA->PrintInstLatencies();
 
     // this->SCTripCount = SE->getSmallConstantTripCount(L);
     // this->SCTripMultiple = SE->getSmallConstantTripMultiple(L);
@@ -70,10 +74,6 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
 	this->CorrectForm = ((formLCSSARecursively(*L, *DT, LI, SE)) && 
                          (simplifyLoop(L, DT, LI, SE, AC, nullptr, true)));
 	*/
-
-    // Handle and transform subloops first before transforming
-    // the current loop
-    _transformSubLoops();
 }
 
 
@@ -138,7 +138,6 @@ void LoopTransform::Transform()
 
     switch(Extend)
     {
-#if 1
     case TransformOption::EXTEND:
     {
         // Unroll the loop by an unroll factor = ExtensionCount, collect
@@ -150,13 +149,15 @@ void LoopTransform::Transform()
 
 #if LOOP_GUARD
         _designateTopGuardViaPredecessors();
-        _designateBottomGuard(ExtensionCount, IterPropPHI);
+        // No bottom guard designated --- ExtendLoop marks the last instruction
+        // of the loop's latch for injection --- that way, if a loop breaks out
+        // of its execution, it will drop into the latch and execute the callback
+        // set up in the latch either way --- BRANCH and MANUAL are not set up
+        // in this way
 #endif
 
         return;
     }
-#endif
-    // case TransformOption::EXTEND:
     case TransformOption::BRANCH:
     {
         // Inject code to build the iteration counter and the branch to
@@ -167,6 +168,8 @@ void LoopTransform::Transform()
         BuildBiasedBranch(InsertionPoint, ExtensionCount, IterPropPHI);
 
 #if LOOP_GUARD
+        // No top guard explicitly designated --- done internally in 
+        // BuildBiasedBranch --- much simpler this way
         _designateBottomGuard(ExtensionCount, IterPropPHI);
 #endif
         return;
@@ -494,7 +497,7 @@ void LoopTransform::_designateTopGuardViaPredecessors()
 /* ------------------ DEPRECATED ---------------------
 
 /*
- * _designateBottomGuardViaExits, _buildBottomGuard
+ * _designateBottomGuard, _buildBottomGuard
  * 
  * A guard is injected at every exit block for a loop --- at any depth
  * to handle the case when we exit a loop, but we have not iterated
@@ -903,7 +906,7 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
     uint32_t MinTripMultiple = 1;
     UnrollLoopOptions *ULO = new UnrollLoopOptions();
     ULO->Count = ExtensionCount;
-    ULO->TripCount = SE->getSmallConstantTripCount(L); // Suspicious
+    ULO->TripCount = SE->getSmallConstantTripCount(L);
     ULO->Force = true;
     ULO->AllowRuntime = true;
     ULO->AllowExpensiveTripCount = true;
@@ -929,9 +932,11 @@ void LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
 
     // Collect the callback locations and add them to the set --- should be
     // the terminator of the last 
-    Instruction *LastInst = (L->getBlocksVector()).back()->getTerminator();
+    Instruction *LastInst = L->getLoopLatch()->getTerminator();
     Utils::SetCallbackMetadata(LastInst, (UNROLL_MD + to_string(ExtensionCount)));
     CallbackLocations.insert(LastInst);
+
+    Debug::PrintCurrentLoop(L);
 
     return;
 }
