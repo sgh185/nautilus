@@ -87,7 +87,7 @@
 
 // Instrument timehook fire if this is enabled
 #define GET_WHOLE_HOOK_DATA 1
-#define GET_HOOK_DATA 0 
+#define GET_HOOK_DATA 0
 #define GET_FIBER_DATA 0
 #define MAX_HOOK_DATA_COUNT 1000
 
@@ -620,15 +620,20 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 // Overhead instrumentation
 #if GET_WHOLE_HOOK_DATA
 
-   uint64_t whole_rdtsc_queue = 0, whole_rdtsc_fire;
-   if ((mycpu == TARGET_CPU)
-	   && (hook_compare_fiber_thread == get_cur_thread())) {
+   uint64_t whole_rdtsc_queue = 0; // , whole_rdtsc_fire;
+   //if ((mycpu == TARGET_CPU)
+	 //  && (hook_compare_fiber_thread == get_cur_thread())) {
 
-     if (!(nk_fiber_current()->is_idle)) { 
+   if (mycpu == TARGET_CPU) {
+	   if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
+      		whole_rdtsc_queue = rdtsc(); 
+			rdtsc_count++;
+	   }
+     // if (!(nk_fiber_current()->is_idle)) { 
 
-       if (ACCESS_WRAPPER) { whole_rdtsc_queue = rdtsc(); rdtsc_count++; }
+      //  if (ACCESS_WRAPPER) { whole_rdtsc_queue = rdtsc(); rdtsc_count++; }
 	 
-	 }
+	 // }
 	
    }
   
@@ -670,12 +675,14 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
    int local_hook_time_index = hook_time_index; 
    if (mycpu == TARGET_CPU) {	
 	   if (ACCESS_HOOK && (hook_compare_fiber_thread == get_cur_thread())) {
-		   if (hook_time_index < MAX_HOOK_DATA_COUNT) {
-			   hook_time_index++;
-		   }
-		   if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-			   rdtsc_hook_start = rdtsc();
-		   }
+    		if (!(nk_fiber_current()->is_idle)) { 
+			   if (hook_time_index < MAX_HOOK_DATA_COUNT) {
+				   hook_time_index++;
+			   }
+			   if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+				   rdtsc_hook_start = rdtsc();
+			   }
+			}
 	   }
    }
 #endif
@@ -842,18 +849,20 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 // Overhead instrumentation
 #if GET_WHOLE_HOOK_DATA
 
-   if ((mycpu == TARGET_CPU)
-	   && (hook_compare_fiber_thread == get_cur_thread())) {
+   // if ((mycpu == TARGET_CPU)
+   //	   && (hook_compare_fiber_thread == get_cur_thread())) {
 
-     if (!(nk_fiber_current()->is_idle)) { 
+     // if (!(nk_fiber_current()->is_idle)) { 
+   if (mycpu == TARGET_CPU) {
+	   if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
 
-       if (ACCESS_WRAPPER) { 
+       // if (ACCESS_WRAPPER) { 
 		   whole_rdtsc_queue = rdtsc() - whole_rdtsc_queue;
 	  	   overhead_count += whole_rdtsc_queue;
 		   rdtsc_count++;
 	   }
 	 
-	 }
+	 // }
 	
    }
   
@@ -880,11 +889,13 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 #if GET_HOOK_DATA
    if (mycpu == TARGET_CPU) { 
 	   if (ACCESS_HOOK && (hook_compare_fiber_thread == get_cur_thread())) {
-			rdtsc_hook_end = rdtsc();
-			if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-			  hook_data[local_hook_time_index] = rdtsc_hook_end - rdtsc_hook_start;
+    		if (!(nk_fiber_current()->is_idle)) { 
+				rdtsc_hook_end = rdtsc();
+				if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+				  hook_data[local_hook_time_index] = rdtsc_hook_end - rdtsc_hook_start;
+				}
+				rdtsc_hook_fire_start = rdtsc();
 			}
-			rdtsc_hook_fire_start = rdtsc();
 		}
     }
 #endif
@@ -930,9 +941,11 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 #if GET_HOOK_DATA
 	if (mycpu == TARGET_CPU) {
 		if (ACCESS_HOOK && (hook_compare_fiber_thread == get_cur_thread())) {
-			rdtsc_hook_fire_end = rdtsc();
-			if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
-				hook_fire_data[local_hook_time_index] = rdtsc_hook_fire_end - rdtsc_hook_fire_start;
+    		if (!(nk_fiber_current()->is_idle)) { 
+				rdtsc_hook_fire_end = rdtsc();
+				if (local_hook_time_index < MAX_HOOK_DATA_COUNT) {
+					hook_fire_data[local_hook_time_index] = rdtsc_hook_fire_end - rdtsc_hook_fire_start;
+				}
 			}
 		}
 	}

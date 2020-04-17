@@ -39,9 +39,10 @@
 #include <nautilus/scheduler.h>
 #include <nautilus/group_sched.h>
 
+#define DO_PRINTS 0
 
-#define INFO(fmt, args...) INFO_PRINT("scorg: " fmt, ##args)
-#define ERROR(fmt, args...) ERROR_PRINT("scorg: " fmt, ##args)
+#define INFO(fmt, args...) ({ if (DO_PRINTS) { INFO_PRINT("scorg: " fmt, ##args); } })
+#define ERROR(fmt, args...) ({ if (DO_PRINTS) { ERROR_PRINT("scorg: " fmt, ##args); } }) 
 
 #if 0
 #define DEBUG(fmt, args...) DEBUG_PRINT("scorg: " fmt, ##args)
@@ -49,8 +50,8 @@
 #define DEBUG(fmt, args...)
 #endif
 
-#define printf(fmt, args...) nk_vc_printf(fmt, ##args);
-#define fprintf(foo,fmt, args...) nk_vc_printf(fmt, ##args);
+#define printf(fmt, args...) ({ if (DO_PRINTS) { nk_vc_printf(fmt, ##args); } });
+#define fprintf(foo,fmt, args...) ({ if (DO_PRINTS) { nk_vc_printf(fmt, ##args); } });
 
 #ifdef ENABLE_PARSEC_HOOKS
 #include <hooks.h>
@@ -81,6 +82,8 @@ typedef int bool;
 #define FIBER_COND_INITIALIZER 0
 
 #define fiber_cond_t unsigned
+
+extern int ACCESS_WRAPPER;
 
 // WARNING: THIS IS ALMOST CERTAINLY BROKEN
 static int fiber_cond_wait(volatile fiber_mutex_t *m, volatile fiber_cond_t *c)
@@ -1453,7 +1456,8 @@ switch(testsize)
   startproc = -1;
   skipbarrier = 0;
   schedconst = 0;
-  
+ 
+
   return 0;
 }
 
@@ -1464,7 +1468,14 @@ static void fiber_sc(void *i, void **o)
 {
   struct sys_info * sys = per_cpu_get(system);
   int num_cpus = sys->num_cpus;
+  
+  ACCESS_WRAPPER = 1;
+  
   test_fiber_streamcluster(num_cpus-1, 0, 0, 0, (uint64_t)i);
+  
+  ACCESS_WRAPPER = 0;
+
+  _nk_fiber_print_data(100);
 }
 
 int test_sc_with_fibers(uint64_t test_size)

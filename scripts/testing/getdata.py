@@ -23,9 +23,27 @@ fileName = sys.argv[3]
 subprocess.call('cp {} {}-raw'.format(fileName, name), shell=True)
 
 # Get data sets from print_data()
-def getDataSets():
+def getFiberData():
+	query = sys.argv[2].upper()
+	start = query + "START"
+	end = query + "END"
+	print start
+	print end
 	with open(fileName) as file:
-    		return re.findall('PRINTSTART(.*?)PRINTEND', file.read(), re.DOTALL)
+			data = re.findall('{}(.*?){}'.format(start, end), file.read(), re.DOTALL)
+			return ''.join([elm for elm in data])
+
+def getDataSets(data):
+		return re.findall('PRINTSTART(.*?)PRINTEND', data, re.DOTALL)
+
+def getOverheadSets(data):
+    return re.findall('OVERHEADSTART(.*?)OVERHEADEND', data, re.DOTALL)
+
+def getEarlyCounts(data):
+    return re.findall('EARLYSTART(.*?)EARLYEND', data, re.DOTALL)
+
+def getLateCounts(data):
+    return re.findall('LATESTART(.*?)LATEEND', data, re.DOTALL)
 
 # Convert everything to ints --- removes any potential strings, for future analysis
 def getIntList(data):
@@ -62,14 +80,14 @@ def transformNoOutliers(data, M=2):
 
 # Create figures, save figure as png, save data as file
 def createPlot(data, refined=False, doubleRefined=False):
-	binNum = 200
+	binNum = 32 
 	nTransformed = np.array(data)
 	newName = name
 	granularity = int(sys.argv[1])
 
 	if refined:
 		nTransformed = transformNoOutliers(np.array(data))
-		binNum = 80
+		binNum = 64
 		newName = name + "no-out-one-pass"
 		if doubleRefined:
 			nTransformed = transformNoOutliers(np.array(nTransformed))
@@ -94,7 +112,7 @@ def createPlot(data, refined=False, doubleRefined=False):
 	plt.plot([], [], ' ', label=("Maximum: " + str(maxN)))
 	plt.plot([], [], ' ', label=("Minimum: " + str(minN)))
 	
-	plt.xlabel('Interval between yield calls (cycles)', fontsize=12)
+	plt.xlabel('Interval between calls to hook function (clock cycles)', fontsize=12)
 	plt.ylabel('Frequency', fontsize=12)
 	plt.legend(fontsize=8)
 	
@@ -102,6 +120,8 @@ def createPlot(data, refined=False, doubleRefined=False):
 
 	# Save data to file
 	np.savetxt(newName, nTransformed, delimiter=" ", fmt='%s')
+	retmean = mean
+	retmedian = median
 
 	# OVERHEAD DATA
 
@@ -133,14 +153,89 @@ def createPlot(data, refined=False, doubleRefined=False):
 	# Save data to file
 	np.savetxt(newName, nTransformed, delimiter=" ", fmt='%s')
 	
+	return retmedian, retmean
+
+def createOverheadPlots(overheads, intmed, intmean):
+	binNum = 32 
+	nTransformed = np.array(overheads)
+	newName = name + "-overheads"
+	granularity = int(sys.argv[1])
+
+	# Save figure from matplotlib
+	plt.figure(figsize=(10, 8))
+	plt.hist(nTransformed, normed=False, bins=binNum)
+
+	mean = np.mean(nTransformed)
+	median = np.median(nTransformed)
+	variance = np.var(nTransformed)
+	stdev = np.std(nTransformed)
+	maxN = max(nTransformed)
+	minN = min(nTransformed)
+
+	plt.plot([], [], ' ', label=("Mean: " + str(mean)))
+	plt.plot([], [], ' ', label=("Median: " + str(median)))
+	plt.plot([], [], ' ', label=("Variance: " + str(variance)))
+	plt.plot([], [], ' ', label=("StDev: " + str(stdev)))
+	plt.plot([], [], ' ', label=("Maximum: " + str(maxN)))
+	plt.plot([], [], ' ', label=("Minimum: " + str(minN)))
+	plt.plot([], [], ' ', label=("% Overhead (med:obs): " + str(round(100 * (float(median) / float(intmed)), 3))))
+	plt.plot([], [], ' ', label=("% Overhead (avg:obs): " + str(round(100 * (float(mean) / float(intmean)), 3))))
+	plt.plot([], [], ' ', label=("% Overhead (med:tgt): " + str(round(100 * (float(median) / float(granularity)), 3))))
+	plt.plot([], [], ' ', label=("% Overhead (avg:tgt): " + str(round(100 * (float(mean) / float(granularity)), 3))))
+
+	plt.xlabel('Processing overhead (between) calls to hook function (clock cycles)', fontsize=12)
+	plt.ylabel('Frequency', fontsize=12)
+	plt.legend(fontsize=8)
+	
+	plt.savefig(newName + '.png')
+
+	# Save data to file
+	np.savetxt(newName, nTransformed, delimiter=" ", fmt='%s')
+
 	return
 
 
-rawData = getDataSets()
+def createOverheadCountPlots(early, late):
+	plt.figure(figsize=(10, 8))
+
+	for i in range(len(early)):
+		early[i] = int(early[i])
+		late[i] = int(late[i])
+	
+	totalEarly = sum(early)
+	totalLate = sum(late)
+	ratio = float(totalEarly) / float(totalLate) 
+	data = [totalEarly, totalLate]
+
+	categories = ("Early", "Late")
+	indices = np.arange(2)
+	plt.bar(indices, data) 
+	plt.xticks(indices, categories)
+
+	plt.plot([], [], ' ', label=("Early: " + str(totalEarly)))
+	plt.plot([], [], ' ', label=("Late/On-time: " + str(totalLate)))
+	plt.plot([], [], ' ', label=("Ratio (early : late): " + str(ratio)))
+	
+	plt.xlabel('Overhead --- Early vs. Late Calls', fontsize=12)
+	plt.ylabel('Frequency', fontsize=12)
+	plt.legend(fontsize=8)
+	
+	plt.savefig(name + '-early-late.png')
+
+	return
+	
+fiberData = getFiberData()
+print(fiberData)
+rawData = getDataSets(fiberData)
+# earlyData = (getEarlyCounts())
+# lateData = (getLateCounts())
 transformedData = transformDataSets(rawData)
-createPlot(transformDataSets(rawData))
+overheadData = transformDataSets(getOverheadSets(fiberData))
+median, mean = createPlot(transformDataSets(rawData))
 createPlot(transformDataSets(rawData), True)
 createPlot(transformDataSets(rawData), True, True)
+createOverheadPlots(overheadData, median, mean)
+# createOverheadCountPlots(earlyData, lateData)
 
 if not os.path.exists('data/{}/dir-{}/'.format(sys.argv[1], sys.argv[2])):
 	os.makedirs('data/{}/dir-{}/'.format(sys.argv[1], sys.argv[2]))
