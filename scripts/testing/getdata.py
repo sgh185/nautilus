@@ -223,19 +223,15 @@ def createOverheadCountPlots(early, late):
 	plt.savefig(name + '-early-late.png')
 
 	return
-	
+
 fiberData = getFiberData()
-print(fiberData)
 rawData = getDataSets(fiberData)
-# earlyData = (getEarlyCounts())
-# lateData = (getLateCounts())
 transformedData = transformDataSets(rawData)
 overheadData = transformDataSets(getOverheadSets(fiberData))
 median, mean = createPlot(transformDataSets(rawData))
 createPlot(transformDataSets(rawData), True)
 createPlot(transformDataSets(rawData), True, True)
 createOverheadPlots(overheadData, median, mean)
-# createOverheadCountPlots(earlyData, lateData)
 
 if not os.path.exists('data/{}/dir-{}/'.format(sys.argv[1], sys.argv[2])):
 	os.makedirs('data/{}/dir-{}/'.format(sys.argv[1], sys.argv[2]))
