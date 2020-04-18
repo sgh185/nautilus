@@ -76,8 +76,8 @@
 #define _UNLOCK_FIBER(f) spin_unlock(&(f->lock))
 
 /* Time-hook testing */
-#define YIELD_HOOK 1
-#define SNAPSHOT_HOOK 0
+#define YIELD_HOOK 0
+#define SNAPSHOT_HOOK 1
 #define NULL_HOOK 0
 
 // #define HOOK_FUNC YIELD_HOOK
@@ -1048,7 +1048,7 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 	  	 
 	  int curr_snapshot = rdtsc(); 
 	  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
-	  overhead_data[time_interval] = overhead_count - (rdtsc_count * 32);
+	  overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
 
 #if 0 
 	  // We want to get a sense of where the callers are coming
@@ -1077,7 +1077,7 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 #endif
 
 	  overhead_count = 0;
-	  rdtsc_count = 0;
+	  // rdtsc_count = 0;
 	  old_snapshot = curr_snapshot;
 	  time_interval++;
 
@@ -1093,10 +1093,12 @@ __attribute__((optnone, annotate("nohook"))) int _nk_null_time_hook()
   return 0;
 }
 
-void _nk_fiber_print_data()
+void _nk_fiber_print_data(int id)
 {
   nk_time_hook_dump(); 
-  	
+  
+  nk_vc_printf("FIBERBENCH%dSTART\n", id); 
+
   nk_vc_printf("PRINTSTART\n");
 
   // int temp = count;
@@ -1125,6 +1127,7 @@ void _nk_fiber_print_data()
     nk_vc_printf("%lu\n", overhead_data[i]);
   } 
   nk_vc_printf("OVERHEADEND\n");
+  nk_vc_printf("FIBERBENCH%dEND\n", id); 
 
   memset(wrapper_data, 0, sizeof(wrapper_data));
   memset(wrapper_data, 0, sizeof(overhead_data));

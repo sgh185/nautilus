@@ -186,7 +186,7 @@ int _nk_snapshot_time_hook();
 int _nk_null_time_hook();
 
 // Benchmark functions for injection pass
-void _nk_fiber_print_data();
+void _nk_fiber_print_data(int id);
 
 #endif /* !__ASSEMBLER */
 

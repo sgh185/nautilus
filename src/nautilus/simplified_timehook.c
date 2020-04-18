@@ -620,14 +620,14 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 // Overhead instrumentation
 #if GET_WHOLE_HOOK_DATA
 
-   uint64_t whole_rdtsc_queue = 0; // , whole_rdtsc_fire;
+   uint64_t whole_rdtsc_queue = 0, whole_rdtsc_fire = 0;
    //if ((mycpu == TARGET_CPU)
 	 //  && (hook_compare_fiber_thread == get_cur_thread())) {
 
    if (mycpu == TARGET_CPU) {
 	   if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
       		whole_rdtsc_queue = rdtsc(); 
-			rdtsc_count++;
+			// rdtsc_count++;
 	   }
      // if (!(nk_fiber_current()->is_idle)) { 
 
@@ -859,7 +859,7 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
        // if (ACCESS_WRAPPER) { 
 		   whole_rdtsc_queue = rdtsc() - whole_rdtsc_queue;
 	  	   overhead_count += whole_rdtsc_queue;
-		   rdtsc_count++;
+		   // rdtsc_count++;
 	   }
 	 
 	 // }
@@ -869,19 +869,15 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 #endif
 
 
-#if 0 // GET_WHOLE_HOOK_DATA
-
-   if ((mycpu == TARGET_CPU)
-	   && (hook_compare_fiber_thread == get_cur_thread())) {
-
-     if (!(nk_fiber_current()->is_idle)) { 
-
-       if (ACCESS_WRAPPER) { whole_rdtsc_fire = rdtsc(); }
+#if 0// GET_WHOLE_HOOK_DATA
+   
+   if (mycpu == TARGET_CPU) {
+	   if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
+		   whole_rdtsc_fire = rdtsc();
+	   }
 	 
-	 }
-	
    }
-  
+   
 #endif
 
    
@@ -918,22 +914,16 @@ __attribute__((noinline, annotate("nohook"))) void nk_time_hook_fire()
 // ------ END FIRING PORTION ------
 
 // Overhead instrumentation
-#if 0 // GET_WHOLE_HOOK_DATA
+#if 0// GET_WHOLE_HOOK_DATA
 
-   if ((mycpu == TARGET_CPU)
-	   && (hook_compare_fiber_thread == get_cur_thread())) {
-
-     if (!(nk_fiber_current()->is_idle)) { 
-
-       if (ACCESS_WRAPPER) { 
+   if (mycpu == TARGET_CPU) {
+	   if (ACCESS_WRAPPER && (hook_compare_fiber_thread == get_cur_thread())) {
 		   whole_rdtsc_fire = rdtsc() - whole_rdtsc_fire;
 	  	   overhead_count += whole_rdtsc_fire;
 	   }
 	 
-	 }
-	
    }
-  
+    
 #endif
 
     

@@ -57,7 +57,7 @@ NK_STACK_DECL(int);
 //******************* Macros/Helper Functions/Globals *******************/
 // Seeding macro
 #define SEED() (srand48(rdtsc() % 1024))
-#define YIELDING 1
+#define YIELDING 0
 
 // Malloc with error checking
 #define MALLOC(n) ({void *__p = malloc(n); if (!__p) { PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
@@ -295,7 +295,7 @@ void timing_loop_2(void *i, void **o)
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	// Print out timing data --- end of test
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(1);
 	
 	return;
 }
@@ -344,7 +344,7 @@ void s_timing_loop_2(void *i, void **o)
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
 	// Print out timing data --- end of test
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(2);
 
 	return;
 }
@@ -433,7 +433,7 @@ void dot_prod_2(void *i, void **o)
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
 	// Print out timing data --- end of test
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(3);
 
 
 	return;
@@ -500,7 +500,7 @@ void ll_traversal_2(void *i, void **o)
 
 	nk_vc_printf("\nThe interval: %lu", rdtsc() - start);
 	
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(4);
   
 	iterator = LL->head;
 	while (iterator != NULL) { Node_t *temp = iterator; iterator = iterator->next; free(temp); }
@@ -617,7 +617,7 @@ void mm_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
   
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(5);
 	
 	nk_vc_printf("finish - start: %lu\n", finish - start_1);
   
@@ -721,7 +721,7 @@ void bt_traversal_2(void *i, void **o)
 	
 	destroyTree(tree);
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(6);
 	
 	return;
 }
@@ -848,7 +848,7 @@ void rand_mm_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start_1);
   
-  	_nk_fiber_print_data();
+  	_nk_fiber_print_data(7);
 	
 	return;
 }
@@ -959,7 +959,7 @@ void bt_lo_traversal_2(void *i, void **o)
 	destroyTree(tree);
 	free(LO);
 	
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(8);
 	
 	return;
 }
@@ -1029,7 +1029,7 @@ void operations_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(9);
 	
 	nk_vc_printf("finish - start: %lu\n", finish - start);
 
@@ -1147,7 +1147,7 @@ void rijndael_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(11);
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
@@ -1221,7 +1221,7 @@ void sha1_2(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(12);
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
@@ -1298,7 +1298,7 @@ void md5_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(13);
 	
 	// No freeing --- FIX
 #if RET_CHECK
@@ -1346,7 +1346,6 @@ void fib_1(void *i, void **o)
 	
 	ACCESS_WRAPPER = 0;
 	
-	_nk_fiber_print_data();
 	
 	return;
 }
@@ -1384,7 +1383,7 @@ void fib_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(14);
 
 #if RET_CHECK
 	nk_vc_printf("addr0: %p\n", address_hook_0);
@@ -1458,7 +1457,7 @@ void knn_2(void *i, void **o)
 	
 	KNN_context_destroy(ctx);	
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(15);
 
 	nk_vc_printf("class: %f\n", classification);
 
@@ -1503,8 +1502,6 @@ void cycle_1(void *i, void **o)
 	// Clean up
 	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
-	_nk_fiber_print_data();
-
 	return;
 }
 
@@ -1537,7 +1534,7 @@ void cycle_2(void *i, void **o)
 	// Clean up
 	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(16);
 
 	return;
 }
@@ -1569,8 +1566,6 @@ void mst_1(void *i, void **o)
 	// Clean up
 	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
-	_nk_fiber_print_data();
-	
 	return;
 }
 
@@ -1602,7 +1597,7 @@ void mst_2(void *i, void **o)
 	// Clean up
 	for (q = 0; q < NUM_GRAPHS; q++) { destroy_graph(g[q]); }
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(17);
 
 	return;
 }
@@ -1631,8 +1626,6 @@ void dijkstra_1(void *i, void **o)
 	// Clean up
 	destroy_graph(g);
 
-	_nk_fiber_print_data();
-
 	return;
 }
 
@@ -1660,7 +1653,7 @@ void dijkstra_2(void *i, void **o)
 	// Clean up
 	destroy_graph(g);
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(18);
 
 	return;
 }
@@ -1719,7 +1712,7 @@ void qsort_2(void *i, void **o)
 	nk_vc_printf("\n");
 #endif
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(19);
 	
 	return;
 }
@@ -1775,7 +1768,7 @@ void radix_2(void *i, void **o)
 	nk_vc_printf("\n");
 #endif
 
-	_nk_fiber_print_data();
+	_nk_fiber_print_data(20);
 	
 	return;
 }
