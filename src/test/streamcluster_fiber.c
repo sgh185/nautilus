@@ -39,6 +39,7 @@
 #include <nautilus/scheduler.h>
 #include <nautilus/group_sched.h>
 
+
 #define DO_PRINTS 0
 
 #define INFO(fmt, args...) ({ if (DO_PRINTS) { INFO_PRINT("scorg: " fmt, ##args); } })
@@ -1456,7 +1457,6 @@ switch(testsize)
   startproc = -1;
   skipbarrier = 0;
   schedconst = 0;
- 
 
   return 0;
 }
@@ -1471,7 +1471,7 @@ static void fiber_sc(void *i, void **o)
   
   ACCESS_WRAPPER = 1;
   
-  test_fiber_streamcluster(num_cpus-1, 0, 0, 0, (uint64_t)i);
+  test_fiber_streamcluster(num_cpus, 0, 0, 0, (uint64_t)i);
   
   ACCESS_WRAPPER = 0;
 
@@ -1483,7 +1483,7 @@ int test_sc_with_fibers(uint64_t test_size)
   nk_fiber_t *master;
   extern struct nk_virtual_console *vc; 
   vc = get_cur_thread()->vc;
-  if (nk_fiber_start(fiber_sc, (void *)test_size, 0, 0, F_CURR_CPU, &master) < 0) {
+  if (nk_fiber_start(fiber_sc, (void *)test_size, 0, 0, 0, &master) < 0) {
     nk_vc_printf("test_fibers_counter() : Fiber failed to start\n");
     return -1;
   } 

@@ -266,7 +266,7 @@ lrand48 (void)
     uint64_t val = pump_rand();
 
     // return top 31 bits
-    return (val >> 17) & 0x8fffffffULL;
+    return (val >> 17) & 0x7fffffffULL;
 }
 
 
