@@ -62,8 +62,8 @@
 //using namespace std;
 
 
-//#define PAD 64
-#define PAD 1024
+#define PAD 8
+//#define PAD 1024
 
 static void fill(void *ptr, int len)
 {
@@ -1479,6 +1479,7 @@ switch(testsize)
   __parsec_roi_begin();
 #endif
   streamCluster(stream, kmin, kmax, dim, chunksize, clustersize, outfilename );
+  ACCESS_WRAPPER = 0;
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_end();
 #endif
@@ -1523,8 +1524,6 @@ static void fiber_sc(void *i, void **o)
   
   test_fiber_streamcluster(num_cpus, 0, 0, 0, (uint64_t)i);
   
-  ACCESS_WRAPPER = 0;
-
   _nk_fiber_print_data(100);
 }
 
