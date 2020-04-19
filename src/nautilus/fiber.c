@@ -104,7 +104,6 @@ typedef struct nk_fiber_percpu_state {
 
 /* These functions are implemented in assembly. Can be found in src/asm/fiber_lowlevel.S */
 extern void _nk_fiber_context_switch(nk_fiber_t *f_to);
-extern void _nk_fiber_context_switch_early(nk_fiber_t* f_to);
 extern void _nk_exit_switch(nk_fiber_t *next);
 extern nk_fiber_t *nk_fiber_fork();
 extern int _nk_fiber_fork_exit(nk_fiber_t *curr);
@@ -505,7 +504,6 @@ __attribute__((noreturn)) void __nk_fiber_join_yield(uint64_t rsp, uint64_t offs
       // Should never come from the idle fiber
       panic("Attempted to call yield_to from idle fiber. Should never happen!\n");
       *(uint64_t*)(rsp+GPR_RAX_OFFSET) = -1;
-      //_nk_fiber_context_switch_early(f_from);
       _nk_fiber_context_switch(f_from);
     } else {
         f_to = state->idle_fiber;
@@ -1510,7 +1508,7 @@ __attribute__((noreturn)) void _nk_fiber_yield_to(nk_fiber_t *f_to, int earlyRet
     if (!(new_to)) { 
       if (curr_fiber->is_idle) { /* if no fiber to sched and curr idle, no reason to switch */
         *(uint64_t*)(rsp+GPR_RAX_OFFSET) = 0;
-        _nk_fiber_context_switch_early(curr_fiber);
+        _nk_fiber_context_switch(curr_fiber);
       } else { /* if no fiber to sched and not currenty in idle fiber, switch to idle fiber */
           new_to = state->idle_fiber;
       }

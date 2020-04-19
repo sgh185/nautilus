@@ -233,18 +233,6 @@ ENTRY(_nk_fiber_context_switch)
     /* return to new fiber's last instruction */
     retq
 
-ENTRY(_nk_fiber_context_switch_early)
-    // No need to restore FPRs, they didn't get changed
-
-    // changes stack ptr to new fiber's stack
-    movq 0x0(%rdi), %rsp 
-    
-    // Pop callee saved GPRs off new fiber's stack
-    FIBER_RESTORE_GPRS_EARLY()
-
-    // return to new fiber's last instruction
-    retq
-
 ENTRY(nk_fiber_yield_to)
     // Push all GPRs onto stack
     FIBER_SAVE_GPRS()
