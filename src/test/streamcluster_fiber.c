@@ -61,6 +61,56 @@
 //eliminate C++ as much as possible
 //using namespace std;
 
+
+//#define PAD 64
+#define PAD 1024
+
+static void fill(void *ptr, int len)
+{
+    uint64_t *p = ptr;
+    int i = 0;
+    for (i = 0; i < len/8; i++) {
+      p[i] = 0xdeadbeef01234567ul;
+    } 
+}
+
+static int check(void *ptr, int len) 
+{
+    uint64_t blk_size;
+    void *blk_addr;
+    uint64_t flags;
+    if (kmem_find_block(ptr-len, &blk_addr, &blk_size, &flags)) {
+        ERROR("kmem_find_block failed for addr %p\n", ptr-len);
+        return -1;
+    }
+    uint64_t *p = blk_addr;
+    int i = 0;
+    for (i = 0; i < len/8; i++) {
+      if (p[i] != 0xdeadbeef01234567ul) { 
+        ERROR("Memory corrupted at addr: %p, data at addr: %016lx\n", &(p[i]), p[i]);
+      }
+    }
+    p = blk_addr+blk_size-len;
+    for (i = 0; i < len/8; i++) {
+      if (p[i] != 0xdeadbeef01234567ul) { 
+        ERROR("Memory possibly corrupted at addr: %p, val = %lu, ptr = %p, blk_size = %lu\n", &(p[i]), p[i], ptr, blk_size);
+        return -1;
+      }
+    }
+
+    return 0;
+}
+
+//#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; fill(_myp,PAD); fill(_myp+PAD+(n),PAD); _myp+PAD; })
+//#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; fill(_myp,PAD); fill(_myp+PAD+(n),PAD); ERROR("about to check %p\n", _myp); check(_myp+PAD,PAD); _myp+PAD; })
+#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; _myp+PAD; })
+//#define my_free(_myp) ({ if (!(_myp)) { ERROR("Freeing null ptr, free failed\n"); }; check((_myp),PAD); free(((void*)(_myp))-PAD); })
+#define my_free(_myp) ({ if (!(_myp)) { ERROR("Freeing null ptr, free failed\n"); }; free(((void*)(_myp))-PAD); })
+//#define my_free(p) 
+
+
+
+
 typedef int bool;
 #define fiber_barrier_t nk_counting_barrier_t
 
@@ -124,12 +174,12 @@ static int fiber_cond_broadcast(volatile fiber_cond_t *c)
 #define fiber_create(tp,ap,f,i) nk_fiber_start((nk_thread_fun_t)f,i,0,FSTACK_DEFAULT,-1,tp)
 #define fiber_join(tp,ap) nk_fiber_join(tp)
 
-#define calloc(n,s) ({ void *_p=malloc(n*s); memset(_p,0,n*s); _p; })
+#define calloc(n,s) ({ void *_p=my_malloc((n)*(s)); memset(_p,0,(n)*(s)); _p; })
 
 #define new(t) calloc(sizeof(t),1)
-#define newa(t,n) calloc(sizeof(t),n)
-#define del(t) free(t)
-#define dela(t) free(t)
+#define newa(t,n) calloc(sizeof(t),(n))
+#define del(t) my_free(t)
+#define dela(t) my_free(t)
 
 
 #define MAXNAMESIZE 1024 // max filename length
@@ -342,7 +392,7 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 
   if( pid==0 )   {
     *kcenter = 1;
-    costs = (double*)malloc(sizeof(double)*nproc);
+    costs = (double*)my_malloc(sizeof(double)*nproc);
   }
     
   if( pid != 0 ) { // we are not the master fiber. we wait until a center is opened.
@@ -441,7 +491,7 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 	{
 	  totalcost += costs[i];
 	} 
-      free(costs);
+      my_free(costs);
     }
 #ifdef ENABLE_FIBERS
   fiber_barrier_wait(barrier);
@@ -520,7 +570,7 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   double cost_of_opening_x = 0;
 
   if( pid==0 )    { 
-    work_mem = (double*) malloc(stride*(nproc+1)*sizeof(double));
+    work_mem = (double*) my_malloc(stride*(nproc+1)*sizeof(double));
     gl_cost_of_opening_x = 0;
     gl_number_of_centers_to_close = 0;
   }
@@ -699,11 +749,11 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   fiber_barrier_wait(barrier);
 #endif
   if( pid == 0 ) {
-    free(work_mem);
-    //    free(is_center);
-    //    free(switch_membership);
-    //    free(proc_cost_of_opening_x);
-    //    free(proc_number_of_centers_to_close);
+    my_free(work_mem);
+    //    my_free(is_center);
+    //    my_free(switch_membership);
+    //    my_free(proc_cost_of_opening_x);
+    //    my_free(proc_number_of_centers_to_close);
   }
 
 #ifdef PROFILE
@@ -780,7 +830,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
   int numfeasible = points->num;
   if (numfeasible > (ITER*kmin*log((double)kmin)))
     numfeasible = (int)(ITER*kmin*log((double)kmin));
-  *feasible = (int *)malloc(numfeasible*sizeof(int));
+  *feasible = (int *)my_malloc(numfeasible*sizeof(int));
   
   float* accumweight;
   float totalweight;
@@ -808,7 +858,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
     return numfeasible;
   }
 
-  accumweight= (float*)malloc(sizeof(float)*points->num);
+  accumweight= (float*)my_malloc(sizeof(float)*points->num);
   accumweight[0] = points->p[0].weight;
   totalweight=0;
   for( int i = 1; i < points->num; i++ ) {
@@ -837,7 +887,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
     (*feasible)[i]=r;
   }
 
-  free(accumweight); 
+  my_free(accumweight); 
 
 #ifdef PROFILE
   double t2 = gettime();
@@ -908,7 +958,7 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
     cost = 0;
     if( pid== 0 ) {
-      free(hizs); 
+      my_free(hizs); 
       *kfinal = k;
     }
     return cost;
@@ -1020,8 +1070,8 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
   //clean up...
   if( pid==0 ) {
-    free(feasible); 
-    free(hizs);
+    my_free(feasible); 
+    my_free(hizs);
     *kfinal = k;
   }
 
@@ -1078,7 +1128,7 @@ static void copycenters(Points *points, Points* centers, long* centerIDs, long o
 
   centers->num = k;
 
-  free(is_a_median);
+  my_free(is_a_median);
 }
 
 typedef struct _pkmedian_arg_t
@@ -1219,9 +1269,9 @@ static void streamCluster( PStream* stream,
 		    long kmin, long kmax, int dim,
 		    long chunksize, long centersize, char* outfile )
 {
-  float* block = (float*)malloc( chunksize*dim*sizeof(float) );
-  float* centerBlock = (float*)malloc(centersize*dim*sizeof(float) );
-  long* centerIDs = (long*)malloc(centersize*dim*sizeof(long));
+  float* block = (float*)my_malloc( chunksize*dim*sizeof(float) );
+  float* centerBlock = (float*)my_malloc(centersize*dim*sizeof(float) );
+  long* centerIDs = (long*)my_malloc(centersize*dim*sizeof(long));
 
   if( block == NULL ) { 
     fprintf(stderr,"not enough memory for a chunk!\n");
@@ -1231,14 +1281,14 @@ static void streamCluster( PStream* stream,
   Points points;
   points.dim = dim;
   points.num = chunksize;
-  points.p = (Point *)malloc(chunksize*sizeof(Point));
+  points.p = (Point *)my_malloc(chunksize*sizeof(Point));
   for( int i = 0; i < chunksize; i++ ) {
     points.p[i].coord = &block[i*dim];
   }
 
   Points centers;
   centers.dim = dim;
-  centers.p = (Point *)malloc(centersize*sizeof(Point));
+  centers.p = (Point *)my_malloc(centersize*sizeof(Point));
   centers.num = 0;
 
   for( int i = 0; i< centersize; i++ ) {
@@ -1263,9 +1313,9 @@ static void streamCluster( PStream* stream,
       points.p[i].weight = 1.0;
     }
 
-    switch_membership = (bool*)malloc(points.num*sizeof(bool));
+    switch_membership = (bool*)my_malloc(points.num*sizeof(bool));
     is_center = (bool*)calloc(points.num,sizeof(bool));
-    center_table = (int*)malloc(points.num*sizeof(int));
+    center_table = (int*)my_malloc(points.num*sizeof(int));
 
     localSearch(&points,kmin, kmax,&kfinal);
 
@@ -1288,9 +1338,9 @@ static void streamCluster( PStream* stream,
     printf("finish copy centers\n"); 
 #endif
 
-    free(is_center);
-    free(switch_membership);
-    free(center_table);
+    my_free(is_center);
+    my_free(switch_membership);
+    my_free(center_table);
 
     if( PStream_feof(stream) ) {
       break;
@@ -1298,9 +1348,9 @@ static void streamCluster( PStream* stream,
   }
 
   //finally cluster all temp centers
-  switch_membership = (bool*)malloc(centers.num*sizeof(bool));
+  switch_membership = (bool*)my_malloc(centers.num*sizeof(bool));
   is_center = (bool*)calloc(centers.num,sizeof(bool));
-  center_table = (int*)malloc(centers.num*sizeof(int));
+  center_table = (int*)my_malloc(centers.num*sizeof(int));
 
   localSearch( &centers, kmin, kmax ,&kfinal );
   contcenters(&centers);
@@ -1415,7 +1465,7 @@ switch(testsize)
   
 
   srand48(SEED);
-  PStream* stream;
+  PStream* stream = 0;
   if( n > 0 ) {
       stream = PStream_new(n);
   }
@@ -1435,18 +1485,18 @@ switch(testsize)
 
   double t2 = gettime();
 
-  printf("time = %lf\n",t2-t1);
+  nk_vc_printf("time = %lf\n",t2-t1);
   INFO("Test finished!\n");
  
   del(stream);
 #ifdef PROFILE
-  printf("time pgain = %lf\n", time_gain);
-  printf("time pgain_dist = %lf\n", time_gain_dist);
-  printf("time pgain_init = %lf\n", time_gain_init);
-  printf("time pselect = %lf\n", time_select_feasible);
-  printf("time pspeedy = %lf\n", time_speedy);
-  printf("time pshuffle = %lf\n", time_shuffle);
-  printf("time localSearch = %lf\n", time_local_search);
+  nk_vc_printf("time pgain = %lf\n", time_gain);
+  nk_vc_printf("time pgain_dist = %lf\n", time_gain_dist);
+  nk_vc_printf("time pgain_init = %lf\n", time_gain_init);
+  nk_vc_printf("time pselect = %lf\n", time_select_feasible);
+  nk_vc_printf("time pspeedy = %lf\n", time_speedy);
+  nk_vc_printf("time pshuffle = %lf\n", time_shuffle);
+  nk_vc_printf("time localSearch = %lf\n", time_local_search);
  #endif
   
 #ifdef ENABLE_PARSEC_HOOKS
