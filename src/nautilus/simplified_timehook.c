@@ -547,7 +547,8 @@ static int ready = 0;
 // instrumentation to measure overheads within time hook fire
 // non-static because they are set elsewhere once we are ready
 // to start timing
-int ACCESS_HOOK = 0;
+int ACCESS_WRAPPER = 0;
+// int ACCESS_HOOK = 0;
 nk_thread_t *hook_compare_fiber_thread = 0;
 
 // this is the part that needs to be fast and low-overhead

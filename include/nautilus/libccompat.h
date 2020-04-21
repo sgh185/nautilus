@@ -30,7 +30,7 @@ extern "C" {
 #include <nautilus/nautilus.h>
 #include <nautilus/naut_types.h>
 #ifndef NAUT_CONFIG_SILENCE_UNDEF_ERR
-#define UNDEF_FUN_ERR() ERROR_PRINT("Function (%s) undefined\n", __func__)
+#define UNDEF_FUN_ERR() ({ if (0) { ERROR_PRINT("Function (%s) undefined\n", __func__); } })
 #else
 #define UNDEF_FUN_ERR() 
 #endif

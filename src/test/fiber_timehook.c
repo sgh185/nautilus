@@ -71,7 +71,7 @@ NK_STACK_DECL(int);
 #define M3 300
 
 // Conditions
-#define RET_CHECK 1
+#define RET_CHECK 0
 #define LOOP_CHECK 0
 
 extern struct nk_virtual_console *vc;
@@ -81,7 +81,7 @@ extern void nk_simple_timing_loop(uint64_t);
 // data --- when ACCESS_WRAPPER is set to 1, data
 // is collected (using methods in src/nautilus/fiber.c)
 // and vice versa.
-int ACCESS_WRAPPER = 0;
+extern int ACCESS_WRAPPER;
 
 extern void *address_hook_0;
 extern void *address_hook_1;
@@ -389,6 +389,9 @@ void dot_prod_1(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 
+	free(b);
+	free(c);
+
 	return;
 }
 
@@ -435,6 +438,9 @@ void dot_prod_2(void *i, void **o)
 	// Print out timing data --- end of test
 	_nk_fiber_print_data(3);
 
+	free(b);
+	free(c);
+
 
 	return;
 }
@@ -443,7 +449,7 @@ void dot_prod_2(void *i, void **o)
 
 // ------
 // Benchmark 4 --- linked-list traversal (ll_traversal_1, ll_traversal_2)
-#define LL_SIZE 10000
+#define LL_SIZE 20000
 void ll_traversal_1(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
@@ -670,6 +676,7 @@ void bt_traversal_1(void *i, void **o)
 	ACCESS_WRAPPER = 0;
 
 	destroyTree(tree);
+	free(nums);
 
 	return;
 }
@@ -720,6 +727,7 @@ void bt_traversal_2(void *i, void **o)
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
 	destroyTree(tree);
+	free(nums);
 
 	_nk_fiber_print_data(6);
 	
@@ -785,6 +793,7 @@ void rand_mm_1(void *i, void **o)
 	}
 	  
 	ACCESS_WRAPPER = 0;
+	free(dims);
   
 	return;
 }
@@ -846,6 +855,8 @@ void rand_mm_2(void *i, void **o)
 	  
 	ACCESS_WRAPPER = 0;
 	
+	free(dims);
+
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start_1);
   
   	_nk_fiber_print_data(7);
@@ -1041,14 +1052,14 @@ void operations_2(void *i, void **o)
 // ------
 // Benchmark 10  --- time_hook data collection, only one fiber
 #define TH 100000
-extern int ACCESS_HOOK;
+// extern int ACCESS_HOOK;
 void time_hook_test(void *i, void **o)
 {
 	nk_fiber_set_vc(vc);
 
 	int a = 0;
 
-	ACCESS_HOOK = ACCESS_WRAPPER = 1;
+	/*ACCESS_HOOK = */ACCESS_WRAPPER = 1;
 
 	while(a < TH)
 	{
@@ -1056,7 +1067,7 @@ void time_hook_test(void *i, void **o)
 		a++;
 	}
 
-	ACCESS_HOOK = ACCESS_WRAPPER = 0;
+	/*ACCESS_HOOK = */ACCESS_WRAPPER = 0;
 
 	get_time_hook_data();
 
@@ -1103,9 +1114,12 @@ void rijndael_1(void *i, void **o)
 	}
 
 	ACCESS_WRAPPER = 0;
-	
-	// No freeing --- FIX
-	
+
+	free(key);
+	free(src);
+	free(dst);
+	free(new_ctx);
+
 	return;
 }
 
@@ -1151,7 +1165,10 @@ void rijndael_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
-	// No freeing --- FIX
+	free(key);
+	free(src);
+	free(dst);
+	free(new_ctx);
 
 	return;
 }
@@ -1187,8 +1204,9 @@ void sha1_1(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
-	// No freeing --- FIX
-	
+	free(input);
+	free(output);
+
 	return;
 }
 
@@ -1225,8 +1243,9 @@ void sha1_2(void *i, void **o)
 	
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
-	// No freeing --- FIX
-	
+	free(input);
+	free(output);
+
 	return;
 }
 // ------
@@ -1262,8 +1281,9 @@ void md5_1(void *i, void **o)
 
 	ACCESS_WRAPPER = 0;
 	
-	// No freeing --- FIX
-	
+	free(input);
+	free(output);
+
 	return;
 }
 
@@ -1299,8 +1319,10 @@ void md5_2(void *i, void **o)
 	nk_vc_printf("finish - start: %lu\n", rdtsc() - start);
 	
 	_nk_fiber_print_data(13);
-	
-	// No freeing --- FIX
+
+	free(input);
+	free(output);
+
 #if RET_CHECK
 	nk_vc_printf("addr0: %p\n", address_hook_0);
 	nk_vc_printf("addr1: %p\n", address_hook_1);

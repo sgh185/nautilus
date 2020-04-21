@@ -914,44 +914,55 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 {
 
 #if 1
-
-  // Determine if we're on the target CPU and we're on the
-  // fiber thread of that target CPU
-  if ((my_cpu_id() == TARGET_CPU) &&
+	/*
+	if ((my_cpu_id() == TARGET_CPU) &&
       (get_cur_thread() == get_cpu()->f_state->fiber_thread)) { 
 
 	// Determine if we're on a non-idle fiber on 
 	// the fiber thread
-    if (!(nk_fiber_current()->is_idle)) { 
+    // if (!(nk_fiber_current()->is_idle)) { 
+	*/
 
-	  // Determine if we have enough capacity in our data array
-	  // and if we have access/"permissions" to yield --- then
-	  // yield if necessary
-		
+  // Determine if we're on the target CPU and we're on the
+  // fiber thread of that target CPU
+  int my_cpu = my_cpu_id();
+  if (my_cpu == TARGET_CPU) { 
+	  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
+		return 0;
+	  }
+
+	  // --- Checking to see if we're on the fiber thread of the target CPU --- 
+	  extern nk_thread_t *hook_compare_fiber_thread; // Get fiber thread of target CPU
+
+	  // if ((hook_compare_fiber_thread == get_cur_thread())
+	  // 	  && (!(nk_fiber_current()->is_idle)))  
+	  if (hook_compare_fiber_thread == get_cur_thread())
+	  {
+	
 #if 0
 
 	  if (ACCESS_WRAPPER) { nk_fiber_yield(); }
 
 #else
 
-	  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
-		uint64_t temp_time = rdtsc();
-		wrapper_data[time_interval] = temp_time - last;
-	  	overhead_data[time_interval] = overhead_count - (rdtsc_count * 32);
-	
-		overhead_count = 0;
-	  	rdtsc_count = 0;
-		last = temp_time;
-		time_interval++;
+//			  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
+			uint64_t temp_time = rdtsc();
+			wrapper_data[time_interval] = temp_time - last;
+			overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
+		
+			overhead_count = 0;
+			// rdtsc_count = 0;
+			last = temp_time;
+			time_interval++;
 
-		nk_fiber_yield();
+			nk_fiber_yield();
 
-		// last = rdtsc();
-      }
-	  
+			// last = rdtsc();
+	//	  }
+	  } 
 #endif
 
-	}
+	// }
 
 	/*
 	// We want to get a sense of how many times we're
@@ -1028,57 +1039,60 @@ void *long_hook = 0;
 
 __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
 {
-  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
-    return 0;
-  }
-
   // --- OLD --- Checking to see if we're on some fiber thread --- 
   // fiber_state *state = _GET_FIBER_STATE();
   // if (state->fiber_thread == get_cur_thread()) {
   
-  
-  // --- Checking to see if we're on the fiber thread of the target CPU --- 
-  extern nk_thread_t *hook_compare_fiber_thread; // Get fiber thread of target CPU
+  int my_cpu = my_cpu_id();
+  if (my_cpu == TARGET_CPU) { 
+	  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
+		return 0;
+	  }
 
-  if ((hook_compare_fiber_thread == get_cur_thread())
-	  && (!(nk_fiber_current()->is_idle)))  
-  {
-	  	 
-	  int curr_snapshot = rdtsc(); 
-	  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
-	  overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
+	  // --- Checking to see if we're on the fiber thread of the target CPU --- 
+	  extern nk_thread_t *hook_compare_fiber_thread; // Get fiber thread of target CPU
+
+	  // if ((hook_compare_fiber_thread == get_cur_thread())
+	  // 	  && (!(nk_fiber_current()->is_idle)))  
+	  if (hook_compare_fiber_thread == get_cur_thread())
+	  {
+			 
+		  int curr_snapshot = rdtsc(); 
+		  wrapper_data[time_interval] = curr_snapshot - old_snapshot;
+		  overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
 
 #if 0 
-	  // We want to get a sense of where the callers are coming
-	  // from --- want to confirm that the calls are coming from
-	  // a running fiber (non-idle) on the target CPU and not
-	  // some other thread or fiber
-	  if (address_hook_0 == 0) {
-		if (wrapper_data[time_interval] < 3000) { 
-			address_hook_0 = __builtin_return_address(0); 
-			address_hook_1 = __builtin_return_address(1); 
-			address_hook_2 = __builtin_return_address(2); 
-			address_hook_3 = __builtin_return_address(3); 
-		}
-	  }
+		  // We want to get a sense of where the callers are coming
+		  // from --- want to confirm that the calls are coming from
+		  // a running fiber (non-idle) on the target CPU and not
+		  // some other thread or fiber
+		  if (address_hook_0 == 0) {
+			if (wrapper_data[time_interval] < 3000) { 
+				address_hook_0 = __builtin_return_address(0); 
+				address_hook_1 = __builtin_return_address(1); 
+				address_hook_2 = __builtin_return_address(2); 
+				address_hook_3 = __builtin_return_address(3); 
+			}
+		  }
 
-	  // If we have a large interval for some reason --- figure
-	  // out the caller and stash it somewhere
-	  if (long_hook == 0) {
+		  // If we have a large interval for some reason --- figure
+		  // out the caller and stash it somewhere
+		  if (long_hook == 0) {
 
-		if ((wrapper_data[time_interval] > 40000) 
-			&& (wrapper_data[time_interval] < 60000)) {   
-		  long_hook = __builtin_return_address(2); 
-		}
-	  
-	  }
+			if ((wrapper_data[time_interval] > 40000) 
+				&& (wrapper_data[time_interval] < 60000)) {   
+			  long_hook = __builtin_return_address(2); 
+			}
+		  
+		  }
 #endif
 
-	  overhead_count = 0;
-	  // rdtsc_count = 0;
-	  old_snapshot = curr_snapshot;
-	  time_interval++;
+		  overhead_count = 0;
+		  // rdtsc_count = 0;
+		  old_snapshot = curr_snapshot;
+		  time_interval++;
 
+	  }
   }
 
   return 0;
