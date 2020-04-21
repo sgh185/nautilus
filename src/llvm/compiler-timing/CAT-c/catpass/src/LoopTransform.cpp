@@ -452,7 +452,7 @@ void LoopTransform::_designateTopGuardViaPredecessors()
 {
     // Remove top guards in recursive functions --- not handling
     // this case leads to a storm of callbacks at runtime
-    if (!(F->doesNotRecurse()))
+    if (!(Utils::DoesNotDirectlyRecurse(F)))
         return;
 
     // Handle at outermost loop (for now)

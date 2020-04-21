@@ -95,7 +95,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Policies
-#define GRAN 600
+#define GRAN 200
 #define LOOP_GUARD 1
 
 #define MAXIMUM 0
@@ -105,7 +105,7 @@ using namespace std;
 #define MEDCON 1
 #define LOWCON 2
 
-#define CONSERV HIGHCON
+#define CONSERV MEDCON
 #define LATCONFIG EXPECTED
 
 // Debugging
