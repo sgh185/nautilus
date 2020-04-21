@@ -66,8 +66,8 @@ public:
     // ------- User transformation methods -------
     void Transform();
     void BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount,
-                           PHINode *&IterPropPHI);
-    ExtendLoopResult ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI);
+                           Instruction *&Counter);
+    ExtendLoopResult ExtendLoop(uint64_t ExtensionCount, Instruction *&Counter);
     
     // ------- Analysis/transformation query methods -------    
     set<Instruction *> *GetCallbackLocations() { return &CallbackLocations; }
@@ -122,8 +122,8 @@ private:
     void _designateTopGuardViaPredecessors();
 
     // Bottom guard
-    void _buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, Instruction *Iterator, uint64_t ExtensionCount);
-    void _designateBottomGuard(uint64_t ExtensionCount, PHINode *IterPropPHI);
+    void _buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, Instruction *Iterator, uint64_t ExtensionCount, bool NeedToLoadCounter);
+    void _designateBottomGuard(uint64_t ExtensionCount, Instruction *Counter);
 
     // Post-transformation methods
     void _collectUnrolledCallbackLocations();

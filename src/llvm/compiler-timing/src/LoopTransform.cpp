@@ -64,17 +64,6 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->LoopIDFA->ComputeDFA();
     this->LoopIDFA->PrintBBLatencies();
     this->LoopIDFA->PrintInstLatencies();
-
-    // this->SCTripCount = SE->getSmallConstantTripCount(L);
-    // this->SCTripMultiple = SE->getSmallConstantTripMultiple(L);
-
-
-    // Try and transform loops into lcssa and loop-simplify forms
-    
-	/*
-	this->CorrectForm = ((formLCSSARecursively(*L, *DT, LI, SE)) && 
-                         (simplifyLoop(L, DT, LI, SE, AC, nullptr, true)));
-	*/
 }
 
 
@@ -144,8 +133,8 @@ void LoopTransform::Transform()
         // Unroll the loop by an unroll factor = ExtensionCount, collect
         // all other callback locations that were generated as a byproduct
         // of the unrolling process --- callback locations are marked internally
-        PHINode *IterPropPHI = nullptr;
-        ExtendLoopResult ELP = ExtendLoop(ExtensionCount, IterPropPHI);
+        Instruction *Counter = nullptr;
+        ExtendLoopResult ELP = ExtendLoop(ExtensionCount, Counter);
 
         switch(ELP)
         {
@@ -163,7 +152,7 @@ void LoopTransform::Transform()
         }
         case ELFail: // Unrolling failed --- revert to biased branch handling
         {
-            _designateBottomGuard(ExtensionCount, IterPropPHI);
+            _designateBottomGuard(ExtensionCount, Counter);
             return;
         }
         case ELFull: // No more loop --- no more handling
@@ -177,12 +166,12 @@ void LoopTransform::Transform()
         // take based on the iteration count for the loop --- build at
         // the top of the loop --- callback locations are marked internally
         Instruction *InsertionPoint = L->getHeader()->getFirstNonPHI();
-        PHINode *IterPropPHI = nullptr;
-        BuildBiasedBranch(InsertionPoint, ExtensionCount, IterPropPHI);
+        Instruction *Counter = nullptr;
+        BuildBiasedBranch(InsertionPoint, ExtensionCount, Counter);
 
         // No top guard explicitly designated --- done internally in 
         // BuildBiasedBranch --- much simpler this way
-        _designateBottomGuard(ExtensionCount, IterPropPHI);
+        _designateBottomGuard(ExtensionCount, Counter);
 
         return;
     }
@@ -282,6 +271,7 @@ Instruction *LoopTransform::_buildCallbackBlock(CmpInst *CI, Instruction *Insert
  * PHINodes for across-loop/inter-loop iteration schemes
  */
 
+// DEPRECATED
 void LoopTransform::_buildBranchIterator(Instruction *IterInsertionPt, PHINode *&NewTopPHI, 
                                          PHINode *&NewCallbackPHI, Instruction *&Iterator)
 {
@@ -503,10 +493,6 @@ void LoopTransform::_designateTopGuardViaPredecessors()
 }
 
 
-
-
-/* ------------------ DEPRECATED ---------------------
-
 /*
  * _designateBottomGuard, _buildBottomGuard
  * 
@@ -563,23 +549,33 @@ void LoopTransform::_designateTopGuardViaPredecessors()
  * 
  */ 
 
-void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, PHINode *IterPropPHI)
+void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, Instruction *Counter)
 {
     // Get exit blocks
     SmallVector<std::pair<BasicBlock *, BasicBlock *>, 8> ExitEdges;
     L->getExitEdges(ExitEdges);
+
+    set<BasicBlock *> VisitedExits;
 
     for (auto EE : ExitEdges)
     {
         // Edge --- source, exit block
         BasicBlock *Source = EE.first, *Exit = EE.second;
 
+        // Necessary to prevent exits from getting multiple 
+        // bottom guards even though the exit edges could 
+        // be different
+        if (VisitedExits.find(Exit) != VisitedExits.end())
+            continue;
+
+        VisitedExits.insert(Exit);
+
         Instruction *SourceTerminator = Source->getTerminator();
         if ((SourceTerminator == nullptr)
             || (!(isa<BranchInst>(SourceTerminator))))
             continue; // Sanity check
 
-        if (IterPropPHI == nullptr)
+        if (Counter == nullptr)
         {
             PHINode *IteratorPHI = nullptr;
             Instruction *Iterator = nullptr;
@@ -591,9 +587,9 @@ void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, PHINode *Iter
 
             Type *IntTy = Type::getInt32Ty(F->getContext());
             _setIteratorPHI(L, IteratorPHI, ConstantInt::get(IntTy, 0), Iterator);
-            _buildBottomGuard(Source, Exit, Iterator, ExtensionCount);
+            _buildBottomGuard(Source, Exit, Iterator, ExtensionCount, false);
         }
-        else { _buildBottomGuard(Source, Exit, IterPropPHI, ExtensionCount); }
+        else { _buildBottomGuard(Source, Exit, Counter, ExtensionCount, true); }
     }
 
     return;
@@ -601,7 +597,8 @@ void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, PHINode *Iter
 
 
 void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit, 
-                                      Instruction *Iterator, uint64_t ExtensionCount)
+                                      Instruction *Iterator, uint64_t ExtensionCount,
+                                      bool NeedToLoadCounter)
 {
     // Get terminator of the source block --- inside loop
     BranchInst *SourceTerminator = dyn_cast<BranchInst>(Source->getTerminator());
@@ -653,7 +650,17 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
 
     // Build the compare instruction --- use threshold = 0.8
     Value *Threshold = ConstantInt::get(IntTy, (ExtensionCount * 0.8)); 
-    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_SGT, Iterator, Threshold);
+
+    Instruction *IteratorToCmp = nullptr;
+    if (NeedToLoadCounter)
+    {
+        LoadInst *LoadCounter = ChecksBuilder.CreateLoad(Iterator);
+        LoadCounter->setAlignment(4);
+        IteratorToCmp = LoadCounter;
+    }
+    else { IteratorToCmp = Iterator; }
+
+    Value *ThresholdCheck = ChecksBuilder.CreateICmp(ICmpInst::ICMP_SGT, IteratorToCmp, Threshold);
     
     // Change condition of checks branch instruction
     ChecksBranch->setCondition(ThresholdCheck);
@@ -668,68 +675,16 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
 
 /*
  * BuildBiasedBranch
+ *
+ * NOTE --- THIS IS A LAST MINUTE CHANGE
  * 
- * In order to transform a loop properly to inject a callback AND account for
- * a large extension count, we cannot unroll properly --- compilation time
- * skyrockets (especially for nested loops), there's a massive code bloat,
- * and likely instruction cache thrashing
- * 
- * Instead, code is injected at the top of the loop body that handles this 
- * with a more nuanced approach --- we build a iteration counter and inject
- * a branch to a new basic block that contains an invocation to the callback
- * function based on the iteration count
- * 
- * The tradeoff is justified --- a counter is a simple add instruction, and 
- * the branch itself should not add too much overhead because it will be
- * taken once in a large number of iterations (by design) --- therefore 
- * more likely to be predicted by the branch predictor 
- * 
- * Build the branch at the top of the loop body
- * 
- * HIGH LEVEL: 
- * 
- * %2:                      %2:
- * ...                      ... // Keep an iteration count via PHINode
- * br %3                    br (iter eq ExtensionCount) %.biased %3
- * 
- * %3:                      %.biased:
- * ...                      tail call void callback() // Callback location
- * br (cond) %4 %6          ... br %3 // The rest of %2
- * 
- * %4:                      %3:
- * ...                      ...
- * br (IV) %2 %5            br (cond) %4 %6
- * 
- * %5:                      %4:
- * %a = ...                 ...
- * return %a                br (IV) %2 %5 
- *                          
- * %6:                      %5:
- * %b = ...                 %a = ...
- * return %b                return %a
- *                          
- *                          %6: 
- *                          %b = ...  
- *                          return %b
+ * Implementation of across loop counters via loads and stores and
+ * use mem2reg to optimize
  * 
  */ 
 
-void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount, PHINode *&IterPropPHI)
+void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t ExtensionCount, Instruction *&Counter)
 {
-    DEBUG_INFO("\n\n\nLOOPSTUFF\n\n\n");
-    DEBUG_INFO("\n" + F->getName() + "\n");
-    OBJ_INFO(L);
-    DEBUG_INFO("hasDedicatedExits: " + to_string(L->hasDedicatedExits()) + "\n");
-
-    DEBUG_INFO("HAS PREHEADER: ");
-    if (L->getLoopPreheader() != nullptr)
-        OBJ_INFO(L->getLoopPreheader());
-    
-    for (auto B : predecessors(L->getLoopPreheader()))
-    {
-        OBJ_INFO(B);
-    }
-
     // Nothing to do if ExtensionCount is 0
     if (!ExtensionCount)
         return;
@@ -738,10 +693,14 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
         abort(); // Serious
 
     // Set up init values
-    Type *IntTy = Type::getInt32Ty(F->getContext());
-    Value *ZeroValue = ConstantInt::get(IntTy, 0); 
-    Value *ResetValue = ConstantInt::get(IntTy, ExtensionCount);
-    Value *PHIInitValue = ZeroValue;
+    Type *IntTy = Type::getInt32Ty(F->getContext()),
+         *PtrTy = Type::getInt32PtrTy(F->getContext());
+
+    Value *ZeroValue = ConstantInt::get(IntTy, 0),
+          *Alignment = ConstantInt::get(IntTy, 4),
+          *ResetValue = ConstantInt::get(IntTy, ExtensionCount),
+          *Increment = ConstantInt::get(IntTy, 1),
+          *StoreInitValue = ZeroValue;
 
 #if LOOP_GUARD
     // If we want to insert a loop guard, then we should set the init value
@@ -754,30 +713,31 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
 
     if ((L->getLoopDepth() == 1)
         && (Utils::DoesNotDirectlyRecurse(F)))
-        PHIInitValue = ConstantInt::get(IntTy, ExtensionCount - 1);
+        StoreInitValue = ConstantInt::get(IntTy, ExtensionCount - 1);
 #endif
-                          
-    // Generate new instructions for new phi node, inject iterator, and
-    // new block functionality inside entry block
-    PHINode *TopPHI = nullptr;
-    PHINode *CallbackPHI = nullptr;
-    Instruction *Iterator = nullptr;
 
-    _buildBranchIterator(L->getHeader()->getFirstNonPHI(), TopPHI, CallbackPHI, Iterator);
-    if ((TopPHI == nullptr)
-        || (Iterator == nullptr))
-        return;
+    // Initialise counter at the top of the function body
+    BasicBlock *FunctionEntry = &(F->getEntryBlock());
+    Instruction *EntryInsertionPoint = FunctionEntry->getFirstNonPHI();
+    IRBuilder<> EntryBuilder{EntryInsertionPoint};
 
-    // Build custom condition responsible for taking the branch vs. continuing with
-    // the basic block
-    IRBuilder<> TopBuilder{Iterator->getNextNode()}; // Can never be outside of the current
-                                                    // block because the iterator is not a 
-                                                    // terminator instruction                                                
-    CmpInst *CI = static_cast<CmpInst *>(TopBuilder.CreateICmp(ICmpInst::ICMP_EQ, 
-                                                             Iterator, ResetValue));
+    // Build alloca, store initial value 
+    AllocaInst *TheCounter = EntryBuilder.CreateAlloca(IntTy);
+    TheCounter->setAlignment(4);
+    StoreInst *InitStore = EntryBuilder.CreateStore(StoreInitValue, TheCounter);
+    InitStore->setAlignment(4);
+
+    // Create manual increment --- load the value, increment
+    Instruction *IncrementInsertionPoint = L->getHeader()->getFirstNonPHI();
+    IRBuilder<> IncrementBuilder{IncrementInsertionPoint};
+
+    LoadInst *LoadCounter = IncrementBuilder.CreateLoad(TheCounter);
+    LoadCounter->setAlignment(4);
+    Value *Iterator = IncrementBuilder.CreateAdd(LoadCounter, Increment);
+    CmpInst *CI = static_cast<CmpInst *>(IncrementBuilder.CreateICmp(ICmpInst::ICMP_EQ, Iterator, ResetValue));
 
     // Generate new block (for loop for injection of nk_time_hook_fire)
-    Instruction *NewBlockTerminator = _buildCallbackBlock(CI, InsertionPoint, BIASED_MD);
+    Instruction *NewBlockTerminator = _buildCallbackBlock(CI, InsertionPoint, (BIASED_MD + to_string(L->getLoopDepth())));
     if (NewBlockTerminator == nullptr)
         return;
 
@@ -799,78 +759,18 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
     SecondaryPHI->addIncoming(Iterator, NewSinglePred);
     SecondaryPHI->addIncoming(ZeroValue, NewBlock);
 
-    // Set up inter-loop iteration scheme --- using the outermost loop
-    OBJ_INFO(L);
-    DEBUG_INFO("OUTER LATCH: \n");
-    BasicBlock *OuterLatch = OutL->getLoopLatch();
-    OBJ_INFO(OuterLatch);
-    Instruction *PBInsertionPoint = OuterLatch->getFirstNonPHI();
+    // Store value back to counter
+    StoreInst *Restore = SecondaryPHIBuilder.CreateStore(SecondaryPHI, TheCounter); 
+    Restore->setAlignment(4);
 
-    // Gather exit blocks
-    SmallVector<BasicBlock *, 8> ExitBlocks;
-    L->getExitBlocks(ExitBlocks);
-    vector<BasicBlock *> Exits;
-    for (auto EB : ExitBlocks) // Very unnecessary
-        Exits.push_back(EB);
-
-    // If we're looking at an outermost loop, or we don't have loop
-    // analysis from the normalization passes --- revert to intra
-    // loop biased branch iterator and return
-    if ((L->getLoopDepth() == 1) 
-        || (!(L->hasDedicatedExits()))
-        || (PBInsertionPoint == nullptr))
-    {
-        // Set the iterator phi as the secondary phi --- for
-        // the bottom guard implementation
-        IterPropPHI = SecondaryPHI;
-
-        // Populate selection points for top level phi node (intra)
-        _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
-
-        // Mark callback location
-        CallbackLocations.insert(NewBlockTerminator);
-
-        return;
-    }
-
-    // Populate selection points for CallbackPHI --- based on predecessors 
-    // of the loop at the current depth (an inner loop)
-    for (auto PredBB : predecessors(CallbackPHI->getParent()))
-    {
-        if (L->contains(PredBB))
-            CallbackPHI->addIncoming(SecondaryPHI, PredBB);
-        else
-            CallbackPHI->addIncoming(TopPHI, PredBB);
-    }
-
-    // Build a PHINode at the latch of the outermost loop --- that 
-    // takes incoming values of the SecondaryPHI if arriving from an
-    // inner loop, or the TopPHI if coming from outside an inner loop
-    // --- call this the PropagationPHI, represents the propagation
-    // of the iterator across loops to the outermost loop 
-    IRBuilder<> PBBuilder{PBInsertionPoint};
-    PHINode *PropagationPHI = PBBuilder.CreatePHI(IntTy, 0);
-
-    for (auto PredBB : predecessors(OuterLatch))
-    {
-        if ((find(Exits.begin(), Exits.end(), PredBB) == Exits.end())
-            && ((LI->getLoopFor(PredBB) != L)))
-            PropagationPHI->addIncoming(TopPHI, PredBB);
-        else
-            PropagationPHI->addIncoming(SecondaryPHI, PredBB);
-    }
-
-    IterPropPHI = SecondaryPHI;
-
-    // Populate selection points for top level phi node (inter)
-    _setIteratorPHI(OutL, TopPHI, PHIInitValue, PropagationPHI);
+    // Set counter
+    Counter = TheCounter;
 
     // Mark callback location
     CallbackLocations.insert(NewBlockTerminator);
 
     return;
 }
-
 
 /*
  * ExtendLoop
@@ -887,7 +787,7 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
  * not occur often at all, but this fallback mechanism is in place
  */  
 
-ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&IterPropPHI)
+ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, Instruction *&Counter)
 {
     // Nothing to unroll if ExtensionCount is 0
     if (!ExtensionCount) 
@@ -904,7 +804,7 @@ ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&It
         LOOP_DEBUG_INFO("\n\n\n");
 
         // Build a branch to handle large loop size
-        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
+        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, Counter);
         
         return ExtendLoopResult::ELFail;
     }
@@ -936,7 +836,7 @@ ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, PHINode *&It
         LOOP_DEBUG_INFO("\n\n\n");
 
         // Build a branch to handle the unroll failure
-        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, IterPropPHI);
+        BuildBiasedBranch(L->getHeader()->getFirstNonPHI(), ExtensionCount, Counter);
         
         return ExtendLoopResult::ELFail;
     }
