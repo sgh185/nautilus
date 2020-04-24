@@ -56,7 +56,9 @@ LoopTransform::LoopTransform(Loop *L, Function *F, LoopInfo *LI, DominatorTree *
     this->CallbackLocations = set<Instruction *>();
 
     // Handle and transform subloops first before transforming
-    // the current loop
+    // the current loop --- necessary for LLVM constraints --- the
+    // wrapper pass state must be updated before transforming an
+    // outer loop
     _transformSubLoops();
 
     // Calculate loop level analysis (same-depth)
@@ -258,7 +260,8 @@ Instruction *LoopTransform::_buildCallbackBlock(CmpInst *CI, Instruction *Insert
 
 
 /*
- * _buildIterator, _buildBranchIterator
+ * _buildIterator --- PARTIALLY DEPRECATED (only used for bottom guards 
+ * if bottom guards need to build a counter from scratch)
  * 
  * Injections an interation counter into the loop --- using a PHINode that acts
  * as a pseudo-induction variable and an add instruction that acts as an iterator
@@ -267,39 +270,7 @@ Instruction *LoopTransform::_buildCallbackBlock(CmpInst *CI, Instruction *Insert
  * another PHINode already exists, we still create another one --- i.e. no 
  * analysis is performed to reuse a potential iterator
  * 
- * _buildBranchIterator --- an extension to buildIterator that handles multiple
- * PHINodes for across-loop/inter-loop iteration schemes
  */
-
-// DEPRECATED
-void LoopTransform::_buildBranchIterator(Instruction *IterInsertionPt, PHINode *&NewTopPHI, 
-                                         PHINode *&NewCallbackPHI, Instruction *&Iterator)
-{
-    BasicBlock *Header = OutL->getHeader();
-    Instruction *InsertionPoint = Header->getFirstNonPHI();
-    if (InsertionPoint == nullptr)
-        return;
-
-    // Set up builders
-    IRBuilder<> TopBuilder{InsertionPoint};
-    IRBuilder<> CallbackBuilder{IterInsertionPt};
-    Type *IntTy = Type::getInt32Ty(F->getContext());
-
-    // Build the PHINode that handles the iterator value on each
-    // iteration of the loop, create the instruction to iterate,
-    // build phi nodes to handle inter loop iteration schemes
-    Value *Increment = ConstantInt::get(IntTy, 1);
-    NewTopPHI = TopBuilder.CreatePHI(IntTy, 0);
-    if (L->getLoopDepth() != 1)
-    {
-        NewCallbackPHI = CallbackBuilder.CreatePHI(IntTy, 0);
-        Iterator = dyn_cast<Instruction>(CallbackBuilder.CreateAdd(NewCallbackPHI, Increment));
-    }
-    else
-        Iterator = dyn_cast<Instruction>(CallbackBuilder.CreateAdd(NewTopPHI, Increment));
-
-    return;
-}
 
 void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
 {
@@ -307,9 +278,6 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
     Instruction *InsertionPoint = Header->getFirstNonPHI();
     if (InsertionPoint == nullptr)
         return;
-
-    DEBUG_INFO("InsertionPoint: ");
-    OBJ_INFO(InsertionPoint);
 
     // Set up builders
     IRBuilder<> Builder{InsertionPoint};
@@ -320,12 +288,6 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
     Value *Increment = ConstantInt::get(IntTy, 1);
     PHINode *TopPHI = Builder.CreatePHI(IntTy, 0);
     Value *IteratorVal = Builder.CreateAdd(TopPHI, Increment);
-
-    DEBUG_INFO("TopPHI: ");
-    OBJ_INFO(TopPHI);
-
-    DEBUG_INFO("IteratorVal: ");
-    OBJ_INFO(IteratorVal);
     
     // Set values
     NewPHI = TopPHI;
@@ -345,7 +307,6 @@ void LoopTransform::_buildIterator(PHINode *&NewPHI, Instruction *&Iterator)
 void LoopTransform::_setIteratorPHI(Loop *LL, PHINode *ThePHI, Value *Init, Value *Iterator)
 {
     for (auto PredBB : predecessors(LL->getHeader()))
-    // for (auto PredBB : predecessors(ThePHI->getParent()))
     {
         // Handle backedges
         if (LL->contains(PredBB)) // Shortcut --- for header
@@ -575,6 +536,9 @@ void LoopTransform::_designateBottomGuard(uint64_t ExtensionCount, Instruction *
             || (!(isa<BranchInst>(SourceTerminator))))
             continue; // Sanity check
 
+        // We need to build a counter if a counter is not 
+        // provided to this method --- i.e. branch injection
+        // versus other policies
         if (Counter == nullptr)
         {
             PHINode *IteratorPHI = nullptr;
@@ -651,6 +615,8 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
     // Build the compare instruction --- use threshold = 0.8
     Value *Threshold = ConstantInt::get(IntTy, (ExtensionCount * 0.8)); 
 
+    // Load instruction necessary if we're using rudimentary
+    // branch injection counter
     Instruction *IteratorToCmp = nullptr;
     if (NeedToLoadCounter)
     {
@@ -671,7 +637,9 @@ void LoopTransform::_buildBottomGuard(BasicBlock *Source, BasicBlock *Exit,
     return;
 }
 
+
 /* ----------------------------------------
+
 
 /*
  * BuildBiasedBranch
@@ -771,6 +739,7 @@ void LoopTransform::BuildBiasedBranch(Instruction *InsertionPoint, uint64_t Exte
 
     return;
 }
+
 
 /*
  * ExtendLoop
@@ -872,6 +841,8 @@ ExtendLoopResult LoopTransform::ExtendLoop(uint64_t ExtensionCount, Instruction 
  * (including vectorization, heuristics for margin of error, etc.)
  * 
  * Details are described in the method.
+ * 
+ * NOTE --- MarginOffset functionality is deprecated
  */  
 
 uint64_t LoopTransform::_calculateLoopExtensionStats(uint64_t LLS, uint64_t *MarginOffset)

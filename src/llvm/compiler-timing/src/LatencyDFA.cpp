@@ -43,12 +43,6 @@ LatencyDFA::LatencyDFA(Loop *L, int32_t PropPolicy,
     if (!(_buildLoopBlocks(L)))
         abort(); // Serious
 
-    DEBUG_INFO("\n\n\n\n\nNOW LOOP LDFA BLOCKS:\n");
-    for (auto B : Blocks)
-    {
-        OBJ_INFO(B);
-    }
-
     // Set state
     this->LI = nullptr;
     this->EntryBlock = L->getHeader();
@@ -101,6 +95,7 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy,
     this->F = F;
     this->L = nullptr;
     this->LI = LI;
+    this->Loops = vector<Loop *>();
     for (auto L : *LI)
         Loops.push_back(L);
 
@@ -114,17 +109,12 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy,
     this->Blocks = vector<BasicBlock *>();
     this->EntryBlock = &(F->getEntryBlock());
 
+    // Determine valid blocks for same-depth analysis
     for (auto &B : *F)
     {
         if (!(this->TopLevelAnalysis)
             || (_isValidBlock(&B)))
             Blocks.push_back(&B);
-    }
-
-    DEBUG_INFO("\n\n\n\n\nNOW FUNCTION LDFA BLOCKS:\n");
-    for (auto B : Blocks)
-    {
-        OBJ_INFO(B);
     }
 
     // Set DFA data structures
@@ -172,9 +162,7 @@ LatencyDFA::LatencyDFA(Function *F, LoopInfo *LI, int32_t PropPolicy,
  */ 
 
 void LatencyDFA::_calculateLoopLatencySize()
-{   
-    DEBUG_INFO("_calculateLoopLatencySize\n\n");
-    
+{       
     // Very unoptimized method
     for (auto Block : Blocks)
     {
@@ -206,16 +194,6 @@ void LatencyDFA::ComputeDFA()
     if (L != nullptr)
     {
         _calculateLoopLatencySize();
-#if 0
-        BasicBlock *Latch = L->getLoopLatch();
-        if (Latch != nullptr)
-            this->LoopLatencySize = AccumulatedLatencies[Latch];
-        else
-        {
-            BasicBlock *Last = L->getBlocksVector().back();
-            this->LoopLatencySize = AccumulatedLatencies[Last];
-        }
-#endif
 
         DEBUG_INFO("\nLoopLatencySize: " + 
                     to_string(this->LoopLatencySize) + " " + to_string(this->TopLevelAnalysis) + "\n");
@@ -860,13 +838,13 @@ uint64_t LatencyDFA::_buildLoopBlocks(Loop *L)
 
 bool LatencyDFA::_isValidBlock(BasicBlock *BB)
 {
-    if (L != nullptr)
+    if (L != nullptr) // Loop validation
     {
         if ((!(L->contains(BB)))
             || (IsContainedInSubLoop(BB)))
             return false;
     }
-    else
+    else // Function validation
     {
         if (IsContainedInLoop(BB))
             return false;
@@ -884,7 +862,7 @@ bool LatencyDFA::_isValidBlock(BasicBlock *BB)
  * 
  * Wrapper for FindFunctionBackedges API --- transfer from LLVM
  * ADTs to C++ STL containers --- build two way map for backedges
- * so querying is easier
+ * so querying is easier (personally)
  */ 
 
 void LatencyDFA::_organizeFunctionBackedges()

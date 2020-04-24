@@ -54,6 +54,12 @@ const uint64_t MaxMargin = 50; // Number of cycles maximum to miss (by compile-t
 // - MANUAL --- determine callback locations manually via LatencyDFA traversal, 
 //              occurs when the LLS is large
 enum TransformOption { EXTEND, BRANCH, MANUAL };
+
+// Return value options for ExtendLoop
+// - ELSuccess --- successfully unrolled some of the loop
+// - ELFull --- fully unrolled loop --- loop structure does NOT exist post-transformation
+// - ELFail --- fail to unroll the loop --- either because LLVM cannot unroll or because 
+//              the instruction size is too large for unrolling (opts to branch injection)
 enum ExtendLoopResult { ELSuccess, ELFull, ELFail };
 
 class LoopTransform

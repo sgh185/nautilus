@@ -95,7 +95,7 @@ using namespace std;
 #define IDLE_FIBER_ROUTINE 3
 
 // Policies
-#define GRAN 200
+#define GRAN 16000
 #define LOOP_GUARD 1
 
 #define MAXIMUM 0
@@ -139,73 +139,3 @@ extern const string NOHOOK;
 extern unordered_map<uint32_t, Function *> *SpecialRoutines;
 extern vector<string> *NoHookFunctionSignatures;
 extern vector<Function *> *NoHookFunctions;
-
-
-//  Instruction *SecondaryInsertionPoint = NewSingleSucc->getFirstNonPHI();
-//     if (SecondaryInsertionPoint == nullptr)
-//         return;
-
-//     IRBuilder<> SecondaryPHIBuilder{SecondaryInsertionPoint};
-//     PHINode *SecondaryPHI = SecondaryPHIBuilder.CreatePHI(IntTy, 0);
-
-//     // Populate selection points for second level phi node
-//     SecondaryPHI->addIncoming(Iterator, NewSinglePred);
-//     SecondaryPHI->addIncoming(ZeroValue, NewBlock);
-
-//     unordered_map<BasicBlock *, BasicBlock *> PHIPropagationBlocks;
-//     BasicBlock *Preheader = L->getLoopPreheader();
-//     BasicBlock *AHeader = (Preheader == nullptr) ? L->getHeader() : Preheader;
-
-//     for (auto PredBB : predecessors(AHeader))
-//     {
-//         if (L->contains(PredBB))
-//             continue;
-        
-//         for (auto SuccBB : successors(PredBB))
-//         {
-//             if ((SuccBB == AHeader)
-//                 || (L->contains(SuccBB)))
-//                 continue;
-                
-//             PHIPropagationBlocks[SuccBB] = PredBB;
-//         }
-//     }
-
-//     if ((PHIPropagationBlocks.size() != 1)
-//         || (L->getLoopDepth() == 1))
-//     {
-//         // Populate selection points for top level phi node
-//         _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
-
-//         // Mark callback location
-//         CallbackLocations.insert(NewBlockTerminator);
-
-//         return;
-//     }
-
-//     BasicBlock *PropBlock = PHIPropagationBlocks.begin()->first,
-//                *PredPropBlock = PHIPropagationBlocks.begin()->second;
-
-//     Instruction *PBInsertionPoint = PropBlock->getFirstNonPHI();
-//     if (PBInsertionPoint == nullptr)
-//     {
-//         // Populate selection points for top level phi node
-//         _setIteratorPHI(OutL, TopPHI, PHIInitValue, SecondaryPHI);
-
-//         // Mark callback location
-//         CallbackLocations.insert(NewBlockTerminator);
-
-//         return;
-//     }
-
-//     IRBuilder<> PBBuilder{PBInsertionPoint};
-//     PHINode *PropagationPHI = PBBuilder.CreatePHI(IntTy, 0);
-
-//     for (auto PredBB : predecessors(PropBlock))
-//     {
-//         if (PredBB == PredPropBlock)
-//             PropagationPHI->addIncoming(TopPHI, PredBB);
-//         else
-//             PropagationPHI->addIncoming(SecondaryPHI, PredBB);
-//     }
-
