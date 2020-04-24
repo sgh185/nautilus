@@ -157,33 +157,6 @@ struct CAT : public ModulePass
          * will be injected per function
          */ 
 
-#if 0 
-        for (auto Routine : Routines)
-        {
-            // Gather wrapper analysis state
-            auto *DT = &getAnalysis<DominatorTreeWrapperPass>(*Routine).getDomTree();
-            auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*Routine);
-            auto *LI = &getAnalysis<LoopInfoWrapperPass>(*Routine).getLoopInfo();
-            auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>(*Routine).getSE();
-            OptimizationRemarkEmitter ORE(Routine);
-
-            vector<Loop *> Loops;
-            for (auto L : *LI)
-                Loops.push_back(L);
-
-			VERIFY_DEBUG_INFO("F: " + Routine->getName() + "\n");
-			
-            for (auto L : Loops)
-            {
-                VERIFY_OBJ_INFO(L);
-				VERIFY_DEBUG_INFO(to_string(SE->getSmallConstantTripCount(L)));
-                VERIFY_DEBUG_INFO(to_string(SE->getSmallConstantTripMultiple(L)));
-            }
-        }
-
-		return false;
-#endif
-
         for (auto Routine : Routines)
         {
 			// Set injection locations data structure
@@ -229,6 +202,8 @@ struct CAT : public ModulePass
             // Inject callbacks at all specified injection locations
             Utils::InjectCallback(InjectionLocations, Routine);
 
+            // Verify the function hasn't broken LLVM invariants --- if
+            // it has, print to standard error
             if (verifyFunction(*Routine, &(errs())))
             {
                 VERIFY_DEBUG_INFO("\n");
@@ -244,7 +219,7 @@ struct CAT : public ModulePass
          * Inline the callback function --- nk_time_hook_fire, option for
          * a potential optimization. 
          * 
-         * (NOTE --- this is potentially very dangerous for at low granularities 
+         * (NOTE --- this is potentially very dangerous at low granularities 
          * --- code bloat and explosion of instrisic debug info causes a 
          * shift of the .text section at link time and potential linker 
          * failure, also may cause performance bottleneck at low granularities 
