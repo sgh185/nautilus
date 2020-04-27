@@ -76,9 +76,9 @@
 #define _UNLOCK_FIBER(f) spin_unlock(&(f->lock))
 
 /* Time-hook testing */
-#define YIELD_HOOK 0
-#define SNAPSHOT_HOOK 1
-#define NULL_HOOK 0
+#define YIELD_HOOK 1
+#define SNAPSHOT_HOOK 0 
+#define NULL_HOOK 0 
 
 // #define HOOK_FUNC YIELD_HOOK
 
@@ -121,7 +121,7 @@ extern void _nk_fiber_fp_save(nk_fiber_t* f);
 /******** INTERNAL FUNCTIONS **********/
 
 // returns the fiber state for the current CPU
-static fiber_state* _get_fiber_state()
+__attribute__((annotate("nohook"))) static fiber_state* _get_fiber_state()
 {
   return get_cpu()->f_state;
 }
@@ -133,31 +133,31 @@ __attribute__((annotate("nohook"))) nk_fiber_t* nk_fiber_current()
 }
 
 // returns the current CPU's idle fiber
-static nk_fiber_t* _nk_idle_fiber()
+__attribute__((annotate("nohook"))) static nk_fiber_t* _nk_idle_fiber()
 {
   return _get_fiber_state()->idle_fiber;
 }
 
 // returns the current CPU's fiber thread
-static nk_thread_t *_get_fiber_thread()
+__attribute__((annotate("nohook"))) static nk_thread_t *_get_fiber_thread()
 {
   return _get_fiber_state()->fiber_thread;
 }
 
 // returns the current CPU's sched queue head
-static struct list_head* _get_sched_head()
+__attribute__((annotate("nohook"))) static struct list_head* _get_sched_head()
 {
   return &(_get_fiber_state()->f_sched_queue); 
 }
 
 // returns the current CPU's fiber sched queue lock
-static spinlock_t *_get_sched_queue_lock()
+__attribute__((annotate("nohook"))) static spinlock_t *_get_sched_queue_lock()
 {
   return &(get_cpu()->f_state->lock); 
 }
 
 // utility function for setting up  a fiber's stack 
-static void _fiber_push(nk_fiber_t * f, uint64_t x)
+__attribute__((annotate("nohook"))) static void _fiber_push(nk_fiber_t * f, uint64_t x)
 {
     f->rsp -= 8;
     *(uint64_t*)(f->rsp) = x;
@@ -165,7 +165,7 @@ static void _fiber_push(nk_fiber_t * f, uint64_t x)
 
 // Round Robin policy for fibers. Returns the first fiber in the curr CPU's sched queue
 // Returns NULL if no fiber is available in the curr CPU's sched queue
-static nk_fiber_t* _rr_policy()
+__attribute__((annotate("nohook"))) static nk_fiber_t* _rr_policy()
 {
   // Grab the first fiber from the sched queue
   struct list_head *f_queue = _GET_SCHED_HEAD(); 
@@ -187,7 +187,7 @@ static nk_fiber_t* _rr_policy()
 
 // Cleans up an exiting fiber. Frees fiber struct and fiber's stack, cleans up fiber's wait queue
 // Exiting fiber must be running when this is called because a context switch is performed at the end
-static void _nk_fiber_exit(nk_fiber_t *f)
+__attribute__((annotate("nohook"))) static void _nk_fiber_exit(nk_fiber_t *f)
 {
   // Acquire the exiting fiber's lock
   _LOCK_FIBER(f);
@@ -251,14 +251,16 @@ static void _nk_fiber_exit(nk_fiber_t *f)
 }
 
 // Wrapper used to execute a fiber's routine
-static void _fiber_wrapper(nk_fiber_t* f_to)
+__attribute__((annotate("nohook"))) static void _fiber_wrapper(nk_fiber_t* f_to)
 {
+  // FIBER_INFO("_nk_fiber_wrapper() : executing fiber routine from fiber %p\n", f_to);
   //FIBER_DEBUG("_nk_fiber_wrapper() : executing fiber routine from fiber %p\n", f_to);
 
   // Execute fiber function
   f_to->fun(f_to->input, f_to->output);
 
   FIBER_DEBUG("_nk_fiber_exit() : exiting from fiber %p\n", f_to);
+  // FIBER_INFO("_nk_fiber_exit() : exiting from fiber %p\n", f_to);
   
   // Exit when fiber function ends
   // Starts each fiber on f's wait queue and switches stacks to idle fiber
@@ -313,7 +315,7 @@ static void _fiber_wrapper(nk_fiber_t* f_to)
 #if NAUT_CONFIG_DEBUG_FIBERS
 
 // If debugging is enabled, sentinent values are placed in registers
-static void _nk_fiber_init(nk_fiber_t *f)
+__attribute__((annotate("nohook"))) static void _nk_fiber_init(nk_fiber_t *f)
 {
   f->rsp = (uint64_t) f->stack + f->stack_size - 8;
   _fiber_push(f, (uint64_t) _fiber_wrapper);
@@ -342,7 +344,7 @@ static void _nk_fiber_init(nk_fiber_t *f)
 
 #else 
 
-static void _nk_fiber_init(nk_fiber_t *f)
+__attribute__((annotate("nohook"))) static void _nk_fiber_init(nk_fiber_t *f)
 {
   f->rsp = (uint64_t) f->stack + f->stack_size - 8;
   _fiber_push(f, (uint64_t) _fiber_wrapper);
@@ -668,7 +670,7 @@ int nk_fiber_init()
 {
     struct cpu * my_cpu = nk_get_nautilus_info()->sys.cpus[nk_get_nautilus_info()->sys.bsp_id];
 
-    FIBER_INFO("Initializing fibers on BSP\n");
+    // FIBER_INFO("Initializing fibers on BSP\n");
 
     my_cpu->f_state = init_local_fiber_state();
     if (!(my_cpu->f_state)) { 
@@ -866,7 +868,7 @@ static int __start_fiber_thread_for_this_cpu()
 void nk_fiber_startup()
 {
     struct cpu *my_cpu = get_cpu();
-    FIBER_INFO("Starting fiber thread for CPU %d\n",my_cpu->id);
+    // FIBER_INFO("Starting fiber thread for CPU %d\n",my_cpu->id);
     if (__start_fiber_thread_for_this_cpu()){
 	    ERROR("Cannot start fiber thread for CPU!\n");
 	    panic("Cannot start fiber thread for CPU!\n");
@@ -925,8 +927,10 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 
   // Determine if we're on the target CPU and we're on the
   // fiber thread of that target CPU
-  int my_cpu = my_cpu_id();
-  if (my_cpu == TARGET_CPU) { 
+  
+  struct cpu *my_cpu = get_cpu();
+  
+  if (my_cpu->id == TARGET_CPU) { 
 	  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
 		return 0;
 	  }
@@ -945,18 +949,20 @@ __attribute__((annotate("nohook"))) int _wrapper_nk_fiber_yield()
 
 #else
 
-//			  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
-			uint64_t temp_time = rdtsc();
-			wrapper_data[time_interval] = temp_time - last;
-			overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
-		
-			overhead_count = 0;
-			// rdtsc_count = 0;
-			last = temp_time;
-			time_interval++;
+	  		if (!(my_cpu->interrupt_nesting_level > 0)) { 	
 
-			nk_fiber_yield();
+	//			  if (ACCESS_WRAPPER && (time_interval < MAX_WRAPPER_COUNT)) { 
+				uint64_t temp_time = rdtsc();
+				wrapper_data[time_interval] = temp_time - last;
+				overhead_data[time_interval] = overhead_count; // - (rdtsc_count * 32);
+			
+				overhead_count = 0;
+				// rdtsc_count = 0;
+				last = temp_time;
+				time_interval++;
 
+				nk_fiber_yield();
+			}
 			// last = rdtsc();
 	//	  }
 	  } 
@@ -1045,6 +1051,8 @@ __attribute__((annotate("nohook"))) int _nk_snapshot_time_hook()
   
   int my_cpu = my_cpu_id();
   if (my_cpu == TARGET_CPU) { 
+	  // return 0;
+
 	  if ((time_interval >= MAX_WRAPPER_COUNT) || (!ACCESS_WRAPPER)) {
 		return 0;
 	  }

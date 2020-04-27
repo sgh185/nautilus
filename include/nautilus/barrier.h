@@ -102,7 +102,7 @@ static inline void nk_counting_barrier(volatile nk_counting_barrier_t *b)
     }
 }
 
-static inline void nk_fiber_counting_barrier(volatile nk_counting_barrier_t *b)
+__attribute__((annotate("nohook"))) static /*inline*/ void nk_fiber_counting_barrier(volatile nk_counting_barrier_t *b)
 {
     uint64_t old;
     volatile uint64_t *curp = &(b->cur);
