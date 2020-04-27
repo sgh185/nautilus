@@ -49,6 +49,7 @@ extern "C" {
 #define EFER_FFXSR (1<<14) // Fast FXSAVE/FXRSTOR
 #define EFER_TCE   (1<<15) // Translation Cache Extension
 
+#define MSR_SMI_COUNT 0x34 
 
 #define AMD_MSR_TSC           0x00000010
 #define AMD_MSR_APIC_BASE     0x0000001b

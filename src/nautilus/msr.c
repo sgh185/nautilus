@@ -42,6 +42,12 @@ msr_read (uint32_t msr)
     return ((uint64_t)hi << 32) | lo;
 }
 
+inline uint32_t
+msr_smi_count_read()
+{
+	uint32_t msr = MSR_SMI_COUNT;
+	return msr_read(msr);
+}
 
 static int
 handle_wrmsr (char * buf, void * priv)
@@ -92,6 +98,13 @@ handle_rdmsr (char * buf, void * priv)
     return 0;
 }
 
+static int 
+handle_smi (char * buf, void * priv)
+{
+	nk_vc_printf("SMI Count: %d\n", msr_smi_count_read());
+	return 0;	
+}
+
 static struct shell_cmd_impl rdmsr_impl = {
     .cmd      = "rdmsr",
     .help_str = "rdmsr x [n]",
@@ -105,3 +118,10 @@ static struct shell_cmd_impl wrmsr_impl = {
     .handler  = handle_wrmsr,
 };
 nk_register_shell_cmd(wrmsr_impl);
+
+static struct shell_cmd_impl smi_count_impl = {
+    .cmd      = "smict",
+    .help_str = "smict --- SMI Count",
+    .handler  = handle_smi,
+};
+nk_register_shell_cmd(smi_count_impl);
