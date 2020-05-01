@@ -46,44 +46,60 @@
 void print_sl(nk_slist *sl)
 {
 	int i;
+	nk_vc_printf("\n");
 	for (i = 0; i < SLIST_TOP_GEAR; i++)
 	{
 		nk_vc_printf("gear %d: ", i);
-
+		int j = 0;
 		nk_slist_node *iterator = sl->all_gears[i];
 		while (iterator != NULL)
 		{
 			nk_vc_printf("%d ", iterator->data);
 			iterator = iterator->succ_nodes[i];
+			j++;
 		}
 
-		nk_vc_printf("\n");
+		nk_vc_printf("\nTOTAL: %d\n\n", j);
 	}
 
 	return;
 }
 
+#define NUM_RAND 4000
+#define TOP_GEAR (NUM_RAND / 12)
+
 static int
 handle_sl (char * buf, void * priv)
 {
 	nk_vc_printf("skiplist test ...\n");
-	nk_slist *the_list = nk_slist_build();
+	nk_slist *the_list = nk_slist_build(TOP_GEAR);
 
-	int *rand_array = gen_rand_array(int, 10, 1), i;
+	int *rand_array = gen_rand_array(int, NUM_RAND, 1), i;
 	
-	for (i = 0; i < 10; i++) { 
+	nk_vc_printf("rand array:\n");
+	for (i = 0; i < NUM_RAND; i++) { 
 		nk_vc_printf("%d ", rand_array[i]);
 	}
-
-	nk_vc_printf("\n");
-		
-	nk_slist_add(the_list, rand_array[0]);
 	
 	print_sl(the_list);
+	
+	nk_vc_printf("\nadding elements...\n");
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < NUM_RAND; i++) {
 		nk_slist_add(the_list, rand_array[i]);
 	}	
+	
+	nk_vc_printf("\npost-adding elements...\n");
+
+	print_sl(the_list);
+	
+	nk_vc_printf("\nremoving elements...\n");
+
+	for (i = 0; i < NUM_RAND; i++) {
+		nk_slist_remove(the_list, rand_array[i]);
+	}	
+	
+	nk_vc_printf("\npost-removing elements...\n");
 
 	print_sl(the_list);
 

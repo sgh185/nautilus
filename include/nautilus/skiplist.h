@@ -38,7 +38,7 @@ extern "C" {
 #include <nautilus/naut_string.h>
 #include <nautilus/libccompat.h>
 
-#define DO_SLIST_PRINT 1
+#define DO_SLIST_PRINT 1 
 
 #if DO_SLIST_PRINT
 #define SLIST_PRINT(...) nk_vc_printf(__VA_ARGS__)
@@ -51,7 +51,7 @@ extern "C" {
 
 #define RAND_MAGIC 0x7301
 #define SEED srand48(rdtsc() % RAND_MAGIC)
-#define SLIST_TOP_GEAR 8
+#define SLIST_TOP_GEAR 8 // Deprecated
 
 typedef struct nk_slist_node {
 	struct nk_slist_node **succ_nodes;
@@ -61,23 +61,24 @@ typedef struct nk_slist_node {
 } nk_slist_node;
 
 typedef struct {
-	nk_slist_node *all_gears[SLIST_TOP_GEAR];
+	nk_slist_node **all_gears;
+	uint8_t top_gear;
 } nk_slist;
 
 // Skip list internals
-inline uint8_t nk_slist_get_rand_gear();
+inline uint8_t nk_slist_get_rand_gear(uint8_t top_gear);
 inline void nk_slist_node_link(nk_slist_node *pred, nk_slist_node *succ, uint8_t gear);
 
 // Setup, cleanup
-nk_slist *nk_slist_build();
+nk_slist *nk_slist_build(uint8_t top_gear);
 nk_slist_node *nk_slist_node_build(int val, uint8_t g);
 void nk_slist_node_destroy(nk_slist_node *sln);
 void nk_slist_destroy(nk_slist *sl);
 
 // Skip list operations
-nk_slist_node *nk_slist_find_worker(int val, 
-										   nk_slist_node **ipts,
-										   nk_slist_node *gearbox,
+inline nk_slist_node *nk_slist_find_worker(int val, 
+										   nk_slist_node *ipts[],
+										   nk_slist_node *the_gearbox,
 										   uint8_t start_gear,
 										   uint8_t record);
 nk_slist_node *nk_slist_find(nk_slist *sl, int val);
