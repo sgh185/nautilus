@@ -9,7 +9,14 @@ ISO_NAME:=nautilus.iso
 BIN_NAME:=nautilus.bin
 SYM_NAME:=nautilus.syms
 BC_NAME:=nautilus.bc
+LOOP_NAME:=nautilus_loop_simplify.bc
+OPT_NAME:=nautilus_opt.bc
+FINAL_NAME:=nautilus_final.bc
 LL_NAME:=nautilus.ll
+LOOP_LL_NAME:=nautilus_loop_simplify.ll
+OPT_LL_NAME:=nautilus_opt.ll
+FINAL_LL_NAME:=nautilus_final.ll
+
 
 
 
@@ -803,6 +810,19 @@ whole_opt: $(BIN_NAME)
 	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
 	rm .nautilus.o
 endif
+
+carat: $(BC_NAME)
+	# Rebuild bitcode with select loop simplification passes
+	# opt -loop-simplify -lcssa $(BC_NAME) -o $(LOOP_NAME)
+	# llvm-dis $(LOOP_NAME) -o $(LOOP_LL_NAME)	
+	# Run CARAT (allocation pass)
+	# opt -load ~/CAT/lib/CAT.so -TexasAlloc $(LOOP_NAME) -o $(OPT_NAME)
+	opt -load ~/CAT/lib/CAT.so -TexasAlloc $(BC_NAME) -o $(OPT_NAME)
+	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
+	# Recompile (with full opt levels) new object files, binaries
+	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
+	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
+	rm .nautilus.o
 
 endif
 # The actual objects are generated when descending, 
