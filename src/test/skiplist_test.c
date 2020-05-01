@@ -15,9 +15,7 @@
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
- * Author:  Michael A. Cuevas <cuevas@u.northwestern.edu>
- *          Enrico Deiana <ead@u.northwestern.edu>
- *          Peter Dinda <pdinda@northwestern.edu>
+ * Author: Souradip Ghosh <sgh@u.northwestern.edu> 
  *  
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
@@ -43,36 +41,33 @@
 	rand_array; \
 })
 
-void print_sl(nk_slist *sl)
-{
-	int i;
-	nk_vc_printf("\n");
-	for (i = 0; i < SLIST_TOP_GEAR; i++)
-	{
-		nk_vc_printf("gear %d: ", i);
-		int j = 0;
-		nk_slist_node *iterator = sl->all_gears[i];
-		while (iterator != NULL)
-		{
-			nk_vc_printf("%d ", iterator->data);
-			iterator = iterator->succ_nodes[i];
-			j++;
-		}
+#define print_sl(sl) ({ \
+	int i; \
+	nk_vc_printf("\n"); \
+	for (i = 0; i < sl->top_gear; i++) \
+	{ \
+		nk_vc_printf("gear %d: ", i); \
+		int j = 0; \
+		__auto_type *iterator = sl->all_gears[i]; \
+		while (iterator != NULL) \
+		{ \
+			nk_vc_printf("%d ", iterator->data); \
+			iterator = iterator->succ_nodes[i]; \
+			j++; \
+		} \
+		\
+		nk_vc_printf("\nTOTAL: %d\n\n", j); \
+	} \
+})
 
-		nk_vc_printf("\nTOTAL: %d\n\n", j);
-	}
-
-	return;
-}
-
-#define NUM_RAND 4000
-#define TOP_GEAR (NUM_RAND / 12)
+#define NUM_RAND 1000
+#define TOP_GEAR 12 /* (NUM_RAND / 12) */ 
 
 static int
 handle_sl (char * buf, void * priv)
 {
 	nk_vc_printf("skiplist test ...\n");
-	nk_slist *the_list = nk_slist_build(TOP_GEAR);
+	nk_slist_int *the_list = nk_slist_build(int, TOP_GEAR);
 
 	int *rand_array = gen_rand_array(int, NUM_RAND, 1), i;
 	
@@ -86,7 +81,7 @@ handle_sl (char * buf, void * priv)
 	nk_vc_printf("\nadding elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_add(the_list, rand_array[i]);
+		nk_slist_add(int, the_list, rand_array[i]);
 	}	
 	
 	nk_vc_printf("\npost-adding elements...\n");
@@ -96,7 +91,7 @@ handle_sl (char * buf, void * priv)
 	nk_vc_printf("\nremoving elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_remove(the_list, rand_array[i]);
+		nk_slist_remove(int, the_list, rand_array[i]);
 	}	
 	
 	nk_vc_printf("\npost-removing elements...\n");
