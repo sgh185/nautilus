@@ -3,16 +3,11 @@
 
 #include "profiler.hpp"
 
-
-#define CARAT_MALLOC "_Z20AddToAllocationTablePvm"
-#define CARAT_REALLOC "_Z30HandleReallocInAllocationTablePvS_m"
-#define CARAT_CALLOC "_Z26AddCallocToAllocationTablePvmm"
-#define CARAT_REMOVE_ALLOC "_Z25RemoveFromAllocationTablePv"
-#define CARAT_STATS "_Z16ReportStatisticsv"
-
-
-
-
+#define CARAT_MALLOC "AddToAllocationTable"
+#define CARAT_REALLOC "HandleReallocInAllocationTable"
+#define CARAT_CALLOC "AddCallocToAllocationTable"
+#define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
+#define CARAT_STATS "ReportStatistics"
 
 namespace {
 

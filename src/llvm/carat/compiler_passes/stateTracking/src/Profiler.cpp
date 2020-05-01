@@ -103,7 +103,6 @@ namespace {
                         }
                     }
                 }
-            }
 
 
 
@@ -119,7 +118,6 @@ namespace {
                 auto allocFunc = M.getOrInsertFunction(CARAT_STATE_REPORT, signature);
                 for(auto* RI : returns){               
                     const Twine &NameStr = "";
-                    errs() << "Adding state report to return" << returns.size() << "\n"; 
                     CallInst* addToAllocationTable = CallInst::Create(allocFunc, NameStr, RI);
                     modified = true;
                 }
@@ -210,7 +208,7 @@ namespace {
                 errs() << "Done instrumenting Memory\n";
             }
         }
-    
+    }
 
         void getAnalysisUsage (AnalysisUsage &AU) const override {
             AU.addRequired<AssumptionCacheTracker>();

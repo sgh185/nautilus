@@ -3,7 +3,7 @@
 
 #define DEBUG 0
 
-#define CARAT_ESCAPE "_Z16AddToEscapeTablePv"
+#define CARAT_ESCAPE "_Z16AddToEscapeTablePvS_m"
 
 
 
@@ -104,6 +104,8 @@ namespace {
 
                 std::vector<Type*> params;
                 params.push_back(voidPointerType);
+                params.push_back(voidPointerType);
+                params.push_back(int64Type);
                 ArrayRef<Type*> args = ArrayRef<Type*>(params);
                 auto signature = FunctionType::get(voidType, args, false);                
                 auto allocFunc = M.getOrInsertFunction(CARAT_ESCAPE, signature);
@@ -115,11 +117,17 @@ namespace {
                     //cast inst as value to grab returned value
 
                     CastInst* pointerCast = CastInst::CreatePointerCast(AI->getOperand(1), voidPointerType, NameStr, tempI);
+                    CastInst* pointerCast2 = CastInst::CreatePointerCast(AI->getOperand(0), voidPointerType, NameStr, tempI); 
+                    CastInst* int64Cast = CastInst::CreateZExtOrBitCast(AI->getOperand(2), int64Type, NameStr, tempI);  
                     callVals.push_back(pointerCast);
+                    callVals.push_back(pointerCast2);
+                    callVals.push_back(int64Cast);
                     ArrayRef<Value*> callArgs = ArrayRef<Value*>(callVals);
                     CallInst* addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
                     pointerCast->insertAfter(AI);
-                    addToAllocationTable->insertAfter(pointerCast);
+                    pointerCast2->insertAfter(pointerCast);
+                    int64Cast->insertAfter(pointerCast2);
+                    addToAllocationTable->insertAfter(int64Cast);
 
                     modified = true;
 
@@ -131,6 +139,8 @@ namespace {
 
                 std::vector<Type*> params;
                 params.push_back(voidPointerType);
+                params.push_back(voidPointerType);
+                params.push_back(int64Type);
                 ArrayRef<Type*> args = ArrayRef<Type*>(params);
                 auto signature = FunctionType::get(voidType, args, false);                
                 auto allocFunc = M.getOrInsertFunction(CARAT_ESCAPE, signature);
@@ -144,11 +154,16 @@ namespace {
                     //cast inst as value to grab returned value
 
                     CastInst* pointerCast = CastInst::CreatePointerCast(AI->getValueOperand(), voidPointerType, NameStr, tempI);
+                    CastInst* pointerCast2 = CastInst::CreatePointerCast(AI->getPointerOperand(), voidPointerType, NameStr, tempI); 
+                    Value* int64Cast = ConstantInt::get(int64Type, 1, false);   
                     callVals.push_back(pointerCast);
+                    callVals.push_back(pointerCast2);
+                    callVals.push_back(int64Cast);
                     ArrayRef<Value*> callArgs = ArrayRef<Value*>(callVals);
                     CallInst* addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
                     pointerCast->insertAfter(AI);
-                    addToAllocationTable->insertAfter(pointerCast);
+                    pointerCast2->insertAfter(pointerCast);
+                    addToAllocationTable->insertAfter(pointerCast2);
 
                     modified = true;
 

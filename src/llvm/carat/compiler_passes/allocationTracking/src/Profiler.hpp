@@ -8,6 +8,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -31,7 +32,6 @@
 //1 will be a memory allocation
 //0 will be a freeing
 
-
 /*TO BE UNCOMMENTED WITH BOOST SUPPORT
   using boost::property_tree::ptree;
   using boost::property_tree::read_json;
@@ -51,27 +51,33 @@
 
 using namespace llvm;
 
+uint64_t findStructSize(Type *);
+uint64_t findArraySize(Type *);
 
-uint64_t findStructSize(Type*);
-uint64_t findArraySize(Type*);
-
-uint64_t findStructSize(Type* sType){
+uint64_t findStructSize(Type *sType)
+{
     uint64_t size = 0;
-    for(int i = 0; i < sType->getStructNumElements(); i++){
-        if(sType->getStructElementType(i)->isArrayTy()){
+    for (int i = 0; i < sType->getStructNumElements(); i++)
+    {
+        if (sType->getStructElementType(i)->isArrayTy())
+        {
             size = size + findArraySize(sType->getStructElementType(i));
         }
-        else if(sType->getStructElementType(i)->isStructTy()){
+        else if (sType->getStructElementType(i)->isStructTy())
+        {
             size = size + findStructSize(sType->getStructElementType(i));
         }
-        else if(sType->getStructElementType(i)->getPrimitiveSizeInBits() > 0){
-            size = size + (sType->getStructElementType(i)->getPrimitiveSizeInBits()/8);
+        else if (sType->getStructElementType(i)->getPrimitiveSizeInBits() > 0)
+        {
+            size = size + (sType->getStructElementType(i)->getPrimitiveSizeInBits() / 8);
         }
-        else if(sType->getStructElementType(i)->isPointerTy()){
+        else if (sType->getStructElementType(i)->isPointerTy())
+        {
             //This is bad practice to just assume 64-bit system... but whatever
             size = size + 8;
         }
-        else{
+        else
+        {
             errs() << "Error(Struct): Cannot determine size:" << *(sType->getStructElementType(i)) << "\n";
             return 0;
         }
@@ -81,36 +87,43 @@ uint64_t findStructSize(Type* sType){
 #endif
     return size;
 }
-uint64_t findArraySize(Type* aType){
-    Type* insideType;
+uint64_t findArraySize(Type *aType)
+{
+    Type *insideType;
     uint64_t size = aType->getArrayNumElements();
 #if DEBUG == 1
     errs() << "Num elements in array: " << size << "\n";
 #endif
     insideType = aType->getArrayElementType();
-    if(insideType->isArrayTy()){
+    if (insideType->isArrayTy())
+    {
         size = size * findArraySize(insideType);
     }
-    else if(insideType->isStructTy()){
+    else if (insideType->isStructTy())
+    {
         size = size * findStructSize(insideType);
     }
-    else if(insideType->getPrimitiveSizeInBits() > 0){
-        size = size * (insideType->getPrimitiveSizeInBits()/8);
+    else if (insideType->getPrimitiveSizeInBits() > 0)
+    {
+        size = size * (insideType->getPrimitiveSizeInBits() / 8);
     }
-    else if(insideType->isPointerTy()){
+    else if (insideType->isPointerTy())
+    {
         size = size + 8;
     }
-    else{
+    else
+    {
         errs() << "Error(Array): cannot determing size: " << *insideType << "\n";
         return 0;
     }
-#if DEBUG == 1  
+#if DEBUG == 1
     errs() << "Returning: " << size << "\n";
 #endif
     return size;
 }
 
-void populateLibCallMap(std::unordered_map<std::string, int>* functionCalls){
+void populateLibCallMap(std::unordered_map<std::string, int> *functionCalls)
+{
     std::pair<std::string, int> call;
 
     //Allocations
@@ -147,11 +160,6 @@ void populateLibCallMap(std::unordered_map<std::string, int>* functionCalls){
     call.first = "llvm.memmove.p0i8.p0i8.i64";
     call.second = -3;
     functionCalls->insert(call);
-
-
-
-
-
 
     //Frees
     call.first = "free";
@@ -286,15 +294,11 @@ void populateLibCallMap(std::unordered_map<std::string, int>* functionCalls){
     call.first = "puts";
     call.second = -2;
     functionCalls->insert(call);
-
-
-
-
 }
 
-bool outputPDG(){
+bool outputPDG()
+{
     //TODO: Determine how we are going to store the PDG for the program. Should it be a json file
     //or if Simone/Peter have a better idea.
     return 1;
 }
-
