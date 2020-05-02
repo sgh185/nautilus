@@ -6,21 +6,19 @@
 #define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
 #define CARAT_STATS "ReportStatistics"
 
+const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
+                                             CARAT_REALLOC, 
+                                             CARAT_CALLOC,
+                                             CARAT_REMOVE_ALLOC, 
+                                             CARAT_STATS};
+
 namespace
 {
-
-class SCEV_CARAT_Visitor : public SCEVVisitor<SCEV_CARAT_Visitor, Value *>
-{
-public:
-    Value *visitConstant(const SCEVConstant *S)
-    {
-        return S->getValue();
-    }
-};
 
 struct CAT : public ModulePass
 {
     static char ID;
+    unordered_map<string, Function *> NecessaryMethods;
 
     CAT() : ModulePass(ID) {}
 
@@ -33,118 +31,61 @@ struct CAT : public ModulePass
     //the memory instructions with the injected calls needed.
     bool runOnModule(Module &M) override
     {
+        if (FALSE)
+            exit(0);
 
-        std::set<std::string> functionsInProgram;
-        std::unordered_map<std::string, int> functionCalls;
+        // Get methods necessary for injection --- if at least
+        // one method doesn't exist --- abort
+        for (auto InjectionName : ImportantMethodNames)
+        {
+            Function *F = M.getFunction(InjectionName);
+            if (F == nullptr)
+                abort();
+
+            NecessaryMethods[InjectionName] = F;
+        }
+
+        // Storing method names to avoid in the bitcode source
+        std::set<std::string> FunctionsToAvoid;
+        std::unordered_map<std::string, int> FunctionMap;
         bool modified = false;
 
-#if DEBUG == 1
-        errs() << "Entering allocation tracking pass\n";
-#endif
+        DEBUG_INFO("Entering allocation tracking pass\n");
 
-        /*
-             * Fetch the PDG of the module.
-             */
-        //            auto PDG = getAnalysis<PDGAnalysis>().getPDG();
-
-        std::vector<std::pair<GlobalValue *, uint64_t>> globals;
+        // Tracking all the memory allocation related calls
+        // in the IR source
+        unordered_map<GlobalValue *, uint64_t> Globals;
         std::vector<Instruction *> mallocs;
         std::vector<Instruction *> callocs;
         std::vector<Instruction *> reallocs;
-        std::vector<Instruction *> allocas;
         std::vector<Instruction *> frees;
-        std::vector<Instruction *> returns;
+        std::vector<Instruction *> allocas;
 
-        Instruction *firstInst;
+        populateLibCallMap(&FunctionMap);
 
-        bool firstInstBool = false;
-
-        bool mainFunc = 0;
-        populateLibCallMap(&functionCalls);
-
-#if DEBUG == 1
-        errs() << "Current state of LibCallMap:\n";
-        for (auto it = functionCalls.begin(); it != functionCalls.end(); ++it)
-        {
-            errs() << it->first << ":" << it->second << "\n";
-        }
-#endif
-
-        //This will go through the current global variables and make sure we are covering all heap allocations
-        for (auto &Global : M.getGlobalList())
-        {
-            //All globals are pointer types apparently, but good sanity check
-            if (Global.getName() == "llvm.global_ctors")
-            {
-                continue;
-            }
-            uint64_t totalSizeInBytes;
-            //Each global variable can be either a struct, array, or a primative. We will figure that out to calculate the total size of the global.
-            if (Global.getType()->isPointerTy())
-            {
-                //errs() << "Working with global: " << Global << "That is a pointer of type: " << *(Global.getValueType()) << "\n";
-                Type *iterType = Global.getValueType();
-                if (iterType->isArrayTy())
-                {
-                    totalSizeInBytes = findArraySize(iterType);
-                }
-                //Now get element size per
-                else if (iterType->isStructTy())
-                {
-                    totalSizeInBytes = findStructSize(iterType);
-                }
-                //We are worried about bytes not bits
-                else
-                {
-                    totalSizeInBytes = iterType->getPrimitiveSizeInBits() / 8;
-                }
-                //errs() << "The size of the element is: " << totalSizeInBytes << "\n";
-                globals.push_back(std::make_pair(&(cast<GlobalValue>(Global)), totalSizeInBytes));
-            }
-        }
+        GetAllGlobals(M, Globals);
 
         //This triple nested loop will just go through all the instructions and sort all the allocations into their respective types.
         for (auto &F : M)
         {
-
-            if (functionCalls[F.getName()] != NULL)
-            {
-                continue;
-            }
-            if (F.getName() == "main")
-            {
-                mainFunc = 1;
+            if ((FunctionMap.find(F.getName()) != FunctionMap.end())
+                || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end())
+                || (F.isIntrinsic())
+                || (!(F.getInstructionCount()))) {
+                    continue;
             }
 
-#if DEBUG == 1
-            errs() << "Entering function " << F.getName() << "\n";
-#endif
+            DEBUG_INFO("Entering function " + F.getName() + "\n");
 
-            //This will stop us from iterating through printf and malloc and stuff.
+            // This will stop us from iterating through printf and malloc and stuff.
             for (auto &B : F)
             {
                 for (auto &I : B)
                 {
-                    if (mainFunc && !firstInstBool)
-                    {
-                        firstInstBool = true;
-                        firstInst = &I;
-                    }
+                    DEBUG_INFO("Working on following instruction: ");
+                    OBJ_INFO((&I));
 
-#if DEBUG == 1
-                    errs() << "Working on following instruction: ";
-                    I.print(errs());
-                    errs() << "\n";
-#endif
-
-                    if (isa<ReturnInst>(I) && mainFunc)
-                    {
-                        returns.push_back(&I);
-                    }
-                    if (isa<AllocaInst>(I))
-                    {
-                        allocas.push_back(&I);
-                    }
+                    if (isa<AllocaInst>(I)) { allocas.push_back(&I); }
 
                     //First we will check to see if the given instruction is a free instruction or a malloc
                     //This requires that we first check to see if the instruction is a call instruction
@@ -153,83 +94,84 @@ struct CAT : public ModulePass
                     //Next we see if it is an allocation within a database of allocations (malloc, calloc, realloc, jemalloc...)
                     if (isa<CallInst>(I) || isa<InvokeInst>(I))
                     {
-                        Function *fp;
-                        //Make sure it is a libary call
+                        Function *fp = nullptr;
+                        
+                        // Make sure it is a library call
                         if (isa<CallInst>(I))
                         {
-#if DEBUG == 1
-                            errs() << "This is a call instruction\n";
-#endif
                             CallInst *CI = &(cast<CallInst>(I));
                             fp = CI->getCalledFunction();
                         }
                         else
                         {
-#if DEBUG == 1
-                            errs() << "This is an invoke instruction\n";
-#endif
                             InvokeInst *II = &(cast<InvokeInst>(I));
                             fp = II->getCalledFunction();
                         }
+
                         //Continue if fails
-                        if (fp != NULL)
+                        if (fp != nullptr)
                         {
-                            if (fp->empty())
+                            if (fp->empty()) // Suspicious
                             {
-                                //name is fp->getName();
+                                // name is fp->getName();
                                 StringRef funcName = fp->getName();
-#if DEBUG == 1
-                                errs() << funcName << "\n";
-#endif
-                                int val = functionCalls[funcName];
-                                //Did not find the function, error
-                                if (val == NULL)
+
+                                DEBUG_INFO(funcName + "\n");
+
+                                int32_t val = FunctionMap[funcName];
+
+                                switch(val)
                                 {
-                                    if (functionsInProgram.find(funcName) == functionsInProgram.end())
+                                case NULL: //Did not find the function, error
+                                {
+                                    if (FunctionsToAvoid.find(funcName) == FunctionsToAvoid.end())
                                     {
                                         errs() << "The following function call is external to the program and not accounted for in our map " << funcName << "\n";
-                                        functionsInProgram.insert(funcName);
+                                        FunctionsToAvoid.insert(funcName);
                                     }
+
                                     //Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
                                     //Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
                                     //If we go the prompt route then we should change the below statements to simply if statements.
+                                    
+                                    break;
                                 }
-                                if (val == -2)
-                                {
-                                    // errs() << "Passing by";
-                                    //Next inst
-                                }
-                                //Function is an allocation instruction
-                                else if (val == 2)
+                                case 2: // Function is an allocation instruction
                                 {
                                     mallocs.push_back(&I);
+                                    break;
                                 }
-                                //Function has the signature of calloc
-                                else if (val == 3)
+                                case 3: // Function has the signature of calloc
                                 {
                                     callocs.push_back(&I);
+                                    break;
                                 }
-                                //Function has the signature of realloc
-                                else if (val == 4)
+                                case 4: // Function has the signature of realloc
                                 {
                                     reallocs.push_back(&I);
+                                    break;
                                 }
-                                //Function is a deallocation instuction
-                                else if (val == 1)
+                                case 1: //Function is a deallocation instuction
                                 {
                                     frees.push_back(&I);
+                                    break;
                                 }
-                                //Function is not implemented yet, but accounted for
-                                else if (val == -1)
+                                case -1: 
                                 {
-                                    errs() << "The following function call is external to the program, but the signature of the allocation is not supported (...yet)" << funcName << "\n";
+                                    DEBUG_INFO("The following function call is external to the program, but the signature of the allocation is not supported (...yet)" + funcName + "\n");
+                                    break;
+                                }
+                                default: // Terrible
+                                {
+                                    break;
+                                }
                                 }
                             }
                         }
                     }
                 }
             }
-            mainFunc = 0;
+
         }
 
         //Build the needed parts for making a callinst
@@ -238,208 +180,26 @@ struct CAT : public ModulePass
         Type *voidPointerType = Type::getInt8PtrTy(TheContext, 0);
         Type *int64Type = Type::getInt64Ty(TheContext);
 
-        //Dealing with global variables
-        if (globals.size() > 0)
-        {
-            std::vector<Type *> params;
-            params.push_back(voidPointerType);
-            params.push_back(int64Type);
-            ArrayRef<Type *> args = ArrayRef<Type *>(params);
-            auto signature = FunctionType::get(voidType, args, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_MALLOC, signature);
-            Instruction *tempI = nullptr;
-            const Twine &NameStr = "";
+        // Handle globals in main
+        Function *Main = M.getFunction("main");
+        if (Main == nullptr)
+            abort();
 
-            for (auto AI : globals)
-            {
-                std::vector<Value *> callVals;
-                //cast inst as value to grab returned value
-                CastInst *pointerCast = CastInst::CreatePointerCast(AI.first, voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast);
-                
-                callVals.push_back(pointerCast);
-                callVals.push_back(ConstantInt::get(IntegerType::get(TheContext, 64), AI.second, false));
-                ArrayRef<Value *> callArgs = ArrayRef<Value *>(callVals);
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, firstInst);
-                AddDebugInfo(addToAllocationTable);
-                
-                pointerCast->insertBefore(addToAllocationTable);
-                modified = true;
-            }
-        }
+        AddAllocationTableCallToMain(Main, Globals);
 
-        //Dealing with printing stats at end of runtime
-        if (returns.size() > 0)
-        {
-            auto signature = FunctionType::get(voidType, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_STATS, signature);
-            for (auto *RI : returns)
-            {
-                auto allocFunc = M.getOrInsertFunction(CARAT_STATS, signature);
-                const Twine &NameStr = "";
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, NameStr, RI);
-                AddDebugInfo(addToAllocationTable);
-                
-                modified = true;
-            }
-        }
+        // Inject everything
+        InjectMallocCalls(mallocs);
+        InjectCallocCalls(callocs);
+        InjectReallocCalls(reallocs);
+        InjectFreeCalls(frees);
 
-        //Dealing with mallocs
-        if (mallocs.size() > 0)
-        {
-            std::vector<Type *> params;
-            params.push_back(voidPointerType);
-            params.push_back(int64Type);
-            ArrayRef<Type *> args = ArrayRef<Type *>(params);
-            auto signature = FunctionType::get(voidType, args, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_MALLOC, signature);
-            Instruction *tempI = nullptr;
-            const Twine &NameStr = "";
-
-            for (auto *AI : mallocs)
-            {
-                std::vector<Value *> callVals;
-                //cast inst as value to grab returned value
-
-                CastInst *pointerCast = CastInst::CreatePointerCast(AI, voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast);
-                
-                CastInst *int64Cast = CastInst::CreateZExtOrBitCast(AI->getOperand(0), int64Type, NameStr, tempI);
-                AddDebugInfo(int64Cast);
-                
-                callVals.push_back(pointerCast);
-                callVals.push_back(int64Cast);
-                ArrayRef<Value *> callArgs = ArrayRef<Value *>(callVals);
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
-                AddDebugInfo(addToAllocationTable);
-
-                pointerCast->insertAfter(AI);
-                int64Cast->insertAfter(pointerCast);
-                addToAllocationTable->insertAfter(int64Cast);
-
-                modified = true;
-            }
-        }
-        //Dealing with callocs
-        if (callocs.size() > 0)
-        {
-
-            std::vector<Type *> params;
-            params.push_back(voidPointerType);
-            params.push_back(int64Type);
-            params.push_back(int64Type);
-            ArrayRef<Type *> args = ArrayRef<Type *>(params);
-            auto signature = FunctionType::get(voidType, args, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_CALLOC, signature);
-            Instruction *tempI = nullptr;
-            const Twine &NameStr = "";
-
-            for (auto *AI : callocs)
-            {
-                std::vector<Value *> callVals;
-                //cast inst as value to grab returned value
-
-                CastInst *pointerCast = CastInst::CreatePointerCast(AI, voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast);
-
-                CastInst *int64Cast = CastInst::CreateZExtOrBitCast(AI->getOperand(0), int64Type, NameStr, tempI);
-                AddDebugInfo(int64Cast);
-
-                CastInst *int64Cast2 = CastInst::CreateZExtOrBitCast(AI->getOperand(1), int64Type, NameStr, tempI);
-                AddDebugInfo(int64Cast2);
-
-                callVals.push_back(pointerCast);
-                callVals.push_back(int64Cast);
-                callVals.push_back(int64Cast2);
-                ArrayRef<Value *> callArgs = ArrayRef<Value *>(callVals);
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
-                AddDebugInfo(addToAllocationTable);
-                
-                pointerCast->insertAfter(AI);
-                int64Cast->insertAfter(pointerCast);
-                int64Cast2->insertAfter(int64Cast);
-                addToAllocationTable->insertAfter(int64Cast2);
-
-                modified = true;
-            }
-        }
-
-        //Reallocs
-        if (reallocs.size() > 0)
-        {
-            std::vector<Type *> params;
-            params.push_back(voidPointerType);
-            params.push_back(voidPointerType);
-            params.push_back(int64Type);
-            ArrayRef<Type *> args = ArrayRef<Type *>(params);
-            auto signature = FunctionType::get(voidType, args, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_REALLOC, signature);
-            Instruction *tempI = nullptr;
-            const Twine &NameStr = "";
-
-            for (auto *AI : reallocs)
-            {
-                std::vector<Value *> callVals;
-
-                CastInst *pointerCast = CastInst::CreatePointerCast(AI->getOperand(0), voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast);
-
-                CastInst *pointerCast2 = CastInst::CreatePointerCast(AI, voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast2);
-                
-                CastInst *int64Cast = CastInst::CreateZExtOrBitCast(AI->getOperand(1), int64Type, NameStr, tempI);
-                AddDebugInfo(int64Cast);
-               
-                callVals.push_back(pointerCast);
-                callVals.push_back(pointerCast2);
-                callVals.push_back(int64Cast);
-                ArrayRef<Value *> callArgs = ArrayRef<Value *>(callVals);
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
-                AddDebugInfo(addToAllocationTable);
-                
-                pointerCast->insertAfter(AI);
-                pointerCast2->insertAfter(pointerCast);
-                int64Cast->insertAfter(pointerCast2);
-                addToAllocationTable->insertAfter(int64Cast);
-
-                modified = true;
-            }
-        }
-
-        //frees
-        if (frees.size() > 0)
-        {
-
-            std::vector<Type *> params;
-            params.push_back(voidPointerType);
-            ArrayRef<Type *> args = ArrayRef<Type *>(params);
-            auto signature = FunctionType::get(voidType, args, false);
-            auto allocFunc = M.getOrInsertFunction(CARAT_REMOVE_ALLOC, signature);
-            Instruction *tempI = nullptr;
-            const Twine &NameStr = "";
-
-            for (auto *AI : frees)
-            {
-                std::vector<Value *> callVals;
-                CastInst *pointerCast = CastInst::CreatePointerCast(AI->getOperand(0), voidPointerType, NameStr, tempI);
-                AddDebugInfo(pointerCast);
-                
-                callVals.push_back(pointerCast);
-                ArrayRef<Value *> callArgs = ArrayRef<Value *>(callVals);
-                CallInst *addToAllocationTable = CallInst::Create(allocFunc, callArgs, NameStr, tempI);
-                AddDebugInfo(addToAllocationTable);
-                
-                pointerCast->insertAfter(AI);
-                addToAllocationTable->insertAfter(pointerCast);
-
-                modified = true;
-            }
-        }
+        return false;
     }
 
-    void AddDebugInfo(Instruction *I)
+    void AddDebugInfo(Value *V)
     {
         return;
+        Instruction *I = static_cast<Instruction *>(V);
 
         Instruction *FirstInstWithDBG = nullptr;
         Function *F = I->getFunction();
@@ -462,13 +222,274 @@ struct CAT : public ModulePass
         return;
     }
 
+    void GetAllGlobals(Module &M,
+                       unordered_map<GlobalValue *, uint64_t> &Globals)
+    {
+        // This will go through the current global variables and make sure 
+        // we are covering all heap allocations
+        for (auto &Global : M.getGlobalList())
+        {
+            // All globals are pointer types apparently, but good sanity check
+            if (Global.getName() == "llvm.global_ctors") { continue; }
+
+            uint64_t totalSizeInBytes;
+
+            // Each global variable can be either a struct, array, or a primitive.
+            // We will figure that out to calculate the total size of the global.
+            if (Global.getType()->isPointerTy())
+            {
+                // errs() << "Working with global: " << Global << "That is a pointer of type: " << *(Global.getValueType()) << "\n";
+                Type *iterType = Global.getValueType();
+                if (iterType->isArrayTy())
+                {
+                    totalSizeInBytes = findArraySize(iterType);
+                }
+                // Now get element size per
+                else if (iterType->isStructTy())
+                {
+                    totalSizeInBytes = findStructSize(iterType);
+                }
+                // We are worried about bytes not bits
+                else
+                {
+                    totalSizeInBytes = iterType->getPrimitiveSizeInBits() / 8;
+                }
+                DEBUG_INFO("The size of the element is: " + to_string(totalSizeInBytes) + "\n");
+                Globals[&(cast<GlobalValue>(Global))] = totalSizeInBytes;
+            }
+        }
+
+        return;
+    }
+
+    // For globals into main
+    void AddAllocationTableCallToMain(Function *Main, 
+                                      unordered_map<GlobalValue *, uint64_t> &Globals)
+    {
+        return;
+        // Set up for IRBuilder, malloc injection
+        Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
+        IRBuilder<> MainBuilder{InsertionPoint};
+
+        LLVMContext &TheContext = Main->getContext();
+        Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+        Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
+
+        for (auto const &[GV, Length] : Globals)
+        {
+            // Set up arguments for call instruction to malloc
+            std::vector<Value *> CallArgs;
+
+            // Build void pointer cast for global
+            Value *PointerCast = MainBuilder.CreatePointerCast(GV, VoidPointerType);
+            AddDebugInfo(PointerCast);
+
+            // Add to arguments vector
+            CallArgs.push_back(PointerCast);
+            CallArgs.push_back(ConstantInt::get(IntegerType::get(TheContext, 64), Length, false));
+
+            // Convert to LLVM data structure
+            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+            // Build call instruction
+            CallInst *MallocInjection = MainBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
+            AddDebugInfo(MallocInjection);
+        }
+        
+        return;
+    }
+
+    void InjectMallocCalls(vector<Instruction *> &MallocInstructions)
+    {
+        Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
+        LLVMContext &TheContext = CARATMalloc->getContext();
+
+        // Set up types necessary for injections
+        Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+        Type *Int64Type = Type::getInt64PtrTy(TheContext, 0); // For pointer injection
+
+        for (auto MI : MallocInstructions)
+        {
+            Instruction *InsertionPoint = MI->getNextNode();
+            if (InsertionPoint == nullptr)
+            {
+                errs() << "Not able to instrument: ";
+                MI->print(errs());
+                errs() << "\n";
+
+                continue;
+            }
+
+            // Set up injections and call instruction arguments
+            IRBuilder<> MIBuilder{InsertionPoint};
+            std::vector<Value *> CallArgs;
+
+            // Cast inst as value to grab returned value
+            Value *MallocReturnCast = MIBuilder.CreatePointerCast(MI, VoidPointerType);
+            AddDebugInfo(MallocReturnCast);
+            
+            // Cast inst for size argument to original malloc call (MI)
+            Value *MallocSizeArgCast = MIBuilder.CreateZExtOrBitCast(MI->getOperand(0), Int64Type);
+            AddDebugInfo(MallocSizeArgCast);
+            
+            // Add CARAT malloc call instruction arguments
+            CallArgs.push_back(MallocReturnCast);
+            CallArgs.push_back(MallocSizeArgCast);
+            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+            // Build the call instruction to CARAT malloc
+            CallInst *AddToAllocationTable = CallInst::Create(CARATMalloc, LLVMCallArgs);
+            AddDebugInfo(AddToAllocationTable);
+        }
+
+        return;
+    }
+
+    void InjectCallocCalls(vector<Instruction *> &CallocInstructions)
+    {
+        Function *CARATCalloc = NecessaryMethods[CARAT_CALLOC];
+        LLVMContext &TheContext = CARATCalloc->getContext();
+
+        // Set up types necessary for injections
+        Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+        Type *Int64Type = Type::getInt64PtrTy(TheContext, 0); // For pointer injection
+
+        for (auto CI : CallocInstructions)
+        {
+            Instruction *InsertionPoint = CI->getNextNode();
+            if (InsertionPoint == nullptr)
+            {
+                errs() << "Not able to instrument: ";
+                CI->print(errs());
+                errs() << "\n";
+
+                continue;
+            }
+
+            // Set up injections and call instruction arguments
+            IRBuilder<> CIBuilder{InsertionPoint};
+            std::vector<Value *> CallArgs;
+
+            // Cast inst as value to grab returned value
+            Value *CallocReturnCast = CIBuilder.CreatePointerCast(CI, VoidPointerType);
+            AddDebugInfo(CallocReturnCast);
+            
+            // Cast inst for size argument to original calloc call (CI)
+            Value *CallocSizeArgCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(0), Int64Type);
+            AddDebugInfo(CallocSizeArgCast);
+
+            // Cast inst for second argument (number of elements) to original calloc call (CI)
+            Value *CallocNumElmCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(1), Int64Type);
+            AddDebugInfo(CallocNumElmCast);
+
+            // Add CARAT calloc call instruction arguments
+            CallArgs.push_back(CallocReturnCast);
+            CallArgs.push_back(CallocSizeArgCast);
+            CallArgs.push_back(CallocNumElmCast);
+            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+            // Build the call instruction to CARAT calloc
+            CallInst *AddToAllocationTable = CallInst::Create(CARATCalloc, LLVMCallArgs);
+            AddDebugInfo(AddToAllocationTable);
+        }
+
+        return;
+    }
+
+    void InjectReallocCalls(vector<Instruction *> &ReallocInstructions)
+    {
+        Function *CARATRealloc = NecessaryMethods[CARAT_REALLOC];
+        LLVMContext &TheContext = CARATRealloc->getContext();
+
+        // Set up types necessary for injections
+        Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+        Type *Int64Type = Type::getInt64PtrTy(TheContext, 0); // For pointer injection
+
+        for (auto RI : ReallocInstructions)
+        {
+            Instruction *InsertionPoint = RI->getNextNode();
+            if (InsertionPoint == nullptr)
+            {
+                errs() << "Not able to instrument: ";
+                RI->print(errs());
+                errs() << "\n";
+
+                continue;
+            }
+
+            // Set up injections and call instruction arguments
+            IRBuilder<> RIBuilder{InsertionPoint};
+            std::vector<Value *> CallArgs;
+
+            // Cast inst for the old pointer passed to realloc
+            Value *ReallocOldPtrCast = RIBuilder.CreatePointerCast(RI->getOperand(0), VoidPointerType);
+            AddDebugInfo(ReallocOldPtrCast);
+            
+            // Cast inst for return value from original Realloc call (RI)
+            Value *ReallocReturnCast = RIBuilder.CreateZExtOrBitCast(RI, VoidPointerType);
+            AddDebugInfo(ReallocReturnCast);
+
+            // Cast inst for size argument to original Realloc call (RI)
+            Value *ReallocNewSizeCast = RIBuilder.CreateZExtOrBitCast(RI->getOperand(1), Int64Type);
+            AddDebugInfo(ReallocNewSizeCast);
+
+            // Add CARAT Realloc call instruction arguments
+            CallArgs.push_back(ReallocOldPtrCast);
+            CallArgs.push_back(ReallocReturnCast);
+            CallArgs.push_back(ReallocNewSizeCast);
+            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+            // Build the call instruction to CARAT Realloc
+            CallInst *AddToAllocationTable = CallInst::Create(CARATRealloc, LLVMCallArgs);
+            AddDebugInfo(AddToAllocationTable);
+        }
+
+        return;
+    }
+
+    void InjectFreeCalls(vector<Instruction *> &FreeInstructions)
+    {
+        Function *CARATFree = NecessaryMethods[CARAT_REMOVE_ALLOC];
+        LLVMContext &TheContext = CARATFree->getContext();
+
+        // Set up types necessary for injections
+        Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+
+        for (auto FI : FreeInstructions)
+        {
+            Instruction *InsertionPoint = FI->getNextNode();
+            if (InsertionPoint == nullptr)
+            {
+                errs() << "Not able to instrument: ";
+                FI->print(errs());
+                errs() << "\n";
+
+                continue;
+            }
+
+            // Set up injections and call instruction arguments
+            IRBuilder<> FIBuilder{InsertionPoint};
+            std::vector<Value *> CallArgs;
+
+            // Cast inst as value passed to free
+            Value *FreePassedPtrCast = FIBuilder.CreatePointerCast(FI->getOperand(0), VoidPointerType);
+            AddDebugInfo(FreePassedPtrCast);
+
+            // Add CARAT Free call instruction arguments
+            CallArgs.push_back(FreePassedPtrCast);
+            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+            // Build the call instruction to CARAT Free
+            CallInst *AddToAllocationTable = CallInst::Create(CARATFree, LLVMCallArgs);
+            AddDebugInfo(AddToAllocationTable);
+        }
+
+        return;
+    }
+
     void getAnalysisUsage(AnalysisUsage &AU) const override
     {
-        AU.addRequired<ScalarEvolutionWrapperPass>();
-        AU.addRequired<DominatorTreeWrapperPass>();
-        AU.addRequired<LoopInfoWrapperPass>();
-        //AU.addRequired<PDGAnalysis>();
-
+        AU.setPreservesAll();
         return;
     }
 };
