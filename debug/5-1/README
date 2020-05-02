@@ -6,7 +6,8 @@ Debugging/Hacking --- 5/1
 
 ./output
 - dag.out --- backend error when injecting AddToAllocationTable into
-  main method
+  main method (with and without stack trace)
+- nautilus_original.ll --- resulting bitcode PRE injections
 - nautilus_injected.ll --- resulting bitcode with injections (no real
   injections because injections to main method turned off)
 - correct.out --- info from readelf for binary compiled without 

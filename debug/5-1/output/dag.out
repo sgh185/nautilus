@@ -1,3 +1,7 @@
+WITH STACK TRACE
+
+
+
 llvm-dis nautilus_opt.bc -o nautilus_opt.ll
 # Recompile (with full opt levels) new object files, binaries
 clang -fno-omit-frame-pointer -ffreestanding -fno-stack-protector -fno-strict-aliasing -fno-strict-overflow -mno-red-zone -mcmodel=large -O2   -Wall -Wno-unused-function -Wno-unused-variable -fno-common -Wstrict-overflow=5  -fgnu89-inline -m64  -Wno-pointer-sign -c nautilus_opt.bc -o .nautilus.o
@@ -45,4 +49,30 @@ clang-9: note: diagnostic msg: PLEASE submit a bug report to https://bugs.llvm.o
 clang-9: note: diagnostic msg: Error generating preprocessed source(s) - no preprocessable inputs.
 make: *** [carat] Error 254
 (wllvm-test) [sgi9754@peroni nautilus-karat]$ ls -ltr
+
+
+
+
+
+-------
+
+WITHOUT STACK TRACE
+
+
+
+
+
+clang -fno-omit-frame-pointer -ffreestanding -fno-stack-protector -fno-strict-aliasing -fno-strict-overflow -mno-red-zone -mcmodel=large -O2   -Wall -Wno-unused-function -Wno-unused-variable -fno-common -Wstrict-overflow=5  -fgnu89-inline -m64  -Wno-pointer-sign -c nautilus.bc -o .nautilus.o
+fatal error: error in backend: Cannot select: 0x9e28bf8: i64 = bitcast 0x9e28b90
+In function: main
+clang-9: error: clang frontend command failed with exit code 70 (use -v to see invocation)
+clang version 9.0.0 (git@github.com:scampanoni/LLVM_installer.git 05e8bdd81a8fb30a2498881405757dbddd5535d6)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /project/llvm/9.0.0/release/bin
+clang-9: note: diagnostic msg: PLEASE submit a bug report to https://bugs.llvm.org/ and include the crash backtrace, preprocessed source, and associated run script.
+clang-9: note: diagnostic msg: Error generating preprocessed source(s) - no preprocessable inputs.
+make: *** [carat] Error 70
+
+
 
