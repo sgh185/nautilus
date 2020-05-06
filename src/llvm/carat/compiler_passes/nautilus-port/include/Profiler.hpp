@@ -38,6 +38,19 @@
 using namespace llvm;
 using namespace std;
 
+// Function names to inject
+#define CARAT_MALLOC "AddToAllocationTable"
+#define CARAT_REALLOC "HandleReallocInAllocationTable"
+#define CARAT_CALLOC "AddCallocToAllocationTable"
+#define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
+#define CARAT_STATS "ReportStatistics"
+
+const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
+                                             CARAT_REALLOC, 
+                                             CARAT_CALLOC,
+                                             CARAT_REMOVE_ALLOC, 
+                                             CARAT_STATS};
+
 uint64_t findStructSize(Type *);
 uint64_t findArraySize(Type *);
 

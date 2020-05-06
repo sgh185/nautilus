@@ -1376,6 +1376,14 @@ menu "Runtimes"
             help 
               Racket support (via Multiverse only - no special code)
 
+		config CARAT_RT
+            bool "CARAT RT";
+	    default n 
+            help 
+              CARAT support in Nautilus --- useless without compiling the
+			  kernel without the CARAT transforms 
+
+
 endmenu
 
 source "src/dev/Kconfig"

@@ -811,12 +811,14 @@ whole_opt: $(BIN_NAME)
 	rm .nautilus.o
 endif
 
-carat: $(BC_NAME)
+carat: $(BIN_NAME)
 	# Rebuild bitcode with select loop simplification passes
 	# opt -loop-simplify -lcssa $(BC_NAME) -o $(LOOP_NAME)
 	# llvm-dis $(LOOP_NAME) -o $(LOOP_LL_NAME)	
 	# Run CARAT (allocation pass)
 	# opt -load ~/CAT/lib/CAT.so -TexasAlloc $(LOOP_NAME) -o $(OPT_NAME)
+	# extract-bc $(BIN_NAME) -o $(BC_NAME)
+	# llvm-dis $(BC_NAME) -o $(LL_NAME)
 	opt -load ~/CAT/lib/CAT.so -TexasAlloc $(BC_NAME) -o $(OPT_NAME)
 	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
 	# Recompile (with full opt levels) new object files, binaries

@@ -66,6 +66,9 @@ extern "C" {
 #define uint32_t_MAX UINT_MAX
 #define uint32_t_MIN 0	
 
+#define uint64_t_MAX ULONG_MAX
+#define uint64_t_MIN 0
+
 #define NK_SLIST_INIT(type) \
 	typedef struct nk_slist_node_##type { \
 		struct nk_slist_node_##type **succ_nodes; \
@@ -216,17 +219,14 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
 	nk_slist_node_##type *ipts[new_gear]; \
 	\
-	SLIST_PRINT("HERE\n"); \
 	/* Find all insertion points */ \
 	nk_slist_node_##type *the_gearbox = sl->all_gears[(new_gear) - 1], \
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
-	SLIST_PRINT("HERE1\n"); \
 	\
 	/* Not going to add the node if it already exists */ \
 	if (found_node) { 0; } \
 	\
 	nk_slist_node_##type *new_node = nk_slist_node_build(type, val, new_gear); \
-	SLIST_PRINT("HERE2\n"); \
 	\
 	/* Set all successor and predecessor links */ \
 	int i; \
@@ -236,7 +236,6 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 		_nk_slist_node_link(ipts[i], new_node, i); \
 		_nk_slist_node_link(new_node, succ_node, i); \
 	} \
-	SLIST_PRINT("HERE3\n"); \
 	\
 	1; \
 })
@@ -262,6 +261,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 })
 
 NK_SLIST_DECL(int);
+NK_SLIST_DECL(uint64_t);
 
 #ifdef __cplusplus
 }
