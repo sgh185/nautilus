@@ -1,20 +1,7 @@
 #include "./include/Profiler.hpp"
 
-#define CARAT_MALLOC "AddToAllocationTable"
-#define CARAT_REALLOC "HandleReallocInAllocationTable"
-#define CARAT_CALLOC "AddCallocToAllocationTable"
-#define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
-#define CARAT_STATS "ReportStatistics"
-
-const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
-                                             CARAT_REALLOC, 
-                                             CARAT_CALLOC,
-                                             CARAT_REMOVE_ALLOC, 
-                                             CARAT_STATS};
-
 namespace
 {
-
 struct CAT : public ModulePass
 {
     static char ID;
@@ -174,12 +161,6 @@ struct CAT : public ModulePass
 
         }
 
-        //Build the needed parts for making a callinst
-        LLVMContext &TheContext = M.getContext();
-        Type *voidType = Type::getVoidTy(TheContext);
-        Type *voidPointerType = Type::getInt8PtrTy(TheContext, 0);
-        Type *int64Type = Type::getInt64Ty(TheContext);
-
         // Handle globals in main
         Function *Main = M.getFunction("main");
         if (Main == nullptr)
@@ -266,9 +247,10 @@ struct CAT : public ModulePass
     void AddAllocationTableCallToMain(Function *Main, 
                                       unordered_map<GlobalValue *, uint64_t> &Globals)
     {
-        return;
+        // return;
         // Set up for IRBuilder, malloc injection
-        Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
+        errs() << "HELLO\n";
+		Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
         IRBuilder<> MainBuilder{InsertionPoint};
 
         LLVMContext &TheContext = Main->getContext();
