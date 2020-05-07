@@ -1,0 +1,3 @@
+output
+--------
+redundant.out --- combine redundant instructions bug in @main --- new error
