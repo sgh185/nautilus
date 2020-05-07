@@ -178,12 +178,11 @@ struct CAT : public ModulePass
     }
 
     void AddDebugInfo(Value *V)
-    {
-        return;
-        Instruction *I = static_cast<Instruction *>(V);
+    { 
+        Instruction *Injected = static_cast<Instruction *>(V);
 
         Instruction *FirstInstWithDBG = nullptr;
-        Function *F = I->getFunction();
+        Function *F = Injected->getFunction();
 
         for (auto &I : instructions(F))
         {
@@ -196,7 +195,7 @@ struct CAT : public ModulePass
 
         if (FirstInstWithDBG != nullptr)
         {
-            IRBuilder<> Builder{FirstInstWithDBG};
+            IRBuilder<> Builder{Injected};
             Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
         }
 
@@ -247,9 +246,8 @@ struct CAT : public ModulePass
     void AddAllocationTableCallToMain(Function *Main, 
                                       unordered_map<GlobalValue *, uint64_t> &Globals)
     {
-        // return;
+        return;
         // Set up for IRBuilder, malloc injection
-        errs() << "HELLO\n";
 		Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
         IRBuilder<> MainBuilder{InsertionPoint};
 
