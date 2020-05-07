@@ -1,0 +1,1 @@
+./scripts/carat_pass_build ; make clean ; make -j ; make bitcode ; make carat
