@@ -1,1 +1,1 @@
-obj-y += stub_runtime_tables.o 
+obj-y += stub.o 

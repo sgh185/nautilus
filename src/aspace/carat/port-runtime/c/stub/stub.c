@@ -59,5 +59,10 @@ __attribute__((optnone, noinline)) void RemoveFromAllocationTable(void *address)
 	return;
 }
 
+__attribute__((optnone, noinline)) void AddToEscapeTable(void *address)
+{
+	return;
+}
+
 
 

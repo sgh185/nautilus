@@ -243,5 +243,3 @@ void texas_init(){
 	//printf("Leaving texas_init\n");
 	return;
 }
-
-
