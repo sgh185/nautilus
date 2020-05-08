@@ -197,6 +197,7 @@ struct CAT : public ModulePass
         return Builder;
     }
 
+    // NEEDS MAJOR REFACTORING
     void GetAllGlobals(Module &M,
                        unordered_map<GlobalValue *, uint64_t> &Globals)
     {
@@ -204,8 +205,10 @@ struct CAT : public ModulePass
         // we are covering all heap allocations
         for (auto &Global : M.getGlobalList())
         {
-            // All globals are pointer types apparently, but good sanity check
-            if (Global.getName() == "llvm.global_ctors") { continue; }
+            // Cannot target LLVM-specific globals 
+            if ((Global.getName() == "llvm.global_ctors")
+                || (Global.getName() == "llvm.used"))
+                { continue; }
 
             uint64_t totalSizeInBytes;
 
@@ -255,7 +258,6 @@ struct CAT : public ModulePass
             std::vector<Value *> CallArgs;
 
             // Build void pointer cast for global
-			// NOTE --- no debug info for pointer casts which will exist as args
             Value *PointerCast = MainBuilder.CreatePointerCast(GV, VoidPointerType); 
 
 			// Add to arguments vector
