@@ -26,29 +26,27 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-/*
- * Utils.hpp
- * ----------------------------------------
- * 
- * All utility and debugging methods necessary for CARAT
- * transform. Split into two namespaces for clarity.
- */
-
 #include "Profiler.hpp"
 
 using namespace llvm;
-using namespace std;
 
-namespace Utils
+class EscapesHandler
 {
-    // Init
-    void ExitOnInit();
+public:
+    EscapesHandler(Module *M,
+                   std::unordered_map<std::string, int> *FunctionMap);
 
-    // Injection
-    IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint);
-    IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint);
-} 
+    // Injection methods
+    void Inject();
 
-namespace Debug
-{
-}
+private:
+    // Initial state
+    Module *M;
+    std::unordered_map<std::string, int> *FunctionMap;
+
+    // Analyzed state
+    std::vector<Instruction *> MemUses;
+
+    // Private methods
+    void _getAllNecessaryInstructions();
+};

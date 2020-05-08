@@ -26,29 +26,38 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-/*
- * Utils.hpp
- * ----------------------------------------
- * 
- * All utility and debugging methods necessary for CARAT
- * transform. Split into two namespaces for clarity.
- */
-
 #include "Profiler.hpp"
 
 using namespace llvm;
-using namespace std;
 
-namespace Utils
+class AllocationHandler
 {
-    // Init
-    void ExitOnInit();
+public:
+    AllocationHandler(Module *M);
 
-    // Injection
-    IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint);
-    IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint);
-} 
+    // Injection methods
+    void Inject(); // Injection driver
+    void AddAllocationTableCallToMain();
+    void InjectMallocCalls();
+    void InjectCallocCalls();
+    void InjectReallocCalls();
+    void InjectFreeCalls();
 
-namespace Debug
-{
-}
+private:
+    // Initial state
+    Module *M;
+    Function *Main;
+    std::unordered_map<std::string, int> *FunctionMap;
+
+    // Analyzed state
+    unordered_map<GlobalValue *, uint64_t> Globals;
+    std::vector<Instruction *> Mallocs;
+    std::vector<Instruction *> Callocs;
+    std::vector<Instruction *> Reallocs;
+    std::vector<Instruction *> Frees;
+    std::vector<Instruction *> Allocas;
+
+    // Private methods
+    void _getAllNecessaryInstructions();
+    void _getAllGlobals();
+};

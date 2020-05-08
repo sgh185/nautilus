@@ -497,7 +497,7 @@ namespace {
             GlobalVariable* tempGlob = nullptr; 
             GlobalVariable* lowerBound = new GlobalVariable(M, int64Type, false, GlobalValue::CommonLinkage, constantNum2, "lowerBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
             GlobalVariable* upperBound = new GlobalVariable(M, int64Type, false, GlobalValue::ExternalLinkage, constantNum1, "upperBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
-#if CYCLE_GUARD
+#if 0 // CYCLE_GUARD
 
             std::vector<Instruction*> tempRets;
             for(auto& F : M){

@@ -10,16 +10,17 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2019, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2019, Simone Campanoni <simonec@eecs.northwestern.edu>
- * Copyright (c) 2019, Peter A. Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2019, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
+ * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
- * Authors: Souradip Ghosh <sgh@u.northwestern.edu>
- *          Simone Campanoni <simonec@eecs.northwestern.edu>
- *          Peter A. Dinda <pdinda@northwestern.edu>
+ * Authors: Drew Kersnar, Gaurav Chaudhary, Souradip Ghosh, 
+ *          Brian Suchy, Peter Dinda 
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
@@ -43,4 +44,54 @@ void Utils::ExitOnInit()
 {
     if (FALSE)
         exit(0);
+}
+
+
+/*
+ * GetBuilder
+ * 
+ * Generates a specific IRBuilder instance that is fitted with 
+ * the correct debug location --- necessary for injections 
+ * into the Nautilus bitcode
+ * 
+ */
+
+IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint)
+{
+    IRBuilder<> Builder{InsertionPoint};
+    Instruction *FirstInstWithDBG = nullptr;
+
+    for (auto &I : instructions(F))
+    {
+        if (I.getDebugLoc())
+        {
+            FirstInstWithDBG = &I;
+            break;
+        }
+    }
+
+    if (FirstInstWithDBG != nullptr)
+        Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+
+    return Builder;
+}
+
+IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint)
+{
+    IRBuilder<> Builder{InsertionPoint};
+    Instruction *FirstInstWithDBG = nullptr;
+
+    for (auto &I : instructions(F))
+    {
+        if (I.getDebugLoc())
+        {
+            FirstInstWithDBG = &I;
+            break;
+        }
+    }
+
+    if (FirstInstWithDBG != nullptr)
+        Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+
+    return Builder;
 }

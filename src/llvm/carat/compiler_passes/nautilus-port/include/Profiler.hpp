@@ -44,12 +44,15 @@ using namespace std;
 #define CARAT_CALLOC "AddCallocToAllocationTable"
 #define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
 #define CARAT_STATS "ReportStatistics"
+#define CARAT_ESCAPE "AddToEscapeTable"
+#define PANIC_STRING "LLVM_panic_string"
 
 const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
                                              CARAT_REALLOC, 
                                              CARAT_CALLOC,
                                              CARAT_REMOVE_ALLOC, 
-                                             CARAT_STATS};
+                                             CARAT_STATS,
+                                             CARAT_ESCAPE};
 
 uint64_t findStructSize(Type *);
 uint64_t findArraySize(Type *);
