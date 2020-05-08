@@ -177,12 +177,10 @@ struct CAT : public ModulePass
         return false;
     }
 
-    void AddDebugInfo(Value *V)
+    IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint)
     { 
-        Instruction *Injected = static_cast<Instruction *>(V);
-
+        IRBuilder<> Builder{InsertionPoint};
         Instruction *FirstInstWithDBG = nullptr;
-        Function *F = Injected->getFunction();
 
         for (auto &I : instructions(F))
         {
@@ -194,12 +192,9 @@ struct CAT : public ModulePass
         }
 
         if (FirstInstWithDBG != nullptr)
-        {
-            IRBuilder<> Builder{Injected};
             Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
-        }
 
-        return;
+        return Builder;
     }
 
     void GetAllGlobals(Module &M,
@@ -246,10 +241,9 @@ struct CAT : public ModulePass
     void AddAllocationTableCallToMain(Function *Main, 
                                       unordered_map<GlobalValue *, uint64_t> &Globals)
     {
-        return;
         // Set up for IRBuilder, malloc injection
 		Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
-        IRBuilder<> MainBuilder{InsertionPoint};
+        IRBuilder<> MainBuilder = GetBuilder(Main, InsertionPoint);
 
         LLVMContext &TheContext = Main->getContext();
         Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
@@ -261,10 +255,10 @@ struct CAT : public ModulePass
             std::vector<Value *> CallArgs;
 
             // Build void pointer cast for global
-            Value *PointerCast = MainBuilder.CreatePointerCast(GV, VoidPointerType);
-            AddDebugInfo(PointerCast);
+			// NOTE --- no debug info for pointer casts which will exist as args
+            Value *PointerCast = MainBuilder.CreatePointerCast(GV, VoidPointerType); 
 
-            // Add to arguments vector
+			// Add to arguments vector
             CallArgs.push_back(PointerCast);
             CallArgs.push_back(ConstantInt::get(IntegerType::get(TheContext, 64), Length, false));
 
@@ -273,7 +267,6 @@ struct CAT : public ModulePass
 
             // Build call instruction
             CallInst *MallocInjection = MainBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
-            AddDebugInfo(MallocInjection);
         }
         
         return;
@@ -301,16 +294,14 @@ struct CAT : public ModulePass
             }
 
             // Set up injections and call instruction arguments
-            IRBuilder<> MIBuilder{InsertionPoint};
+            IRBuilder<> MIBuilder = GetBuilder(MI->getFunction(), InsertionPoint);
             std::vector<Value *> CallArgs;
 
             // Cast inst as value to grab returned value
             Value *MallocReturnCast = MIBuilder.CreatePointerCast(MI, VoidPointerType);
-            AddDebugInfo(MallocReturnCast);
             
             // Cast inst for size argument to original malloc call (MI)
             Value *MallocSizeArgCast = MIBuilder.CreateZExtOrBitCast(MI->getOperand(0), Int64Type);
-            AddDebugInfo(MallocSizeArgCast);
             
             // Add CARAT malloc call instruction arguments
             CallArgs.push_back(MallocReturnCast);
@@ -319,7 +310,6 @@ struct CAT : public ModulePass
 
             // Build the call instruction to CARAT malloc
             CallInst *AddToAllocationTable = CallInst::Create(CARATMalloc, LLVMCallArgs);
-            AddDebugInfo(AddToAllocationTable);
         }
 
         return;
@@ -347,20 +337,17 @@ struct CAT : public ModulePass
             }
 
             // Set up injections and call instruction arguments
-            IRBuilder<> CIBuilder{InsertionPoint};
+            IRBuilder<> CIBuilder = GetBuilder(CI->getFunction(), InsertionPoint);
             std::vector<Value *> CallArgs;
 
             // Cast inst as value to grab returned value
             Value *CallocReturnCast = CIBuilder.CreatePointerCast(CI, VoidPointerType);
-            AddDebugInfo(CallocReturnCast);
             
             // Cast inst for size argument to original calloc call (CI)
             Value *CallocSizeArgCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(0), Int64Type);
-            AddDebugInfo(CallocSizeArgCast);
 
             // Cast inst for second argument (number of elements) to original calloc call (CI)
             Value *CallocNumElmCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(1), Int64Type);
-            AddDebugInfo(CallocNumElmCast);
 
             // Add CARAT calloc call instruction arguments
             CallArgs.push_back(CallocReturnCast);
@@ -370,7 +357,6 @@ struct CAT : public ModulePass
 
             // Build the call instruction to CARAT calloc
             CallInst *AddToAllocationTable = CallInst::Create(CARATCalloc, LLVMCallArgs);
-            AddDebugInfo(AddToAllocationTable);
         }
 
         return;
@@ -398,20 +384,17 @@ struct CAT : public ModulePass
             }
 
             // Set up injections and call instruction arguments
-            IRBuilder<> RIBuilder{InsertionPoint};
+            IRBuilder<> RIBuilder = GetBuilder(RI->getFunction(), InsertionPoint);
             std::vector<Value *> CallArgs;
 
             // Cast inst for the old pointer passed to realloc
             Value *ReallocOldPtrCast = RIBuilder.CreatePointerCast(RI->getOperand(0), VoidPointerType);
-            AddDebugInfo(ReallocOldPtrCast);
             
             // Cast inst for return value from original Realloc call (RI)
             Value *ReallocReturnCast = RIBuilder.CreateZExtOrBitCast(RI, VoidPointerType);
-            AddDebugInfo(ReallocReturnCast);
 
             // Cast inst for size argument to original Realloc call (RI)
             Value *ReallocNewSizeCast = RIBuilder.CreateZExtOrBitCast(RI->getOperand(1), Int64Type);
-            AddDebugInfo(ReallocNewSizeCast);
 
             // Add CARAT Realloc call instruction arguments
             CallArgs.push_back(ReallocOldPtrCast);
@@ -421,7 +404,6 @@ struct CAT : public ModulePass
 
             // Build the call instruction to CARAT Realloc
             CallInst *AddToAllocationTable = CallInst::Create(CARATRealloc, LLVMCallArgs);
-            AddDebugInfo(AddToAllocationTable);
         }
 
         return;
@@ -448,12 +430,11 @@ struct CAT : public ModulePass
             }
 
             // Set up injections and call instruction arguments
-            IRBuilder<> FIBuilder{InsertionPoint};
+            IRBuilder<> FIBuilder = GetBuilder(FI->getFunction(), InsertionPoint);
             std::vector<Value *> CallArgs;
 
             // Cast inst as value passed to free
             Value *FreePassedPtrCast = FIBuilder.CreatePointerCast(FI->getOperand(0), VoidPointerType);
-            AddDebugInfo(FreePassedPtrCast);
 
             // Add CARAT Free call instruction arguments
             CallArgs.push_back(FreePassedPtrCast);
@@ -461,7 +442,6 @@ struct CAT : public ModulePass
 
             // Build the call instruction to CARAT Free
             CallInst *AddToAllocationTable = CallInst::Create(CARATFree, LLVMCallArgs);
-            AddDebugInfo(AddToAllocationTable);
         }
 
         return;
@@ -469,7 +449,6 @@ struct CAT : public ModulePass
 
     void getAnalysisUsage(AnalysisUsage &AU) const override
     {
-        AU.setPreservesAll();
         return;
     }
 };
