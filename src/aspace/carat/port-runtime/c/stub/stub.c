@@ -33,8 +33,11 @@
 
 #include <nautilus/nautilus.h>
 #include <nautilus/naut_types.h>
+#include <nautilus/limits.h>
 
 const char LLVM_panic_string[] = "Panic from CARAT protections check\n";
+const uint64_t lower_bound = 0;
+const uint64_t upper_bound = ULONG_MAX;
 
 __attribute__((optnone, noinline)) void AddToAllocationTable(void *address, uint64_t length)
 {

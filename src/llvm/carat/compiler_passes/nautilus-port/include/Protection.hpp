@@ -44,10 +44,16 @@ private:
     Module *M;
     Function *Panic;
     GlobalVariable *PanicString;
+    GlobalVariable *LowerBound;
+    GlobalVariable *UpperBound;
 
     // Analyzed state
     std::unordered_map<Instruction *, pair<Instruction *, Value *>> MemoryInstructions;
+    std::unordered_map<Function *, BasicBlock *> EscapeBlocks;
+    std::unordered_map<Function *, pair<LoadInst *, LoadInst *> *> BoundsLoadInsts;
 
     // Private methods
     void _getAllNecessaryInstructions();
+    BasicBlock *_buildEscapeBlock(Function *F);
+    pair<LoadInst *, LoadInst *> *_buildBoundsLoadInsts(Function *F);
 };

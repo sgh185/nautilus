@@ -46,6 +46,8 @@ using namespace std;
 #define CARAT_STATS "ReportStatistics"
 #define CARAT_ESCAPE "AddToEscapeTable"
 #define PANIC_STRING "LLVM_panic_string"
+#define LOWER_BOUND "lower_bound"
+#define UPPER_BOUND "upper_bound"
 
 const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
                                              CARAT_REALLOC, 

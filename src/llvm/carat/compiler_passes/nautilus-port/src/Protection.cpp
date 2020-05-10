@@ -28,7 +28,8 @@
 
 #include "../include/Protection.hpp"
 
-ProtectionsHandler::ProtectionsHandler(Module *M)
+ProtectionsHandler::ProtectionsHandler(Module *M,
+                                       std::unordered_map<std::string, int> *FunctionMap)
 {
     DEBUG_INFO("--- Protections Constructor ---\n");
 
@@ -37,12 +38,23 @@ ProtectionsHandler::ProtectionsHandler(Module *M)
     this->FunctionMap = FunctionMap;
     this->Panic = M->getFunction("panic");
     if (this->Panic == nullptr) { abort(); }
+    
+    // Get globals
+    this->LowerBound = M->getGlobalVariable(LOWER_BOUND);
+    if (this->LowerBound == nullptr) { abort(); }
 
-    // Set up data structures
-    this->MemoryInstructions = std::unordered_map<Instruction *, pair<Instruction *, Value *>>();
+    this->UpperBound = M->getGlobalVariable(UPPER_BOUND);
+    if (this->UpperBound == nullptr) { abort(); }
+
     this->PanicString = M->getGlobalVariable(PANIC_STRING);
     if (this->PanicString == nullptr) { abort(); }
 
+    // Set up data structures
+    this->MemoryInstructions = std::unordered_map<Instruction *, pair<Instruction *, Value *>>();
+    this->EscapeBlocks = std::unordered_map<Function *, BasicBlock *>();
+    this->BoundsLoadInsts = std::unordered_map<Function *, pair<LoadInst *, LoadInst *> *>();
+
+    // Do analysis
     this->_getAllNecessaryInstructions();
 }
 
@@ -51,144 +63,207 @@ void ProtectionsHandler::_getAllNecessaryInstructions()
     return;
 }
 
+BasicBlock *ProtectionsHandler::_buildEscapeBlock(Function *F)
+{
+    /* 
+
+       Escape block structure:
+
+       ...
+       ...
+
+       escape: 
+        %l = load PanicString
+        %p = tail call panic(PanicString)
+        %u = unreachable
+
+    */
+
+    // Set up builder
+    IRBuilder<> EscapeBuilder = Utils::GetBuilder(F, EscapeBlock);
+
+    // Create escape basic block, save the state
+    EscapeBlock = BasicBlock::Create(F->getContext(), "escape", F);
+    EscapeBlocks[F] = EscapeBlock;
+
+    // Load the panic string global
+    LoadInst *PanicStringLoad = EscapeBuilder.CreateLoad(PanicString);
+
+    // Set up arguments for call to panic
+    std::vector<Value *> CallArgs;
+    CallArgs.push_back(PanicStringLoad);
+    ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+
+    // Build call to panic
+    CallInst *PanicCall = EscapeBuilder.CreateCall(Panic, LLVMCallArgs)
+    
+    // Add LLVM unreachable
+    UnreachableInst *Unreachable = EscapeBuilder.CreateUnreachable();
+
+    return EscapeBlock;
+}
+
+pair<LoadInst *, LoadInst *> *ProtectionsHandler::_buildBoundsLoadInsts(Function *F)
+{
+    /* 
+
+       Bounds loads structure:
+
+       entry: 
+        %l = load lower_bound
+        %u = load upper_bound
+
+        ...
+
+        %0
+
+    */
+
+    // Get the insertion point
+    BasicBlock *EntryBlock = &(F->getEntryBlock());
+    Instruction *InsertionPoint = EntryBlock->getFirstNonPHI();
+    if (InsertionPoint == nullptr)
+        abort(); // Serious
+
+    // Set up the builder
+    IRBuilder<> BoundsBuilder = Utils::GetBuilder(F, InsertionPoint);
+
+    // Insert lower bound, then upper bound
+    LoadInst *LowerBoundLoad = BoundsBuilder.CreateLoad(LowerBound);
+    LoadInst *UpperBoundLoad = BoundsBuilder.CreateLoad(UpperBound);
+
+    // Build pair object, save the state
+    pair<LoadInst *, LoadInst *> *NewBoundsPair = new pair<LoadInst *, LoadInst *>();
+    NewBoundsPair->first = LowerBoundLoad;
+    NewBoundsPair->second = UpperBoundLoad;
+    BoundsLoadInsts[F] = NewBoundsPair;
+    
+    return NewBoundsPair;
+}
+
 void ProtectionsHandler::Inject()
 {
-    std::unordered_map<Function *, BasicBlock *> FunctionToEscapeBlock;
     for (auto const &[MI, InjPair] : MemoryInstructions)
     {
+        // Break down the pair object
         Instruction *InjectionLocation = InjPair.first;
-        Value *AdderssToCheck = InjPair.second;
+        Value *AddressToCheck = InjPair.second;
 
+        // Get function to inject in
+        Function *ParentFunction = I->getFunction();
+
+        // Make sure the escape block exists in the parent
+        // function --- or else, build it
+        BasicBlock *EscapeBlock = (EscapeBlocks.find(ParentFunction) == EscapeBlocks.end()) ?
+                                   _buildEscapeBlock(ParentFunction) :
+                                   EscapeBlocks[ParentFunction];
+
+        // Make sure the lower/upper bounds load instructions
+        // are injected in the entry block --- if not, build them
+        pair<LoadInst *, 
+             LoadInst *> *BoundsLoads = (BoundsLoadInsts.find(ParentFunction) == BoundsLoadInsts.end()) ?
+                                         _buildBoundsLoadInsts(ParentFunction) :
+                                         BoundsLoadInsts[ParentFunction];
+
+        // Break down the bounds load instructions
+        LoadInst *LowerBoundLoad = BoundsLoads->first;
+        LoadInst *UpperBoundLoad = BoundsLoads->second;
+
+        // Optimized injections (implemented) vs. original 
+        // CARAT injections
         /*
             %i = InjectionLocation
             
+            --- OPTIMIZED ---
+            ---
+            
+            entry-block:
+              %l = load lower_bound
+              %u = load upper_bound
+
+            ...
+            ...
+
+            optimized-injection:
+              %0 = icmp addressToCheck %l
+              %1 = icmp addressToCheck %u
+              %2 = and %0, %1
+              %3 = br %2 %original %escape
+
+            original:
+              %i = InjectionLocation
+
+            ...
+            ...
+
+            escape:
+              %lp = load PanicString
+              %escape1 = panic ...
+              unreachable
+            
+            ---
+            --- OLD ---
             ---
 
-            ... :
-              %0 = icmp addressToCheck vs lower
-              %1 = br %0 %continue-block %escape
+            carat-original-injection:
+              %0 = load lower_bound
+              %1 = icmp addressToCheck %0
+              %2 = br %0 %continue-block %escape
 
-            contiue-block:
-              %2 = icmp addressToCheck vs upper
-              %3 = br %3 %continue-block2 %escape
+            carat-continue-block:
+              %3 = load upper_bound
+              %4 = icmp addressToCheck %3
+              %5 = br %3 %original %escape
 
-            continue-block2:
+            original:
               %i = InjectionLocation
 
             ...
             ...
             
             escape:
+              %lp = load PanicString
               %escape1 = panic ...
               unreachable
+
             ---
         */
 
-        // ---- NOT FINISHED -----
+        /*
+            Split the block --- 
 
-        // Build escape block IFF an escape block doesn't already exist
-        Function *StoreFunction = I->getFunction();
-        BasicBlock *EscapeBlock = nullptr;
-        if (FunctionToEscapeBlock.find(StoreFunction) == FunctionToEscapeBlock.end())
-        {
-            // Set up builder
-            IRBuilder<> EscapeBuilder = Utils::GetBuilder(StoreFunction, EscapeBlock);
+            1) Inject icmp + and instructions at insertion point
 
-            // Create escape basic block
-            EscapeBlock = BasicBlock::Create(StoreFunction->getContext(), "escape", StoreFunction);
-            FunctionToEscapeBlock[StoreFunction] = EscapeBlock;
+            2) Split the block --- SplitBlock will patch an unconditional
+               into OldBlock --- from OldBlock to NewBlock
 
-            // Set up arguments for call to panic
-            std::vector<Value *> CallArgs;
-            CallArgs.push_back(PanicString);
-            ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+            3) Modify the unconditional branch instruction to reflect
+               a conditional jump to escape if necessary
+        */
+    
+        // Set up builder
+        IRBuilder<> ChecksBuilder = Utils::GetBuilder(F, InjectionLocation);
 
-            // Build call to panic
-            CallInst *PanicCall = EscapeBuilder.CreateCall(Panic, LLVMCallArgs)
-            
-            // Add LLVM unreachable
-            UnreachableInst *Unreachable = EscapeBuilder.CreateUnreachable();
-        }
-        else { EscapeBlock = FunctionToEscapeBlock[StoreFunction]; } // Block already exists
+        // Inject compare for lower bound, then compare for upper bound,
+        // then and instruction with both compares as operands
+        Value *LowerBoundCompare = ChecksBuilder.CreateICmpULT(AddressToCheck, LowerBoundLoad),
+              *UpperBoundCompare = ChecksBuilder.CreateICmpUGT(AddressToCheck, UpperBoundLoad),
+              *AndInst = ChecksBuilder.CreateAnd(LowerBoundCompare, UpperBoundCompare);
 
-        BasicBlock* oldBlock = I->getParent();
-        BasicBlock* newBlock = oldBlock->splitBasicBlock(I, "");
-        BasicBlock* oldBlock1 = BasicBlock::Create(MContext, "", oldBlock->getParent(), newBlock);
+        // Now split the block
+        BasicBlock *OldBlock = InjectionLocation->getParent();
+        BasicBlock *NewBlock = SplitBlock(OldBlock, InjectionLocation);
+        
+        // Reconfigure the OldBlock's unconditional branch to handle
+        // conditional jump to escape block --- use the AndInst as 
+        // the condition
+        Instruction *OldBlockTerminator = OldBlock->getTerminator();
+        BranchInst *BranchToModify = dyn_cast<BranchInst>(OldBlockTerminator);
+        if (BranchToModify == nullptr)
+            abort();
 
-        Instruction* unneededBranch = oldBlock->getTerminator();
-        if(isa<BranchInst>(unneededBranch)){
-            unneededBranch->eraseFromParent();
-        }
-        Value* compareVal;
-        Function* tFp;
-        compareVal = addressToCheck;
-        const Twine &NameString = ""; 
-        Instruction* tempInst = nullptr; 
-        CastInst* int64CastInst = CastInst::CreatePointerCast(compareVal, int64Type, NameString, tempInst);
-        LoadInst* lowerCastInst = new LoadInst(int64Type, lowerBound, NameString, tempInst);
-        LoadInst* upperCastInst = new LoadInst(int64Type, upperBound, NameString, tempInst);
-        CmpInst* compareInst = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_ULT, int64CastInst, lowerCastInst, "", oldBlock);
-        int64CastInst->insertBefore(compareInst);
-        lowerCastInst->insertBefore(compareInst);
-        BranchInst* brInst = BranchInst::Create(escapeBlock, oldBlock1, compareInst, oldBlock);
-
-        //CastInst* int64CastInst1 = CastInst::CreatePointerCast(compareVal, int64Type, NameString, tempInst);
-        CmpInst* compareInst1 = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_UGT, int64CastInst, upperCastInst, "", oldBlock1);
-        //int64CastInst1->insertBefore(compareInst1);
-        upperCastInst->insertBefore(compareInst1);
-        BranchInst* brInst1 = BranchInst::Create(escapeBlock, newBlock, compareInst1, oldBlock1);
-        modified = true;
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    Function *CARATEscape = NecessaryMethods[CARAT_ESCAPE];
-    LLVMContext &TheContext = CARATEscape->getContext();
-
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-
-    for (auto MU : MemUses)
-    {
-        Instruction *InsertionPoint = MU->getNextNode();
-        if (InsertionPoint == nullptr)
-        {
-            errs() << "Not able to instrument: ";
-            MU->print(errs());
-            errs() << "\n";
-
-            continue;
-        }
-
-        // Set up injections and call instruction arguments
-        IRBuilder<> MUBuilder = Utils::GetBuilder(MU->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
-
-        // Get pointer operand from store instruction --- this is the
-        // only parameter (casted) to the AddToEscapeTable method
-        StoreInst *SMU = static_cast<StoreInst>(MU);
-        Value *PointerOperand = SMU->getPointerOperand();
-
-        // Pointer operand casted to void pointer
-        Value *PointerOperandCast = MUBuilder.CreatePointerCast(PointerOperand, VoidPointerType);
-
-        // Add all necessary arguments, convert to LLVM data structure
-        CallArgs.push_back(PointerOperandCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
-
-        // Build the call instruction to CARAT escape
-        CallInst *AddToAllocationTable = MUBuilder.CreateCall(CARATEscape, LLVMCallArgs);
+        BranchToModify->setCondition(AndInst);
+        BranchToModify->setSuccessor(1, EscapeBlock); // 0th successor is NewBlock
     }
 
     return;
