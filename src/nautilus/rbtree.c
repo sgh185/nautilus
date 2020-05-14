@@ -20,6 +20,7 @@
 */
 
 #include <nautilus/rbtree.h>
+#include <nautilus/nautilus.h>
 
 
 static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)
@@ -390,4 +391,197 @@ void nk_rb_replace_node(struct rb_node *victim, struct rb_node *new,
     /* Copy the pointers/colour from the victim to the replacement */
     *new = *victim;
 }
+
+//// Implementation of Join and Split ////////
+
+int nk_get_rb_black_height(struct rb_node *node)
+{
+    int blackheight = 0;
+    while (node != NULL) {
+        if (rb_is_black(node))
+            blackheight++;
+        node = node->rb_left;
+    }
+    return blackheight;
+}
+
+struct rb_node* nk_rb_min_value_node(struct rb_node *root) {
+
+     struct rb_node *ptr = root;
+
+    while (ptr->rb_left != NULL)
+        ptr = ptr->rb_left;
+
+    return ptr;
+}
+
+struct rb_node* nk_rb_max_value_node(struct rb_node *root) {
+    struct rb_node *ptr = root;
+
+    while (ptr->rb_right != NULL)
+        ptr = ptr->rb_right;
+
+    return ptr;
+}
+
+
+struct rb_node* nk_rb_join_right(struct rb_node* tree1, struct rb_node* node, struct rb_node* tree2) {
+	int bh1 = nk_get_rb_black_height(tree1);
+	int bh2 = nk_get_rb_black_height(tree2);
+
+	if(bh1 == bh2) {
+		struct rb_node* newnode;
+	       	newnode	= (struct rb_node*) malloc(sizeof(struct rb_node));
+		*newnode = *node;
+		newnode->rb_left = tree1;
+		newnode->rb_right = tree2;
+		rb_set_parent(tree1,newnode);
+		rb_set_parent(tree2,newnode);
+		rb_set_red(newnode);
+		return newnode;
+	}
+	else {
+		struct rb_node* llchild = tree1->rb_left;
+		struct rb_node* lrchild = tree1->rb_right;
+		int lcolor = rb_color(tree1);
+		struct rb_node* rnode = nk_rb_join_right(lrchild,node,tree2);
+		//struct rb_node* newnode = (struct rb_node*)malloc(sizeof(struct rb_node));
+		struct rb_node *newnode = tree1;
+		newnode->rb_right = rnode;
+		newnode->rb_left = llchild;
+		//rb_set_parent(llchild,newnode);
+		rb_set_parent(rnode,newnode);
+		struct rb_root* newroot = (struct rb_root*)malloc(sizeof(struct rb_root));
+		newroot->rb_node = newnode;
+		if(rb_is_black(newnode) && rb_is_red(newnode->rb_right) && rb_is_red(newnode->rb_right->rb_right)) {
+			rb_set_black(newnode->rb_right->rb_right);
+			__rb_rotate_left(newnode,newroot);
+			return newnode;
+		}
+		else
+			return newnode;
+
+	}
+
+}
+
+struct rb_node* nk_rb_join_left(struct rb_node* tree1, struct rb_node* node, struct rb_node* tree2) {
+	int bh1 = nk_get_rb_black_height(tree1);
+	int bh2 = nk_get_rb_black_height(tree2);
+
+	if(bh1 == bh2) {
+		struct rb_node* newnode = (struct rb_node*)malloc(sizeof(struct rb_node));
+		*newnode = *node;
+		newnode->rb_left = tree1;
+		newnode->rb_right = tree2;
+		rb_set_parent(tree1,newnode);
+		rb_set_parent(tree2,newnode);
+		rb_set_red(newnode);
+		return newnode;
+	}
+	else {
+		struct rb_node* rlchild = tree2->rb_left;
+		struct rb_node* rrchild = tree2->rb_right;
+		int rcolor = rb_color(tree2);
+		struct rb_node* lnode = nk_rb_join_left(rlchild,node,tree1);
+		//struct rb_node* newnode = (struct rb_node*)malloc(sizeof(struct rb_node));
+		struct rb_node *newnode = tree2;
+		newnode->rb_left = lnode;
+		newnode->rb_right = rrchild;
+		rb_set_parent(rrchild,newnode);
+		rb_set_parent(lnode,newnode);
+		struct rb_root* newroot = (struct rb_root*)malloc(sizeof(struct rb_root));
+		newroot->rb_node = newnode;
+		if(rb_is_black(newnode) && rb_is_red(newnode->rb_left) && rb_is_red(newnode->rb_left->rb_left)) {
+			rb_set_black(newnode->rb_left->rb_left);
+			__rb_rotate_right(newnode,newroot);
+			return newnode;
+		}
+		else
+			return newnode;
+
+	}
+
+}
+
+struct rb_node* nk_rb_join(struct rb_node* tree1, struct rb_node* node, struct rb_node* tree2) {
+
+	int bh1 = nk_get_rb_black_height(tree1);
+	int bh2 = nk_get_rb_black_height(tree2);
+	if(bh1 > bh2) {
+		struct rb_node* newnode = nk_rb_join_right(tree1,node,tree2);
+		if(rb_is_red(newnode) && rb_is_red(newnode->rb_right)) {
+			rb_set_black(newnode);
+		}
+		return newnode;
+	}
+	else if(bh1<bh2) {
+		struct rb_node* newnode = nk_rb_join_left(tree1,node,tree2);
+		if(rb_is_red(newnode) && rb_is_red(newnode->rb_left)) {
+			rb_set_black(newnode);
+		}
+		return newnode;
+	}
+	else if(rb_is_black(tree1) && rb_is_black(tree2)) {
+		struct rb_node* newnode = (struct rb_node*)malloc(sizeof(struct rb_node));
+		*newnode = *node;
+		rb_set_parent(tree1,newnode);
+		rb_set_parent(tree2,newnode);
+		newnode->rb_left = tree1;
+		newnode->rb_right = tree2;
+		rb_set_red(newnode);
+		return newnode;
+	}
+	else {
+		struct rb_node* newnode = (struct rb_node*)malloc(sizeof(struct rb_node));
+		rb_set_parent(tree1,newnode);
+		rb_set_parent(tree2,newnode);
+		*newnode = *node;
+		newnode->rb_left = tree1;
+		newnode->rb_right = tree2;
+		rb_set_black(newnode);
+		return newnode;
+
+	}
+
+}
+
+
+struct rb_split_tree* split(struct rb_node* T, struct rb_node* node) {
+	if(T == NULL) return NULL;
+	struct rb_node* left = T->rb_left;
+	struct rb_node* right = T->rb_right;
+	if(T==node) {
+		struct rb_split_tree* result = (struct rb_split_tree*)malloc(sizeof(struct rb_split_tree));
+		result->left_tree = left;
+		result->right_tree = right;
+		result->node = node;
+		return result;
+
+	}
+	else if(node<T) {
+		struct rb_split_tree* temp = split(left,node);
+		struct rb_node* joined = nk_rb_join(temp->right_tree,T,right);
+		struct rb_split_tree* result = (struct rb_split_tree*)malloc(sizeof(struct rb_split_tree));
+		result->left_tree = temp->left_tree;
+		result->right_tree = joined;
+		result->node = temp->node;
+		return result;
+	}
+	else if(node>T) {
+		struct rb_split_tree* temp = split(right,node);
+		struct rb_node* joined = nk_rb_join(temp->left_tree,T,left);
+		struct rb_split_tree* result = (struct rb_split_tree*)malloc(sizeof(struct rb_split_tree));
+		result->left_tree = joined;
+		result->right_tree = temp->right_tree;
+		result->node = temp->node;
+		return result;
+	}
+
+	return NULL;
+
+
+
+}
+
 
