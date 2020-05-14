@@ -260,6 +260,8 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	1; \
 })
 
+#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_gears[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0]);
+
 NK_SLIST_DECL(int);
 NK_SLIST_DECL(uint64_t);
 
