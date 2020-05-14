@@ -56,16 +56,17 @@ typedef struct allocEntry {
         uint64_t totalPointerWeight = 0; 
         uint64_t alignment = 8;
 
-        allocEntry(void* ptr, uint64_t len, std::string varName, std::string fileOri, uint64_t lineNum, uint64_t colNum); // FIX
-
-        allocEntry(void* ptr, uint64_t len); // FIX
 } allocEntry;
+
+allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum); // CONV [class constructor] -> [function that returns an instance]
+
+allocEntry* allocEntry(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
 
 #endif//allocEntry ifndef
 
 //Alloc addr, length
-extern std::map<void *, allocEntry *> *allocationMap; // FIX
+extern std::map<void *, allocEntry *> *allocationMap; // FIX (also can we still use extern on these?)
 extern std::map<allocEntry *, std::map<allocEntry *, uint64_t> *> allocConnections; // FIX
 //Addr Escaping To , allocAddr, length
 extern allocEntry *StackEntry;
@@ -85,7 +86,8 @@ uint64_t getrsp();
 extern "C" int stack_init();
 extern "C" void user_init();
 
-class texasStartup; // FIX
+void texasStartup(); // CONV [class] -> [init function]
+//class texasStartup;
 
 
 //This function will tell us if the escapeAddr aliases with the allocAddr

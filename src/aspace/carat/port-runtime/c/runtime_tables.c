@@ -5,44 +5,53 @@
 //Determine C vs C++ (Probably C++)
 
 
-#include "runtime_tables.hpp"
+#include "runtime_tables.h" // CONV [.hpp] -> [.h]
 
 
 
 //Alloc addr, length
-std::map<void*, allocEntry*>* allocationMap = nullptr;
+std::map<void*, allocEntry*>* allocationMap = nullptr; // FIX
 
 allocEntry* StackEntry;
 uint64_t rsp = 0;
 
 uint64_t escapeWindowSize = 0;
 uint64_t totalEscapeEntries = 0;
-void*** escapeWindow = nullptr;
+void*** escapeWindow = NULL; // CONV [nullptr] -> [NULL]
+
+// CONV [class with an init constructor] -> [init function] FIX do we need to call this somewhere?
+void texasStartup() {
+	user_init();
+	texas_init();
+} 
+// class texasStartup{
+// 	texasStartup(){
+// 		user_init();
+// 		texas_init();
+// 	}
+// } __texasStartup;
 
 
-class texasStartup{
-	public:
-		texasStartup(){
-			user_init();
-			texas_init();
-		}
-} __texasStartup;
-
-
-allocEntry::allocEntry(void* ptr, uint64_t len, std::string varName, std::string fileOri, uint64_t lineNum, uint64_t colNum){
-    pointer = ptr;
-    length = len;
-    variableName = varName;
-    origin.push_back(std::make_tuple(fileOri, lineNum, colNum));
+// CONV [class constructor] -> [function that returns an instance]
+allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum){
+	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
+	newAllocEntry->pointer = ptr;
+	newAllocEntry->length = len;
+	newAllocEntry->variableName = varName;
+    newAllocEntry->origin.push_back(std::make_tuple(fileOri, lineNum, colNum)); // FIX
+	return newAllocEntry;
 }
 
-allocEntry::allocEntry(void* ptr, uint64_t len){
-    pointer = ptr;
-    length = len;
+// CONV [class constructor] -> [function that returns an instance]
+allocEntry* allocEntry(void* ptr, uint64_t len){
+	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
+	newAllocEntry->pointer = ptr;
+	newAllocEntry->length = len;
+	return newAllocEntry;
 }
 
 //This can be built to find all the pointer connections of a program
-std::map<allocEntry*, std::map<allocEntry*, uint64_t>*> allocConnections;
+std::map<allocEntry*, std::map<allocEntry*, uint64_t>*> allocConnections; // FIX
 
 
 int64_t doesItAlias(void* allocAddr, uint64_t length, uint64_t escapeVal){
@@ -58,10 +67,10 @@ int64_t doesItAlias(void* allocAddr, uint64_t length, uint64_t escapeVal){
 void AddToAllocationTable(void* address, uint64_t length){
 	//printf("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
 	//fflush(stdout);
-	allocEntry* newEntry = new allocEntry(address, length);
+	allocEntry* newEntry = allocEntry(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
 	//printf("Adding to allocationMap\n");
 	//fflush(stdout);
-	allocationMap->insert({address, newEntry});
+	allocationMap->insert({address, newEntry}); // FIX
 	//printf("Returning\n");
 	//fflush(stdout);
 	return;
@@ -69,15 +78,15 @@ void AddToAllocationTable(void* address, uint64_t length){
 
 void AddCallocToAllocationTable(void* address, uint64_t len, uint64_t sizeOfEntry){
 	uint64_t length = len * sizeOfEntry;
-	auto newEntry = new allocEntry(address, length);
-	allocationMap->insert_or_assign(address, newEntry);
+	allocEntry* newEntry = allocEntry(address, length); // CONV [class constructor] -> [function that returns an instance]
+	allocationMap->insert_or_assign(address, newEntry); // FIX
 	return;
 }
 
 void HandleReallocInAllocationTable(void* address, void* newAddress, uint64_t length){
-	allocationMap->erase(address);
-	auto newEntry = new allocEntry(address, length);
-	allocationMap->insert_or_assign(address, newEntry);
+	allocationMap->erase(address); // FIX
+	allocEntry* newEntry = allocEntry(address, length); // CONV [class constructor] -> [function that returns an instance]
+	allocationMap->insert_or_assign(address, newEntry); // FIX
 	return;
 }
 
@@ -99,27 +108,27 @@ void AddToEscapeTable(void* addressEscaping){
 }
 
 allocEntry* findAllocEntry(void* address){
-	auto prospective = allocationMap->lower_bound(address);
+	auto prospective = allocationMap->lower_bound(address); // FIX
 	uint64_t blockStart;
 	uint64_t blockLen;
 
 	//prospective will be either not found at all, matches addressEscaping exactly, or is next block after addressEscaping      
 
 	//Not found at all
-	if(prospective == allocationMap->end()){
+	if(prospective == allocationMap->end()){ // FIX
 		return nullptr;
 	}
-	blockStart = (uint64_t)prospective->first;
-	blockLen = prospective->second->length;
+	blockStart = (uint64_t)prospective->first; // FIX
+	blockLen = prospective->second->length; // FIX
 	//Matches exactly
 	if(blockStart == (uint64_t)address){
 		//Nothing to do, prospective points to our matching block
 	}
 	//Could be in previous block
-	else if (prospective != allocationMap->begin()){
+	else if (prospective != allocationMap->begin()){ // FIX
 		prospective--;
-		blockStart = (uint64_t)prospective->first;
-		blockLen = prospective->second->length;
+		blockStart = (uint64_t)prospective->first;// FIX
+		blockLen = prospective->second->length;// FIX
 		if(doesItAlias(prospective->first, blockLen, (uint64_t)address) == -1){
 			//Not found
 			return nullptr;
@@ -136,20 +145,20 @@ allocEntry* findAllocEntry(void* address){
 void processEscapeWindow(){
 	//printf("\n\n\nI am invoked!\n\n\n");
 	fflush(stdout);
-	std::unordered_set<void**> processedEscapes;
+	std::unordered_set<void**> processedEscapes; // FIX
 	for (uint64_t i = 0; i < totalEscapeEntries; i++){
 		void** addressEscaping = escapeWindow[i];
 
-		if(processedEscapes.find(addressEscaping) != processedEscapes.end()){
+		if(processedEscapes.find(addressEscaping) != processedEscapes.end()){ // FIX
 			continue;
 		}
-		processedEscapes.insert(addressEscaping);
+		processedEscapes.insert(addressEscaping); // FIX
  		if(addressEscaping == NULL){
  			continue;
  		}
-		auto* alloc = findAllocEntry(*addressEscaping);
+		allocEntry* alloc = findAllocEntry(*addressEscaping); // CONV [auto] -> [allocEntry*]
 
-		if(alloc == nullptr){
+		if(alloc == NULL){ // CONV [nullptr] -> [NULL]
 			continue;
 		}
 
@@ -158,7 +167,7 @@ void processEscapeWindow(){
 		// and the length (usually 1) into escape table with key of addressEscapingTo
 		//One can reverse engineer the starting point if the length is longer than 1
 		//by subtracting from value in dereferenced addressEscapingTo
-		alloc->allocToEscapeMap.insert(addressEscaping);  
+		alloc->allocToEscapeMap.insert(addressEscaping);  // FIX
 	}
 	totalEscapeEntries = 0;
 
@@ -167,15 +176,15 @@ void processEscapeWindow(){
 
 //This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void* address){
-	allocationMap->erase(address);
+	allocationMap->erase(address); // FIX
 }
 
-void GenerateConnectionGraph(){
+void GenerateConnectionGraph(){  // FIX this whole function
 	//first kill off the old state allocConnections
-  std::set<void**> doneEscapes;
-  allocConnections.clear();
+  std::set<void**> doneEscapes; // FIX
+  allocConnections.clear(); // FIX
   //Initialize
-  for(auto allocs : *allocationMap){
+  for(auto allocs : *allocationMap){  // FIX
     std::map<allocEntry*, uint64_t>* newConnection = new std::map<allocEntry*, uint64_t>();
     allocConnections.insert_or_assign(allocs.second, newConnection);
     allocs.second->totalPointerWeight = 0;
@@ -218,7 +227,7 @@ void GenerateConnectionGraph(){
 
 
 void ReportStatistics(){
-	printf("Size of Allocation Table: %lu\n", (uint64_t)allocationMap->size());  
+	printf("Size of Allocation Table: %lu\n", (uint64_t)allocationMap->size());  // FIX 
 }
 
 
@@ -231,14 +240,14 @@ uint64_t getrsp(){
 
 void texas_init(){
 	rsp = getrsp();
-	allocationMap = new std::map<void*, allocEntry*>();
+	allocationMap = new std::map<void*, allocEntry*>();  // FIX
 	escapeWindowSize = 1048576;
 	totalEscapeEntries = 0;
 	//This adds the stack pointer to a tracked alloc that is length of 32GB which encompasses all programs we run
 	void* rspVoidPtr = (void*)(rsp-0x800000000ULL);
-	StackEntry = new allocEntry(rspVoidPtr, 0x800000000ULL);
-	allocationMap->insert_or_assign(rspVoidPtr, StackEntry);
-	escapeWindow = (void***)calloc(escapeWindowSize, sizeof(void*));
+	StackEntry = allocEntry(rspVoidPtr, 0x800000000ULL); // CONV [constructor] -> [function that returns an instance]
+	allocationMap->insert_or_assign(rspVoidPtr, StackEntry); // FIX
+	escapeWindow = (void***)calloc(escapeWindowSize, sizeof(void*)); // FIX
 
 	//printf("Leaving texas_init\n");
 	return;
