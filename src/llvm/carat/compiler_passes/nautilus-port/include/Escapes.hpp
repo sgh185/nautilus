@@ -26,7 +26,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "Profiler.hpp"
+#include "Allocation.hpp"
 
 using namespace llvm;
 

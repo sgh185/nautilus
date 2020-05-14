@@ -26,7 +26,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "./include/Allocation.hpp"
+#include "./include/Escapes.hpp"
 
 namespace
 {
@@ -73,8 +73,8 @@ struct CAT : public ModulePass
         AH->Inject();
 
         // // --- Escapes tracking ---
-        // EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);
-        // EH->Inject(); // Only memory uses
+        EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);
+        EH->Inject(); // Only memory uses
 
         // // --- Protection ---
         // ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
