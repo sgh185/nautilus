@@ -59,7 +59,7 @@ void Utils::ExitOnInit()
  * 
  */
 
-IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint)
+IRBuilder<> Utils::GetBuilder(Function *F, Instruction *InsertionPoint)
 {
     IRBuilder<> Builder{InsertionPoint};
     Instruction *FirstInstWithDBG = nullptr;
@@ -79,7 +79,7 @@ IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint)
     return Builder;
 }
 
-IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint)
+IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
 {
     IRBuilder<> Builder{InsertionPoint};
     Instruction *FirstInstWithDBG = nullptr;

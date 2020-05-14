@@ -26,7 +26,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "./include/Utils.hpp"
+#include "./include/Allocation.hpp"
 
 namespace
 {
@@ -63,15 +63,14 @@ struct CAT : public ModulePass
         }
 
         // Storing method names to avoid in the bitcode source
-        // std::set<std::string> FunctionsToAvoid;
-        // std::unordered_map<std::string, int> FunctionMap;
-        // populateLibCallMap(&FunctionMap);
+        std::unordered_map<std::string, int> FunctionMap;
+        populateLibCallMap(&FunctionMap);
 
         // --- END SET UP ---
 
         // --- Allocation tracking ---
-        // AllocationHandler *AH = new AllocationHandler(&M, &FunctionMap);
-        // AH->Inject();
+        AllocationHandler *AH = new AllocationHandler(&M, &FunctionMap);
+        AH->Inject();
 
         // // --- Escapes tracking ---
         // EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);

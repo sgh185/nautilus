@@ -37,7 +37,6 @@
 #include "Configurations.hpp"
 
 using namespace llvm;
-using namespace std;
 
 namespace Utils
 {

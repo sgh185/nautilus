@@ -36,11 +36,11 @@ AllocationHandler::AllocationHandler(Module *M,
     // Set state
     this->M = M;
     this->FunctionMap = FunctionMap;
-    this->Main = M.getFunction("main");
+    this->Main = M->getFunction("main");
     if (this->Main == nullptr) { abort(); }
 
     // Set up data structures
-    this->Globals = unordered_map<GlobalValue *, uint64_t>();
+    this->Globals = std::unordered_map<GlobalValue *, uint64_t>();
     this->Mallocs = std::vector<Instruction *>();
     this->Callocs = std::vector<Instruction *>();
     this->Reallocs = std::vector<Instruction *>();
@@ -67,7 +67,7 @@ void AllocationHandler::_getAllNecessaryInstructions()
     // This triple nested loop will just go through all the 
     // instructions and sort all the allocations into their 
     // respective types.
-    for (auto &F : M)
+    for (auto &F : *M)
     {
         if ((FunctionMap->find(F.getName()) != FunctionMap->end()) 
             || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
@@ -125,17 +125,24 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
                             switch (val)
                             {
-                            case NULL: //Did not find the function, error
+                            case NULL: // Did not find the function, error
                             {
+                                /*
+
                                 if (FunctionsToAvoid.find(funcName) == FunctionsToAvoid.end())
                                 {
                                     errs() << "The following function call is external to the program and not accounted for in our map " << funcName << "\n";
                                     FunctionsToAvoid.insert(funcName);
                                 }
+                                
+                                */
 
-                                //Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
-                                //Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
-                                //If we go the prompt route then we should change the below statements to simply if statements.
+                                DEBUG_INFO("The following function call is external to the program and not accounted for in our map "
+                                           + funcName + "\n");
+
+                                // Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
+                                // Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
+                                // If we go the prompt route then we should change the below statements to simply if statements.
 
                                 break;
                             }
@@ -428,10 +435,3 @@ void AllocationHandler::InjectFreeCalls()
 
     return;
 }
-
-void getAnalysisUsage(AnalysisUsage &AU) const override
-{
-    return;
-}
-};
-

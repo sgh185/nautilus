@@ -26,14 +26,15 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "Profiler.hpp"
+#include "Utils.hpp"
 
 using namespace llvm;
 
 class AllocationHandler
 {
 public:
-    AllocationHandler(Module *M);
+    AllocationHandler(Module *M, 
+                      std::unordered_map<std::string, int> *FunctionMap);
 
     // Injection methods
     void Inject(); // Injection driver
@@ -50,7 +51,7 @@ private:
     std::unordered_map<std::string, int> *FunctionMap;
 
     // Analyzed state
-    unordered_map<GlobalValue *, uint64_t> Globals;
+    std::unordered_map<GlobalValue *, uint64_t> Globals;
     std::vector<Instruction *> Mallocs;
     std::vector<Instruction *> Callocs;
     std::vector<Instruction *> Reallocs;

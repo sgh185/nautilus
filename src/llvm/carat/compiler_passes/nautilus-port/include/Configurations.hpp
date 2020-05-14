@@ -48,6 +48,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/AssumptionCache.h"
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <set>
