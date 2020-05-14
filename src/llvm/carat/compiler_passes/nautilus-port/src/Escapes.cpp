@@ -45,40 +45,23 @@ EscapesHandler::EscapesHandler(Module *M,
 
 void EscapesHandler::_getAllNecessaryInstructions()
 {
-    for(auto& F : M){
+    for (auto &F : *M)
+    {
+        if ((FunctionMap->find(F.getName()) != FunctionMap->end()) 
+            || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
+            || (F.isIntrinsic()) 
+            || (!(F.getInstructionCount())))
+            { continue; }
 
-        if((*FunctionMap)[F.getName()] != NULL){
-            continue;
-        }
-
-        for(auto& B : F){
-            for(auto& I : B){
-                if(isa<CallInst>(I) || isa<InvokeInst>(I)){
-                    Function* fp;
-                    if(isa<CallInst>(I)){
-                        CallInst* CI = &(cast<CallInst>(I));
-                        fp = CI->getCalledFunction();
-                    }
-                    else{ 
-                        InvokeInst* II = &(cast<InvokeInst>(I));
-                        fp = II->getCalledFunction();
-                    }
-                    if(fp != NULL){
-                        if(fp->empty()){
-                            StringRef funcName = fp->getName();
-                            int val = (*FunctionMap)[funcName];
-                            //Function is a call to mem function
-                            if (val == -3){
-                                MemCalls.push_back(&I);
-                            }
-                        } 
-                    }    
-                }
-                if(isa<StoreInst>(I)){
-                    StoreInst* SI = &(cast<StoreInst>(I));
-                    if(SI->getValueOperand()->getType()->isPointerTy()){
+        for (auto &B : F)
+        {
+            for (auto &I : B)
+            {
+                if (isa<StoreInst>(&I))
+                {
+                    StoreInst *SI = static_cast<StoreInst *>(&I);
+                    if (SI->getValueOperand()->getType()->isPointerTy()) 
                         MemUses.push_back(SI);                                
-                    }
                 }
             }
         }
@@ -113,7 +96,7 @@ void EscapesHandler::Inject()
 
         // Get pointer operand from store instruction --- this is the
         // only parameter (casted) to the AddToEscapeTable method
-        StoreInst *SMU = static_cast<StoreInst>(MU);
+        StoreInst *SMU = static_cast<StoreInst *>(MU);
         Value *PointerOperand = SMU->getPointerOperand();
 
         // Pointer operand casted to void pointer

@@ -2,7 +2,7 @@
 set(CATPassSrc 
   CatPass.cpp
   src/Allocation.cpp
-  # src/Escapes.cpp
+  src/Escapes.cpp
   src/Utils.cpp
   src/Configurations.cpp
 )
