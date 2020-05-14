@@ -1,5 +1,5 @@
 # For Peroni
-source /project/llvm/9.0.0/enable
+source /project/extra/llvm/9.0.0/enable
 source YOUR_WLLVM_DIR/bin/activate
 # export PATH=~/tools/bin:$PATH # if necessary
 export LLVM_COMPILER=clang
