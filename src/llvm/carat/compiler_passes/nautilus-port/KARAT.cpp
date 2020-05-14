@@ -26,29 +26,25 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "./include/Profiler.hpp"
+#include "./include/Utils.hpp"
 
 namespace
 {
 struct CAT : public ModulePass
 {
     static char ID;
-    unordered_map<string, Function *> NecessaryMethods;
 
     CAT() : ModulePass(ID) {}
 
     bool doInitialization(Module &M) override
     {
+        Utils::ExitOnInit();
+
         return false;
     }
 
-    //This pass should go through all the functions and wrap
-    //the memory instructions with the injected calls needed.
     bool runOnModule(Module &M) override
     {
-        if (FALSE)
-            exit(0);
-
         // --- SET UP ---
 
         // Get methods necessary for injection --- if at least
@@ -57,32 +53,37 @@ struct CAT : public ModulePass
         {
             Function *F = M.getFunction(InjectionName);
             if (F == nullptr)
+            {
+                errs() << "Aborting --- could not find "
+                       << InjectionName << "\n";
                 abort();
+            }
 
             NecessaryMethods[InjectionName] = F;
         }
 
         // Storing method names to avoid in the bitcode source
-        std::set<std::string> FunctionsToAvoid;
-        std::unordered_map<std::string, int> FunctionMap;
-        populateLibCallMap(&FunctionMap);
+        // std::set<std::string> FunctionsToAvoid;
+        // std::unordered_map<std::string, int> FunctionMap;
+        // populateLibCallMap(&FunctionMap);
 
         // --- END SET UP ---
 
         // --- Allocation tracking ---
-        AllocationHandler *AH = new AllocationHandler(&M, &FunctionMap);
-        AH->Inject();
+        // AllocationHandler *AH = new AllocationHandler(&M, &FunctionMap);
+        // AH->Inject();
 
-        // --- Escapes tracking ---
-        EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);
-        EH->Inject(); // Only memory uses
+        // // --- Escapes tracking ---
+        // EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);
+        // EH->Inject(); // Only memory uses
 
-        // --- Protection ---
-        ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
-        PH->Inject();
+        // // --- Protection ---
+        // ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
+        // PH->Inject();
 
         return false;
     }
+};
     
 char CAT::ID = 0;
 static RegisterPass<CAT> X("karat", "KARAT");
@@ -94,5 +95,4 @@ static RegisterStandardPasses _RegPass1(PassManagerBuilder::EP_OptimizerLast,
 static RegisterStandardPasses _RegPass2(PassManagerBuilder::EP_EnabledOnOptLevel0,
                                         [](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
             if(!_PassMaker){ PM.add(_PassMaker = new CAT());} }); // ** for -O0
-
 }

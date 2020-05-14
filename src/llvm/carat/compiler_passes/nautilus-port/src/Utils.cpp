@@ -43,7 +43,10 @@ using namespace Debug;
 void Utils::ExitOnInit()
 {
     if (FALSE)
+    {
+        errs() << "Exiting KARAT Transforms ...\n";
         exit(0);
+    }
 }
 
 

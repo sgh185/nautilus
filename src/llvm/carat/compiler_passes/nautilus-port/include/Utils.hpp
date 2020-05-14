@@ -34,7 +34,7 @@
  * transform. Split into two namespaces for clarity.
  */
 
-#include "Profiler.hpp"
+#include "Configurations.hpp"
 
 using namespace llvm;
 using namespace std;

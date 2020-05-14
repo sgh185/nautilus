@@ -1,54 +1,46 @@
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/DerivedUser.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/IR/Mangler.h"
-#include "llvm/IR/IRBuilder.h"
+/*
+ * This file is part of the Nautilus AeroKernel developed
+ * by the Hobbes and V3VEE Projects with funding from the 
+ * United States National  Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  The Hobbes Project is a collaboration
+ * led by Sandia National Laboratories that includes several national 
+ * laboratories and universities. You can find out more at:
+ * http://www.v3vee.org  and
+ * http://xstack.sandia.gov/hobbes
+ *
+ * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
+ * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
+ * All rights reserved.
+ *
+ * Authors: Drew Kersnar, Gaurav Chaudhary, Souradip Ghosh, 
+ *          Brian Suchy, Peter Dinda 
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "LICENSE.txt".
+ */
 
-#include <unordered_map>
-#include <set>
-#include <queue>
-#include <deque>
-
-// Pass settings
-#define DEBUG 0
-#define FALSE 0
-#define VERIFY 0
-
-#define DEBUG_INFO(str) do { if (DEBUG) { errs() << str; } } while (0)
-#define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
-#define VERIFY_DEBUG_INFO(str) do { if (VERIFY) { errs() << str; } } while (0)
-#define VERIFY_OBJ_INFO(obj) do { if (VERIFY) { obj->print(errs()); errs() << "\n"; } } while (0)
-
-using namespace llvm;
-using namespace std;
+#include "../include/Configurations.hpp"
 
 // Function names to inject
-#define CARAT_MALLOC "AddToAllocationTable"
-#define CARAT_REALLOC "HandleReallocInAllocationTable"
-#define CARAT_CALLOC "AddCallocToAllocationTable"
-#define CARAT_REMOVE_ALLOC "RemoveFromAllocationTable"
-#define CARAT_STATS "ReportStatistics"
-#define CARAT_ESCAPE "AddToEscapeTable"
-#define PANIC_STRING "LLVM_panic_string"
-#define LOWER_BOUND "lower_bound"
-#define UPPER_BOUND "upper_bound"
+const string CARAT_MALLOC = "AddToAllocationTable",
+             CARAT_REALLOC = "HandleReallocInAllocationTable",
+             CARAT_CALLOC = "AddCallocToAllocationTable",
+             CARAT_REMOVE_ALLOC = "RemoveFromAllocationTable",
+             CARAT_STATS = "ReportStatistics",
+             CARAT_ESCAPE = "AddToEscapeTable",
+             PANIC_STRING = "LLVM_panic_string",
+             LOWER_BOUND = "lower_bound",
+             UPPER_BOUND = "upper_bound";
 
+// Important/necessary methods/method names to track
+unordered_map<string, Function *> NecessaryMethods = unordered_map<string, Function *>();
 const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
                                              CARAT_REALLOC, 
                                              CARAT_CALLOC,
@@ -56,9 +48,7 @@ const vector<string> ImportantMethodNames = {CARAT_MALLOC,
                                              CARAT_STATS,
                                              CARAT_ESCAPE};
 
-uint64_t findStructSize(Type *);
-uint64_t findArraySize(Type *);
-
+// Other methods --- FIX --- NEED TO REFACTOR
 uint64_t findStructSize(Type *sType)
 {
     uint64_t size = 0;
@@ -92,6 +82,7 @@ uint64_t findStructSize(Type *sType)
 
     return size;
 }
+
 uint64_t findArraySize(Type *aType)
 {
     Type *insideType;
@@ -299,11 +290,4 @@ void populateLibCallMap(std::unordered_map<std::string, int> *functionCalls)
     call.first = "puts";
     call.second = -2;
     functionCalls->insert(call);
-}
-
-bool outputPDG()
-{
-    //TODO: Determine how we are going to store the PDG for the program. Should it be a json file
-    //or if Simone/Peter have a better idea.
-    return 1;
 }

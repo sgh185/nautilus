@@ -819,7 +819,7 @@ carat: $(BIN_NAME)
 	# opt -load ~/CAT/lib/CAT.so -TexasAlloc $(LOOP_NAME) -o $(OPT_NAME)
 	# extract-bc $(BIN_NAME) -o $(BC_NAME)
 	# llvm-dis $(BC_NAME) -o $(LL_NAME)
-	opt -load ~/CAT/lib/CAT.so -TexasAlloc $(BC_NAME) -o $(OPT_NAME)
+	opt -load ~/CAT/lib/CAT.so -karat $(BC_NAME) -o $(OPT_NAME)
 	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
 	# Recompile (with full opt levels) new object files, binaries
 	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
