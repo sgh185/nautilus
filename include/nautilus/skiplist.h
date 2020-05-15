@@ -74,7 +74,7 @@ extern "C" {
 		struct nk_slist_node_##type **succ_nodes; \
 		struct nk_slist_node_##type **pred_nodes; \
 		type data; \
-		uint8_t gear; \
+		uint8_t gear; /* Number of gears occupied */ \
 	} nk_slist_node_##type; \
 	typedef struct { \
 		nk_slist_node_##type **all_gears; \
@@ -83,7 +83,7 @@ extern "C" {
 
 #define NK_SLIST_DECL(type) \
 	NK_SLIST_INIT(type) \
-	USED static inline nk_slist_node_##type *_nk_slist_find_worker_##type(int val, \
+	USED static inline nk_slist_node_##type *_nk_slist_find_worker_##type(type val, \
 											  					   		  nk_slist_node_##type *ipts[], \
 											   					   		  nk_slist_node_##type *the_gearbox, \
 											   					   		  uint8_t start_gear, \
@@ -264,6 +264,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 
 NK_SLIST_DECL(int);
 NK_SLIST_DECL(uint64_t);
+NK_SLIST_DECL(uintptr_t);
 
 #ifdef __cplusplus
 }
