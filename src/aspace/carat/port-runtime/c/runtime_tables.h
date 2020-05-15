@@ -38,9 +38,31 @@
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
 
+#ifndef __KARAT_STRUCTURES__
+#define __KARAT_STRUCTURES__
+
+#define NK_PAIR(first_type, second_type) \
+    typedef nk_pair_##first_type##_##second_type { \
+        first_type first; \
+        second_type second; \
+    }; \
+
+NK_PAIR(uintptr_t, uintptr_t);
+NK_PAIR(uintptr_t, uint64_t);
+
+#define NK_PAIR_BUILD(ft, st, f, s) ({ \
+    nk_pair_##ft##_##st *newPair = (nk_pair_##ft##_##st *) CARAT_MALLOC(sizeof(nk_pair_##ft##_##st)); \
+    newPair->first = f; \
+    newPair->second = s; \
+    newPair; \
+})
+
+#endif
+
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__
 
+// All useful macros
 #define DO_CARAT_PRINT 0
 #if DO_CARAT_PRINT
 #define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
@@ -53,38 +75,45 @@
 
 // CONV [class] -> [typedef struct]
 typedef struct allocEntry {
-        void *pointer = NULL; // CONV [nullptr] -> [NULL]
-        uint64_t length = 0; // CONV [nullptr] -> [NULL]
-        std::unordered_set<void **> allocToEscapeMap; // FIX
-        void *patchPointer = NULL; // CONV [nullptr] -> [NULL]
+        // Pointer to the allocation, size of allocation
+        void *pointer=NULL; // CONV [nullptr] -> [NULL]
+        uint64_t length=0; // CONV [nullptr] -> [NULL]
 
-        // New State Tracking
-        //char *variableName = ""; // CONV [std::string] 
+        // Set of all *potential* escapes for this particular
+        // allocation, the pointer -> void **
+        nk_slist_uintptr_t *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 
-        // file origin, line number, column number
-        //std::vector<std::tuple<std::string, uint64_t, uint64_t>> origin; // FIX
-        //uint64_t totalPointerWeight = 0; 
-        //uint64_t alignment = 8;
+        /* 
+         * - New address that we will copy the memory over to
+         * - Once the copy is complete:
+         *
+         *   this->pointer = this->patchPointer (swap pointers)
+         *   this->patchPointer = NULL (back to NULL)
+         *
+         */
+        void *patchPointer=NULL; // CONV [nullptr] -> [NULL]
 
 } allocEntry;
-
-//allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum); // CONV [class constructor] -> [function that returns an instance]
 
 allocEntry* allocEntry(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
 
-#endif//allocEntry ifndef
+#endif // allocEntry ifndef
 
-//Alloc addr, length
-extern std::map<void *, allocEntry *> *allocationMap; // FIX (also can we still use extern on these?)
-extern std::map<allocEntry *, std::map<allocEntry *, uint64_t> *> allocConnections; // FIX
-//Addr Escaping To , allocAddr, length
+// Alloc addr, length
+extern nk_slist_uintptr_t *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t *]
+
+// Addr Escaping To , allocAddr, length
 extern allocEntry *StackEntry;
 extern uint64_t rsp;
 
-//This will hold the escapes yet to be processed
+// This will hold the escapes yet to be processed
 extern uint64_t escapeWindowSize;
 extern uint64_t totalEscapeEntries;
+
+// void** a = malloc(); (the data itself is treated as a void*)
+// void** escape = a;
+// void*** escapeWindow = [escape, escape, escape... etc] (an array of escapes)
 extern void ***escapeWindow;
 
 void texas_init();
@@ -97,21 +126,20 @@ extern "C" int stack_init();
 extern "C" void user_init();
 
 void texasStartup(); // CONV [class] -> [init function]
-//class texasStartup;
 
 
-//This function will tell us if the escapeAddr aliases with the allocAddr
-//If it does the return value will be at what offset it does
-//If it does not, the return will be -1
+// This function will tell us if the escapeAddr aliases with the allocAddr
+// If it does the return value will be at what offset it does
+// If it does not, the return will be -1
 int64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
 
 void GenerateConnectionGraph();
 
 
-//This function takes an arbitrary address and return the aliasing allocEntry*, else nullptr
-allocEntry* findAllocEntry(void *address);
+// This function takes an arbitrary address and return the aliasing allocEntry*, else nullptr
+allocEntry *findAllocEntry(void *address);
 
-//These calls will build the allocation table
+// These calls will build the allocation table
 void AddToAllocationTable(void *, uint64_t);
 void AddCallocToAllocationTable(void *, uint64_t, uint64_t);
 void HandleReallocInAllocationTable(void *, void *, uint64_t);
@@ -124,16 +152,14 @@ void AddToEscapeTable(void *, void *, uint64_t);
 
 void processEscapeWindow();
 
-//This function will remove an address from the allocation from a free() or free()-like instruction being called
+// This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void *);
 
-//This will generate a connectionGraph that breaks down how Carat is connected
+// This will generate a connectionGraph that breaks down how Carat is connected
 void GenerateConnectionGraph();
 
-//This will report out the stats of a program run
+// This will report out the stats of a program run
 void ReportStatistics();
 
-//This will report a histogram relating to escapes per allocation.
+// This will report a histogram relating to escapes per allocation.
 void HistogramReport();
-
-

@@ -1,3 +1,31 @@
+/* 
+ * This file is part of the Nautilus AeroKernel developed
+ * by the Hobbes and V3VEE Projects with funding from the 
+ * United States National  Science Foundation and the Department of Energy.  
+ *
+ * The V3VEE Project is a joint project between Northwestern University
+ * and the University of New Mexico.  The Hobbes Project is a collaboration
+ * led by Sandia National Laboratories that includes several national 
+ * laboratories and universities. You can find out more at:
+ * http://www.v3vee.org  and
+ * http://xstack.sandia.gov/hobbes
+ *
+ * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
+ * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
+ * All rights reserved.
+ *
+ * Authors: Drew Kersnar, Gaurav Chaudhary, Souradip Ghosh, 
+ * 			Brian Suchy, Peter Dinda 
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "LICENSE.txt".
+ */
+
 
 //This header file holds the functions that will be injected into any program using Carat. The functions are responsible for building the runtime tables
 //as well as holding the PDG (will have to figure this out).
@@ -10,7 +38,7 @@
 
 
 //Alloc addr, length
-std::map<void*, allocEntry*>* allocationMap = nullptr; // FIX
+nk_slist_uintptr_t *allocationMap = NULL;
 
 allocEntry* StackEntry;
 uint64_t rsp = 0;
@@ -25,34 +53,15 @@ void texasStartup() {
 	user_init();
 	texas_init();
 } 
-// class texasStartup{
-// 	texasStartup(){
-// 		user_init();
-// 		texas_init();
-// 	}
-// } __texasStartup;
-
-
-// // CONV [class constructor] -> [function that returns an instance]
-// allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum){
-// 	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
-// 	newAllocEntry->pointer = ptr;
-// 	newAllocEntry->length = len;
-// 	newAllocEntry->variableName = varName;
-//     newAllocEntry->origin.push_back(std::make_tuple(fileOri, lineNum, colNum)); // FIX
-// 	return newAllocEntry;
-// }
 
 // CONV [class constructor] -> [function that returns an instance]
 allocEntry* allocEntry(void* ptr, uint64_t len){
 	allocEntry* newAllocEntry = (allocEntry*) CARAT_MALLOC(sizeof(allocEntry)); // maybe FIX
 	newAllocEntry->pointer = ptr;
 	newAllocEntry->length = len;
+	newAllocEntry->allocToEscapeMap = nk_slist_build(uintptr_t, 6);// maybe FIX the 6
 	return newAllocEntry;
 }
-
-//This can be built to find all the pointer connections of a program
-std::map<allocEntry*, std::map<allocEntry*, uint64_t>*> allocConnections; // FIX
 
 
 int64_t doesItAlias(void* allocAddr, uint64_t length, uint64_t escapeVal){
@@ -66,14 +75,12 @@ int64_t doesItAlias(void* allocAddr, uint64_t length, uint64_t escapeVal){
 }
 
 void AddToAllocationTable(void* address, uint64_t length){
-	//printf("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
-	//fflush(stdout);
+	CARAT_PRINT("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
 	allocEntry* newEntry = allocEntry(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
-	//printf("Adding to allocationMap\n");
-	//fflush(stdout);
-	allocationMap->insert({address, newEntry}); // FIX
-	//printf("Returning\n");
-	//fflush(stdout);
+	CARAT_PRINT("Adding to allocationMap\n");
+	nk_pair_uintptr_t_uint64_t* pair = NK_PAIR_BUILD(uintptr_t, uint64_t, ((uintptr_t) address), length);
+	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair));
+	CARAT_PRINT("Returning\n");
 	return;
 }
 
@@ -103,7 +110,7 @@ void AddToEscapeTable(void* addressEscaping){
 	}
 	escapeWindow[totalEscapeEntries] = (void**)addressEscaping;
 	totalEscapeEntries++;
-	//fprintf(stderr, "CARAT: %016lx\n", __builtin_return_address(0));
+	CARAT_PRINT(stderr, "CARAT: %016lx\n", __builtin_return_address(0));
 
 
 }
@@ -144,7 +151,7 @@ allocEntry* findAllocEntry(void* address){
 }
 
 void processEscapeWindow(){
-	//printf("\n\n\nI am invoked!\n\n\n");
+	CARAT_PRINT("\n\n\nI am invoked!\n\n\n");
 	fflush(stdout); // potentially remove
 	std::unordered_set<void**> processedEscapes; // FIX
 	for (uint64_t i = 0; i < totalEscapeEntries; i++){
@@ -228,7 +235,7 @@ void GenerateConnectionGraph(){  // FIX this whole function
 
 
 void ReportStatistics(){
-	printf("Size of Allocation Table: %lu\n", (uint64_t)allocationMap->size());  // FIX 
+	CARAT_PRINT("Size of Allocation Table: %lu\n", (uint64_t)allocationMap->size());  // FIX 
 }
 
 
@@ -250,7 +257,7 @@ void texas_init(){
 	allocationMap->insert_or_assign(rspVoidPtr, StackEntry); // FIX
 	escapeWindow = (void***)CARAT_MALLOC(escapeWindowSize, sizeof(void*)); // CONV[calloc] -> [CARAT_MALLOC]
 
-	//printf("Leaving texas_init\n");
+	CARAT_PRINT("Leaving texas_init\n");
 	return;
 }
 
