@@ -20,6 +20,7 @@ uint64_t totalEscapeEntries = 0;
 void*** escapeWindow = NULL; // CONV [nullptr] -> [NULL]
 
 // CONV [class with an init constructor] -> [init function] FIX do we need to call this somewhere?
+// TODO: throw this in init, eventually call this with every new address space
 void texasStartup() {
 	user_init();
 	texas_init();
@@ -32,19 +33,19 @@ void texasStartup() {
 // } __texasStartup;
 
 
-// CONV [class constructor] -> [function that returns an instance]
-allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum){
-	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
-	newAllocEntry->pointer = ptr;
-	newAllocEntry->length = len;
-	newAllocEntry->variableName = varName;
-    newAllocEntry->origin.push_back(std::make_tuple(fileOri, lineNum, colNum)); // FIX
-	return newAllocEntry;
-}
+// // CONV [class constructor] -> [function that returns an instance]
+// allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum){
+// 	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
+// 	newAllocEntry->pointer = ptr;
+// 	newAllocEntry->length = len;
+// 	newAllocEntry->variableName = varName;
+//     newAllocEntry->origin.push_back(std::make_tuple(fileOri, lineNum, colNum)); // FIX
+// 	return newAllocEntry;
+// }
 
 // CONV [class constructor] -> [function that returns an instance]
 allocEntry* allocEntry(void* ptr, uint64_t len){
-	allocEntry* newAllocEntry = (allocEntry*) malloc(sizeof(allocEntry)); // maybe FIX
+	allocEntry* newAllocEntry = (allocEntry*) CARAT_MALLOC(sizeof(allocEntry)); // maybe FIX
 	newAllocEntry->pointer = ptr;
 	newAllocEntry->length = len;
 	return newAllocEntry;
@@ -144,7 +145,7 @@ allocEntry* findAllocEntry(void* address){
 
 void processEscapeWindow(){
 	//printf("\n\n\nI am invoked!\n\n\n");
-	fflush(stdout);
+	fflush(stdout); // potentially remove
 	std::unordered_set<void**> processedEscapes; // FIX
 	for (uint64_t i = 0; i < totalEscapeEntries; i++){
 		void** addressEscaping = escapeWindow[i];
@@ -247,7 +248,7 @@ void texas_init(){
 	void* rspVoidPtr = (void*)(rsp-0x800000000ULL);
 	StackEntry = allocEntry(rspVoidPtr, 0x800000000ULL); // CONV [constructor] -> [function that returns an instance]
 	allocationMap->insert_or_assign(rspVoidPtr, StackEntry); // FIX
-	escapeWindow = (void***)calloc(escapeWindowSize, sizeof(void*)); // FIX
+	escapeWindow = (void***)CARAT_MALLOC(escapeWindowSize, sizeof(void*)); // CONV[calloc] -> [CARAT_MALLOC]
 
 	//printf("Leaving texas_init\n");
 	return;

@@ -41,6 +41,16 @@
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__
 
+#define DO_CARAT_PRINT 0
+#if DO_CARAT_PRINT
+#define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
+#else
+#define CARAT_PRINT(...) 
+#endif
+
+#define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
+#define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;}) 
+
 // CONV [class] -> [typedef struct]
 typedef struct allocEntry {
         void *pointer = NULL; // CONV [nullptr] -> [NULL]
@@ -49,16 +59,16 @@ typedef struct allocEntry {
         void *patchPointer = NULL; // CONV [nullptr] -> [NULL]
 
         // New State Tracking
-        char *variableName = ""; // CONV [std::string] 
+        //char *variableName = ""; // CONV [std::string] 
 
         // file origin, line number, column number
-        std::vector<std::tuple<std::string, uint64_t, uint64_t>> origin; // FIX
-        uint64_t totalPointerWeight = 0; 
-        uint64_t alignment = 8;
+        //std::vector<std::tuple<std::string, uint64_t, uint64_t>> origin; // FIX
+        //uint64_t totalPointerWeight = 0; 
+        //uint64_t alignment = 8;
 
 } allocEntry;
 
-allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum); // CONV [class constructor] -> [function that returns an instance]
+//allocEntry* allocEntry(void* ptr, uint64_t len, char* varName, char* fileOri, uint64_t lineNum, uint64_t colNum); // CONV [class constructor] -> [function that returns an instance]
 
 allocEntry* allocEntry(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
