@@ -69,6 +69,9 @@ extern "C" {
 #define uint64_t_MAX ULONG_MAX
 #define uint64_t_MIN 0
 
+#define uintptr_t_MAX ULONG_MAX
+#define uintptr_t_MIN 0
+
 #define NK_SLIST_INIT(type) \
 	typedef struct nk_slist_node_##type { \
 		struct nk_slist_node_##type **succ_nodes; \
@@ -77,7 +80,10 @@ extern "C" {
 		uint8_t gear; /* Number of gears occupied */ \
 	} nk_slist_node_##type; \
 	typedef struct { \
-		nk_slist_node_##type **all_gears; \
+		nk_slist_node_##type **all_left; \ /* Optimization --- only record the sentinals,
+											  they're all the same anyway */ \
+		nk_slist_node_##type **all_right; \
+		uint64_t size; \
 		uint8_t top_gear; \
 	} nk_slist_##type; \
 
@@ -140,9 +146,13 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	/* Set up skip list parent structure */ \
 	nk_slist_##type *sl = (nk_slist_##type *) (SLIST_MALLOC(sizeof(nk_slist_##type))); \
 	\
-	/* Init gears */ \
-	sl->all_gears = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * tg)); \
-	memset(sl->all_gears, 0, sizeof(*(sl->all_gears))); \
+	/* Init gears --- left side */ \
+	sl->all_left = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * tg)); \
+	memset(sl->all_left, 0, sizeof(*(sl->all_left))); \
+	\
+	/* Init gears --- right side */ \
+	sl->all_right = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * tg)); \
+	memset(sl->all_right, 0, sizeof(*(sl->all_right))); \
 	\
 	/* Set top gear */ \
 	sl->top_gear = tg; \
@@ -157,7 +167,8 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	{ \
 		/* Set head to skip list parent structure gears \
 		   array --- marks head of each list */ \
-		sl->all_gears[i] = left_sentinal; \
+		sl->all_left[i] = left_sentinal; \
+		sl->all_right[i] = right_sentinal; \
 		\
 		/* Set list node pointers for each gear level \
 		   for each sentinal structure */ \
@@ -194,7 +205,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 
 #define nk_slist_destroy(sl) ({ \
 	/* Gather all nodes via bottom gear list */ \
-	__auto_type *sln = sl->all_gears[0]; \
+	__auto_type *sln = sl->all_left[0]; \
 	\
 	/* Iterate and delete */ \
 	while (sln != NULL) \
@@ -209,9 +220,35 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 
 // Skip list operations
 #define nk_slist_find(type, sl, val) ({ \
-	nk_slist_node_##type *the_gearbox = sl->all_gears[sl->top_gear - 1], \
+	nk_slist_node_##type *the_gearbox = sl->all_left[sl->top_gear - 1], \
 						 *found = _nk_slist_find_worker_##type (val, NULL, the_gearbox, sl->top_gear, 0); \
 	found; \
+})
+
+#define nk_slist_add_by_force(type, sl, val) ({ \
+	/* Set up new node */ \
+	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
+	nk_slist_node_##type *ipts[new_gear]; \
+	\
+	/* Find all insertion points */ \
+	nk_slist_node_##type *the_gearbox = sl->all_left[(new_gear) - 1], \
+				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
+	\
+	/* Set the data anyway for the node if it already exists */ \
+	if (found_node) { found_node->data = val; 0; } \
+	\
+	nk_slist_node_##type *new_node = nk_slist_node_build(type, val, new_gear); \
+	\
+	/* Set all successor and predecessor links */ \
+	int i; \
+	for (i = 0; i < new_node->gear; i++) \
+	{ \
+		nk_slist_node_##type *succ_node = ipts[i]->succ_nodes[i]; \
+		_nk_slist_node_link(ipts[i], new_node, i); \
+		_nk_slist_node_link(new_node, succ_node, i); \
+	} \
+	\
+	1; \
 })
 
 #define nk_slist_add(type, sl, val) ({ \
@@ -220,7 +257,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	nk_slist_node_##type *ipts[new_gear]; \
 	\
 	/* Find all insertion points */ \
-	nk_slist_node_##type *the_gearbox = sl->all_gears[(new_gear) - 1], \
+	nk_slist_node_##type *the_gearbox = sl->all_left[(new_gear) - 1], \
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Not going to add the node if it already exists */ \
@@ -260,7 +297,19 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	1; \
 })
 
-#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_gears[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0]);
+#define nk_slist_better_lower_bound(type, sl, val) ({ \
+	\
+	nk_slist_node_##type *the_gearbox = sl->all_left[(new_gear) - 1], \
+				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
+	\
+	if (found_node) { found_node; } \
+	\
+	ipts[0]; \
+})	
+
+#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0]);
+
+#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0]);
 
 NK_SLIST_DECL(int);
 NK_SLIST_DECL(uint64_t);
