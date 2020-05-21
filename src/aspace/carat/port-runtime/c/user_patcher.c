@@ -390,8 +390,8 @@ static void user_handler(int sig, siginfo_t *si,  void *priv)
 
     DEBUG("Read out pointer: %p\n", pointers[0]);
 
-    regions* patchedAllocs = NULL;
-    uint64_t numAllocs = 0;
+    regions* patchedAllocs = NULL; // not needed
+    uint64_t numAllocs = 0; // not needed
 
     if (texas_entry((void **)&pointers, &patchedAllocs, &numAllocs, PAGE_4K_GRANULARITY) == 1){
         ERROR("Carat entry failed\n");

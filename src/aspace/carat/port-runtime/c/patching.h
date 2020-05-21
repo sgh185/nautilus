@@ -85,3 +85,5 @@ bool verifyPatch(std::unordered_set<allocEntry *> *allocs); // FIX
 //Prepares patching for memory
 void *prepare_patch(void **, std::unordered_set<allocEntry *>, granularity_t); // FIX
 
+int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
+

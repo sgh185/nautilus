@@ -189,3 +189,48 @@ extern "C" int texas_entry(void **addrs, regions* patchedAllocs, uint64_t* numAl
 
 
 
+static void handle_thread(nk_thread_t *t, void *state)
+{
+
+    #define OFFSET -128
+
+    struct nk_regs *r = t->rsp + OFFSET;
+
+    // patch the registers
+
+}
+
+static int patch_regs()
+{
+    int rc = 0;
+
+    DEBUG("***Handling thread stack limit capture\n");
+
+      nk_sched_map_threads(-1,handle_thread,&rc);
+
+    if (rc) { 
+	ERROR("***Failed to handle some thread stack limit rc=%d!\n",rc);
+	return -1;
+    } else {
+	return 0;
+    }
+}
+int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget) {
+    if(nk_sched_stop_world()) {
+        //print error, "Oaklahoma has reopened!"
+        return -1;
+    }
+
+    // genreate patches
+    // apply patches
+
+
+    patch_regs();
+    // do copy/fr
+
+    nk_sched_start_world();
+
+}
+
+
+

@@ -82,7 +82,7 @@ void AddToAllocationTable(void *address, uint64_t length){
 
 	// CONV [map::insert] -> [nk_slist_add]
 	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry));
-	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair));
+	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair)); // FIX: add_or_panic
 
 	/*
 	
@@ -111,18 +111,18 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 
 	// CONV [map::insert_or_assign] -> [nk_slist_add_by_force]
 	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry));
-	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));
+	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));// FIX: add_or_panic
 	
 	return;
 }
 
 void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t length){
 	allocationMap->erase(address); // FIX
-	allocEntry *newEntry = allocEntry(address, length); // CONV [class constructor] -> [function that returns an instance]
+	allocEntry *newEntry = allocEntry(newAddress, length); // CONV [class constructor] -> [function that returns an instance]
 
 	// CONV [map::insert_or_assign] -> [nk_slist_add_by_force]
-	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry));
-	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));
+	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) newAddress), ((uintptr_t) newEntry));
+	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));// FIX: add_or_panic
 	
 	return;
 }
@@ -217,54 +217,6 @@ void RemoveFromAllocationTable(void *address){
 	nk_slist_remove(uintptr_t, allocationMap, (uintptr_t) address)
 }
 
-/*
-void GenerateConnectionGraph(){  // FIX this whole function
-	//first kill off the old state allocConnections
-  std::set<void**> doneEscapes; // FIX
-  allocConnections.clear(); // FIX
-  //Initialize
-  for(auto allocs : *allocationMap){  // FIX
-    std::map<allocEntry*, uint64_t>* newConnection = new std::map<allocEntry*, uint64_t>();
-    allocConnections.insert_or_assign(allocs.second, newConnection);
-    allocs.second->totalPointerWeight = 0;
-  }
-
-	//Iterate through all the allocations of the allocationMap
-	for(auto entry : *allocationMap){
-		auto alloc = entry.second;
-		//Look at each escape and determine if it falls in another alloc
-		for(void** candidateEscape : alloc->allocToEscapeMap){
-      //No repetitive work across allocations
-      if(doneEscapes.find(candidateEscape) != doneEscapes.end()){
-        continue;
-      }
-      doneEscapes.insert(candidateEscape);
-
-			//First verify that it still points to alloc we are dealing with
-			if(doesItAlias(alloc->pointer, alloc->length, (uint64_t)(*candidateEscape) ) == -1){
-				continue;
-			}
-			//Now see if the allocation lives in one of the allocationMap entries
-			allocEntry* pointerAlloc = findAllocEntry((void*)candidateEscape);
-			if(pointerAlloc == nullptr){
-				continue;
-			}
-			//We now know that pointerAlloc contains a pointer that points to alloc
-      //Now we must modify that allocations allocConnections entry (it also must exist)
-			auto connectionEntry = allocConnections.find(pointerAlloc);
-      uint64_t newVal = 1;
-      //Find the entry to alloc in the pointerAlloc's connection graph
-      auto allocInConnectionEntry = connectionEntry->second->find(alloc);
-      if(allocInConnectionEntry != connectionEntry->second->end()){
-        newVal += allocInConnectionEntry->second;
-      }
-      connectionEntry->second->insert_or_assign(alloc, newVal);
-      alloc->totalPointerWeight++;		
-    }
-	}
-}
-*/
-
 void ReportStatistics(){
 	// CONV [map::size] -> [nk_slist_get_size]
 	// NOTE --- nk_slist_get_size ISN'T implemented yet
@@ -293,7 +245,7 @@ void texas_init(){
 
 	// CONV [map::insert_or_assign] -> [nk_slist_add]
 	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) rspVoidPtr), ((uintptr_t) StackEntry));
-	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair));
+	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair)); // FIX: add_or_panic
 	
 	escapeWindow = (void ***) CARAT_MALLOC(escapeWindowSize, sizeof(void *)); // CONV[calloc] -> [CARAT_MALLOC]
 
