@@ -87,3 +87,15 @@ void *prepare_patch(void **, std::unordered_set<allocEntry *>, granularity_t); /
 
 int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
 
+#ifndef _CARAT_USER_
+#define _CARAT_USER_
+
+
+#ifndef CARAT_PRELOAD
+void user_init();
+void user_deinit();
+#endif
+
+#endif
+
+
