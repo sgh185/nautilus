@@ -200,21 +200,49 @@ static void handle_thread(nk_thread_t *t, void *state)
 
 }
 
-static int patch_regs()
-{
-    int rc = 0;
+struct move_alloc_state {
+    void *allocationToMove;
+    void *allocationTarget;
+    allocEntry *entry;
+    int failed;
+};
+static void handle_thread(struct nk_thread *t, void *state) {
+    struct move_alloc_state *move_state = (struct move_alloc_state*) state;
+    
+    struct nk_regs * r = (struct nk_regs*)((char*)t->rsp - 128); // FIX: t->rsp - 128 might be wrong, look at garbage collector
 
-    DEBUG("***Handling thread stack limit capture\n");
+// moved these comments out of our HANDLE
+// if the register is within our alloc
+// DEBUG("It aliased %p will now become %p which is offset %ld\n", registerPtr.ptr, newAllocPtr.ptr, offset);
+// DEBUG("The register %s is now %p\n", regNames[i], (void*) uc->uc_mcontext.gregs[i]);
+#define HANDLE(reg) \
+    if((r->reg >= (uint64_t) state->allocationToMove) && (r->reg < ((uint64_t) state->allocationToMove + state->entry->length))){ \
+            uint64_t offset = r->reg - (uint64_t) state->allocationToMove; \
+            uint64_t newAddr = (uint64_t) state->allocationTarget + offset; \
+            r->reg = newAddr; \
+    } \
 
-      nk_sched_map_threads(-1,handle_thread,&rc);
+    HANDLE(r15)
+    HANDLE(r14)
+    HANDLE(r13)
+    HANDLE(r12)
+    HANDLE(r11)
+    HANDLE(r10)
+    HANDLE(r9)
+    HANDLE(r8)
+    HANDLE(rbp)
+    HANDLE(rdi)
+    HANDLE(rsi)
+    HANDLE(rdx)
+    HANDLE(rcx)
+    HANDLE(rbx)
+    HANDLE(rax)
+    // handle rsp and rip later
 
-    if (rc) { 
-	ERROR("***Failed to handle some thread stack limit rc=%d!\n",rc);
-	return -1;
-    } else {
-	return 0;
-    }
+    
+
 }
+
 int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget) {
     if(nk_sched_stop_world()) {
         //print error, "Oaklahoma has reopened!"
@@ -224,11 +252,38 @@ int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget) {
     // genreate patches
     // apply patches
 
+    allocEntry* entry = findAllocEntry(allocationToMove);
+    if(!entry) {
+        ERROR("Cannot find entry\n");
+        goto out_bad;
+    }
 
-    patch_regs();
-    // do copy/fr
+    // Generate what patches need to be executed for overwriting memory, then executes patches
+    if (texas_patch_memory(entry, allocationTarget) == 1){
+        ERROR("Unable to patch\n");
+        goto out_bad;
+    }
 
+    // For each thread, patch registers
+
+    struct move_alloc_state state = {allocationToMove, allocationTarget, entry, 0};
+    nk_sched_map_threads(-1, handle_thread, &state);
+    if(state.failed) {
+        ERROR("Unable to patch threads\n");
+        goto out_bad;
+    }
+    
+    memmove(allocationToMove, allocationTarget, entry->length);
+
+    // Do we need to handle our own stack?
+
+out_good:
     nk_sched_start_world();
+    return 0;
+
+out_bad:
+    nk_sched_start_world();
+    return -1;
 
 }
 
@@ -589,16 +644,8 @@ static uint64_t rejects=0;
 static void user_handler(int sig, siginfo_t *si,  void *priv)
 {
 
-    if (!__sync_fetch_and_or(&inited,0)) { // FIX: might not be needed
-        return;
-    }
-
-    if (!malloc_safe()) { // FIX: might not be needed
-        goto out_good;
-    }
-
     //DEBUG("Entered carat_user_handler\n");
-    ucontext_t *uc = (ucontext_t *)priv;
+    ucontext_t *uc = (ucontext_t *)priv; // FIX: we need to convert this to get register contents 
 
     uint64_t allocLen = 0;
     // fp regs are at uc->uc_mcontext.fpregs, e.g.:
