@@ -37,6 +37,7 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
+#include <nautilus/skiplist.h>
 
 #ifndef __KARAT_STRUCTURES__
 #define __KARAT_STRUCTURES__
@@ -74,25 +75,14 @@ NK_PAIR(uintptr_t, uint64_t);
 #define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;}) 
 
 // CONV [class] -> [typedef struct]
-typedef struct allocEntry {
-        // Pointer to the allocation, size of allocation
-        void *pointer=NULL; // CONV [nullptr] -> [NULL]
-        uint64_t length=0; // CONV [nullptr] -> [NULL]
+typedef struct allocEntry_t {
+    // Pointer to the allocation, size of allocation
+    void *pointer=NULL; // CONV [nullptr] -> [NULL]
+    uint64_t length=0; // CONV [nullptr] -> [NULL]
 
-        // Set of all *potential* escapes for this particular
-        // allocation, the pointer -> void **
-        nk_slist_uintptr_t *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
-
-        /* 
-         * - New address that we will copy the memory over to
-         * - Once the copy is complete:
-         *
-         *   this->pointer = this->patchPointer (swap pointers)
-         *   this->patchPointer = NULL (back to NULL)
-         *
-         */
-        void *patchPointer=NULL; // CONV [nullptr] -> [NULL]
-
+    // Set of all *potential* escapes for this particular
+    // allocation, the pointer -> void **
+    nk_slist_uintptr_t *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 } allocEntry;
 
 allocEntry* allocEntry(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]

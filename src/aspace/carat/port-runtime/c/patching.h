@@ -36,66 +36,21 @@
 
 #include "runtime_tables.h"
 
-extern "C" void user_init();
 
-extern allocEntry *StackEntry;
+int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
 
-// For whole file
-// CONV [struct] -> [typedef struct]
+int carat_update_entry(allocEntry *entry, void* allocationTarget);
 
-
-typedef struct {
-    void *paddr_of_ptr;
-    void *new_paddr_to_write;
-} patch_item;
-
-typedef struct {
-    uint64_t count = 0;
-    patch_item *patches;
-} patchlist;
-
-union ptrComps {
-    void *ptr;
-    uint64_t val;
-    sint64_t sval;
+struct move_alloc_state {
+    void *allocationToMove;
+    void *allocationTarget;
+    uint64_t length;
+    int failed;
 };
 
-typedef struct {
-    void *oldAddr;
-    void *newAddr;
-    uint64_t length;
-} regions;
-
-
-typedef enum {
-    PAGE_4K_GRANULARITY,
-    ALLOCATION_GRANULARITY,
-} granularity_t;
-
-extern "C" int patching_entry(void **, regions *, uint64_t *, granularity_t);
-
-extern "C" int safe_to_patch(void *begin);
-
-//Executes patch prepared by carat_prepare_patch
-void execute_patch(patchlist *);
-
-//This will calloc all the new memory spots
-bool verifyPatch(std::unordered_set<allocEntry *> *allocs); // FIX
-
-//Prepares patching for memory
-void *prepare_patch(void **, std::unordered_set<allocEntry *>, granularity_t); // FIX
+static void handle_thread(struct nk_thread *t, void *state);
 
 int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
 
-#ifndef _CARAT_USER_
-#define _CARAT_USER_
-
-
-#ifndef CARAT_PRELOAD
-void user_init();
-void user_deinit();
-#endif
-
-#endif
 
 
