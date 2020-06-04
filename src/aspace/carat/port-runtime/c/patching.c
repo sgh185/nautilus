@@ -27,11 +27,31 @@ int carat_update_entry(allocEntry *entry, void* allocationTarget) {
     nk_slist_remove(uintptr_t, allocationMap, (entry->pointer));
     return 0;
 }
+static void 
+print_regs (struct nk_regs * r)
+{
+    #define DS(x) nk_vc_printf(x);
+    #define DHQ(x) nk_vc_printf("%lx", x);
+    #define PRINT3(x, x_extra_space, y, y_extra_space, z, z_extra_space) DS(#x x_extra_space" = " ); DHQ(r->x); DS(", " #y y_extra_space" = " ); DHQ(r->y); DS(", " #z z_extra_space" = " ); DHQ(r->z); DS("\n");
+
+    DS("[-------------- Register Contents --------------]\n");
+    
+    PRINT3(rip, "   ",  rflags, "", rbp, "   ");
+    PRINT3(rsp, "   ",  rax, "   ", rbx, "   ");
+    PRINT3(rsi, "   ",  r8, "    ", r9, "    ");
+    PRINT3(r10, "   ",  r11, "   ", r12, "   ");
+    PRINT3(r13, "   ",  r14, "   ", r15, "   ");
+
+  }
 
 static void handle_thread(struct nk_thread *t, void *state) {
     struct move_alloc_state *move_state = (struct move_alloc_state*) state;
-    
     struct nk_regs * r = (struct nk_regs*)((char*)t->rsp - 128); // FIX: t->rsp - 128 might be wrong, look at garbage collector
+
+    // Sanity check for t->rsp - 128
+    nk_vc_printf(t->name); // should be shell
+    print_regs(r); // r15 should have 0xDEADBEEFB000B000
+
 
 // moved these comments out of our HANDLE
 // if the register is within our alloc
@@ -109,3 +129,69 @@ out_bad:
     return -1;
 
 }
+
+allocEntry* findRandomAlloc() {
+    uint64_t target = lrand48()%nk_slist_get_size(allocationMap); //rand
+    uint64_t count = 0;
+
+    nk_slist_node_uintptr_t *iter;
+    uintptr_t val;
+    nk_slist_foreach(allocationMap, val, iter) {
+        if(count == target) {
+            return (allocEntry*) val;
+        }
+        count++;
+    }
+    return 0;
+}
+
+// handle shell command
+static int handle_karat_test(char *buf, void *priv)
+{
+    uint64_t count;
+    uint64_t i;
+    if(sscanf(buf, "karat_test %lu", &count) == 1) {
+        nk_vc_printf("Moving %lu times.\n", count);
+        for(i = 0; i < count; i++) {
+            allocEntry* entry = findRandomAlloc();
+            if(!entry) {
+                nk_vc_printf("Random entry not found.\n");
+                return -1;
+            }
+            void* old = entry->pointer;
+            uint64_t length = entry->length;
+            void* new = malloc(length);
+            
+            if(!new) {
+                nk_vc_printf("Malloc failed.\n");
+                return -1;
+            }
+            nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, length);
+
+            __asm__ __volatile__("movabsq $0xDEADBEEFB000B000, %r15"); // check if our stack offset is correct
+            if(nk_carat_move_allocation(old, new)) {
+                nk_vc_printf("Move failed.\n");
+                return -1;
+            }
+
+            nk_vc_printf("Move succeeded.\n");
+
+            free(old);
+
+            nk_vc_printf("Free succeeded.\n");
+        }
+    } else {
+        nk_vc_printf("Invalid Command.");
+    }
+
+    return 0;
+}
+
+static struct shell_cmd_impl karat_test_impl = {
+    .cmd = "karat_test",
+    .help_str = "karat_test",
+    .handler = handle_karat_test,
+};
+
+nk_register_shell_cmd(karat_test_impl);
+
