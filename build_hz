@@ -1,0 +1,39 @@
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/r415nautilus1000.bin ; cp nautilus.iso ./isos/r415nautilus1000.iso
+sed -i "s/NAUT_CONFIG_HZ=2200000/NAUT_CONFIG_HZ=1100000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/r415nautilus2000.bin ; cp nautilus.iso ./isos/r415nautilus2000.iso
+sed -i "s/NAUT_CONFIG_HZ=1100000/NAUT_CONFIG_HZ=550000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/r415nautilus4000.bin ; cp nautilus.iso ./isos/r415nautilus4000.iso
+sed -i "s/NAUT_CONFIG_HZ=550000/NAUT_CONFIG_HZ=275000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/r415nautilus8000.bin ; cp nautilus.iso ./isos/r415nautilus8000.iso
+sed -i "s/NAUT_CONFIG_HZ=275000/NAUT_CONFIG_HZ=137500/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/r415nautilus16000.bin ; cp nautilus.iso ./isos/r415nautilus16000.iso
+
+
+sed -i "s/NAUT_CONFIG_HZ=137500/NAUT_CONFIG_HZ=1200000/g" .config
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/5038kinautilus1000.bin ; cp nautilus.iso ./isos/5038kinautilus1000.iso
+sed -i "s/NAUT_CONFIG_HZ=1200000/NAUT_CONFIG_HZ=600000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/5038kinautilus2000.bin ; cp nautilus.iso ./isos/5038kinautilus2000.iso
+sed -i "s/NAUT_CONFIG_HZ=600000/NAUT_CONFIG_HZ=300000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/5038kinautilus4000.bin ; cp nautilus.iso ./isos/5038kinautilus4000.iso
+sed -i "s/NAUT_CONFIG_HZ=300000/NAUT_CONFIG_HZ=150000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/5038kinautilus8000.bin ; cp nautilus.iso ./isos/5038kinautilus8000.iso
+sed -i "s/NAUT_CONFIG_HZ=150000/NAUT_CONFIG_HZ=75000/g" .config
+
+make clean ; make -j isoimage
+cp nautilus.bin ./isos/5038kinautilus16000.bin ; cp nautilus.iso ./isos/5038kinautilus16000.iso

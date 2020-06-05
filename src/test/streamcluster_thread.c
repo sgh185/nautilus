@@ -1,7 +1,7 @@
 //Copyright (c) 2006-2009 Princeton University
 //All rights reserved.
 
-// Modified to use NK fibers by Michael Cuevas, 2020
+// converted to C and NK by Peter Dinda, 2018
 
 //Redistribution and use in source and binary forms, with or without
 //modification, are permitted provided that the following conditions are met:
@@ -32,16 +32,12 @@
 #include <nautilus/spinlock.h>
 #include <nautilus/condvar.h>
 #include <nautilus/thread.h>
-#include <nautilus/fiber.h>
-#include <nautilus/shell.h>
-#include <nautilus/vc.h>
 #include <nautilus/barrier.h>
 #include <nautilus/scheduler.h>
 #include <nautilus/group_sched.h>
-
+#include <nautilus/shell.h>
 
 #define DO_PRINTS 0
-
 
 #if DO_PRINTS
 #define INFO(fmt, args...) INFO_PRINT("scorg: " fmt, ##args)
@@ -55,20 +51,12 @@
 #define fprintf(foo,fmt, args...)
 #endif
 
-
-
-
-//#define INFO(fmt, args...) ({ if (DO_PRINTS) { INFO_PRINT("scorg: " fmt, ##args); } })
-//#define ERROR(fmt, args...) ({ if (DO_PRINTS) { ERROR_PRINT("scorg: " fmt, ##args); } }) 
-
 #if 0
 #define DEBUG(fmt, args...) DEBUG_PRINT("scorg: " fmt, ##args)
 #else
 #define DEBUG(fmt, args...)
 #endif
 
-//#define printf(fmt, args...) ({ if (DO_PRINTS) { nk_vc_printf(fmt, ##args); } });
-//#define fprintf(foo,fmt, args...) ({ if (DO_PRINTS) { nk_vc_printf(fmt, ##args); } });
 
 #ifdef ENABLE_PARSEC_HOOKS
 #include <hooks.h>
@@ -77,83 +65,31 @@
 //eliminate C++ as much as possible
 //using namespace std;
 
-
-#define PAD 8
-//#define PAD 1024
-
-static void fill(void *ptr, int len)
-{
-    uint64_t *p = ptr;
-    int i = 0;
-    for (i = 0; i < len/8; i++) {
-      p[i] = 0xdeadbeef01234567ul;
-    } 
-}
-
-static int check(void *ptr, int len) 
-{
-    uint64_t blk_size;
-    void *blk_addr;
-    uint64_t flags;
-    if (kmem_find_block(ptr-len, &blk_addr, &blk_size, &flags)) {
-        ERROR("kmem_find_block failed for addr %p\n", ptr-len);
-        return -1;
-    }
-    uint64_t *p = blk_addr;
-    int i = 0;
-    for (i = 0; i < len/8; i++) {
-      if (p[i] != 0xdeadbeef01234567ul) { 
-        ERROR("Memory corrupted at addr: %p, data at addr: %016lx\n", &(p[i]), p[i]);
-      }
-    }
-    p = blk_addr+blk_size-len;
-    for (i = 0; i < len/8; i++) {
-      if (p[i] != 0xdeadbeef01234567ul) { 
-        ERROR("Memory possibly corrupted at addr: %p, val = %lu, ptr = %p, blk_size = %lu\n", &(p[i]), p[i], ptr, blk_size);
-        return -1;
-      }
-    }
-
-    return 0;
-}
-
-//#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; fill(_myp,PAD); fill(_myp+PAD+(n),PAD); _myp+PAD; })
-//#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; fill(_myp,PAD); fill(_myp+PAD+(n),PAD); ERROR("about to check %p\n", _myp); check(_myp+PAD,PAD); _myp+PAD; })
-#define my_malloc(n) ({ void *_myp=malloc((n)+2*PAD); if (!_myp) { ERROR("Out of memory, malloc failed\n"); 0; }; _myp+PAD; })
-//#define my_free(_myp) ({ if (!(_myp)) { ERROR("Freeing null ptr, free failed\n"); }; check((_myp),PAD); free(((void*)(_myp))-PAD); })
-#define my_free(_myp) ({ if (!(_myp)) { ERROR("Freeing null ptr, free failed\n"); }; free(((void*)(_myp))-PAD); })
-//#define my_free(p) 
-
-
-
-
 typedef int bool;
-#define fiber_barrier_t nk_counting_barrier_t
+#define pthread_barrier_t nk_counting_barrier_t
 
-#define fiber_barrier_init(p,n,c) nk_counting_barrier_init(p,c)
-//#define fiber_barrier_wait(p) do { if (!skipbarrier) { DEBUG("barrier start %s:%d\n",__FILE__,__LINE__); nk_counting_barrier(p); DEBUG("barrier end %s:%d\n",__FILE__,__LINE__);} } while (0)
-#define fiber_barrier_wait(p) do { if (!skipbarrier) { nk_fiber_counting_barrier(p);} } while (0)
-#define fiber_barrier_destroy(p) // leak away...
 
-#define fiber_mutex_t spinlock_t
-#define FIBER_MUTEX_INITIALIZER SPINLOCK_INITIALIZER
+#define pthread_barrier_init(p,n,c) nk_counting_barrier_init(p,c)
+#define pthread_barrier_wait(p) do { if (!skipbarrier) { DEBUG("barrier start %s:%d\n",__FILE__,__LINE__); nk_counting_barrier(p); DEBUG("barrier end %s:%d\n",__FILE__,__LINE__);} } while (0)
+#define pthread_barrier_destroy(p) // leak away...
 
-#define fiber_mutex_lock(m) spin_lock(m)
-#define fiber_mutex_unlock(m) spin_unlock(m)
+#define pthread_mutex_t spinlock_t
+#define PTHREAD_MUTEX_INITIALIZER SPINLOCK_INITIALIZER
+
+#define pthread_mutex_lock(m) spin_lock(m)
+#define pthread_mutex_unlock(m) spin_unlock(m)
 
 // pthread_cond_wait and pthread_cond_broadcast are
 // used only in pspeedy to signal that open has changed
 // this ungates workers.  We will change this so that it
 // spinwaits instead
 
-#define FIBER_COND_INITIALIZER 0
+#define PTHREAD_COND_INITIALIZER 0
 
-#define fiber_cond_t unsigned
-
-extern int ACCESS_WRAPPER;
+#define pthread_cond_t unsigned
 
 // WARNING: THIS IS ALMOST CERTAINLY BROKEN
-static int fiber_cond_wait(volatile fiber_mutex_t *m, volatile fiber_cond_t *c)
+static int pthread_cond_wait(volatile pthread_mutex_t *m, volatile pthread_cond_t *c)
 {
     // atomic drop of mutex and transition to examination of
     // condition variable, once condvar is signalled, reacquire lock
@@ -162,7 +98,7 @@ static int fiber_cond_wait(volatile fiber_mutex_t *m, volatile fiber_cond_t *c)
     DEBUG("cond wait start\n");
     
     // we hold the lock, grab the condition
-    fiber_cond_t oldcond = *c;
+    pthread_cond_t oldcond = *c;
     if (oldcond) {
 	DEBUG("cond wait out fast\n");
 	return 0;
@@ -179,23 +115,23 @@ static int fiber_cond_wait(volatile fiber_mutex_t *m, volatile fiber_cond_t *c)
 }
 
 // WARNING: THIS IS ALMOST CERTAINLY BROKEN
-static int fiber_cond_broadcast(volatile fiber_cond_t *c)
+static int pthread_cond_broadcast(volatile pthread_cond_t *c)
 {
     *c = 1;
     return 0;
 }
 
-#define fiber_t nk_fiber_t
+#define pthread_t nk_thread_id_t
 
-#define fiber_create(tp,ap,f,i) nk_fiber_start((nk_thread_fun_t)f,i,0,FSTACK_DEFAULT,-1,tp)
-#define fiber_join(tp,ap) nk_fiber_join(tp)
+#define pthread_create(tp,ap,f,i) nk_thread_start((nk_thread_fun_t)f,i,0,0,TSTACK_DEFAULT,tp,-1)
+#define pthread_join(tp,ap) nk_join(tp,ap)
 
-#define calloc(n,s) ({ void *_p=my_malloc((n)*(s)); memset(_p,0,(n)*(s)); _p; })
+#define calloc(n,s) ({ void *_p=malloc(n*s); memset(_p,0,n*s); _p; })
 
 #define new(t) calloc(sizeof(t),1)
-#define newa(t,n) calloc(sizeof(t),(n))
-#define del(t) my_free(t)
-#define dela(t) my_free(t)
+#define newa(t,n) calloc(sizeof(t),n)
+#define del(t) free(t)
+#define dela(t) free(t)
 
 
 #define MAXNAMESIZE 1024 // max filename length
@@ -210,11 +146,11 @@ static int fiber_cond_broadcast(volatile fiber_cond_t *c)
 #define ITER 3 // iterate ITER* k log k times; ITER >= 1
 
 
-// PAD: need to enable threading, but we will use the NK fibers and barriers
+// PAD: need to enable threading, but we will use the NK threads and barriers
 
 #define PRINTINFO //comment this out to disable output
 #define PROFILE // comment this out to disable instrumentation code
-#define ENABLE_FIBERS  // comment this out to disable fibers
+#define ENABLE_THREADS  // comment this out to disable threads
 //#define INSERT_WASTE //uncomment this to insert waste computation into dist function
 
 #define CACHE_LINE 512 // cache line in byte
@@ -239,9 +175,9 @@ static bool *switch_membership; //whether to switch membership in pgain
 static bool* is_center; //whether a point is a center
 static int* center_table; //index table of centers
 
-static int nproc; //# of fibers
+static int nproc; //# of threads
 
-// globals for deciding how to lay out fibers, whether to
+// globals for deciding how to lay out threads, whether to
 // skip the barrier, and the sched constraint to use
 static int startproc=-1;
 static int skipbarrier=0;
@@ -360,7 +296,7 @@ static float dist(Point p1, Point p2, int dim)
 }
 
 /* run speedy on the points, return total cost of solution */
-static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barrier_t* barrier)
+static float pspeedy(Points *points, float z, long *kcenter, int pid, pthread_barrier_t* barrier)
 {
 
     DEBUG("in pspeedy\n");
@@ -368,8 +304,8 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
   double t1 = gettime();
 #endif
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   //my block
   long bsize = points->num/nproc;
@@ -388,9 +324,9 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
   unsigned long myround=0;
   
 
-#ifdef ENABLE_FIBERS
-  static fiber_mutex_t mutex = FIBER_MUTEX_INITIALIZER;
-  static fiber_cond_t cond = FIBER_COND_INITIALIZER;
+#ifdef ENABLE_THREADS
+  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+  static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 #endif
 
 #ifdef PRINTINFO
@@ -408,19 +344,19 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 
   if( pid==0 )   {
     *kcenter = 1;
-    costs = (double*)my_malloc(sizeof(double)*nproc);
+    costs = (double*)malloc(sizeof(double)*nproc);
   }
     
-  if( pid != 0 ) { // we are not the master fiber. we wait until a center is opened.
+  if( pid != 0 ) { // we are not the master threads. we wait until a center is opened.
     while(1) {
-#ifdef ENABLE_FIBERS
-	//      fiber_mutex_lock(&mutex);
-	//while(!open) fiber_cond_wait(&cond,&mutex);
-	//fiber_mutex_unlock(&mutex);
+#ifdef ENABLE_THREADS
+	//      pthread_mutex_lock(&mutex);
+	//while(!open) pthread_cond_wait(&cond,&mutex);
+	//pthread_mutex_unlock(&mutex);
 	while (myround==round);
 	// advance to next round
 	myround = round;
-	INFO("advance to round %lu point %d\n",myround,i);
+	DEBUG("advance to round %lu point %d\n",myround,i);
 #endif
       if( i >= points->num ) break;
       for( int k = k1; k < k2; k++ )
@@ -432,14 +368,14 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 	      points->p[k].assign=i;
 	    }
 	}
-#ifdef ENABLE_FIBERS
-      fiber_barrier_wait(barrier);
-      fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+      pthread_barrier_wait(barrier);
+      pthread_barrier_wait(barrier);
 #endif
     } 
-    INFO("Points finished\n");
+    DEBUG("Points finished\n");
   }
-  else  { // I am the master fiber. I decide whether to open a center and notify others if so. 
+  else  { // I am the master thread. I decide whether to open a center and notify others if so. 
     for(i = 1; i < points->num; i++ )  {
       long l = lrand48();
       bool to_open = ((float)l/(float)INT_MAX)<(points->p[i].cost/z);
@@ -447,13 +383,13 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
       //DEBUG("l/INTMAX=%lf points->p[i].cost/z=%lf\n", ((float)l/(float)INT_MAX), (points->p[i].cost/z));
       if( to_open )  {
 	(*kcenter)++;
-#ifdef ENABLE_FIBERS
-	//	fiber_mutex_lock(&mutex);
+#ifdef ENABLE_THREADS
+	//	pthread_mutex_lock(&mutex);
 #endif
 	open = true;
-#ifdef ENABLE_FIBERS
-	//fiber_mutex_unlock(&mutex);
-	//fiber_cond_broadcast(&cond);
+#ifdef ENABLE_THREADS
+	//pthread_mutex_unlock(&mutex);
+	//pthread_cond_broadcast(&cond);
 	__sync_fetch_and_add(&round,1);
 	DEBUG("signal round %lu, point %d\n",round,i);
 #endif
@@ -464,30 +400,30 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 	    points->p[k].assign=i;
 	  }
 	}
-#ifdef ENABLE_FIBERS
-	fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+	pthread_barrier_wait(barrier);
 #endif
 	open = false;
-#ifdef ENABLE_FIBERS
-	fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+	pthread_barrier_wait(barrier);
 #endif
       }
     }
-    INFO("Points finished - master\n");
+    DEBUG("Points finished - master\n");
     
-#ifdef ENABLE_FIBERS
-    //    fiber_mutex_lock(&mutex);
+#ifdef ENABLE_THREADS
+    //    pthread_mutex_lock(&mutex);
 #endif
     open = true;
     __sync_fetch_and_add(&round,1);
     DEBUG("signal special? round %lu\n",round);
-#ifdef ENABLE_FIBERS
-    //fiber_mutex_unlock(&mutex);
-    //fiber_cond_broadcast(&cond);
+#ifdef ENABLE_THREADS
+    //pthread_mutex_unlock(&mutex);
+    //pthread_cond_broadcast(&cond);
 #endif
   }
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   open = false;
   double mytotal = 0;
@@ -495,10 +431,10 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
     mytotal += points->p[k].cost;
   }
   costs[pid] = mytotal;
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
-  // aggregate costs from each fiber
+  // aggregate costs from each thread
   if( pid == 0 )
     {
 	DEBUG("master aggregates\n");
@@ -507,10 +443,10 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 	{
 	  totalcost += costs[i];
 	} 
-      my_free(costs);
+      free(costs);
     }
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
 #ifdef PRINTINFO
@@ -550,11 +486,11 @@ static float pspeedy(Points *points, float z, long *kcenter, int pid, fiber_barr
 /* z is the facility cost, x is the number of this point in the array 
    points */
 
-static double pgain(long x, Points *points, double z, long int *numcenters, int pid, fiber_barrier_t* barrier)
+static double pgain(long x, Points *points, double z, long int *numcenters, int pid, pthread_barrier_t* barrier)
 {
-  //printf("pgain fiber %d begin\n",pid);
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+  printf("pgain pthread %d begin\n",pid);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 #ifdef PROFILE
   double t0 = gettime();
@@ -573,7 +509,7 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   static double gl_cost_of_opening_x;
   static int gl_number_of_centers_to_close;
 
-  //each fiber takes a block of working_mem.
+  //each thread takes a block of working_mem.
   int stride = *numcenters+2;
   //make stride a multiple of CACHE_LINE
   int cl = CACHE_LINE/sizeof(double);
@@ -586,17 +522,17 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   double cost_of_opening_x = 0;
 
   if( pid==0 )    { 
-    work_mem = (double*) my_malloc(stride*(nproc+1)*sizeof(double));
+    work_mem = (double*) malloc(stride*(nproc+1)*sizeof(double));
     gl_cost_of_opening_x = 0;
     gl_number_of_centers_to_close = 0;
   }
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   /*For each center, we have a *lower* field that indicates 
     how much we will save by closing the center. 
-    Each fiber has its own copy of the *lower* fields as an array.
+    Each thread has its own copy of the *lower* fields as an array.
     We first build a table to index the positions of the *lower* fields. 
   */
 
@@ -608,8 +544,8 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   }
   work_mem[pid*stride] = count;
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
   if( pid == 0 ) {
@@ -621,8 +557,8 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
     }
   }
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
   for( int i = k1; i < k2; i++ ) {
@@ -636,8 +572,8 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   memset(work_mem+pid*stride, 0, stride*sizeof(double));
   if( pid== 0 ) memset(work_mem+nproc*stride,0,stride*sizeof(double));
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 #ifdef PROFILE
   double t1 = gettime();
@@ -676,8 +612,8 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
     }
   }
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
 #ifdef PROFILE
@@ -693,7 +629,7 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   for ( int i = k1; i < k2; i++ ) {
     if( is_center[i] ) {
       double low = z;
-      //aggregate from all fibers
+      //aggregate from all threads
       for( int p = 0; p < nproc; p++ ) {
 	low += work_mem[center_table[i]+p*stride];
       }
@@ -712,10 +648,10 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
   work_mem[pid*stride + K] = number_of_centers_to_close;
   work_mem[pid*stride + K+1] = cost_of_opening_x;
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
-  //  printf("fiber %d cost complete\n",pid); 
+  //  printf("thread %d cost complete\n",pid); 
 
   if( pid==0 ) {
     gl_cost_of_opening_x = z;
@@ -725,8 +661,8 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
       gl_cost_of_opening_x += work_mem[p*stride+K+1];
     }
   }
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   // Now, check whether opening x would save cost; if so, do it, and
   // otherwise do nothing
@@ -751,7 +687,7 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
     if( x >= k1 && x < k2 ) {
       is_center[x] = true;
     }
-    //    fiber_barrier_wait(barrier);
+    //    pthread_barrier_wait(barrier);
 
     if( pid==0 ) {
       *numcenters = *numcenters + 1 - gl_number_of_centers_to_close;
@@ -761,15 +697,15 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
     if( pid==0 )
       gl_cost_of_opening_x = 0;  // the value we'll return
   }
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   if( pid == 0 ) {
-    my_free(work_mem);
-    //    my_free(is_center);
-    //    my_free(switch_membership);
-    //    my_free(proc_cost_of_opening_x);
-    //    my_free(proc_number_of_centers_to_close);
+    free(work_mem);
+    //    free(is_center);
+    //    free(switch_membership);
+    //    free(proc_cost_of_opening_x);
+    //    free(proc_number_of_centers_to_close);
   }
 
 #ifdef PROFILE
@@ -790,10 +726,10 @@ static double pgain(long x, Points *points, double z, long int *numcenters, int 
 
 static float pFL(Points *points, int *feasible, int numfeasible,
 	  float z, long *k, double cost, long iter, float e, 
-	  int pid, fiber_barrier_t* barrier)
+	  int pid, pthread_barrier_t* barrier)
 {
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
   long i;
   long x;
@@ -812,8 +748,8 @@ static float pFL(Points *points, int *feasible, int numfeasible,
     if( pid == 0 ) {
       intshuffle(feasible, numfeasible);
     }
-#ifdef ENABLE_FIBERS
-    fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
 #endif
     for (i=0;i<iter;i++) {
 	DEBUG("i=%d, iter=%d\n", i,iter);
@@ -830,14 +766,14 @@ static float pFL(Points *points, int *feasible, int numfeasible,
 	      *k, cost, cost - z*(*k));
     }
 #endif
-#ifdef ENABLE_FIBERS
-    fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
 #endif
   }
   return(cost);
 }
 
-static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, fiber_barrier_t* barrier)
+static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid, pthread_barrier_t* barrier)
 {
 #ifdef PROFILE
   double t1 = gettime();
@@ -846,7 +782,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
   int numfeasible = points->num;
   if (numfeasible > (ITER*kmin*log((double)kmin)))
     numfeasible = (int)(ITER*kmin*log((double)kmin));
-  *feasible = (int *)my_malloc(numfeasible*sizeof(int));
+  *feasible = (int *)malloc(numfeasible*sizeof(int));
   
   float* accumweight;
   float totalweight;
@@ -855,8 +791,8 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
      Calcuate my block. 
      For now this routine does not seem to be the bottleneck, so it is not parallelized. 
      When necessary, this can be parallelized by setting k1 and k2 to 
-     proper values and calling this routine from all fibers ( it is called only
-     by fiber 0 for now ). 
+     proper values and calling this routine from all threads ( it is called only
+     by thread 0 for now ). 
      Note that when parallelized, the randomization might not be the same and it might
      not be difficult to measure the parallel speed-up for the whole program. 
    */
@@ -874,7 +810,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
     return numfeasible;
   }
 
-  accumweight= (float*)my_malloc(sizeof(float)*points->num);
+  accumweight= (float*)malloc(sizeof(float)*points->num);
   accumweight[0] = points->p[0].weight;
   totalweight=0;
   for( int i = 1; i < points->num; i++ ) {
@@ -903,7 +839,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
     (*feasible)[i]=r;
   }
 
-  my_free(accumweight); 
+  free(accumweight); 
 
 #ifdef PROFILE
   double t2 = gettime();
@@ -914,7 +850,7 @@ static int selectfeasible_fast(Points *points, int **feasible, int kmin, int pid
 
 /* compute approximate kmedian on the points */
 static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
-	       int pid, fiber_barrier_t* barrier )
+	       int pid, pthread_barrier_t* barrier )
 {
   int i;
   double cost;
@@ -945,8 +881,8 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
 #endif
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
   double myhiz = 0;
@@ -956,8 +892,8 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
   }
   hizs[pid] = myhiz;
 
-#ifdef ENABLE_FIBERS  
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS  
+  pthread_barrier_wait(barrier);
 #endif
 
   for( int i = 0; i < nproc; i++ )   {
@@ -974,7 +910,7 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
     }
     cost = 0;
     if( pid== 0 ) {
-      my_free(hizs); 
+      free(hizs); 
       *kfinal = k;
     }
     return cost;
@@ -985,7 +921,7 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
 #ifdef PRINTINFO
   if( pid == 0 )
-    printf("fiber %d: Finished first call to speedy, cost=%lf, k=%i\n",pid,cost,k);
+    printf("thread %d: Finished first call to speedy, cost=%lf, k=%i\n",pid,cost,k);
 #endif
   i=0;
   /* give speedy SP chances to get at least kmin/2 facilities */
@@ -996,7 +932,7 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
 
 #ifdef PRINTINFO
   if( pid==0)
-    printf("fiber %d: second call to speedy, cost=%lf, k=%d\n",pid,cost,k);
+    printf("thread %d: second call to speedy, cost=%lf, k=%d\n",pid,cost,k);
 #endif 
   /* if still not enough facilities, assume z is too high */
   while (k < kmin) {
@@ -1025,8 +961,8 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
       }
     }
 
-#ifdef ENABLE_FIBERS
-  fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+  pthread_barrier_wait(barrier);
 #endif
 
   while(1) {
@@ -1038,7 +974,7 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
       }
 #endif
     /* first get a rough estimate on the FL solution */
-    //    fiber_barrier_wait(barrier);
+    //    pthread_barrier_wait(barrier);
 
     lastcost = cost;
     cost = pFL(points, feasible, numfeasible,
@@ -1079,15 +1015,15 @@ static float pkmedian(Points *points, long kmin, long kmax, long* kfinal,
       { 
 	break;
       }
-#ifdef ENABLE_FIBERS
-    fiber_barrier_wait(barrier);
+#ifdef ENABLE_THREADS
+    pthread_barrier_wait(barrier);
 #endif
   }
 
   //clean up...
   if( pid==0 ) {
-    my_free(feasible); 
-    my_free(hizs);
+    free(feasible); 
+    free(hizs);
     *kfinal = k;
   }
 
@@ -1144,7 +1080,7 @@ static void copycenters(Points *points, Points* centers, long* centerIDs, long o
 
   centers->num = k;
 
-  my_free(is_a_median);
+  free(is_a_median);
 }
 
 typedef struct _pkmedian_arg_t
@@ -1154,8 +1090,7 @@ typedef struct _pkmedian_arg_t
   long kmax;
   long* kfinal;
   int pid;
-  fiber_barrier_t* barrier_children;
-  fiber_barrier_t* barrier_parent;
+  pthread_barrier_t* barrier;
 } pkmedian_arg_t;
 
 static void* localSearchSub(void* arg_) {
@@ -1169,18 +1104,36 @@ static void* localSearchSub(void* arg_) {
 
   sprintf(buf,"scorg-%d",arg->pid);
 
-#ifdef ENABLE_FIBERS
-  nk_fiber_counting_barrier(arg->barrier_children); // wait for everyone to join group
-#endif
-  DEBUG("pkmedian starts\n");
-        
-  pkmedian(arg->points,arg->kmin,arg->kmax,arg->kfinal,arg->pid,arg->barrier_children);
+  nk_thread_name(get_cur_thread(),buf);
 
-  // Let the "parent" fiber know you're done before exiting
-  // This way the parent fiber doesn't have to nk_fiber_join() with each child
-#ifdef ENABLE_FIBERS
-  nk_fiber_counting_barrier(arg->barrier_parent);
-#endif
+  DEBUG("join group\n");
+  
+    if (group) {
+	nk_thread_group_join(group);
+    }
+
+  DEBUG("wait on others to join group\n");
+
+  nk_counting_barrier(arg->barrier); // wait for everyone to join group
+    
+    if (schedconst) {
+	DEBUG("group change constraint\n");
+	// do a group change constraint
+	nk_group_sched_change_constraints(group,schedconst);
+    } else {
+	DEBUG("no group change constraint\n");
+    }
+
+    DEBUG("pkmedian starts\n");
+
+        
+  pkmedian(arg->points,arg->kmin,arg->kmax,arg->kfinal,arg->pid,arg->barrier);
+
+  if (group) {
+      DEBUG("group leave\n");
+      nk_thread_group_leave(group);
+  }
+  
   return NULL;
 }
 
@@ -1189,15 +1142,18 @@ static void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
   double t1 = gettime();
 #endif
 
-    fiber_barrier_t barrier;
-    fiber_barrier_t barrier2;
-#ifdef ENABLE_FIBERS
+
+  if (schedconst) {
+      // set up a group for our use
+      group = nk_thread_group_create("foofighters");
+  }
+  
+    pthread_barrier_t barrier;
+#ifdef ENABLE_THREADS
     DEBUG("barrier init for %d procs\n",nproc);
-    fiber_barrier_init(&barrier,NULL,nproc);
-    fiber_barrier_init(&barrier2,NULL,nproc+1);
+    pthread_barrier_init(&barrier,NULL,nproc);
 #endif
-    nk_fiber_t **fibers = calloc(sizeof(nk_fiber_t*),nproc);
-    //nk_fiber_t **fibers = newa((nk_fiber_t *), nproc);
+    pthread_t* threads = newa(pthread_t, nproc);
     pkmedian_arg_t* arg = newa(pkmedian_arg_t,nproc);
 
 
@@ -1208,32 +1164,39 @@ static void localSearch( Points* points, long kmin, long kmax, long* kfinal ) {
       arg[i].pid = i;
       arg[i].kfinal = kfinal;
 
-      arg[i].barrier_children = &barrier;
-      arg[i].barrier_parent = &barrier2;
-#ifdef ENABLE_FIBERS
+      arg[i].barrier = &barrier;
+#ifdef ENABLE_THREADS
       int targetproc = startproc!=-1 ? startproc+i : -1;
-      nk_fiber_start((nk_fiber_fun_t)localSearchSub,(void*)&arg[i],0,FSTACK_DEFAULT,targetproc,fibers+i);
+      nk_thread_start((nk_thread_fun_t)localSearchSub,(void*)&arg[i],0,0,TSTACK_DEFAULT,threads+i,targetproc);
+      // pthread_create(threads+i,NULL,localSearchSub,(void*)&arg[i]);
 #else
       localSearchSub(&arg[0]);
 #endif
     }
 
-#ifdef ENABLE_FIBERS
-    // wait for all the children to hit this barrier before moving on
-    nk_fiber_counting_barrier(&barrier2);
+    for ( int i = 0; i < nproc; i++) {
+#ifdef ENABLE_THREADS
+      pthread_join(threads[i],NULL);
+#endif
+    }
+
+    dela(threads);
+    dela(arg);
+#ifdef ENABLE_THREADS
+    pthread_barrier_destroy(&barrier);
 #endif
 
-#ifdef ENABLE_FIBERS
-    fiber_barrier_destroy(&barrier);
-#endif
-    dela(fibers);
-    dela(arg);
+    if (group) {
+	nk_thread_group_delete(group);
+    }
 
 #ifdef PROFILE
   double t2 = gettime();
   time_local_search += t2-t1;
 #endif
 
+
+  
 }
 
 typedef struct _PStream {
@@ -1288,9 +1251,9 @@ static void streamCluster( PStream* stream,
 		    long kmin, long kmax, int dim,
 		    long chunksize, long centersize, char* outfile )
 {
-  float* block = (float*)my_malloc( chunksize*dim*sizeof(float) );
-  float* centerBlock = (float*)my_malloc(centersize*dim*sizeof(float) );
-  long* centerIDs = (long*)my_malloc(centersize*dim*sizeof(long));
+  float* block = (float*)malloc( chunksize*dim*sizeof(float) );
+  float* centerBlock = (float*)malloc(centersize*dim*sizeof(float) );
+  long* centerIDs = (long*)malloc(centersize*dim*sizeof(long));
 
   if( block == NULL ) { 
     fprintf(stderr,"not enough memory for a chunk!\n");
@@ -1300,14 +1263,14 @@ static void streamCluster( PStream* stream,
   Points points;
   points.dim = dim;
   points.num = chunksize;
-  points.p = (Point *)my_malloc(chunksize*sizeof(Point));
+  points.p = (Point *)malloc(chunksize*sizeof(Point));
   for( int i = 0; i < chunksize; i++ ) {
     points.p[i].coord = &block[i*dim];
   }
 
   Points centers;
   centers.dim = dim;
-  centers.p = (Point *)my_malloc(centersize*sizeof(Point));
+  centers.p = (Point *)malloc(centersize*sizeof(Point));
   centers.num = 0;
 
   for( int i = 0; i< centersize; i++ ) {
@@ -1332,9 +1295,9 @@ static void streamCluster( PStream* stream,
       points.p[i].weight = 1.0;
     }
 
-    switch_membership = (bool*)my_malloc(points.num*sizeof(bool));
+    switch_membership = (bool*)malloc(points.num*sizeof(bool));
     is_center = (bool*)calloc(points.num,sizeof(bool));
-    center_table = (int*)my_malloc(points.num*sizeof(int));
+    center_table = (int*)malloc(points.num*sizeof(int));
 
     localSearch(&points,kmin, kmax,&kfinal);
 
@@ -1357,9 +1320,9 @@ static void streamCluster( PStream* stream,
     printf("finish copy centers\n"); 
 #endif
 
-    my_free(is_center);
-    my_free(switch_membership);
-    my_free(center_table);
+    free(is_center);
+    free(switch_membership);
+    free(center_table);
 
     if( PStream_feof(stream) ) {
       break;
@@ -1367,16 +1330,16 @@ static void streamCluster( PStream* stream,
   }
 
   //finally cluster all temp centers
-  switch_membership = (bool*)my_malloc(centers.num*sizeof(bool));
+  switch_membership = (bool*)malloc(centers.num*sizeof(bool));
   is_center = (bool*)calloc(centers.num,sizeof(bool));
-  center_table = (int*)my_malloc(centers.num*sizeof(int));
+  center_table = (int*)malloc(centers.num*sizeof(int));
 
   localSearch( &centers, kmin, kmax ,&kfinal );
   contcenters(&centers);
   outcenterIDs( &centers, centerIDs, outfile);
 }
 
-int test_fiber_streamcluster(int numt, int startp, int nobarrier,
+int test_orig_streamcluster(int numt, int startp, int nobarrier,
 			    struct nk_sched_constraints *constraints, uint64_t testsize)
 {
     char *outfilename = newa(char,MAXNAMESIZE);
@@ -1398,7 +1361,8 @@ int test_fiber_streamcluster(int numt, int startp, int nobarrier,
 #endif
 
   // configured as per run script
-
+  
+  
 // Size of test is decided by command line input
 switch(testsize)
 {
@@ -1474,14 +1438,13 @@ switch(testsize)
     break;
 
 }
-  
+ 
   strcpy(infilename, "none");
   strcpy(outfilename, "output.txt");
   nproc = numt;
   startproc = startp;
   skipbarrier = nobarrier;
   schedconst = constraints;
-  
 
   srand48(SEED);
   PStream* stream = 0;
@@ -1491,23 +1454,21 @@ switch(testsize)
   else {
       fprintf(stderr,"File Streams not supported\n");
   }
-  cli();
+
   double t1 = gettime();
 
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_begin();
 #endif
   streamCluster(stream, kmin, kmax, dim, chunksize, clustersize, outfilename );
-  ACCESS_WRAPPER = 0;
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_roi_end();
 #endif
 
   double t2 = gettime();
-  sti();
-  nk_vc_printf("SCFIBERBEGIN%d\n", testsize);
+
+  nk_vc_printf("SCTHREADBEGIN%d\n", testsize);
   nk_vc_printf("time = %lf\n",t2-t1);
-  //INFO("Test finished!\n");
  
   del(stream);
 #ifdef PROFILE
@@ -1526,33 +1487,38 @@ switch(testsize)
   time_gain_dist = 0;
   time_gain_init = 0;
  #endif
-  nk_vc_printf("SCFIBEREND%d\n", testsize);
+  nk_vc_printf("SCTHREADEND%d\n", testsize);
   
 #ifdef ENABLE_PARSEC_HOOKS
   __parsec_bench_end();
 #endif
+
   // reset for next run
   nproc = 0;
   startproc = -1;
   skipbarrier = 0;
   schedconst = 0;
-
+  
   return 0;
 }
 
-// Since only fibers can use fiber barriers, we must start the streamcluster
-// test using a "parent" fiber. This allows us to interact with all the child
-// fibers that are created during the test
-static void fiber_sc(void *i, void **o)
+static int handle_sc_orig (char *buf, void *priv)
 {
+  volatile uint64_t test_size = 0;
+  
+  if (sscanf(buf,"origsc %lu",&test_size)!=1) { 
+    nk_vc_printf("Don't understand %s\n",buf);
+    return -1;
+  }
+  
   struct sys_info * sys = per_cpu_get(system);
   int num_cpus = sys->num_cpus;
   num_cpus = 1;
-  //ACCESS_WRAPPER = 1;
-  if ((uint64_t)i == 7) {
-    int j;
-    for(j=0; j < 6; j++) {
-      test_fiber_streamcluster(num_cpus, 0, 0, 0, j); 
+
+  if (test_size == 7) {
+    int i;
+    for(i=0; i < 6; i++) {
+      test_orig_streamcluster(num_cpus, 0, 0, 0, i); 
       nk_vc_printf("Clearing Buffer\n");
       nk_vc_printf("Clearing Buffer\n");
       nk_vc_printf("Clearing Buffer\n");
@@ -1565,57 +1531,15 @@ static void fiber_sc(void *i, void **o)
       nk_vc_printf("Clearing Buffer\n");
       nk_vc_printf("Clearing Buffer\n");
       udelay(5000000);
-    } 
+    }
   } else {
-    test_fiber_streamcluster(num_cpus, 0, 0, 0, (uint64_t)i); 
-  }
-
-  //_nk_fiber_print_data(100);
-}
-
-int test_sc_with_fibers(uint64_t test_size)
-{
-  nk_fiber_t *master;
-  extern struct nk_virtual_console *vc; 
-  
-  vc = get_cur_thread()->vc;
-  if (nk_fiber_start(fiber_sc, (void *)test_size, 0, 0, 0, &master) < 0) {
-    nk_vc_printf("test_fibers_counter() : Fiber failed to start\n");
-    return -1;
+      test_orig_streamcluster(num_cpus, 0, 0, 0, test_size);
   } 
   return 0;
 }
-
-
-
-static int handle_sc_fibers (char *buf, void *priv)
-{
-  uint64_t test_size = 0;
-  /*
-  uint64_t num_threads;
-  if (sscanf(buf,"fibersc %lu %lu", &test_size, &num_threads) == 2) {
-    test_sc_with_fibers(test_size, num_threads);
-  } else if (sscanf(buf,"fibersc %lu %lu",&test_size) == 1) {
-    test_sc_with_fibers(test_size, 1);
-  } else {
-    nk_vc_printf("Don't understand %s\n",buf);
-    return -1;
-    
-  }
-  return 0;
-  */
-  if (sscanf(buf,"fibersc %lu",&test_size)!=1) { 
-    nk_vc_printf("Don't understand %s\n",buf);
-    return -1;
-  }
-  
-  test_sc_with_fibers(test_size);
-  return 0;
-
-}
-static struct shell_cmd_impl sc_fiber_impl = {
-  .cmd      = "fibersc",
-  .help_str = "fibersc [0-6]",
-  .handler  = handle_sc_fibers,
+static struct shell_cmd_impl sc_orig_impl = {
+  .cmd      = "origsc",
+  .help_str = "origsc [0-6]",
+  .handler  = handle_sc_orig,
 };
-nk_register_shell_cmd(sc_fiber_impl);
+nk_register_shell_cmd(sc_orig_impl);
