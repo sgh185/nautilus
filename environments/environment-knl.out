@@ -1,0 +1,339 @@
+XDG_SESSION_ID=33
+HOSTNAME=v-test-5038ki.cs.northwestern.edu
+SHELL=/bin/bash
+TERM=xterm-256color
+HISTSIZE=1000
+SSH_CLIENT=129.105.44.178 44326 22
+SSH_TTY=/dev/pts/0
+USER=USER
+LS_COLORS=rs=0:di=38;5;27:ln=38;5;51:mh=44;38;5;15:pi=40;38;5;11:so=38;5;13:do=38;5;5:bd=48;5;232;38;5;11:cd=48;5;232;38;5;3:or=48;5;232;38;5;9:mi=05;48;5;232;38;5;15:su=48;5;196;38;5;15:sg=48;5;11;38;5;16:ca=48;5;196;38;5;226:tw=48;5;10;38;5;16:ow=48;5;10;38;5;21:st=48;5;21;38;5;15:ex=38;5;34:*.tar=38;5;9:*.tgz=38;5;9:*.arc=38;5;9:*.arj=38;5;9:*.taz=38;5;9:*.lha=38;5;9:*.lz4=38;5;9:*.lzh=38;5;9:*.lzma=38;5;9:*.tlz=38;5;9:*.txz=38;5;9:*.tzo=38;5;9:*.t7z=38;5;9:*.zip=38;5;9:*.z=38;5;9:*.Z=38;5;9:*.dz=38;5;9:*.gz=38;5;9:*.lrz=38;5;9:*.lz=38;5;9:*.lzo=38;5;9:*.xz=38;5;9:*.bz2=38;5;9:*.bz=38;5;9:*.tbz=38;5;9:*.tbz2=38;5;9:*.tz=38;5;9:*.deb=38;5;9:*.rpm=38;5;9:*.jar=38;5;9:*.war=38;5;9:*.ear=38;5;9:*.sar=38;5;9:*.rar=38;5;9:*.alz=38;5;9:*.ace=38;5;9:*.zoo=38;5;9:*.cpio=38;5;9:*.7z=38;5;9:*.rz=38;5;9:*.cab=38;5;9:*.jpg=38;5;13:*.jpeg=38;5;13:*.gif=38;5;13:*.bmp=38;5;13:*.pbm=38;5;13:*.pgm=38;5;13:*.ppm=38;5;13:*.tga=38;5;13:*.xbm=38;5;13:*.xpm=38;5;13:*.tif=38;5;13:*.tiff=38;5;13:*.png=38;5;13:*.svg=38;5;13:*.svgz=38;5;13:*.mng=38;5;13:*.pcx=38;5;13:*.mov=38;5;13:*.mpg=38;5;13:*.mpeg=38;5;13:*.m2v=38;5;13:*.mkv=38;5;13:*.webm=38;5;13:*.ogm=38;5;13:*.mp4=38;5;13:*.m4v=38;5;13:*.mp4v=38;5;13:*.vob=38;5;13:*.qt=38;5;13:*.nuv=38;5;13:*.wmv=38;5;13:*.asf=38;5;13:*.rm=38;5;13:*.rmvb=38;5;13:*.flc=38;5;13:*.avi=38;5;13:*.fli=38;5;13:*.flv=38;5;13:*.gl=38;5;13:*.dl=38;5;13:*.xcf=38;5;13:*.xwd=38;5;13:*.yuv=38;5;13:*.cgm=38;5;13:*.emf=38;5;13:*.axv=38;5;13:*.anx=38;5;13:*.ogv=38;5;13:*.ogx=38;5;13:*.aac=38;5;45:*.au=38;5;45:*.flac=38;5;45:*.mid=38;5;45:*.midi=38;5;45:*.mka=38;5;45:*.mp3=38;5;45:*.mpc=38;5;45:*.ogg=38;5;45:*.ra=38;5;45:*.wav=38;5;45:*.axa=38;5;45:*.oga=38;5;45:*.spx=38;5;45:*.xspf=38;5;45:
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/USER/bin
+MAIL=/var/spool/mail/USER
+_=/usr/bin/env
+PWD=/USER
+LANG=en_US.UTF-8
+HISTCONTROL=ignoredups
+HOME=/USER
+SHLVL=2
+LOGNAME=USER
+SSH_CONNECTION=129.105.44.178 44326 165.124.181.88 22
+XDG_DATA_DIRS=/USER/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share
+LESSOPEN=||/usr/bin/lesspipe.sh %s
+XDG_RUNTIME_DIR=/run/user/0
+Linux v-test-5038ki.cs.northwestern.edu 3.10.0-957.10.1.el7.x86_64 #1 SMP Mon Mar 18 15:06:45 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+Architecture:          x86_64
+CPU op-mode(s):        32-bit, 64-bit
+Byte Order:            Little Endian
+CPU(s):                64
+On-line CPU(s) list:   0-63
+Thread(s) per core:    1
+Core(s) per socket:    64
+Socket(s):             1
+NUMA node(s):          2
+Vendor ID:             GenuineIntel
+CPU family:            6
+Model:                 87
+Model name:            Intel(R) Xeon Phi(TM) CPU 7210 @ 1.30GHz
+Stepping:              1
+CPU MHz:               1304.602
+CPU max MHz:           1300.0000
+CPU min MHz:           1000.0000
+BogoMIPS:              2599.71
+L1d cache:             32K
+L1i cache:             32K
+L2 cache:              1024K
+NUMA node0 CPU(s):     0-63
+NUMA node1 CPU(s):     
+Flags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc aperfmperf eagerfpu pni pclmulqdq dtes64 monitor ds_cpl est tm2 ssse3 fma cx16 xtpr pdcm sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch ring3mwait epb fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms avx512f rdseed adx avx512pf avx512er avx512cd xsaveopt dtherm arat pln pts
+MemTotal:       115215476 kB
+MemFree:        113454068 kB
+MemAvailable:   113153048 kB
+Buffers:           42236 kB
+Cached:           278660 kB
+SwapCached:            0 kB
+Active:           482336 kB
+Inactive:         241060 kB
+Active(anon):     404232 kB
+Inactive(anon):    10032 kB
+Active(file):      78104 kB
+Inactive(file):   231028 kB
+Unevictable:           0 kB
+Mlocked:               0 kB
+SwapTotal:      20479996 kB
+SwapFree:       20479996 kB
+Dirty:                68 kB
+Writeback:             0 kB
+AnonPages:        402660 kB
+Mapped:            94788 kB
+Shmem:             11772 kB
+Slab:             168644 kB
+SReclaimable:      56316 kB
+SUnreclaim:       112328 kB
+KernelStack:       13936 kB
+PageTables:        19932 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:    78087732 kB
+Committed_AS:    3070068 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:      524372 kB
+VmallocChunk:   34358917116 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:    198656 kB
+CmaTotal:              0 kB
+CmaFree:               0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+DirectMap4k:      404212 kB
+DirectMap2M:     6809600 kB
+DirectMap1G:    112197632 kB
+NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda      8:0    0 447.1G  0 disk 
+├─sda1   8:1    0  19.5G  0 part [SWAP]
+└─sda2   8:2    0 427.6G  0 part /
+sdb      8:16   0   3.7T  0 disk 
+└─sdb1   8:17   0   3.7T  0 part /data
+[0:0:0:0]    disk    ATA      INTEL SSDSC2BB48 0150  /dev/sda    480GB
+[1:0:0:0]    disk    ATA      HGST HUS726040AL T907  /dev/sdb   4.00TB
+00:00.0 Host bridge: Intel Corporation Device 783c (rev 10)
+00:00.2 PCI bridge: Intel Corporation Device 7808 (rev 10)
+00:02.0 PCI bridge: Intel Corporation Device 780a (rev 10)
+00:05.0 System peripheral: Intel Corporation Device 7810 (rev 10)
+00:05.2 System peripheral: Intel Corporation Device 7812 (rev 10)
+00:05.4 PIC: Intel Corporation Device 7813 (rev 10)
+00:05.6 Performance counters: Intel Corporation Device 7814 (rev 10)
+00:08.0 System peripheral: Intel Corporation Device 781a (rev 10)
+00:08.1 Performance counters: Intel Corporation Device 781b (rev 10)
+00:08.2 System peripheral: Intel Corporation Device 781c (rev 10)
+00:11.0 Unassigned class [ff00]: Intel Corporation C610/X99 series chipset SPSR (rev 05)
+00:14.0 USB controller: Intel Corporation C610/X99 series chipset USB xHCI Host Controller (rev 05)
+00:16.0 Communication controller: Intel Corporation C610/X99 series chipset MEI Controller #1 (rev 05)
+00:1a.0 USB controller: Intel Corporation C610/X99 series chipset USB Enhanced Host Controller #2 (rev 05)
+00:1c.0 PCI bridge: Intel Corporation C610/X99 series chipset PCI Express Root Port #1 (rev d5)
+00:1c.3 PCI bridge: Intel Corporation C610/X99 series chipset PCI Express Root Port #4 (rev d5)
+00:1c.4 PCI bridge: Intel Corporation C610/X99 series chipset PCI Express Root Port #5 (rev d5)
+00:1d.0 USB controller: Intel Corporation C610/X99 series chipset USB Enhanced Host Controller #1 (rev 05)
+00:1f.0 ISA bridge: Intel Corporation C610/X99 series chipset LPC Controller (rev 05)
+00:1f.2 SATA controller: Intel Corporation C610/X99 series chipset 6-Port SATA Controller [AHCI mode] (rev 05)
+00:1f.3 SMBus: Intel Corporation C610/X99 series chipset SMBus Controller (rev 05)
+00:1f.6 Signal processing controller: Intel Corporation C610/X99 series chipset Thermal Subsystem (rev 05)
+01:00.0 Ethernet controller: Broadcom Inc. and subsidiaries NetXtreme BCM5751 Gigabit Ethernet PCI Express (rev 01)
+02:00.0 Serial controller: MosChip Semiconductor Technology Ltd. PCIe 9912 Multi-I/O Controller
+02:00.1 Serial controller: MosChip Semiconductor Technology Ltd. PCIe 9912 Multi-I/O Controller
+02:00.2 Parallel controller: MosChip Semiconductor Technology Ltd. PCIe 9912 Multi-I/O Controller
+04:00.0 PCI bridge: ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge (rev 03)
+05:00.0 VGA compatible controller: ASPEED Technology, Inc. ASPEED Graphics Family (rev 30)
+06:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection (rev 01)
+06:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection (rev 01)
+fe:08.0 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.1 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.2 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.3 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.4 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.5 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.6 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:08.7 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.0 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.1 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.2 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.3 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.4 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.5 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.6 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:09.7 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.0 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.1 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.2 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.3 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.4 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.5 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.6 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0a.7 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.0 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.1 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.2 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.3 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.4 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.5 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.6 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0b.7 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.0 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.1 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.2 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.3 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.4 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0c.5 System peripheral: Intel Corporation Device 782f (rev 10)
+fe:0e.0 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.1 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.2 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.3 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.4 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.5 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.6 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0e.7 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.0 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.1 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.2 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.3 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.4 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.5 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.6 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:0f.7 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.0 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.1 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.2 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.3 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.4 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.5 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.6 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:10.7 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.0 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.1 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.2 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.3 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.4 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.5 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.6 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:11.7 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.0 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.1 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.2 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.3 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.4 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:12.5 System peripheral: Intel Corporation Device 782c (rev 10)
+fe:14.0 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.1 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.2 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.3 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.4 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.5 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.6 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:14.7 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.0 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.1 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.2 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.3 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.4 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.5 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.6 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:15.7 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.0 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.1 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.2 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.3 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.4 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.5 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.6 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:16.7 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.0 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.1 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.2 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.3 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.4 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.5 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.6 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:17.7 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.0 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.1 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.2 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.3 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.4 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:18.5 System peripheral: Intel Corporation Device 781f (rev 10)
+fe:1d.0 System peripheral: Intel Corporation Device 782a (rev 10)
+fe:1d.1 System peripheral: Intel Corporation Device 782b (rev 10)
+fe:1d.2 System peripheral: Intel Corporation Device 782e (rev 10)
+fe:1d.3 System peripheral: Intel Corporation Device 782d (rev 10)
+fe:1e.0 System peripheral: Intel Corporation Device 7820 (rev 10)
+fe:1e.1 System peripheral: Intel Corporation Device 7821 (rev 10)
+fe:1e.2 System peripheral: Intel Corporation Device 7822 (rev 10)
+fe:1e.3 System peripheral: Intel Corporation Device 7823 (rev 10)
+fe:1e.4 System peripheral: Intel Corporation Device 7824 (rev 10)
+fe:1e.5 System peripheral: Intel Corporation Device 7825 (rev 10)
+fe:1e.6 System peripheral: Intel Corporation Device 7826 (rev 10)
+ff:08.0 System peripheral: Intel Corporation Device 7840 (rev 10)
+ff:08.1 System peripheral: Intel Corporation Device 7842 (rev 10)
+ff:08.2 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:08.3 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:08.4 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:09.0 System peripheral: Intel Corporation Device 7840 (rev 10)
+ff:09.1 System peripheral: Intel Corporation Device 7842 (rev 10)
+ff:09.2 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:09.3 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:09.4 System peripheral: Intel Corporation Device 7843 (rev 10)
+ff:0a.0 System peripheral: Intel Corporation Device 7841 (rev 10)
+ff:0a.1 System peripheral: Intel Corporation Device 7844 (rev 10)
+ff:0a.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:0b.0 System peripheral: Intel Corporation Device 7841 (rev 10)
+ff:0b.1 System peripheral: Intel Corporation Device 7844 (rev 10)
+ff:0b.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:0c.0 System peripheral: Intel Corporation Device 7816 (rev 10)
+ff:0c.1 Performance counters: Intel Corporation Device 7817 (rev 10)
+ff:0c.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:0f.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:0f.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:0f.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:10.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:10.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:10.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:10.5 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:10.6 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:10.7 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:11.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:11.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:11.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:11.5 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:11.6 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:11.7 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:12.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:12.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:12.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:12.5 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:12.6 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:12.7 System peripheral: Intel Corporation Device 7848 (rev 10)
+ff:13.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:13.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:13.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:13.5 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:13.6 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:13.7 System peripheral: Intel Corporation Device 7849 (rev 10)
+ff:14.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:14.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:14.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:14.6 System peripheral: Intel Corporation Device 7845 (rev 10)
+ff:14.7 System peripheral: Intel Corporation Device 7846 (rev 10)
+ff:15.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:15.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:15.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:15.6 System peripheral: Intel Corporation Device 7845 (rev 10)
+ff:15.7 System peripheral: Intel Corporation Device 7847 (rev 10)
+ff:16.0 System peripheral: Intel Corporation Device 7833 (rev 10)
+ff:16.1 System peripheral: Intel Corporation Device 7839 (rev 10)
+ff:16.2 System peripheral: Intel Corporation Device 781f (rev 10)
+ff:18.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:18.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:18.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:19.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:19.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:19.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1a.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1a.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1a.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1b.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1b.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1b.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1c.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1c.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1c.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1d.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1d.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1d.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1e.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1e.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1e.2 System peripheral: Intel Corporation Device 7835 (rev 10)
+ff:1f.0 System peripheral: Intel Corporation Device 7831 (rev 10)
+ff:1f.1 System peripheral: Intel Corporation Device 7837 (rev 10)
+ff:1f.2 System peripheral: Intel Corporation Device 7835 (rev 10)

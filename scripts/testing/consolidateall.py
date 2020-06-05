@@ -1,4 +1,4 @@
-#!/home/sgi9754/wllvm-test/bin/python
+#!/home/mac4602/wllvmnaut/bin/python
 
 # This script analyzes a single fiber benchmark
 # data set from a serial output. Original data set is preserved
@@ -17,12 +17,12 @@ import os
 import re
 import subprocess
 
-bench = range(3, 21)
-bench.append(100)
+bench = range(3, 22)
+#bench.append()
 print bench
 for i in bench:
 	try:
-		subprocess.call('./scripts/testing/getdata.py {} fiberbench{} {}'.format(sys.argv[1], i, sys.argv[2]), shell=True)
+		subprocess.call('./consolidate.py fiberbench{} {}'.format(i,i), shell=True)
 	except:
 		print(str(i) + " failed")
 
