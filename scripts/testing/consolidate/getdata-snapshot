@@ -1,0 +1,9 @@
+./scripts/testing/getall.py 200 r415Data/snapshot/snapshot200.out
+./scripts/testing/getall.py 400 r415Data/snapshot/snapshot400.out
+./scripts/testing/getall.py 600 r415Data/snapshot/snapshot600.out
+./scripts/testing/getall.py 800 r415Data/snapshot/snapshot800.out
+./scripts/testing/getall.py 1000 r415Data/snapshot/snapshot1000.out
+./scripts/testing/getall.py 2000 r415Data/snapshot/snapshot2000.out
+./scripts/testing/getall.py 4000 r415Data/snapshot/snapshot4000.out
+./scripts/testing/getall.py 8000 r415Data/snapshot/snapshot8000.out
+./scripts/testing/getall.py 16000 r415Data/snapshot/snapshot16000.out

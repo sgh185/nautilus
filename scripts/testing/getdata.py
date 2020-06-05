@@ -31,7 +31,8 @@ def getFiberData():
 	print end
 	with open(fileName) as file:
 			data = re.findall('{}(.*?){}'.format(start, end), file.read(), re.DOTALL)
-			return ''.join([elm for elm in data])
+                        print ''.join([elm for elm in data])
+                        return ''.join([elm for elm in data])
 
 def getDataSets(data):
 		return re.findall('PRINTSTART(.*?)PRINTEND', data, re.DOTALL)

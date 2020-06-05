@@ -1,0 +1,9 @@
+./mike-consolidateall.py 200 r415Data/snapshot/snapshot200.out
+./mike-consolidateall.py 400 r415Data/snapshot/snapshot400.out
+./mike-consolidateall.py 600 r415Data/snapshot/snapshot600.out
+./mike-consolidateall.py 800 r415Data/snapshot/snapshot800.out
+./mike-consolidateall.py 1000 r415Data/snapshot/snapshot1000.out
+./mike-consolidateall.py 2000 r415Data/snapshot/snapshot2000.out
+./mike-consolidateall.py 4000 r415Data/snapshot/snapshot4000.out
+./mike-consolidateall.py 8000 r415Data/snapshot/snapshot8000.out
+./mike-consolidateall.py 16000 r415Data/snapshot/snapshot16000.out

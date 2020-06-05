@@ -21,7 +21,7 @@ def getIntList(data):
 
 	return intList
 
-# Transform the array to weed out outliers (@eumiro --- SO)
+# Transform the array to weed out outliers (@eumiro --- SO), deprecated
 def transformNoOutliers(data, M=2):
 	return data[abs(data - np.mean(data)) < M * np.std(data)]
 

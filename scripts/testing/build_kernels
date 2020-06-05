@@ -1,0 +1,43 @@
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus200.bin ; cp nautilus.iso $1/nautilus200.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=200/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=400/g" .config
+sed -i "s/GRAN\ 200/GRAN\ 400/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus400.bin ; cp nautilus.iso $1/nautilus400.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=400/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=600/g" .config
+sed -i "s/GRAN\ 400/GRAN\ 600/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus600.bin ; cp nautilus.iso $1/nautilus600.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=600/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=800/g" .config
+sed -i "s/GRAN\ 600/GRAN\ 800/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus800.bin ; cp nautilus.iso $1/nautilus800.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=800/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=1000/g" .config
+sed -i "s/GRAN\ 800/GRAN\ 1000/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus1000.bin ; cp nautilus.iso $1/nautilus1000.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=1000/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=2000/g" .config
+sed -i "s/GRAN\ 1000/GRAN\ 2000/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus2000.bin ; cp nautilus.iso $1/nautilus2000.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=2000/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=4000/g" .config
+sed -i "s/GRAN\ 2000/GRAN\ 4000/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus4000.bin ; cp nautilus.iso $1/nautilus4000.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=4000/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=8000/g" .config
+sed -i "s/GRAN\ 4000/GRAN\ 8000/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus8000.bin ; cp nautilus.iso $1/nautilus8000.iso
+sed -i "s/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=8000/NAUT_CONFIG_COMPILER_TIMING_PERIOD_CYCLES=16000/g" .config
+sed -i "s/GRAN\ 8000/GRAN\ 16000/g" src/llvm/compiler-timing/include/Configurations.hpp 
+
+./scripts/pass_build ; make clean ; make -j ; make timing ; make isoimage
+cp nautilus.bin $1/nautilus16000.bin ; cp nautilus.iso $1/nautilus16000.iso
+
