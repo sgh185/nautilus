@@ -1,11 +1,7 @@
 #!/home/sgi9754/wllvm-test/bin/python
 
-# This shitty script analyzes a single fiber benchmark
-# data set from a serial output. Original data set is preserved
-# as the benchmark name. Plot for original data is saved as 
-# [benchmark-name].png. One pass outlier removal, two pass outlier
-# removal and plots for all are generated. File names are self
-# explanatory. 
+# Generate line mashed plots for all
+# benchmarks in one figure
 
 import sys
 import numpy as np
