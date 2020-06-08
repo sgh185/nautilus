@@ -128,12 +128,11 @@ extern "C" {
 	} \
 
 // Skip list internals
-inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
-{
-	uint8_t gear = 1;
-	while (((lrand48()) & 1) && (gear < top_gear)) { UPSHIFT(gear); }
-	return gear;
-}
+#define _nk_slist_get_rand_gear(top_gear) ({ \
+	uint8_t gear = 1; \
+	while (((lrand48()) & 1) && (gear < top_gear)) { UPSHIFT(gear); } \
+	gear; \
+})
 
 #define _nk_slist_node_link(pred, succ, gear) ({ \
 	pred->succ_nodes[gear] = succ; \

@@ -1,1 +1,1 @@
-obj-y += stub.o 
+# obj-y += stub.o 

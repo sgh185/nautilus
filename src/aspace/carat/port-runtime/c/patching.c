@@ -21,10 +21,14 @@ int carat_update_entry(allocEntry *entry, void* allocationTarget) {
     // Create a new entry
     allocEntry *newEntry = allocEntry(allocationTarget, entry->length);
     newEntry->allocToEscapeMap = entry->allocToEscapeMap;
-    nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) allocationTarget), ((uintptr_t) newEntry));
-	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair)); // FIX: add_or_panic
+    
+	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
+	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) allocationTarget), ((uintptr_t) newEntry)))) {
+		panic("HandleReallocToAllocationTable: nk_map_insert failed on newAddress %p\n", newAddress);
+	}
+	
+    nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) (entry->pointer)));
 
-    nk_slist_remove(uintptr_t, allocationMap, (entry->pointer));
     return 0;
 }
 static void 
@@ -131,9 +135,12 @@ out_bad:
 }
 
 allocEntry* findRandomAlloc() {
-    uint64_t target = lrand48()%nk_slist_get_size(allocationMap); //rand
-    uint64_t count = 0;
+    uint64_t target = lrand48() % nk_map_get_size(allocationMap), // randomized
+    		 count = 0;
 
+	/* *** CONFIRM *** */
+
+	/*
     nk_slist_node_uintptr_t *iter;
     uintptr_t val;
     nk_slist_foreach(allocationMap, val, iter) {
@@ -142,6 +149,16 @@ allocEntry* findRandomAlloc() {
         }
         count++;
     }
+	*/
+
+	nk_slist_node_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) 
+	{
+		if (count == target) { return ((allocEntry *) (pair->second)); }
+		count++;
+	}
+
     return 0;
 }
 

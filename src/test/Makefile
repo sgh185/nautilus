@@ -9,6 +9,7 @@ obj-y += bsp.o
 obj-y += net_udp_echo.o
 obj-y += test.o
 obj-y += skiplist_test.o
+obj-y += map_test.o
 
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o

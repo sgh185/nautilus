@@ -38,27 +38,7 @@
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
 #include <nautilus/skiplist.h>
-
-#ifndef __KARAT_STRUCTURES__
-#define __KARAT_STRUCTURES__
-
-#define NK_PAIR(first_type, second_type) \
-    typedef nk_pair_##first_type##_##second_type { \
-        first_type first; \
-        second_type second; \
-    }; \
-
-NK_PAIR(uintptr_t, uintptr_t);
-NK_PAIR(uintptr_t, uint64_t);
-
-#define NK_PAIR_BUILD(ft, st, f, s) ({ \
-    nk_pair_##ft##_##st *newPair = (nk_pair_##ft##_##st *) CARAT_MALLOC(sizeof(nk_pair_##ft##_##st)); \
-    newPair->first = f; \
-    newPair->second = s; \
-    newPair; \
-})
-
-#endif
+#include <nautilus/map.h>
 
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__

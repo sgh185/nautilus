@@ -38,7 +38,7 @@
 
 
 //Alloc addr, length
-nk_slist_uintptr_t *allocationMap = NULL; // FIX (for pairs, maps)
+nk_map_uintptr_t_uintptr_t *allocationMap = NULL; // FIX (for pairs, maps)
 
 allocEntry* StackEntry;
 uint64_t rsp = 0;
@@ -54,12 +54,14 @@ void texasStartup() {
 	texas_init();
 } 
 
+void allocationMap_add_or_panic(
+
 // CONV [class constructor] -> [function that returns an instance]
 allocEntry* allocEntry(void* ptr, uint64_t len){
 	allocEntry* newAllocEntry = (allocEntry*) CARAT_MALLOC(sizeof(allocEntry)); // maybe FIX
 	newAllocEntry->pointer = ptr;
 	newAllocEntry->length = len;
-	newAllocEntry->allocToEscapeMap = nk_slist_build(uintptr_t, 6);// maybe FIX the 6
+	newAllocEntry->allocToEscapeMap = nk_slist_build(uintptr_t, 6); // maybe FIX the 6
 	return newAllocEntry;
 }
 
@@ -80,25 +82,10 @@ void AddToAllocationTable(void *address, uint64_t length){
 	allocEntry *newEntry = allocEntry(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
 	CARAT_PRINT("Adding to allocationMap\n");
 
-	// CONV [map::insert] -> [nk_slist_add]
-	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry));
-	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair)); // FIX: add_or_panic
-
-	/*
-	
-	For Brian --- sanity check
-
-	Brian --- we're assuming you wanted to avoid
-	a 2logn operation instead of logn
-
-	// insert
-	if (map.find(key) == nullptr)
-		map[key] = val;
-
-	// insert_or_assign
-	map[key] = val;
-
-	*/
+	// CONV [map::insert] -> [nk_map_insert + status check]
+	if (!(nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry)))) {
+		panic("AddToAllocationTable: nk_map_insert failed on address %p\n", address);
+	}
 
 	CARAT_PRINT("Returning\n");
 
@@ -109,10 +96,11 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 	uint64_t length = len * sizeOfEntry;
 	allocEntry *newEntry = allocEntry(address, length); // CONV [class constructor] -> [function that returns an instance]
 
-	// CONV [map::insert_or_assign] -> [nk_slist_add_by_force]
-	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry));
-	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));// FIX: add_or_panic
-	
+	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
+	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry)))) {
+		panic("AddCallocToAllocationTable: nk_map_insert failed on address %p\n", address);
+	}
+
 	return;
 }
 
@@ -120,9 +108,10 @@ void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t le
 	allocationMap->erase(address); // FIX
 	allocEntry *newEntry = allocEntry(newAddress, length); // CONV [class constructor] -> [function that returns an instance]
 
-	// CONV [map::insert_or_assign] -> [nk_slist_add_by_force]
-	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) newAddress), ((uintptr_t) newEntry));
-	nk_slist_add_by_force(uintptr_t, allocationMap, ((uintptr_t) pair));// FIX: add_or_panic
+	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
+	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) newAddress), ((uintptr_t) newEntry)))) {
+		panic("HandleReallocToAllocationTable: nk_map_insert failed on newAddress %p\n", newAddress);
+	}
 	
 	return;
 }
@@ -148,7 +137,7 @@ allocEntry* findAllocEntry(void *address){
 
 	// CONV [brian] -> [better than brian] 
 	
-	__auto_type prospective = nk_slist_better_lower_bound(uintptr_t, allocationMap, (uintptr_t) address);
+	__auto_type *prospective = nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
 
 	/* 
 	 * [prospective] -> [findAllocEntry return]:
@@ -159,7 +148,9 @@ allocEntry* findAllocEntry(void *address){
 
 	// better_lower_bound may return the left sential if the address is 
 	// lower than all addresses that exist in the skip list (edge case)
-	if (nk_slist_is_left_sentinal(prospective)) { return NULL; }
+	
+	// FIX --- engineering issue
+	if (!(prospective->second)) { return NULL; }
 
 	// Gather length of the block
 	allocEntry *prospective_entry = ((allocEntry *) prospective->second); 
@@ -183,7 +174,7 @@ void processEscapeWindow(){
 		// CONV [processedEscapes.find() ... != processedEscapes.end()] -> [nk_slist_find]
 		if (nk_slist_find(((uintptr_t) addressEscaping))) { continue; }	
 
-		// CONV [map::insert] -> [nk_slist_add]
+		// CONV [unordered_set::insert] -> [nk_slist_add]
 		nk_slist_add(uintptr_t, processedEscapes, ((uintptr_t) addressEscaping));
 
  		if (addressEscaping == NULL) { continue; }
@@ -191,9 +182,8 @@ void processEscapeWindow(){
 		// FIX --- Dereferencing a void * in C --- ????
 		allocEntry *alloc = findAllocEntry(*addressEscaping); // CONV [auto] -> [allocEntry*]
 
-		if(alloc == NULL){ // CONV [nullptr] -> [NULL]
-			continue;
-		}
+		// CONV [nullptr] -> [NULL]
+		if (!alloc) { continue; }
 
 		// We have found block
 		// 
@@ -203,7 +193,7 @@ void processEscapeWindow(){
 		// One can reverse engineer the starting point if the length is longer than 1
 		// by subtracting from value in dereferenced addressEscapingTo
 		
-		// CONV [map::insert] -> [nk_slist_add]
+		// CONV [unordered_set::insert] -> [nk_slist_add]
 		nk_slist_add(uintptr_t, (alloc->allocToEscapeMap), ((uintptr_t) addressEscaping));
 	}
 
@@ -213,14 +203,14 @@ void processEscapeWindow(){
 
 // This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void *address){
-	// CONV [map::erase] -> [nk_slist_remove]
-	nk_slist_remove(uintptr_t, allocationMap, (uintptr_t) address)
+	// CONV [map::erase] -> [nk_map_remove]
+	nk_map_remove(allocationMap, uintptr_t, uintptr_t, (uintptr_t) address)
 }
 
 void ReportStatistics(){
 	// CONV [map::size] -> [nk_slist_get_size]
 	// NOTE --- nk_slist_get_size ISN'T implemented yet
-	CARAT_PRINT("Size of Allocation Table: %lu\n", nk_slist_get_size(allocationMap)); 
+	CARAT_PRINT("Size of Allocation Table: %lu\n", nk_map_get_size(allocationMap)); 
 }
 
 
@@ -234,7 +224,7 @@ uint64_t getrsp(){
 void texas_init(){
 	rsp = getrsp();
 	
-	allocationMap = nk_slist_build(uintptr_t, 12); // CONV [new map<void *, allocEntry *>] -> [nk_slist_build(uintptr_t)]
+	allocationMap = nk_map_build(uintptr_t, uintptr_t); // CONV [new map<void *, allocEntry *>] -> [nk_map_build(uintptr_t, uintptr_t)]
 	
 	escapeWindowSize = 1048576;
 	totalEscapeEntries = 0;
@@ -243,10 +233,11 @@ void texas_init(){
 	void* rspVoidPtr = (void*)(rsp-0x800000000ULL);
 	StackEntry = allocEntry(rspVoidPtr, 0x800000000ULL); // CONV [constructor] -> [function that returns an instance]
 
-	// CONV [map::insert_or_assign] -> [nk_slist_add]
-	nk_pair_uintptr_t_uint64_t *pair = NK_PAIR_BUILD(uintptr_t, uintptr_t, ((uintptr_t) rspVoidPtr), ((uintptr_t) StackEntry));
-	nk_slist_add(uintptr_t, allocationMap, ((uintptr_t) pair)); // FIX: add_or_panic
-	
+	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
+	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) rspVoidPtr), ((uintptr_t) StackEntry)))) {
+		panic("texas_init: nk_map_insert failed on rspVoidPtr %p\n", rspVoidPtr);
+	}
+
 	escapeWindow = (void ***) CARAT_MALLOC(escapeWindowSize, sizeof(void *)); // CONV[calloc] -> [CARAT_MALLOC]
 
 	CARAT_PRINT("Leaving texas_init\n");
