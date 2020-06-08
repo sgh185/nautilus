@@ -53,6 +53,7 @@ extern "C" {
 #define RAND_MAGIC 0x7301
 #define SEED srand48(rdtsc() % RAND_MAGIC)
 #define SLIST_TOP_GEAR 8 // Deprecated
+#define DEFAULT_TOP_GEAR 12
 
 #define USED __attribute__((used))
 
@@ -80,8 +81,8 @@ extern "C" {
 		uint8_t gear; /* Number of gears occupied */ \
 	} nk_slist_node_##type; \
 	typedef struct { \
-		nk_slist_node_##type **all_left; \ /* Optimization --- only record the sentinals,
-											  they're all the same anyway */ \
+		nk_slist_node_##type **all_left; /* NEEDS Optimization --- only record the
+										    sentinals, they're all the same anyway */ \
 		nk_slist_node_##type **all_right; \
 		uint64_t size; \
 		uint8_t top_gear; \
@@ -157,9 +158,11 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	/* Set top gear */ \
 	sl->top_gear = tg; \
 	\
+	sl->size = 0; \
+	\
 	/* Sentinals --- build nodes */ \
-	nk_slist_node_##type *left_sentinal = nk_slist_node_build(type, type##_MIN, tg); \
-	nk_slist_node_##type *right_sentinal = nk_slist_node_build(type, type##_MAX, tg); \
+	nk_slist_node_##type *left_sentinal = _nk_slist_node_build(sl, type, type##_MIN, tg); \
+	nk_slist_node_##type *right_sentinal = _nk_slist_node_build(sl, type, type##_MAX, tg); \
 	\
 	/* Set all initial linked-list head and tail pointers */ \
 	int i; \
@@ -180,7 +183,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 }) \
 
 
-#define nk_slist_node_build(type, val, g) ({ \
+#define _nk_slist_node_build(sl, type, val, g) ({ \
 	/* Allocate */ \
 	nk_slist_node_##type *sln = (nk_slist_node_##type *) (SLIST_MALLOC(sizeof(nk_slist_node_##type))); \
 	\
@@ -194,13 +197,20 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	memset(sln->succ_nodes, 0, sizeof(*(sln->succ_nodes))); \
 	memset(sln->pred_nodes, 0, sizeof(*(sln->pred_nodes))); \
 	\
+	/* Increment skiplist size */ \
+	(sl->size)++; \
+	\
 	sln; \
 })
 
-#define nk_slist_node_destroy(sln) ({ \
+#define _nk_slist_node_destroy(sl, sln) ({ \
+	/* Free memory for skiplist node */ \
 	free(sln->succ_nodes); \
 	free(sln->pred_nodes); \
 	free(sln); \
+	\
+	/* Decrement skiplist size */ \
+	(sl->size)--; \
 })
 
 #define nk_slist_destroy(sl) ({ \
@@ -212,7 +222,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	{ \
 		__auto_type *temp = sln; \
 		sln = sln->succ_nodes[0]; \
-		nk_slist_node_destroy(temp); \
+		_nk_slist_node_destroy(sl, temp); \
 	} \
 	\
 	free(sl); \
@@ -225,7 +235,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	found; \
 })
 
-#define nk_slist_add_by_force(type, sl, val) ({ \
+#define nk_slist_add_by_force(type, sl, val, node_ptr) ({ \
 	/* Set up new node */ \
 	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
 	nk_slist_node_##type *ipts[new_gear]; \
@@ -235,9 +245,9 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Set the data anyway for the node if it already exists */ \
-	if (found_node) { found_node->data = val; 0; } \
+	if (found_node) { found_node->data = val; node_ptr = found_node; 0; } \
 	\
-	nk_slist_node_##type *new_node = nk_slist_node_build(type, val, new_gear); \
+	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
 	\
 	/* Set all successor and predecessor links */ \
 	int i; \
@@ -248,10 +258,11 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 		_nk_slist_node_link(new_node, succ_node, i); \
 	} \
 	\
+	node_ptr = new_node; \
 	1; \
 })
 
-#define nk_slist_add(type, sl, val) ({ \
+#define nk_slist_add(type, sl, val, node_ptr) ({ \
 	/* Set up new node */ \
 	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
 	nk_slist_node_##type *ipts[new_gear]; \
@@ -261,9 +272,9 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Not going to add the node if it already exists */ \
-	if (found_node) { 0; } \
+	if (found_node) { node_ptr = found_node; 0; } \
 	\
-	nk_slist_node_##type *new_node = nk_slist_node_build(type, val, new_gear); \
+	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
 	\
 	/* Set all successor and predecessor links */ \
 	int i; \
@@ -274,6 +285,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 		_nk_slist_node_link(new_node, succ_node, i); \
 	} \
 	\
+	node_ptr = new_node; \
 	1; \
 })
 
@@ -292,7 +304,7 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 	} \
 	\
 	/* Free the node */ \
-	nk_slist_node_destroy(found_node); \
+	_nk_slist_node_destroy(sl, found_node); \
 	\
 	1; \
 })
@@ -310,6 +322,16 @@ inline uint8_t _nk_slist_get_rand_gear(uint8_t top_gear)
 #define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0]);
 
 #define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0]);
+
+#define nk_slist_get_left_sentinal(sl) (sl->all_left[0])
+
+#define nk_slist_get_right_sentinal(sl) (sl->all_right[0])
+
+#define nk_slist_is_left_sentinal(sl, node) (nk_slist_get_left_sentinal(sl) == node) 
+
+#define nk_slist_is_right_sentinal(sl, node) (nk_slist_get_right_sentinal(sl) == node) 
+
+#define nk_slist_get_size(sl) (sl->size)
 
 NK_SLIST_DECL(int);
 NK_SLIST_DECL(uint64_t);

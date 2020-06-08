@@ -48,7 +48,7 @@
 	{ \
 		nk_vc_printf("gear %d: ", i); \
 		int j = 0; \
-		__auto_type *iterator = sl->all_gears[i]; \
+		__auto_type *iterator = sl->all_left[i]; \
 		while (iterator != NULL) \
 		{ \
 			nk_vc_printf("%d ", iterator->data); \
@@ -81,7 +81,9 @@ handle_sl (char * buf, void * priv)
 	nk_vc_printf("\nadding elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_add(int, the_list, rand_array[i]);
+		nk_slist_node_int *n;
+		nk_slist_add(int, the_list, rand_array[i], n);
+		nk_vc_printf("n: %d\n", n->data);
 	}	
 	
 	nk_vc_printf("\npost-adding elements...\n");
