@@ -26,7 +26,7 @@
 #include <nautilus/scheduler.h>
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
-#include <nautilus/map.h>
+#include <nautilus/skiplist.h>
 
 #define gen_rand_array(type, len, neg) ({ \
 	SEED; \
@@ -41,20 +41,23 @@
 	rand_array; \
 })
 
-#define print_map(map) ({ \
-	int i = 0; \
+#define print_map(sl) ({ \
+	int i; \
 	nk_vc_printf("\n"); \
-	\
-	nk_slist_node_int *iter; \
-	nk_pair_int_int *pair; \
-	nk_map_foreach(map, int, int, pair, iter) { \
-		i++; \
-		nk_vc_printf("%d) %d : %d\n", i, pair->first, pair->second); \
-		nk_vc_printf("%d\n\n", iter->data); \
+	for (i = 0; i < 1; i++) \
+	{ \
+		/* nk_vc_printf("gear %d: ", i); */ \
+		int j = 0; \
+		__auto_type *iterator = sl->all_left[i]; \
+		while (iterator != NULL) \
+		{ \
+			nk_vc_printf("%d : %d\n", iterator->data->first, iterator->data->second); \
+			iterator = iterator->succ_nodes[i]; \
+			j++; \
+		} \
+		\
+		nk_vc_printf("\nTOTAL: %d\n\n", j); \
 	} \
-	\
-	nk_vc_printf("\nTOTAL: %d\n\n", i); \
-	\
 })
 
 #define NUM_RAND 10
@@ -64,7 +67,7 @@ static int
 handle_map (char * buf, void * priv)
 {
 	nk_vc_printf("map test ...\n");
-	nk_map_int_int *the_map = nk_map_build(int, int);
+	nk_slist_int_int *the_map = nk_map_build(int, int);
 
 	int *keys = gen_rand_array(int, NUM_RAND, 1),
 		*values = gen_rand_array(int, NUM_RAND, 1),
@@ -82,29 +85,26 @@ handle_map (char * buf, void * priv)
 		
 	print_map(the_map);
 
-	/*	
 	nk_vc_printf("\nadding elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_node_int *n;
-		nk_slist_add(int, the_list, rand_array[i], n);
-		nk_vc_printf("n: %d\n", n->data);
+		nk_map_insert(the_map, int, int, keys[i], values[i]);
 	}	
 	
 	nk_vc_printf("\npost-adding elements...\n");
 
-	print_sl(the_list);
+	print_map(the_map);
 	
 	nk_vc_printf("\nremoving elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_remove(int, the_list, rand_array[i]);
+		nk_map_remove(the_map, int, int, keys[i]);
 	}	
 	
 	nk_vc_printf("\npost-removing elements...\n");
 
-	print_sl(the_list);
-	*/
+	print_map(the_map);
+
     return 0;
 }
 

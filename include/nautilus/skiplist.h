@@ -73,6 +73,12 @@ extern "C" {
 #define uintptr_t_MAX ULONG_MAX
 #define uintptr_t_MIN 0
 
+#define uintptr_t_uintptr_t_MAX ULONG_MAX
+#define uintptr_t_uintptr_t_MIN 0
+
+#define int_int_MAX INT_MAX
+#define int_int_MIN INT_MIN
+
 #define NK_SLIST_INIT(type) \
 	typedef struct nk_slist_node_##type { \
 		struct nk_slist_node_##type **succ_nodes; \
@@ -87,6 +93,25 @@ extern "C" {
 		uint64_t size; \
 		uint8_t top_gear; \
 	} nk_slist_##type; \
+
+#define NK_MAP_INIT(kt, vt) \
+	typedef struct nk_pair_##kt##_##vt { \
+		kt first; \
+		vt second; \
+	} nk_pair_##kt##_##vt; \
+	typedef struct nk_slist_node_##kt##_##vt { \
+		struct nk_slist_node_##kt##_##vt **succ_nodes; \
+		struct nk_slist_node_##kt##_##vt **pred_nodes; \
+		struct nk_pair_##kt##_##vt *data; \
+		uint8_t gear; /* Number of gears occupied */ \
+	} nk_slist_node_##kt##_##vt; \
+	typedef struct { \
+		nk_slist_node_##kt##_##vt **all_left; /* NEEDS Optimization --- only record the
+										    	 sentinals, they're all the same anyway */ \
+		nk_slist_node_##kt##_##vt **all_right; \
+		uint64_t size; \
+		uint8_t top_gear; \
+	} nk_slist_##kt##_##vt; \
 
 #define NK_SLIST_DECL(type) \
 	NK_SLIST_INIT(type) \
@@ -126,6 +151,104 @@ extern "C" {
 		\
 		return NULL; \
 	} \
+	\
+	USED static inline nk_slist_node_##type *__nk_slist_node_build_##type(nk_slist_##type *sl, \
+																		  type val, \
+																		  uint8_t g) { \
+		/* Allocate */ \
+		nk_slist_node_##type *sln = (nk_slist_node_##type *) (SLIST_MALLOC(sizeof(nk_slist_node_##type))); \
+		\
+		/* Set fields */ \
+		sln->data = val; \
+		sln->gear = g; \
+		sln->succ_nodes = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * sln->gear)); \
+		sln->pred_nodes = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * sln->gear)); \
+		\
+		/* Zero initialize */ \
+		memset(sln->succ_nodes, 0, sizeof(*(sln->succ_nodes))); \
+		memset(sln->pred_nodes, 0, sizeof(*(sln->pred_nodes))); \
+		\
+		/* Increment skiplist size */ \
+		(sl->size)++; \
+		\
+		return sln; \
+	} \
+	\
+	USED static inline nk_slist_node_##type *_nk_slist_build_sentinal_##type(nk_slist_##type *sl, \
+																	  		 type sval, \
+																	  		 uint8_t tg) { \
+		return __nk_slist_node_build_##type(sl, sval, tg); \
+	}	
+
+#define NK_MAP_DECL(kt, vt) \
+	NK_MAP_INIT(kt, vt) \
+	USED static inline nk_slist_node_##kt##_##vt *_nk_slist_find_worker_##kt##_##vt(nk_pair_##kt##_##vt *val, \
+											  					   		  			nk_slist_node_##kt##_##vt *ipts[], \
+											   					   		  			nk_slist_node_##kt##_##vt *the_gearbox, \
+											   					   		  			uint8_t start_gear, \
+											   					   		  			uint8_t record) { \
+		int i; \
+		nk_slist_node_##kt##_##vt *gearbox = the_gearbox; \
+		\
+		WHILE_DOWNSHIFTING(i, (start_gear - 1)) \
+		{ \
+			nk_slist_node_##kt##_##vt *next_node = gearbox->succ_nodes[i]; \
+			\
+			while (next_node) \
+			{ \
+				if (next_node->data->first < val->first) \
+				{ \
+					/* Throttle */ \
+					next_node = next_node->succ_nodes[i]; \
+					continue; \
+				} \
+				\
+				/* Found the right node */ \
+				if (next_node->data->first == val->first) { return next_node; } \
+				\
+				/* Clutch */ \
+				gearbox = next_node->pred_nodes[i]; \
+				\
+				/* If we want to record insertion points */ \
+				if (record) { ipts[i] = gearbox; } \
+				\
+				break; \
+			} \
+		} \
+		\
+		return NULL; \
+	} \
+	\
+	USED static inline nk_slist_node_##kt##_##vt *__nk_slist_node_build_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
+																		  			nk_pair_##kt##_##vt *pair, \
+																		  			uint8_t g) { \
+		/* Allocate */ \
+		nk_slist_node_##kt##_##vt *sln = (nk_slist_node_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_slist_node_##kt##_##vt))); \
+		\
+		/* Set fields */ \
+		sln->data = pair; \
+		sln->gear = g; \
+		sln->succ_nodes = (nk_slist_node_##kt##_##vt **) (SLIST_MALLOC(sizeof(nk_slist_node_##kt##_##vt *) * sln->gear)); \
+		sln->pred_nodes = (nk_slist_node_##kt##_##vt **) (SLIST_MALLOC(sizeof(nk_slist_node_##kt##_##vt *) * sln->gear)); \
+		\
+		/* Zero initialize */ \
+		memset(sln->succ_nodes, 0, sizeof(*(sln->succ_nodes))); \
+		memset(sln->pred_nodes, 0, sizeof(*(sln->pred_nodes))); \
+		\
+		/* Increment skiplist size */ \
+		(sl->size)++; \
+		\
+		return sln; \
+	} \
+	\
+	USED static inline nk_slist_node_##kt##_##vt *_nk_slist_build_sentinal_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
+																	  	   			   kt sval, \
+																	  	   			   uint8_t tg) { \
+		__auto_type *spair = nk_pair_build_malloc(kt, vt, sval, 0); /* Dummy pair for sentinal */ \
+		return __nk_slist_node_build_##kt##_##vt(sl, spair, tg); \
+	}
+
+
 
 // Skip list internals
 #define _nk_slist_get_rand_gear(top_gear) ({ \
@@ -160,8 +283,8 @@ extern "C" {
 	sl->size = 0; \
 	\
 	/* Sentinals --- build nodes */ \
-	nk_slist_node_##type *left_sentinal = _nk_slist_node_build(sl, type, type##_MIN, tg); \
-	nk_slist_node_##type *right_sentinal = _nk_slist_node_build(sl, type, type##_MAX, tg); \
+	nk_slist_node_##type *left_sentinal = _nk_slist_build_sentinal_##type(sl, type##_MIN, tg); \
+	nk_slist_node_##type *right_sentinal = _nk_slist_build_sentinal_##type(sl, type##_MAX, tg); \
 	\
 	/* Set all initial linked-list head and tail pointers */ \
 	int i; \
@@ -181,26 +304,7 @@ extern "C" {
 	sl; \
 }) \
 
-
-#define _nk_slist_node_build(sl, type, val, g) ({ \
-	/* Allocate */ \
-	nk_slist_node_##type *sln = (nk_slist_node_##type *) (SLIST_MALLOC(sizeof(nk_slist_node_##type))); \
-	\
-	/* Set fields */ \
-	sln->data = val; \
-	sln->gear = g; \
-	sln->succ_nodes = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * sln->gear)); \
-	sln->pred_nodes = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * sln->gear)); \
-	\
-	/* Zero initialize */ \
-	memset(sln->succ_nodes, 0, sizeof(*(sln->succ_nodes))); \
-	memset(sln->pred_nodes, 0, sizeof(*(sln->pred_nodes))); \
-	\
-	/* Increment skiplist size */ \
-	(sl->size)++; \
-	\
-	sln; \
-})
+#define _nk_slist_node_build(sl, type, val, g) __nk_slist_node_build_##type(sl, val, g) 
 
 #define _nk_slist_node_destroy(sl, sln) ({ \
 	/* Free memory for skiplist node */ \
@@ -234,7 +338,7 @@ extern "C" {
 	found; \
 })
 
-#define nk_slist_add_by_force(type, sl, val, node_ptr) ({ \
+#define nk_slist_add_by_force(type, sl, val) ({ \
 	/* Set up new node */ \
 	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
 	nk_slist_node_##type *ipts[new_gear]; \
@@ -244,7 +348,7 @@ extern "C" {
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Set the data anyway for the node if it already exists */ \
-	if (found_node) { found_node->data = val; node_ptr = found_node; 0; } \
+	if (found_node) { found_node->data = val; 0; } \
 	\
 	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
 	\
@@ -257,11 +361,10 @@ extern "C" {
 		_nk_slist_node_link(new_node, succ_node, i); \
 	} \
 	\
-	node_ptr = new_node; \
 	1; \
 })
 
-#define nk_slist_add(type, sl, val, node_ptr) ({ \
+#define nk_slist_add(type, sl, val) ({ \
 	/* Set up new node */ \
 	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
 	nk_slist_node_##type *ipts[new_gear]; \
@@ -271,7 +374,7 @@ extern "C" {
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Not going to add the node if it already exists */ \
-	if (found_node) { node_ptr = found_node; 0; } \
+	if (found_node) { 0; } \
 	\
 	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
 	\
@@ -284,7 +387,6 @@ extern "C" {
 		_nk_slist_node_link(new_node, succ_node, i); \
 	} \
 	\
-	node_ptr = new_node; \
 	1; \
 })
 
@@ -309,18 +411,18 @@ extern "C" {
 })
 
 #define nk_slist_better_lower_bound(type, sl, val) ({ \
-	\
-	nk_slist_node_##type *the_gearbox = sl->all_left[(new_gear) - 1], \
-				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
+	nk_slist_node_##type *ipts[(sl->top_gear)]; \
+	nk_slist_node_##type *the_gearbox = sl->all_left[(sl->top_gear) - 1], \
+				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, (sl->top_gear), 1); \
 	\
 	if (found_node) { found_node; } \
 	\
 	ipts[0]; \
 })	
 
-#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0]);
+#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data);
 
-#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0]);
+#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0], val = iter->data);
 
 #define nk_slist_get_left_sentinal(sl) (sl->all_left[0])
 
@@ -335,6 +437,63 @@ extern "C" {
 NK_SLIST_DECL(int);
 NK_SLIST_DECL(uint64_t);
 NK_SLIST_DECL(uintptr_t);
+
+// --- MAP ---
+#define DEFAULT_TOP_GEAR_MAP 12
+
+#define nk_pair_build_malloc(kt, vt, key, val) ({ \
+	nk_pair_##kt##_##vt *pair = (nk_pair_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_pair_##kt##_##vt))); \
+	pair->first = key; \
+	pair->second = val; \
+	pair; \
+})
+
+#define nk_pair_build(kt, vt, key, val) ({ \
+	nk_pair_##kt##_##vt pair; \
+	pair.first = key; \
+	pair.second = val; \
+	(&pair); \
+})
+
+#define nk_map_build(kt, vt) nk_slist_build(kt##_##vt, DEFAULT_TOP_GEAR_MAP)  
+
+#define nk_map_find(map, kt, vt, key) ({ \
+	__auto_type *pair = nk_pair_build(kt, vt, key, 0); /* Dummy pair */ \
+	__auto_type *found_node = nk_slist_find(kt##_##vt, map, pair); \
+	found_node; \
+})	
+
+#define nk_map_insert(map, kt, vt, key, val) ({ \
+	__auto_type *pair = nk_pair_build_malloc(kt, vt, key, val); \
+	uint8_t status = nk_slist_add(kt##_##vt, map, pair); \
+	status; \
+})	
+
+#define nk_map_insert_by_force(map, kt, vt, key, val) ({ \
+	__auto_type *pair = nk_pair_build_malloc(kt, vt, key, val); \
+	uint8_t status = nk_slist_add_by_force(kt##_##vt, map, pair); \
+	status; \
+})	
+
+#define nk_map_remove(map, kt, vt, key) ({ \
+	__auto_type *pair = nk_pair_build(kt, vt, key, 0); /* Dummy pair */ \
+ 	nk_slist_remove(kt##_##vt, map, pair); \
+})	
+
+#define nk_map_better_lower_bound(map, kt, vt, key) ({ \
+	__auto_type *pair = nk_pair_build(kt, vt, key, 0); /* Dummy pair */ \
+	__auto_type *found_node = nk_slist_better_lower_bound(kt##_##vt, map, pair); \
+	found_node; \
+})	
+
+#define nk_map_foreach(map, val, iter) nk_slist_foreach(map, val, iter)
+
+#define nk_map_reverse(map, val, iter) nk_slist_foreach(map, val, iter)
+
+#define nk_map_get_size(map) nk_slist_get_size(map)
+
+NK_MAP_DECL(int, int);
+NK_MAP_DECL(uintptr_t, uintptr_t);
 
 #ifdef __cplusplus
 }

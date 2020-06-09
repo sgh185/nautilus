@@ -60,7 +60,7 @@
 	} \
 })
 
-#define NUM_RAND 1000
+#define NUM_RAND 10
 #define TOP_GEAR 12 /* (NUM_RAND / 12) */ 
 
 static int
@@ -81,15 +81,26 @@ handle_sl (char * buf, void * priv)
 	nk_vc_printf("\nadding elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
-		nk_slist_node_int *n;
-		nk_slist_add(int, the_list, rand_array[i], n);
-		nk_vc_printf("n: %d\n", n->data);
+		nk_slist_add(int, the_list, rand_array[i]);
 	}	
 	
 	nk_vc_printf("\npost-adding elements...\n");
 
 	print_sl(the_list);
+
+	nk_slist_node_int *iter1;
+	int val1;
+
+	/*	
+	for (iter = the_list->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data) {
+		nk_vc_printf("-> %d\n", val);	
+	}
+	*/
 	
+	nk_slist_foreach(the_list, val1, iter1) {
+		nk_vc_printf("-> %d\n", val1); 
+	}
+
 	nk_vc_printf("\nremoving elements...\n");
 
 	for (i = 0; i < NUM_RAND; i++) {
