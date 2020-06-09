@@ -420,9 +420,9 @@ extern "C" {
 	ipts[0]; \
 })	
 
-#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data);
+#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data)
 
-#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0], val = iter->data);
+#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0], val = iter->data)
 
 #define nk_slist_get_left_sentinal(sl) (sl->all_left[0])
 
