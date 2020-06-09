@@ -199,9 +199,9 @@ void nk_sched_map_threads(int cpu, void (func)(struct nk_thread *t, void *state)
 // for the caller, interrupts will be disabled and the calling thread
 // or interrupt handler will run uninterrupted until it 
 // starts the world again
-void nk_sched_stop_world();
+int nk_sched_stop_world();
 struct nk_thread *nk_sched_get_cur_thread_on_cpu(int cpu);
-void nk_sched_start_world();
+int nk_sched_start_world();
 
 
 // Invoked by interrupt handler wrapper and other code

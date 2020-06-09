@@ -765,11 +765,11 @@ void nk_sched_map_threads(int cpu, void (func)(struct nk_thread *t, void *state)
 }
 
 
-void nk_sched_stop_world()
+int nk_sched_stop_world()
 {
     // this must happen before any of the lookups...
     if (!scheduler_ready) {
-        return;
+        return 0;
     }
 
     
@@ -803,12 +803,13 @@ void nk_sched_stop_world()
     // wait for them all to stop
     nk_counting_barrier(&stop_barrier);
 
+	return 1;
 }
 
-void nk_sched_start_world()
+int nk_sched_start_world()
 {
     if (!scheduler_ready) {
-      return;
+      return 0;
     }
 
     // indicate that we are restarting the world
@@ -820,7 +821,8 @@ void nk_sched_start_world()
     // now allow interrupts again locally
     // so the scheduler can preempt us
     irq_enable_restore(stop_flags);
-    
+   
+   	return 1;	
 }
 
 
