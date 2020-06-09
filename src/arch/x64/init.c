@@ -490,6 +490,8 @@ init (unsigned long mbd,
     nk_vc_start_chardev_console(NAUT_CONFIG_VIRTUAL_CONSOLE_CHARDEV_CONSOLE_NAME);
 #endif
 
+	// Placed with some intelligence
+	texas_init();
 
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
     nk_partition_init(naut);

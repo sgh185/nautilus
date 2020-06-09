@@ -55,7 +55,7 @@ extern "C" {
 #define SLIST_TOP_GEAR 8 // Deprecated
 #define DEFAULT_TOP_GEAR 12
 
-#define USED __attribute__((used))
+#define NO_CARAT __attribute__((used, annotate("nocarat")))
 
 #define UPSHIFT(g) g++
 #define WHILE_DOWNSHIFTING(i, start) for (i = start; i >= 0; i--)
@@ -115,7 +115,7 @@ extern "C" {
 
 #define NK_SLIST_DECL(type) \
 	NK_SLIST_INIT(type) \
-	USED static inline nk_slist_node_##type *_nk_slist_find_worker_##type(type val, \
+	NO_CARAT static inline nk_slist_node_##type *_nk_slist_find_worker_##type(type val, \
 											  					   		  nk_slist_node_##type *ipts[], \
 											   					   		  nk_slist_node_##type *the_gearbox, \
 											   					   		  uint8_t start_gear, \
@@ -152,7 +152,7 @@ extern "C" {
 		return NULL; \
 	} \
 	\
-	USED static inline nk_slist_node_##type *__nk_slist_node_build_##type(nk_slist_##type *sl, \
+	NO_CARAT static inline nk_slist_node_##type *__nk_slist_node_build_##type(nk_slist_##type *sl, \
 																		  type val, \
 																		  uint8_t g) { \
 		/* Allocate */ \
@@ -174,7 +174,7 @@ extern "C" {
 		return sln; \
 	} \
 	\
-	USED static inline nk_slist_node_##type *_nk_slist_build_sentinal_##type(nk_slist_##type *sl, \
+	NO_CARAT static inline nk_slist_node_##type *_nk_slist_build_sentinal_##type(nk_slist_##type *sl, \
 																	  		 type sval, \
 																	  		 uint8_t tg) { \
 		return __nk_slist_node_build_##type(sl, sval, tg); \
@@ -182,7 +182,7 @@ extern "C" {
 
 #define NK_MAP_DECL(kt, vt) \
 	NK_MAP_INIT(kt, vt) \
-	USED static inline nk_slist_node_##kt##_##vt *_nk_slist_find_worker_##kt##_##vt(nk_pair_##kt##_##vt *val, \
+	NO_CARAT static inline nk_slist_node_##kt##_##vt *_nk_slist_find_worker_##kt##_##vt(nk_pair_##kt##_##vt *val, \
 											  					   		  			nk_slist_node_##kt##_##vt *ipts[], \
 											   					   		  			nk_slist_node_##kt##_##vt *the_gearbox, \
 											   					   		  			uint8_t start_gear, \
@@ -219,7 +219,7 @@ extern "C" {
 		return NULL; \
 	} \
 	\
-	USED static inline nk_slist_node_##kt##_##vt *__nk_slist_node_build_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
+	NO_CARAT static inline nk_slist_node_##kt##_##vt *__nk_slist_node_build_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
 																		  			nk_pair_##kt##_##vt *pair, \
 																		  			uint8_t g) { \
 		/* Allocate */ \
@@ -241,7 +241,7 @@ extern "C" {
 		return sln; \
 	} \
 	\
-	USED static inline nk_slist_node_##kt##_##vt *_nk_slist_build_sentinal_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
+	NO_CARAT static inline nk_slist_node_##kt##_##vt *_nk_slist_build_sentinal_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
 																	  	   			   kt sval, \
 																	  	   			   uint8_t tg) { \
 		__auto_type *spair = nk_pair_build_malloc(kt, vt, sval, 0); /* Dummy pair for sentinal */ \

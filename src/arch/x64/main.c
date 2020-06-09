@@ -24,7 +24,7 @@
 
 #include <arch/x64/init.h>
 
-volatile int dummy_global = 42;
+// volatile int dummy_global = 42;
 
 /*
  * 2nd two parameters are 
@@ -35,9 +35,9 @@ main (unsigned long mbd,
       unsigned long magic)
 
 {
-	volatile int dummy_computation = dummy_global * 24,
-			 	 a = 446;
-	dummy_computation += a;
+	// volatile int dummy_computation = dummy_global * 24,
+	//		 	 a = 446;
+	// dummy_computation += a;
     init(mbd, magic);
-	dummy_global = dummy_computation * 3;
+	// dummy_global = dummy_computation * 3;
 }

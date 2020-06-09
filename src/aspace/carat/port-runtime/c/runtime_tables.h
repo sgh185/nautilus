@@ -42,6 +42,14 @@
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__
 
+#define DB(x) outb(x, 0xe9)
+#define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
+#define DHB(x) DHN(x >> 4) ; DHN(x);
+#define DHW(x) DHB(x >> 8) ; DHB(x);
+#define DHL(x) DHW(x >> 16) ; DHW(x);
+#define DHQ(x) DHL(x >> 32) ; DHL(x);
+#define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
+
 // All useful macros
 #define DO_CARAT_PRINT 0
 #if DO_CARAT_PRINT
@@ -52,6 +60,9 @@
 
 #define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 #define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
+
+
+#define CHECK_CARAT_READY if (!carat_ready) { return; }
 
 // CONV [class] -> [typedef struct]
 typedef struct allocEntry_t {
@@ -84,6 +95,9 @@ extern uint64_t totalEscapeEntries;
 // void** escape = a;
 // void*** escapeWindow = [escape, escape, escape... etc] (an array of escapes)
 extern void ***escapeWindow;
+
+
+extern int carat_ready; 
 
 void texas_init();
 

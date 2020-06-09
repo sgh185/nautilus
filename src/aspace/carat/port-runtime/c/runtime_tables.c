@@ -47,6 +47,8 @@ uint64_t escapeWindowSize = 0;
 uint64_t totalEscapeEntries = 0;
 void*** escapeWindow = NULL; // CONV [nullptr] -> [NULL]
 
+int carat_ready = 0;
+
 // CONV [class with an init constructor] -> [init function] FIX do we need to call this somewhere?
 // TODO: throw this in init, eventually call this with every new address space
 /*
@@ -77,6 +79,8 @@ sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
 }
 
 void AddToAllocationTable(void *address, uint64_t length){
+	CHECK_CARAT_READY
+
 	CARAT_PRINT("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
 
 	allocEntry *newEntry = allocEntrySetup(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
@@ -93,6 +97,7 @@ void AddToAllocationTable(void *address, uint64_t length){
 }
 
 void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntry){
+	CHECK_CARAT_READY
 	uint64_t length = len * sizeOfEntry;
 	allocEntry *newEntry = allocEntrySetup(address, length); // CONV [class constructor] -> [function that returns an instance]
 
@@ -105,7 +110,8 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 }
 
 void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t length){
-    nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)); // CONV [map::erase] -> [nk_map_remove]
+	CHECK_CARAT_READY
+	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)); // CONV [map::erase] -> [nk_map_remove]
 	allocEntry *newEntry = allocEntrySetup(newAddress, length); // CONV [class constructor] -> [function that returns an instance]
 
 	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
@@ -123,6 +129,7 @@ void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t le
  * 2) If found (the addressEscaping variable falls within one of the blocks), then a new entry into the escape table is made consisting of the addressEscapingTo, the addressEscaping, and the length of the addressEscaping (for optimzation if consecutive escapes occur)
  */
 void AddToEscapeTable(void* addressEscaping){
+	CHECK_CARAT_READY
 	if(totalEscapeEntries >= escapeWindowSize){
 		processEscapeWindow();
 	}
@@ -203,6 +210,7 @@ void processEscapeWindow(){
 
 // This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void *address){
+	CHECK_CARAT_READY
 	// CONV [map::erase] -> [nk_map_remove]
 	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
 }
@@ -225,7 +233,9 @@ void texas_init(){
 	rsp = getrsp();
 	
 	allocationMap = nk_map_build(uintptr_t, uintptr_t); // CONV [new map<void *, allocEntry *>] -> [nk_map_build(uintptr_t, uintptr_t)]
-	
+
+	DS("texas"); 
+
 	escapeWindowSize = 1048576;
 	totalEscapeEntries = 0;
 
@@ -240,7 +250,10 @@ void texas_init(){
 
 	escapeWindow = (void ***) CARAT_MALLOC(escapeWindowSize * sizeof(void *)); // CONV[calloc] -> [CARAT_MALLOC]
 
-	CARAT_PRINT("Leaving texas_init\n");
+	// CARAT_PRINT("Leaving texas_init\n");
+
+	carat_ready = 1; // WORST DESIGN EVER
+
 	return;
 }
 

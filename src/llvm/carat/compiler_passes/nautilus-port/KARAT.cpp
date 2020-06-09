@@ -40,6 +40,29 @@ struct CAT : public ModulePass
     {
         Utils::ExitOnInit();
 
+        /*
+         * Find all functions with special "nohook" attributes and add
+         * NoInline attributes to those functions as well --- prevent indirect
+         * injections that may occur via inlining
+         */
+        GlobalVariable *GV = M.getGlobalVariable(ANNOTATION);
+        if (GV == nullptr)
+        {
+            errs() << "Annotation not found\n";
+            return false;
+        }
+        
+        vector<Function *> AnnotatedFunctions;
+        Utils::GatherAnnotatedFunctions(GV, AnnotatedFunctions);
+        for (auto AF : AnnotatedFunctions)
+        {
+            if (AF == nullptr)
+                continue;
+            
+            AF->addFnAttr(Attribute::NoInline);
+            ImportantMethodNames.push_back(AF->getName());
+        }
+
         return false;
     }
 
@@ -62,18 +85,14 @@ struct CAT : public ModulePass
             NecessaryMethods[InjectionName] = F;
         }
 
-        // Storing method names to avoid in the bitcode source
-        std::unordered_map<std::string, int> FunctionMap;
-        populateLibCallMap(&FunctionMap);
-
         // --- END SET UP ---
 
         // --- Allocation tracking ---
-        AllocationHandler *AH = new AllocationHandler(&M, &FunctionMap);
+        AllocationHandler *AH = new AllocationHandler(&M);
         AH->Inject();
 
         // // --- Escapes tracking ---
-        EscapesHandler *EH = new EscapesHandler(&M, &FunctionMap);
+        EscapesHandler *EH = new EscapesHandler(&M);
         EH->Inject(); // Only memory uses
 
         // // --- Protection ---
