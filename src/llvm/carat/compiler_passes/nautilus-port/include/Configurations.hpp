@@ -80,8 +80,8 @@ extern const string UPPER_BOUND;
 // Important/necessary methods/method names to track
 extern unordered_map<string, Function *> NecessaryMethods;
 extern const vector<string> ImportantMethodNames;
+extern const unordered_map<string, int> TargetMethods;
 
 // Extra utility methods --- FIX --- NEED TO REFACTOR
 uint64_t findStructSize(Type *sType);
 uint64_t findArraySize(Type *aType);
-void populateLibCallMap(std::unordered_map<std::string, int> *functionCalls);

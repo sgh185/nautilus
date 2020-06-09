@@ -28,14 +28,12 @@
 
 #include "../include/Escapes.hpp"
 
-EscapesHandler::EscapesHandler(Module *M, 
-                               std::unordered_map<std::string, int> *FunctionMap)
+EscapesHandler::EscapesHandler(Module *M)
 {
     DEBUG_INFO("--- Protections Constructor ---\n");
 
     // Set state
     this->M = M;
-    this->FunctionMap = FunctionMap;
 
     // Set up data structures
     this->MemUses = std::vector<Instruction *>();
@@ -47,7 +45,7 @@ void EscapesHandler::_getAllNecessaryInstructions()
 {
     for (auto &F : *M)
     {
-        if ((FunctionMap->find(F.getName()) != FunctionMap->end()) 
+        if ((TargetMethods.find(F.getName()) != TargetMethods.end()) 
             || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
             || (F.isIntrinsic()) 
             || (!(F.getInstructionCount())))
@@ -107,7 +105,7 @@ void EscapesHandler::Inject()
         ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
 
         // Build the call instruction to CARAT escape
-        CallInst *AddToAllocationTable = MUBuilder.CreateCall(CARATEscape, LLVMCallArgs);
+        CallInst *AddToEscapeTable = MUBuilder.CreateCall(CARATEscape, LLVMCallArgs);
     }
 
     return;

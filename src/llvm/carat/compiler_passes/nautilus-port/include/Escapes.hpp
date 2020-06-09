@@ -33,8 +33,7 @@ using namespace llvm;
 class EscapesHandler
 {
 public:
-    EscapesHandler(Module *M,
-                   std::unordered_map<std::string, int> *FunctionMap);
+    EscapesHandler(Module *M);
 
     // Injection methods
     void Inject();
@@ -42,7 +41,6 @@ public:
 private:
     // Initial state
     Module *M;
-    std::unordered_map<std::string, int> *FunctionMap;
 
     // Analyzed state
     std::vector<Instruction *> MemUses;

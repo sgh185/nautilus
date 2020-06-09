@@ -33,8 +33,7 @@ using namespace llvm;
 class AllocationHandler
 {
 public:
-    AllocationHandler(Module *M, 
-                      std::unordered_map<std::string, int> *FunctionMap);
+    AllocationHandler(Module *M);
 
     // Injection methods
     void Inject(); // Injection driver
@@ -48,8 +47,7 @@ private:
     // Initial state
     Module *M;
     Function *Main;
-    std::unordered_map<std::string, int> *FunctionMap;
-
+    
     // Analyzed state
     std::unordered_map<GlobalValue *, uint64_t> Globals;
     std::vector<Instruction *> Mallocs;

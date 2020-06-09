@@ -28,14 +28,12 @@
 
 #include "../include/Allocation.hpp"
 
-AllocationHandler::AllocationHandler(Module *M, 
-                                     std::unordered_map<std::string, int> *FunctionMap)
+AllocationHandler::AllocationHandler(Module *M)
 {
     DEBUG_INFO("--- Allocation Constructor ---\n");
 
     // Set state
     this->M = M;
-    this->FunctionMap = FunctionMap;
     this->Main = M->getFunction("main");
     if (this->Main == nullptr) { abort(); }
 
@@ -69,7 +67,7 @@ void AllocationHandler::_getAllNecessaryInstructions()
     // respective types.
     for (auto &F : *M)
     {
-        if ((FunctionMap->find(F.getName()) != FunctionMap->end()) 
+        if ((TargetMethods.find(F.getName()) != TargetMethods.end()) 
             || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
             || (F.isIntrinsic()) 
             || (!(F.getInstructionCount())))
@@ -121,7 +119,7 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
                             DEBUG_INFO(funcName + "\n");
 
-                            int32_t val = (*FunctionMap)[funcName];
+                            int32_t val = TargetMethods[funcName];
 
                             switch (val)
                             {
