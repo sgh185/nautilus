@@ -98,3 +98,65 @@ IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
 
     return Builder;
 }
+
+/*
+ * GatherAnnotatedFunctions
+ * 
+ * A user can mark a function in Nautilus with a function attribute to
+ * prevent injections into the function. For example, it would be unwise
+ * to inject calls to nk_time_hook_fire into nk_time_hook_fire itself. Users
+ * should use the annotate attribute with the string "nohook" in order 
+ * to prevent injections.
+ * 
+ * This method parses the global annotations array in the resulting bitcode
+ * and collects all functions that have been annotated with the "nohook"
+ * attribute. These functions will not have injections.
+ * 
+ */
+
+void Utils::GatherAnnotatedFunctions(GlobalVariable *GV, 
+                                     vector<Function *> &AF)
+{
+    // First operand is the global annotations array --- get and parse
+    // NOTE --- the fields have to be accessed through VALUE->getOperand(0),
+    // which appears to be a layer of indirection for these values
+    auto *AnnotatedArr = cast<ConstantArray>(GV->getOperand(0));
+
+    for (auto OP = AnnotatedArr->operands().begin(); OP != AnnotatedArr->operands().end(); OP++)
+    {
+        // Each element in the annotations array is a ConstantStruct --- its
+        // fields can be accessed through the first operand (indirection). There are two
+        // fields --- Function *, GlobalVariable * (function ptr, annotation)
+
+        auto *AnnotatedStruct = cast<ConstantStruct>(OP);
+        auto *FunctionAsStructOp = AnnotatedStruct->getOperand(0)->getOperand(0);         // first field
+        auto *GlobalAnnotationAsStructOp = AnnotatedStruct->getOperand(1)->getOperand(0); // second field
+
+        // Set the function and global, respectively. Both have to exist to
+        // be considered.
+        Function *AnnotatedF = dyn_cast<Function>(FunctionAsStructOp);
+        GlobalVariable *AnnotatedGV = dyn_cast<GlobalVariable>(GlobalAnnotationAsStructOp);
+
+        if (AnnotatedF == nullptr || AnnotatedGV == nullptr)
+            continue;
+
+        // Check the annotation --- if it matches the ANNOTATION global in the
+        // pass --- push back to apply (X) transform as necessary later
+        ConstantDataArray *ConstStrArr = dyn_cast<ConstantDataArray>(AnnotatedGV->getOperand(0));
+        if (ConstStrArr == nullptr)
+            continue;
+
+        if (ConstStrArr->getAsCString() != NOCARAT)
+            continue;
+
+        AF.push_back(AnnotatedF);
+    }
+
+    // Debug::PrintFNames(AF);
+    for (auto F : AF)
+    {
+        errs() << "Annotated: " + F->getName() << "\n";
+    }
+
+    return;
+}

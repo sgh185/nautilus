@@ -46,6 +46,9 @@ namespace Utils
     // Injection
     IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint);
     IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint);
+
+    // NO_CARAT handling
+    void GatherAnnotatedFunctions(GlobalVariable *GV, vector<Function *> &AF);
 } 
 
 namespace Debug

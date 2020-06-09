@@ -37,22 +37,28 @@ const string CARAT_MALLOC = "AddToAllocationTable",
              CARAT_ESCAPE = "AddToEscapeTable",
              PANIC_STRING = "LLVM_panic_string",
              LOWER_BOUND = "lower_bound",
-             UPPER_BOUND = "upper_bound";
+             UPPER_BOUND = "upper_bound",
+             TEXAS_INIT = "texas_init",
+             ENTRY_SETUP = "allocEntrySetup",
+             ANNOTATION = "llvm.global.annotations",
+             NOCARAT = "nocarat";
 
 // Important/necessary methods/method names to track
 unordered_map<string, Function *> NecessaryMethods = unordered_map<string, Function *>();
-const vector<string> ImportantMethodNames = {CARAT_MALLOC, 
+vector<string> ImportantMethodNames = {CARAT_MALLOC, 
                                              CARAT_REALLOC, 
                                              CARAT_CALLOC,
                                              CARAT_REMOVE_ALLOC, 
                                              CARAT_STATS,
-                                             CARAT_ESCAPE};
+                                             CARAT_ESCAPE,
+                                             TEXAS_INIT,
+                                             ENTRY_SETUP};
 
-const unordered_map<string, int> TargetMethods = {
-    { "kmem_malloc" : 2 }, 
-    { "kmem_mallocz" : 2 }, 
-    { "kmem_realloc" : 3 },
-    { "kmem_free" : 1 }
+unordered_map<string, int> TargetMethods = {
+    { "kmem_malloc",  2 }, 
+    { "kmem_mallocz",  2 }, 
+    { "kmem_realloc",  4 },
+    { "kmem_free", 1 }
 };
 
 // Other methods --- FIX --- NEED TO REFACTOR

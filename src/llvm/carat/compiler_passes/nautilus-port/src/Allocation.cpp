@@ -31,6 +31,7 @@
 AllocationHandler::AllocationHandler(Module *M)
 {
     DEBUG_INFO("--- Allocation Constructor ---\n");
+    VERIFY_DEBUG_INFO("--- Allocation Constructor ---\n");
 
     // Set state
     this->M = M;
@@ -51,7 +52,11 @@ AllocationHandler::AllocationHandler(Module *M)
 
 void AllocationHandler::Inject()
 {
+
+#if HANDLE_MAIN
     AddAllocationTableCallToMain();
+#endif
+
     InjectMallocCalls();
     InjectCallocCalls();
     InjectReallocCalls();
@@ -112,68 +117,65 @@ void AllocationHandler::_getAllNecessaryInstructions()
                     //Continue if fails
                     if (fp != nullptr)
                     {
-                        if (fp->empty()) // Suspicious
+                        // name is fp->getName();
+                        StringRef funcName = fp->getName();
+
+                        DEBUG_INFO(funcName + "\n");
+                        
+                        int32_t val = TargetMethods[funcName];
+
+                        switch (val)
                         {
-                            // name is fp->getName();
-                            StringRef funcName = fp->getName();
+                        case NULL: // Did not find the function, error
+                        {
+                            /*
 
-                            DEBUG_INFO(funcName + "\n");
+                            if (FunctionsToAvoid.find(funcName) == FunctionsToAvoid.end())
+                            {
+                                errs() << "The following function call is external to the program and not accounted for in our map " << funcName << "\n";
+                                FunctionsToAvoid.insert(funcName);
+                            }
+                            
+                            */
 
-                            int32_t val = TargetMethods[funcName];
+                            DEBUG_INFO("The following function call is external to the program and not accounted for in our map "
+                                        + funcName + "\n");
 
-                            switch (val)
-                            {
-                            case NULL: // Did not find the function, error
-                            {
-                                /*
+                            // Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
+                            // Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
+                            // If we go the prompt route then we should change the below statements to simply if statements.
 
-                                if (FunctionsToAvoid.find(funcName) == FunctionsToAvoid.end())
-                                {
-                                    errs() << "The following function call is external to the program and not accounted for in our map " << funcName << "\n";
-                                    FunctionsToAvoid.insert(funcName);
-                                }
-                                
-                                */
-
-                                DEBUG_INFO("The following function call is external to the program and not accounted for in our map "
-                                           + funcName + "\n");
-
-                                // Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
-                                // Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
-                                // If we go the prompt route then we should change the below statements to simply if statements.
-
-                                break;
-                            }
-                            case 2: // Function is an allocation instruction
-                            {
-                                Mallocs.push_back(&I);
-                                break;
-                            }
-                            case 3: // Function has the signature of calloc
-                            {
-                                Callocs.push_back(&I);
-                                break;
-                            }
-                            case 4: // Function has the signature of realloc
-                            {
-                                Reallocs.push_back(&I);
-                                break;
-                            }
-                            case 1: //Function is a deallocation instuction
-                            {
-                                Frees.push_back(&I);
-                                break;
-                            }
-                            case -1:
-                            {
-                                DEBUG_INFO("The following function call is external to the program, but the signature of the allocation is not supported (...yet)" + funcName + "\n");
-                                break;
-                            }
-                            default: // Terrible
-                            {
-                                break;
-                            }
-                            }
+                            break;
+                        }
+                        case 2: // Function is an allocation instruction
+                        {
+                            Mallocs.push_back(&I);
+                            break;
+                        }
+                        case 3: // Function has the signature of calloc
+                        {
+                            Callocs.push_back(&I);
+                            break;
+                        }
+                        case 4: // Function has the signature of realloc
+                        {
+                            Reallocs.push_back(&I);
+                            break;
+                        }
+                        case 1: //Function is a deallocation instuction
+                        {
+                            Frees.push_back(&I);
+                            break;
+                        }
+                        case -1:
+                        {
+                            DEBUG_INFO("The following function call is external to the program, but the signature of the allocation is not supported (...yet)" + funcName + "\n");
+                            break;
+                        }
+                        default: // Terrible
+                        {
+                            break;
+                        }
                         }
                     }
                 }
@@ -266,10 +268,12 @@ void AllocationHandler::InjectMallocCalls()
 
     // Set up types necessary for injections
     Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64PtrTy(TheContext, 0);      // For pointer injection
+    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
 
     for (auto MI : Mallocs)
     {
+        errs() << "MI: " << *MI << "\n";
+        
         Instruction *InsertionPoint = MI->getNextNode();
         if (InsertionPoint == nullptr)
         {
@@ -297,6 +301,19 @@ void AllocationHandler::InjectMallocCalls()
 
         // Build the call instruction to CARAT malloc
         CallInst *AddToAllocationTable = MIBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
+
+#if VERIFY
+        if (verifyFunction(*(MI->getFunction()), &(errs())))
+        {
+            VERIFY_DEBUG_INFO("\n");
+            VERIFY_DEBUG_INFO(MI->getFunction()->getName() + "\n");
+            VERIFY_OBJ_INFO((MI->getFunction()));
+            VERIFY_DEBUG_INFO("\n\n\n");
+
+            break;
+        }
+#endif
+
     }
 
     return;
@@ -309,10 +326,12 @@ void AllocationHandler::InjectCallocCalls()
 
     // Set up types necessary for injections
     Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64PtrTy(TheContext, 0);      // For pointer injection
+    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
 
     for (auto CI : Callocs)
     {
+        errs() << "CI: " << *CI << "\n";
+
         Instruction *InsertionPoint = CI->getNextNode();
         if (InsertionPoint == nullptr)
         {
@@ -344,6 +363,19 @@ void AllocationHandler::InjectCallocCalls()
 
         // Build the call instruction to CARAT calloc
         CallInst *AddToAllocationTable = CIBuilder.CreateCall(CARATCalloc, LLVMCallArgs);
+
+#if VERIFY
+        if (verifyFunction(*(CI->getFunction()), &(errs())))
+        {
+            VERIFY_DEBUG_INFO("\n");
+            VERIFY_DEBUG_INFO(CI->getFunction()->getName() + "\n");
+            VERIFY_OBJ_INFO((CI->getFunction()));
+            VERIFY_DEBUG_INFO("\n\n\n");
+
+            break;
+        }
+#endif
+
     }
 
     return;
@@ -356,10 +388,12 @@ void AllocationHandler::InjectReallocCalls()
 
     // Set up types necessary for injections
     Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64PtrTy(TheContext, 0);      // For pointer injection
+    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
 
     for (auto RI : Reallocs)
     {
+        errs() << "RI: " << *RI << "\n";
+        
         Instruction *InsertionPoint = RI->getNextNode();
         if (InsertionPoint == nullptr)
         {
@@ -391,6 +425,19 @@ void AllocationHandler::InjectReallocCalls()
 
         // Build the call instruction to CARAT Realloc
         CallInst *AddToAllocationTable = RIBuilder.CreateCall(CARATRealloc, LLVMCallArgs);
+
+#if VERIFY
+        if (verifyFunction(*(RI->getFunction()), &(errs())))
+        {
+            VERIFY_DEBUG_INFO("\n");
+            VERIFY_DEBUG_INFO(RI->getFunction()->getName() + "\n");
+            VERIFY_OBJ_INFO((RI->getFunction()));
+            VERIFY_DEBUG_INFO("\n\n\n");
+
+            break;
+        }
+#endif 
+
     }
 
     return;
@@ -406,6 +453,8 @@ void AllocationHandler::InjectFreeCalls()
 
     for (auto FI : Frees)
     {
+        errs() << "FI: " << *FI << "\n";
+
         Instruction *InsertionPoint = FI->getNextNode();
         if (InsertionPoint == nullptr)
         {
@@ -429,6 +478,19 @@ void AllocationHandler::InjectFreeCalls()
 
         // Build the call instruction to CARAT Free
         CallInst *AddToAllocationTable = FIBuilder.CreateCall(CARATFree, LLVMCallArgs);
+
+#if VERIFY
+        if (verifyFunction(*(FI->getFunction()), &(errs())))
+        {
+            VERIFY_DEBUG_INFO("\n");
+            VERIFY_DEBUG_INFO(FI->getFunction()->getName() + "\n");
+            VERIFY_OBJ_INFO((FI->getFunction()));
+            VERIFY_DEBUG_INFO("\n\n\n");
+
+            break;
+        }
+#endif
+    
     }
 
     return;

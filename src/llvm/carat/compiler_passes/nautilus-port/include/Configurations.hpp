@@ -40,6 +40,7 @@
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -56,7 +57,9 @@
 // Pass settings
 #define DEBUG 0
 #define FALSE 0
-#define VERIFY 0
+#define VERIFY 1
+
+#define HANDLE_MAIN 0
 
 // Debug
 #define DEBUG_INFO(str) do { if (DEBUG) { errs() << str; } } while (0)
@@ -76,11 +79,15 @@ extern const string CARAT_STATS;
 extern const string CARAT_ESCAPE;
 extern const string LOWER_BOUND;
 extern const string UPPER_BOUND;
+extern const string TEXAS_INIT;
+extern const string ENTRY_SETUP;
+extern const string ANNOTATION;
+extern const string NOCARAT;
 
 // Important/necessary methods/method names to track
 extern unordered_map<string, Function *> NecessaryMethods;
-extern const vector<string> ImportantMethodNames;
-extern const unordered_map<string, int> TargetMethods;
+extern vector<string> ImportantMethodNames;
+extern unordered_map<string, int> TargetMethods;
 
 // Extra utility methods --- FIX --- NEED TO REFACTOR
 uint64_t findStructSize(Type *sType);
