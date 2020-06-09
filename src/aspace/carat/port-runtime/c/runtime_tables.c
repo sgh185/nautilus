@@ -38,7 +38,7 @@
 
 
 //Alloc addr, length
-nk_map_uintptr_t_uintptr_t *allocationMap = NULL; // FIX (for pairs, maps)
+nk_slist_uintptr_t_uintptr_t *allocationMap = NULL; // FIX (for pairs, maps)
 
 allocEntry* StackEntry;
 uint64_t rsp = 0;
@@ -49,15 +49,15 @@ void*** escapeWindow = NULL; // CONV [nullptr] -> [NULL]
 
 // CONV [class with an init constructor] -> [init function] FIX do we need to call this somewhere?
 // TODO: throw this in init, eventually call this with every new address space
+/*
 void texasStartup() {
 	user_init();
 	texas_init();
 } 
-
-void allocationMap_add_or_panic(
+*/
 
 // CONV [class constructor] -> [function that returns an instance]
-allocEntry* allocEntry(void* ptr, uint64_t len){
+allocEntry* allocEntrySetup(void* ptr, uint64_t len){
 	allocEntry* newAllocEntry = (allocEntry*) CARAT_MALLOC(sizeof(allocEntry)); // maybe FIX
 	newAllocEntry->pointer = ptr;
 	newAllocEntry->length = len;
@@ -66,7 +66,7 @@ allocEntry* allocEntry(void* ptr, uint64_t len){
 }
 
 
-int64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
+sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
 	uint64_t blockStart = (uint64_t) allocAddr;
 	if ((escapeVal >= blockStart) && (escapeVal < (blockStart + length))) { // CONV [no ()] -> [()]
 		return escapeVal - blockStart;
@@ -79,7 +79,7 @@ int64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
 void AddToAllocationTable(void *address, uint64_t length){
 	CARAT_PRINT("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
 
-	allocEntry *newEntry = allocEntry(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
+	allocEntry *newEntry = allocEntrySetup(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
 	CARAT_PRINT("Adding to allocationMap\n");
 
 	// CONV [map::insert] -> [nk_map_insert + status check]
@@ -94,7 +94,7 @@ void AddToAllocationTable(void *address, uint64_t length){
 
 void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntry){
 	uint64_t length = len * sizeOfEntry;
-	allocEntry *newEntry = allocEntry(address, length); // CONV [class constructor] -> [function that returns an instance]
+	allocEntry *newEntry = allocEntrySetup(address, length); // CONV [class constructor] -> [function that returns an instance]
 
 	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
 	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry)))) {
@@ -105,8 +105,8 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 }
 
 void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t length){
-	allocationMap->erase(address); // FIX
-	allocEntry *newEntry = allocEntry(newAddress, length); // CONV [class constructor] -> [function that returns an instance]
+    nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)); // CONV [map::erase] -> [nk_map_remove]
+	allocEntry *newEntry = allocEntrySetup(newAddress, length); // CONV [class constructor] -> [function that returns an instance]
 
 	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
 	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) newAddress), ((uintptr_t) newEntry)))) {
@@ -150,16 +150,16 @@ allocEntry* findAllocEntry(void *address){
 	// lower than all addresses that exist in the skip list (edge case)
 	
 	// FIX --- engineering issue
-	if (!(prospective->second)) { return NULL; }
+	if (!(prospective->data->second)) { return NULL; }
 
 	// Gather length of the block
-	allocEntry *prospective_entry = ((allocEntry *) prospective->second); 
+	allocEntry *prospective_entry = ((allocEntry *) prospective->data->second); 
 	uint64_t blockLen = prospective_entry->length; 
 
 	// Could be in the block (return NULL otherwise)
-	if (doesItAlias(prospective->first, blockLen, (uint64_t) address) == -1) { return NULL; }
+	if (doesItAlias(((void **) (prospective->data->first)), blockLen, (uint64_t) address) == -1) { return NULL; }
 
-	return prospective->second;
+	return prospective_entry;
 }
 
 void processEscapeWindow(){
@@ -172,7 +172,7 @@ void processEscapeWindow(){
 		void **addressEscaping = escapeWindow[i];
 
 		// CONV [processedEscapes.find() ... != processedEscapes.end()] -> [nk_slist_find]
-		if (nk_slist_find(((uintptr_t) addressEscaping))) { continue; }	
+		if (nk_slist_find(uintptr_t, processedEscapes, ((uintptr_t) addressEscaping))) { continue; }	
 
 		// CONV [unordered_set::insert] -> [nk_slist_add]
 		nk_slist_add(uintptr_t, processedEscapes, ((uintptr_t) addressEscaping));
@@ -204,7 +204,7 @@ void processEscapeWindow(){
 // This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void *address){
 	// CONV [map::erase] -> [nk_map_remove]
-	nk_map_remove(allocationMap, uintptr_t, uintptr_t, (uintptr_t) address)
+	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
 }
 
 void ReportStatistics(){
@@ -231,14 +231,14 @@ void texas_init(){
 
 	//This adds the stack pointer to a tracked alloc that is length of 32GB which encompasses all programs we run
 	void* rspVoidPtr = (void*)(rsp-0x800000000ULL);
-	StackEntry = allocEntry(rspVoidPtr, 0x800000000ULL); // CONV [constructor] -> [function that returns an instance]
+	StackEntry = allocEntrySetup(rspVoidPtr, 0x800000000ULL); // CONV [constructor] -> [function that returns an instance]
 
 	// CONV [map::insert_or_assign] -> [nk_map_insert_by_force + status check]
 	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) rspVoidPtr), ((uintptr_t) StackEntry)))) {
 		panic("texas_init: nk_map_insert failed on rspVoidPtr %p\n", rspVoidPtr);
 	}
 
-	escapeWindow = (void ***) CARAT_MALLOC(escapeWindowSize, sizeof(void *)); // CONV[calloc] -> [CARAT_MALLOC]
+	escapeWindow = (void ***) CARAT_MALLOC(escapeWindowSize * sizeof(void *)); // CONV[calloc] -> [CARAT_MALLOC]
 
 	CARAT_PRINT("Leaving texas_init\n");
 	return;

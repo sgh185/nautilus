@@ -38,7 +38,6 @@
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
 #include <nautilus/skiplist.h>
-#include <nautilus/map.h>
 
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__
@@ -52,26 +51,26 @@
 #endif
 
 #define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
-#define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;}) 
+#define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 // CONV [class] -> [typedef struct]
 typedef struct allocEntry_t {
     // Pointer to the allocation, size of allocation
-    void *pointer=NULL; // CONV [nullptr] -> [NULL]
-    uint64_t length=0; // CONV [nullptr] -> [NULL]
+    void *pointer; // CONV [nullptr] -> [NULL --- moved to constructor]
+    uint64_t length; // CONV [nullptr] -> [NULL --- moved to constructor]
 
     // Set of all *potential* escapes for this particular
     // allocation, the pointer -> void **
     nk_slist_uintptr_t *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 } allocEntry;
 
-allocEntry* allocEntry(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
+allocEntry* allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
 
 #endif // allocEntry ifndef
 
 // Alloc addr, length
-extern nk_slist_uintptr_t *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t *]
+extern nk_slist_uintptr_t_uintptr_t *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t *]
 
 // Addr Escaping To , allocAddr, length
 extern allocEntry *StackEntry;
@@ -92,16 +91,16 @@ void texas_init();
 uint64_t getrsp();
 
 //Initialize the stack
-extern "C" int stack_init();
-extern "C" void user_init();
+// extern "C" int stack_init();
+// extern "C" void user_init();
 
-void texasStartup(); // CONV [class] -> [init function]
+// void texasStartup(); // CONV [class] -> [init function]
 
 
 // This function will tell us if the escapeAddr aliases with the allocAddr
 // If it does the return value will be at what offset it does
 // If it does not, the return will be -1
-int64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
+sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
 
 void GenerateConnectionGraph();
 
@@ -118,7 +117,7 @@ void HandleReallocInAllocationTable(void *, void *, uint64_t);
  * 1) Search for address escaping within allocation table (an ordered map that contains all current allocations <non overlapping blocks of memory each consisting of an  address and length> made by the program
  * 2) If found (the addressEscaping variable falls within one of the blocks), then a new entry into the escape table is made consisting of the addressEscapingTo, the addressEscaping, and the length of the addressEscaping (for optimzation if consecutive escapes occur)
  */
-void AddToEscapeTable(void *, void *, uint64_t);
+void AddToEscapeTable(void *);
 
 void processEscapeWindow();
 

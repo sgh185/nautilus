@@ -35,7 +35,9 @@
  */ 
 
 #include "runtime_tables.h"
-
+#include <nautilus/nautilus.h>
+#include <nautilus/shell.h>
+#include <nautilus/vc.h>
 
 int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
 
