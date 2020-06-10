@@ -94,6 +94,12 @@ handle_map (char * buf, void * priv)
 	nk_vc_printf("\npost-adding elements...\n");
 
 	print_map(the_map);
+
+	for (i = 0; i < NUM_RAND; i++) {
+		__auto_type *prospective = nk_map_better_lower_bound(the_map, int, int, keys[i] - 50000000);
+		nk_vc_printf("Query: %d, Result: (%d, %d) \n", keys[i] - 50000000, prospective->data->first, prospective->data->second);
+
+	}
 	
 	nk_vc_printf("\nremoving elements...\n");
 

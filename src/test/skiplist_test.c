@@ -88,6 +88,12 @@ handle_sl (char * buf, void * priv)
 
 	print_sl(the_list);
 
+	for (i = 0; i < NUM_RAND; i++) {
+		__auto_type *prospective = nk_slist_better_lower_bound(int, the_list, rand_array[i] + 2);
+		nk_vc_printf("Query: %d, Result: %d \n", rand_array[i] + 2, prospective->data);
+
+	}
+
 	nk_slist_node_int *iter1;
 	int val1;
 

@@ -211,3 +211,24 @@ static struct shell_cmd_impl karat_test_impl = {
 
 nk_register_shell_cmd(karat_test_impl);
 
+
+static int handle_print_table() {
+
+
+    nk_slist_node_uintptr_t_uintptr_t *iter;
+    nk_pair_uintptr_t_uintptr_t *pair;
+    nk_map_foreach(allocationMap, pair, iter) {        
+        nk_vc_printf("%p : %p\n", pair->first, pair->second);
+    }
+
+    return 0;
+}
+
+static struct shell_cmd_impl print_table_impl = {
+    .cmd = "print_table",
+    .help_str = "print_table",
+    .handler = handle_print_table,
+};
+
+nk_register_shell_cmd(print_table_impl);
+
