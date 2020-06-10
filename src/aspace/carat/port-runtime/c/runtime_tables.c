@@ -92,7 +92,15 @@ void AddToAllocationTable(void *address, uint64_t length){
 	}
 
 	CARAT_PRINT("Returning\n");
+	/*
+	nk_vc_printf("AddToAllocationTable: %p\n", address);
 
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) {
+		nk_vc_printf("%p : %p\n", pair->first, pair->second);
+	}
+	*/
 	return;
 }
 
@@ -105,6 +113,7 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 	if (!(nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry)))) {
 		panic("AddCallocToAllocationTable: nk_map_insert failed on address %p\n", address);
 	}
+
 
 	return;
 }
@@ -211,6 +220,15 @@ void processEscapeWindow(){
 // This function will remove an address from the allocation from a free() or free()-like instruction being called
 void RemoveFromAllocationTable(void *address){
 	CHECK_CARAT_READY
+
+	nk_vc_printf("RemoveFromAllocationTable: %p\n", address);
+
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) {
+		nk_vc_printf("%p : %p\n", pair->first, pair->second);
+	}
+
 	// CONV [map::erase] -> [nk_map_remove]
 	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
 }

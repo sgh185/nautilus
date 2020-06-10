@@ -56,6 +56,7 @@ extern "C" {
 #define DEFAULT_TOP_GEAR 12
 
 #define NO_CARAT __attribute__((used, annotate("nocarat")))
+#define NO_CARAT_NO_INLINE __attribute__((used, noinline, annotate("nocarat")))
 
 #define UPSHIFT(g) g++
 #define WHILE_DOWNSHIFTING(i, start) for (i = start; i >= 0; i--)
@@ -178,7 +179,28 @@ extern "C" {
 																	  		 type sval, \
 																	  		 uint8_t tg) { \
 		return __nk_slist_node_build_##type(sl, sval, tg); \
-	}	
+	} \
+	\
+	/* Peter we're sorry */ \
+	NO_CARAT_NO_INLINE static nk_slist_##type *_nk_slist_##type##_malloc() { \
+		return (nk_slist_##type *) (SLIST_MALLOC(sizeof(nk_slist_##type))); \
+	} \
+	NO_CARAT_NO_INLINE static nk_slist_node_##type *_nk_slist_node_##type##_malloc() { \
+		return (nk_slist_node_##type *) (SLIST_MALLOC(sizeof(nk_slist_node_##type))); \
+	} \
+	NO_CARAT_NO_INLINE static nk_slist_node_##type **_nk_slist_node_##type##_array_malloc(uint8_t elm) { \
+		return (nk_slist_node_##type **) (SLIST_MALLOC(elm * (sizeof(nk_slist_node_##type *)))); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_##type##_free(nk_slist_##type *sl) { \
+		free(sl); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_node_##type##_free(nk_slist_node_##type *sln) { \
+		free(sln); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_node_##type##_array_free(nk_slist_node_##type **slna) { \
+		free(slna); \
+	} \
+
 
 #define NK_MAP_DECL(kt, vt) \
 	NK_MAP_INIT(kt, vt) \
@@ -241,15 +263,39 @@ extern "C" {
 		return sln; \
 	} \
 	\
-	NO_CARAT static inline nk_slist_node_##kt##_##vt *_nk_slist_build_sentinal_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
+	/* Peter we're sorry */ \
+	\
+	NO_CARAT_NO_INLINE static nk_slist_##kt##_##vt *_nk_slist_##kt##_##vt##_malloc() { \
+		return (nk_slist_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_slist_##kt##_##vt))); \
+	} \
+	NO_CARAT_NO_INLINE static nk_slist_node_##kt##_##vt *_nk_slist_node_##kt##_##vt##_malloc() { \
+		return (nk_slist_node_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_slist_node_##kt##_##vt))); \
+	} \
+	NO_CARAT_NO_INLINE static nk_slist_node_##kt##_##vt **_nk_slist_node_##kt##_##vt##_array_malloc(uint8_t elm) { \
+		return (nk_slist_node_##kt##_##vt **) (SLIST_MALLOC(elm * (sizeof(nk_slist_node_##kt##_##vt *)))); \
+	} \
+	NO_CARAT_NO_INLINE static nk_pair_##kt##_##vt *_nk_pair_##kt##_##vt##_malloc() { \
+		return (nk_pair_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_pair_##kt##_##vt))); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_##kt##_##vt##_free(nk_slist_##kt##_##vt *sl) { \
+		free(sl); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_node_##kt##_##vt##_free(nk_slist_node_##kt##_##vt *sln) { \
+		free(sln); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_slist_node_##kt##_##vt##_array_free(nk_slist_node_##kt##_##vt **slna) { \
+		free(slna); \
+	} \
+	NO_CARAT_NO_INLINE static void _nk_pair_##kt##_##vt##_free(nk_pair_##kt##_##vt *pair) { \
+		free(pair); \
+	} \
+	NO_CARAT_NO_INLINE static nk_slist_node_##kt##_##vt *_nk_slist_build_sentinal_##kt##_##vt(nk_slist_##kt##_##vt *sl, \
 																	  	   			   kt sval, \
 																	  	   			   uint8_t tg) { \
 		__auto_type *spair = nk_pair_build_malloc(kt, vt, sval, 0); /* Dummy pair for sentinal */ \
 		return __nk_slist_node_build_##kt##_##vt(sl, spair, tg); \
-	}
-
-
-
+ 	} \
+	
 // Skip list internals
 #define _nk_slist_get_rand_gear(top_gear) ({ \
 	uint8_t gear = 1; \
@@ -267,14 +313,14 @@ extern "C" {
 	SEED; \
 	\
 	/* Set up skip list parent structure */ \
-	nk_slist_##type *sl = (nk_slist_##type *) (SLIST_MALLOC(sizeof(nk_slist_##type))); \
+	nk_slist_##type *sl = _nk_slist_##type##_malloc(); \
 	\
 	/* Init gears --- left side */ \
-	sl->all_left = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * tg)); \
+	sl->all_left = _nk_slist_node_##type##_array_malloc(tg); \
 	memset(sl->all_left, 0, sizeof(*(sl->all_left))); \
 	\
 	/* Init gears --- right side */ \
-	sl->all_right = (nk_slist_node_##type **) (SLIST_MALLOC(sizeof(nk_slist_node_##type *) * tg)); \
+	sl->all_right = _nk_slist_node_##type##_array_malloc(tg); \
 	memset(sl->all_right, 0, sizeof(*(sl->all_right))); \
 	\
 	/* Set top gear */ \
@@ -306,17 +352,17 @@ extern "C" {
 
 #define _nk_slist_node_build(sl, type, val, g) __nk_slist_node_build_##type(sl, val, g) 
 
-#define _nk_slist_node_destroy(sl, sln) ({ \
+#define _nk_slist_node_destroy(type, sl, sln) ({ \
 	/* Free memory for skiplist node */ \
-	free(sln->succ_nodes); \
-	free(sln->pred_nodes); \
-	free(sln); \
+	_nk_slist_node_##type##_array_free(sln->succ_nodes); \
+	_nk_slist_node_##type##_array_free(sln->pred_nodes); \
+	_nk_slist_node_##type##_free(sln); \
 	\
 	/* Decrement skiplist size */ \
 	(sl->size)--; \
 })
 
-#define nk_slist_destroy(sl) ({ \
+#define nk_slist_destroy(type, sl) ({ \
 	/* Gather all nodes via bottom gear list */ \
 	__auto_type *sln = sl->all_left[0]; \
 	\
@@ -325,10 +371,10 @@ extern "C" {
 	{ \
 		__auto_type *temp = sln; \
 		sln = sln->succ_nodes[0]; \
-		_nk_slist_node_destroy(sl, temp); \
+		_nk_slist_node_destroy(type, sl, temp); \
 	} \
 	\
-	free(sl); \
+	_nk_slist_##type##_free(sl); \
 })
 
 // Skip list operations
@@ -405,7 +451,7 @@ extern "C" {
 	} \
 	\
 	/* Free the node */ \
-	_nk_slist_node_destroy(sl, found_node); \
+	_nk_slist_node_destroy(type, sl, found_node); \
 	\
 	1; \
 })
@@ -441,8 +487,11 @@ NK_SLIST_DECL(uintptr_t);
 // --- MAP ---
 #define DEFAULT_TOP_GEAR_MAP 12
 
+
 #define nk_pair_build_malloc(kt, vt, key, val) ({ \
-	nk_pair_##kt##_##vt *pair = (nk_pair_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_pair_##kt##_##vt))); \
+	nk_pair_##kt##_##vt *pair = _nk_pair_##kt##_##vt##_malloc(); \
+	/* nk_pair_##kt##_##vt *pair = _nk_pair_##kt##_##vt##_malloc(); */ \
+	/* nk_pair_##kt##_##vt *pair = (nk_pair_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_pair_##kt##_##vt))); */ \
 	pair->first = key; \
 	pair->second = val; \
 	pair; \
