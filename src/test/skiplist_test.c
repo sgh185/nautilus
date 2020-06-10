@@ -82,9 +82,17 @@ handle_sl (char * buf, void * priv)
 
 	for (i = 0; i < NUM_RAND; i++) {
 		nk_slist_add(int, the_list, rand_array[i]);
-	}	
-	
+	}
+
 	nk_vc_printf("\npost-adding elements...\n");
+
+	nk_vc_printf("\nfinding elements...\n");
+
+	for (i = 0; i < NUM_RAND; i++) {
+		__auto_type *found = nk_slist_find(int, the_list, rand_array[i]);
+		if (!found) { nk_vc_printf("can't find node: %d\n", rand_array[i]); continue; }
+		nk_vc_printf("%d\n", found->data);
+	}	
 
 	print_sl(the_list);
 

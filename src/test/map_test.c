@@ -90,14 +90,23 @@ handle_map (char * buf, void * priv)
 	for (i = 0; i < NUM_RAND; i++) {
 		nk_map_insert(the_map, int, int, keys[i], values[i]);
 	}	
+
+	nk_vc_printf("\nfinding elements...\n");
+
+	for (i = 0; i < NUM_RAND; i++) {
+		__auto_type *found = nk_map_find(the_map, int, int, keys[i]);
+		if (!found) { nk_vc_printf("can't find node: %d\n", keys[i]); continue; }
+		nk_vc_printf("%d : %d\n", found->data->first, found->data->second);
+	}	
+
 	
 	nk_vc_printf("\npost-adding elements...\n");
 
 	print_map(the_map);
 
 	for (i = 0; i < NUM_RAND; i++) {
-		__auto_type *prospective = nk_map_better_lower_bound(the_map, int, int, keys[i] - 50000000);
-		nk_vc_printf("Query: %d, Result: (%d, %d) \n", keys[i] - 50000000, prospective->data->first, prospective->data->second);
+		__auto_type *prospective = nk_map_better_lower_bound(the_map, int, int, keys[i]);
+		nk_vc_printf("Query: %d, Result: (%d, %d) \n", keys[i], prospective->data->first, prospective->data->second);
 
 	}
 	
