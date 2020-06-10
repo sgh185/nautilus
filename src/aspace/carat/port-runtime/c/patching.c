@@ -5,12 +5,21 @@ int carat_patch_escapes(allocEntry *entry, void* allocationTarget) {
 
     nk_slist_node_uintptr_t *iter;
     uintptr_t val;
-    nk_slist_foreach((entry->allocToEscapeMap), val, iter) {
-        void** escape = (void**) val;
+    
+	nk_slist_foreach((entry->allocToEscapeMap), val, iter) {
+		nk_vc_printf("d: %lu\n", val); 
+	}	
+	
+	nk_slist_foreach((entry->allocToEscapeMap), val, iter) {
+        
+		
+		void** escape = (void**) val;
         sint64_t offset = doesItAlias(entry->pointer, entry->length, (uint64_t) *escape);
         if(offset >= 0) {
             *escape = (void*) ((sint64_t) allocationTarget + offset);
         }
+
+
     }
 
     return 0;
@@ -119,7 +128,7 @@ int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget) {
     
     memmove(allocationToMove, allocationTarget, entry->length);
     
-    carat_update_entry(entry, allocationTarget);
+    // carat_update_entry(entry, allocationTarget);
 
 
     // Do we need to handle our own stack?
@@ -134,7 +143,8 @@ out_bad:
 }
 
 allocEntry* findRandomAlloc() {
-    uint64_t target = lrand48() % nk_map_get_size(allocationMap), // randomized
+    srand48(29848349); 
+	uint64_t target = lrand48() % nk_map_get_size(allocationMap), // randomized
     		 count = 0;
 
 	/* *** CONFIRM *** */
@@ -161,6 +171,11 @@ allocEntry* findRandomAlloc() {
     return 0;
 }
 
+__attribute__((noinline, annotate("nocarat"))) static inline void *_deadbeefbooboo_malloc(uint8_t length)
+{
+	return malloc(length);
+}
+
 // handle shell command
 static int handle_karat_test(char *buf, void *priv)
 {
@@ -176,16 +191,19 @@ static int handle_karat_test(char *buf, void *priv)
             }
             void* old = entry->pointer;
             uint64_t length = entry->length;
-            void* new = malloc(length);
-            
+           	void *new = malloc(length);
+
             if(!new) {
                 nk_vc_printf("Malloc failed.\n");
                 return -1;
             }
             nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, length);
 
-            __asm__ __volatile__("movabsq $0xDEADBEEFB000B000, %r15"); // check if our stack offset is correct
-            if(nk_carat_move_allocation(old, new)) {
+            // __asm__ __volatile__("movabsq $0xDEADBEEFB000B000, %r15"); // check if our stack offset is correct
+
+            nk_vc_printf("Got past the deadbeefbooobooo\n");
+            
+			if(nk_carat_move_allocation(old, new)) {
                 nk_vc_printf("Move failed.\n");
                 return -1;
             }
@@ -214,11 +232,11 @@ nk_register_shell_cmd(karat_test_impl);
 
 static int handle_print_table() {
 
-
     nk_slist_node_uintptr_t_uintptr_t *iter;
     nk_pair_uintptr_t_uintptr_t *pair;
     nk_map_foreach(allocationMap, pair, iter) {        
-        nk_vc_printf("%p : %p\n", pair->first, pair->second);
+        allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", iter, pair->first, the_entry, the_entry->pointer, the_entry->length);
     }
 
     return 0;

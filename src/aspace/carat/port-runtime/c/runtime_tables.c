@@ -152,8 +152,16 @@ void AddToEscapeTable(void* addressEscaping){
 allocEntry* findAllocEntry(void *address){
 
 	// CONV [brian] -> [better than brian] 
-	
+	nk_vc_printf("%lu", (uintptr_t) address);	
 	__auto_type *prospective = nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
+
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+    nk_pair_uintptr_t_uintptr_t *pair;
+    nk_map_foreach(allocationMap, pair, iter) {        
+        allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", iter, pair->first, the_entry, the_entry->pointer, the_entry->length);
+    }
+
 
 	/* 
 	 * [prospective] -> [findAllocEntry return]:
@@ -249,6 +257,14 @@ void RemoveFromAllocationTable(void *address){
 
 	// CONV [map::erase] -> [nk_map_remove]
 	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
+
+	nk_vc_printf("POST TOAST\n");
+	
+	nk_map_foreach(allocationMap, pair, iter) {
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
+	}
+
 }
 
 void ReportStatistics(){
