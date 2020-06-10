@@ -386,7 +386,9 @@ extern "C" {
 
 #define nk_slist_add_by_force(type, sl, val) ({ \
 	/* Set up new node */ \
-	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
+	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear), \
+			status = 0; \
+	\
 	nk_slist_node_##type *ipts[new_gear]; \
 	\
 	/* Find all insertion points */ \
@@ -394,66 +396,81 @@ extern "C" {
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
 	/* Set the data anyway for the node if it already exists */ \
-	if (found_node) { found_node->data = val; 0; } \
+	if (found_node) { found_node->data = val; } \
 	\
-	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
-	\
-	/* Set all successor and predecessor links */ \
-	int i; \
-	for (i = 0; i < new_node->gear; i++) \
-	{ \
-		nk_slist_node_##type *succ_node = ipts[i]->succ_nodes[i]; \
-		_nk_slist_node_link(ipts[i], new_node, i); \
-		_nk_slist_node_link(new_node, succ_node, i); \
+	else { \
+		nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
+		\
+		/* Set all successor and predecessor links */ \
+		int i; \
+		for (i = 0; i < new_node->gear; i++) \
+		{ \
+			nk_slist_node_##type *succ_node = ipts[i]->succ_nodes[i]; \
+			_nk_slist_node_link(ipts[i], new_node, i); \
+			_nk_slist_node_link(new_node, succ_node, i); \
+		} \
+		\
+		/* Set status */ \
+		status = 1; \
 	} \
 	\
-	1; \
+	status; \
 })
 
 #define nk_slist_add(type, sl, val) ({ \
 	/* Set up new node */ \
-	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear); \
+	uint8_t new_gear = _nk_slist_get_rand_gear(sl->top_gear), \
+			status = 0; \
+	\
 	nk_slist_node_##type *ipts[new_gear]; \
 	\
 	/* Find all insertion points */ \
 	nk_slist_node_##type *the_gearbox = sl->all_left[(new_gear) - 1], \
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, new_gear, 1); \
 	\
-	/* Not going to add the node if it already exists */ \
-	if (found_node) { 0; } \
-	\
-	nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
-	\
-	/* Set all successor and predecessor links */ \
-	int i; \
-	for (i = 0; i < new_node->gear; i++) \
-	{ \
-		nk_slist_node_##type *succ_node = ipts[i]->succ_nodes[i]; \
-		_nk_slist_node_link(ipts[i], new_node, i); \
-		_nk_slist_node_link(new_node, succ_node, i); \
+	/* Not going to add the node if it already exists, add otherwise */ \
+	if (!found_node) { \
+		\
+		nk_slist_node_##type *new_node = _nk_slist_node_build(sl, type, val, new_gear); \
+		\
+		/* Set all successor and predecessor links */ \
+		int i; \
+		for (i = 0; i < new_node->gear; i++) \
+		{ \
+			nk_slist_node_##type *succ_node = ipts[i]->succ_nodes[i]; \
+			_nk_slist_node_link(ipts[i], new_node, i); \
+			_nk_slist_node_link(new_node, succ_node, i); \
+		} \
+		\
+		/* Set status */ \
+		status = 1; \
 	} \
-	\
-	1; \
+	status; \
 })
 
 #define nk_slist_remove(type, sl, val) ({ \
+	\
+	uint8_t status = 0; \
 	\
 	/* Find the node */ \
 	nk_slist_node_##type *found_node = nk_slist_find(type, sl, val); \
 	\
 	/* Can't remove anything if the node doesn't exist */ \
-	if (!found_node) { 0; } \
-	\
-	/* Reset all predecessor and successor pointers */ \
-	int i; \
-	for (i = 0; i < found_node->gear; i++) { \
-		_nk_slist_node_link(found_node->pred_nodes[i], found_node->succ_nodes[i], i); \
+	if (found_node) { \
+		\
+		/* Reset all predecessor and successor pointers */ \
+		int i; \
+		for (i = 0; i < found_node->gear; i++) { \
+			_nk_slist_node_link(found_node->pred_nodes[i], found_node->succ_nodes[i], i); \
+		} \
+		\
+		/* Free the node */ \
+		_nk_slist_node_destroy(type, sl, found_node); \
+		\
+		/* Set status */ \
+		status = 1; \
 	} \
-	\
-	/* Free the node */ \
-	_nk_slist_node_destroy(type, sl, found_node); \
-	\
-	1; \
+	status; \
 })
 
 #define nk_slist_better_lower_bound(type, sl, val) ({ \
@@ -461,14 +478,15 @@ extern "C" {
 	nk_slist_node_##type *the_gearbox = sl->all_left[(sl->top_gear) - 1], \
 				  		 *found_node = _nk_slist_find_worker_##type (val, ipts, the_gearbox, (sl->top_gear), 1); \
 	\
-	if (found_node) { found_node; } \
-	\
-	ipts[0]; \
+	nk_slist_node_##type *ret_node = (found_node) ? found_node : ipts[0]; \
+	ret_node; \
 })	
 
-#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data)
+#define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0]->succ_nodes[0], val = iter->data; iter->succ_nodes[0] != NULL; iter = iter->succ_nodes[0], val = iter->data)
 
-#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0], val = iter->data; iter != NULL; iter = iter->pred_nodes[0], val = iter->data)
+// #define nk_slist_foreach(sl, val, iter) for (iter = sl->all_left[0], val = iter->data; iter != NULL; iter = iter->succ_nodes[0], val = iter->data)
+
+#define nk_slist_reverse(sl, val, iter) for (iter = sl->all_right[0]->pred_nodes[0], val = iter->data; iter->pred_nodes[0] != NULL; iter = iter->pred_nodes[0], val = iter->data)
 
 #define nk_slist_get_left_sentinal(sl) (sl->all_left[0])
 
@@ -490,8 +508,6 @@ NK_SLIST_DECL(uintptr_t);
 
 #define nk_pair_build_malloc(kt, vt, key, val) ({ \
 	nk_pair_##kt##_##vt *pair = _nk_pair_##kt##_##vt##_malloc(); \
-	/* nk_pair_##kt##_##vt *pair = _nk_pair_##kt##_##vt##_malloc(); */ \
-	/* nk_pair_##kt##_##vt *pair = (nk_pair_##kt##_##vt *) (SLIST_MALLOC(sizeof(nk_pair_##kt##_##vt))); */ \
 	pair->first = key; \
 	pair->second = val; \
 	pair; \

@@ -165,12 +165,29 @@ allocEntry* findAllocEntry(void *address){
 	// better_lower_bound may return the left sential if the address is 
 	// lower than all addresses that exist in the skip list (edge case)
 	
+	nk_vc_printf("in findAllocEntry\n");
+	nk_vc_printf("prospective: %p\n", prospective);
+	nk_vc_printf("prospective->data: %p\n", prospective->data);
+	nk_vc_printf("prospective->data->first: %p\n", prospective->data->first);
+	
 	// FIX --- engineering issue
 	if (!(prospective->data->second)) { return NULL; }
+	
+	nk_vc_printf("in findAllocEntry --- part 2\n");
+	nk_vc_printf("the address: %p\n", address);
+	
 
 	// Gather length of the block
 	allocEntry *prospective_entry = ((allocEntry *) prospective->data->second); 
+	nk_vc_printf("prospective_entry\n");
+
+	nk_vc_printf("prospective_entry: %p\n", prospective_entry);
+
 	uint64_t blockLen = prospective_entry->length; 
+	
+	nk_vc_printf("prospective --- %p : (%p, %d)\n", prospective->data->first, prospective_entry->pointer, prospective_entry->length);
+
+	nk_vc_printf("blockLen : %d\n", blockLen);
 
 	// Could be in the block (return NULL otherwise)
 	if (doesItAlias(((void **) (prospective->data->first)), blockLen, (uint64_t) address) == -1) { return NULL; }
@@ -226,7 +243,8 @@ void RemoveFromAllocationTable(void *address){
 	nk_slist_node_uintptr_t_uintptr_t *iter;
 	nk_pair_uintptr_t_uintptr_t *pair;
 	nk_map_foreach(allocationMap, pair, iter) {
-		nk_vc_printf("%p : %p\n", pair->first, pair->second);
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
 	}
 
 	// CONV [map::erase] -> [nk_map_remove]
