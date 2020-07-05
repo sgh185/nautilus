@@ -55,6 +55,7 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
+#include <aspace/patching.h>
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
 #endif
@@ -69,6 +70,8 @@
 #include <nautilus/prog.h>
 #include <nautilus/cmdline.h>
 #include <test/test.h>
+
+// #include <aspace/carat/port-runtime/c/runtime_tables.h>
 
 #ifdef NAUT_CONFIG_ASPACES
 #include <nautilus/aspace.h>

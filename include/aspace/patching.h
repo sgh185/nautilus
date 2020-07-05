@@ -34,7 +34,7 @@
  * - CONV: conversion from C++ to C, format: CONV [C++] -> [C]
  */ 
 
-#include "runtime_tables.h"
+#include <aspace/runtime_tables.h>
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
