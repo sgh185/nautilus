@@ -39,6 +39,8 @@
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
 
+#define CARAT_STACK_CHECK 0
+
 int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
 
 int carat_update_entry(allocEntry *entry, void* allocationTarget);
