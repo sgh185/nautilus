@@ -1,6 +1,8 @@
+#!/usr/bin/sh
 # For Peroni
+WLLVM="insert"
 source /project/extra/llvm/9.0.0/enable
-source YOUR_WLLVM_DIR/bin/activate
-# export PATH=~/tools/bin:$PATH # if necessary
+source $(WLLVM)/bin/activate
+export PATH=/home/pdinda/tools/bin:$PATH
 export LLVM_COMPILER=clang
 
