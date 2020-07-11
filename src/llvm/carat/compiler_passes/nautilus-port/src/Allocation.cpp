@@ -122,11 +122,13 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
                         DEBUG_INFO(funcName + "\n");
                         
-                        int32_t val = TargetMethods[funcName];
+                        int32_t val = (TargetMethods.find(funcName) != TargetMethods.end()) ?
+                                      TargetMethods[funcName] :
+                                      0;
 
                         switch (val)
                         {
-                        case NULL: // Did not find the function, error
+                        case 0: // Did not find the function, error
                         {
                             /*
 
