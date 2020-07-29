@@ -53,13 +53,14 @@
 #include <vector>
 #include <unordered_map>
 #include <set>
+#include <cassert>
 
 // Pass settings
 #define DEBUG 0
 #define FALSE 0
 #define VERIFY 1
 
-#define HANDLE_MAIN 0
+#define HANDLE_GLOBALS 1
 
 // Debug
 #define DEBUG_INFO(str) do { if (DEBUG) { errs() << str; } } while (0)

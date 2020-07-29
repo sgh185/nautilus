@@ -35,8 +35,8 @@ AllocationHandler::AllocationHandler(Module *M)
 
     // Set state
     this->M = M;
-    this->Main = M->getFunction("main");
-    if (this->Main == nullptr) { abort(); }
+    this->Init = M->getFunction("texas_init");
+    if (this->Init == nullptr) { abort(); }
 
     // Set up data structures
     this->Globals = std::unordered_map<GlobalValue *, uint64_t>();
@@ -53,8 +53,8 @@ AllocationHandler::AllocationHandler(Module *M)
 void AllocationHandler::Inject()
 {
 
-#if HANDLE_MAIN
-    AddAllocationTableCallToMain();
+#if HANDLE_GLOBALS
+    AddAllocationTableCallToInit();
 #endif
 
     InjectMallocCalls();
@@ -197,7 +197,11 @@ void AllocationHandler::_getAllGlobals()
     {
         // Cannot target LLVM-specific globals
         if ((Global.getName() == "llvm.global_ctors") 
-            || (Global.getName() == "llvm.used"))
+            || (Global.getName() == "llvm.used")
+            || (Global.getName() == "llvm.global.annotations")
+            || (Global.isDeclaration())
+            || (!(Global.hasExactDefinition()))
+            || (Global.isDiscardableIfUnused()))
             { continue; }
 
         uint64_t totalSizeInBytes;
@@ -230,24 +234,32 @@ void AllocationHandler::_getAllGlobals()
     return;
 }
 
-// For globals into main
-void AllocationHandler::AddAllocationTableCallToMain()
+// For globals into init
+void AllocationHandler::AddAllocationTableCallToInit()
 {
     // Set up for IRBuilder, malloc injection
-    Instruction *InsertionPoint = Main->getEntryBlock().getFirstNonPHI();
-    IRBuilder<> MainBuilder = Utils::GetBuilder(Main, InsertionPoint);
+    Instruction *InsertionPoint = Init->back().getTerminator();
+    if (!(isa<ReturnInst>(InsertionPoint))) // Sanity check + hack
+    {
+        errs() << "KARAT: Broken assumption --- back block terminator of texas_init is not return\n";
+        abort();
+    }
 
-    LLVMContext &TheContext = Main->getContext();
+    IRBuilder<> InitBuilder = Utils::GetBuilder(Init, InsertionPoint);
+
+    LLVMContext &TheContext = Init->getContext();
     Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
     Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
 
     for (auto const &[GV, Length] : Globals)
     {
+        if (Length == 0) continue;
+
         // Set up arguments for call instruction to malloc
         std::vector<Value *> CallArgs;
 
         // Build void pointer cast for global
-        Value *PointerCast = MainBuilder.CreatePointerCast(GV, VoidPointerType);
+        Value *PointerCast = InitBuilder.CreatePointerCast(GV, VoidPointerType);
 
         // Add to arguments vector
         CallArgs.push_back(PointerCast);
@@ -257,7 +269,7 @@ void AllocationHandler::AddAllocationTableCallToMain()
         ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
 
         // Build call instruction
-        CallInst *MallocInjection = MainBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
+        CallInst *MallocInjection = InitBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
     }
 
     return;

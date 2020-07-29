@@ -37,7 +37,7 @@ public:
 
     // Injection methods
     void Inject(); // Injection driver
-    void AddAllocationTableCallToMain();
+    void AddAllocationTableCallToInit();
     void InjectMallocCalls();
     void InjectCallocCalls();
     void InjectReallocCalls();
@@ -46,7 +46,7 @@ public:
 private:
     // Initial state
     Module *M;
-    Function *Main;
+    Function *Init;
     
     // Analyzed state
     std::unordered_map<GlobalValue *, uint64_t> Globals;
