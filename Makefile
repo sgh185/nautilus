@@ -14,7 +14,7 @@ BC_NAME:=nautilus.bc
 LL_NAME:=nautilus.ll
 LOOP_LL_NAME:=nautilus_loop_simplify.ll
 OPT_LL_NAME:=nautilus_opt.ll
-
+STRIP_LL_NAME:=nautilus_strip.ll
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -815,6 +815,10 @@ final: $(OPT_LL_NAME)
 	clang $(CFLAGS) -c $(OPT_LL_NAME) -o .nautilus.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
 	rm .nautilus.o
+
+strip: $(OPT_LL_NAME)
+	# Strip debug info from instrumented whole kernel bitcode
+	opt --strip-debug -S $(OPT_LL_NAME) -o $(STRIP_LL_NAME)
 
 ifdef NAUT_CONFIG_USE_WLLVM_WHOLE_OPT
 whole_opt: $(BIN_NAME) # FIX --- should be deprecated 
