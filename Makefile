@@ -8,15 +8,19 @@ NAME=Nautilus
 ISO_NAME:=nautilus.iso
 BIN_NAME:=nautilus.bin
 SYM_NAME:=nautilus.syms
+
+# LLVM IR sources
 BC_NAME:=nautilus.bc
+<<<<<<< HEAD
 LOOP_NAME:=nautilus_loop_simplify.bc
 OPT_NAME:=nautilus_opt.bc
 FINAL_NAME:=nautilus_final.bc
+=======
+>>>>>>> 9815d73... consolidate top level makefile rules for compiler-timing
 LL_NAME:=nautilus.ll
 LOOP_LL_NAME:=nautilus_loop_simplify.ll
 OPT_LL_NAME:=nautilus_opt.ll
 FINAL_LL_NAME:=nautilus_final.ll
-
 
 
 
@@ -798,33 +802,34 @@ nautilus.asm: $(BIN_NAME)
 	$(OBJDUMP) --disassemble $< > $@
 
 ifdef NAUT_CONFIG_USE_WLLVM
+
 bitcode: $(BIN_NAME)
+	# Set up whole kernel bitcode via WLLVM
 	extract-bc $(BIN_NAME) -o $(BC_NAME)
 	llvm-dis $(BC_NAME) -o $(LL_NAME)
 
+# KARAT
+# Build --- scripts/pass_build.sh carat/nautilus-port KARAT.cpp --- FIX
+karat: ~/CAT/lib/CAT.so $(LL_NAME) $(BIN_NAME)
+	# Run select loop simplification passes
+	opt -loop-simplify -lcssa -S $(LL_NAME) -o $(LOOP_LL_NAME)
+	# Run compiler-timing pass	
+	opt -load $< -karat -S $(LOOP_LL_NAME) -o $(OPT_LL_NAME) &> karat.out 
+
+final: $(OPT_LL_NAME)
+	# Recompile (with full opt levels) new object files, binaries
+	clang $(CFLAGS) -c $(OPT_LL_NAME) -o .nautilus.o
+	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
+	rm .nautilus.o
+
 ifdef NAUT_CONFIG_USE_WLLVM_WHOLE_OPT
-whole_opt: $(BIN_NAME)  
+whole_opt: $(BIN_NAME) # FIX --- should be deprecated 
 	extract-bc $(BIN_NAME) -o $(BC_NAME)
 	opt -strip-debug $(BC_NAME)
 	clang $(CFLAGS) -c $(BC_NAME) -o .nautilus.o
 	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
 	rm .nautilus.o
 endif
-
-carat: $(BIN_NAME)
-	# Rebuild bitcode with select loop simplification passes
-	# opt -loop-simplify -lcssa $(BC_NAME) -o $(LOOP_NAME)
-	# llvm-dis $(LOOP_NAME) -o $(LOOP_LL_NAME)	
-	# Run CARAT (allocation pass)
-	# opt -load ~/CAT/lib/CAT.so -TexasAlloc $(LOOP_NAME) -o $(OPT_NAME)
-	# extract-bc $(BIN_NAME) -o $(BC_NAME)
-	# llvm-dis $(BC_NAME) -o $(LL_NAME)
-	opt -load ~/CAT/lib/CAT.so -karat $(BC_NAME) -o $(OPT_NAME)
-	llvm-dis $(OPT_NAME) -o $(OPT_LL_NAME)
-	# Recompile (with full opt levels) new object files, binaries
-	clang $(CFLAGS) -c $(OPT_NAME) -o .nautilus.o
-	$(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $(BIN_NAME) -T $(LD_SCRIPT) .nautilus.o `scripts/findasm.pl`
-	rm .nautilus.o
 
 endif
 # The actual objects are generated when descending, 
