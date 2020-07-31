@@ -1,12 +1,19 @@
 #! /usr/bin/sh
 
-source /project/extra/llvm/9.0.0/enable # For Zythos cluster
+# For peroni
+source /project/extra/llvm/9.0.0/enable
 nwd=$(pwd)
-cd ./src/llvm/compiler-timing/ # Copy the source into the CAT-c directory
-cp ./CompilerTiming.cpp CAT-c/catpass/CatPass.cpp
-cp ./CMakeLists.txt CAT-c/catpass/
-cp -ar ./src/ CAT-c/catpass/
-cp -ar ./include/ CAT-c/catpass/
-cd ./CAT-c/ # Execute from top level Makefile
+
+# Copy the source into the toolchain for build
+cd ./src/llvm/$1/
+
+cp ./driver/$2 ../toolchain/catpass/CatPass.cpp
+cp ./CMakeLists.txt ../toolchain/catpass/
+cp -ar ./src/ ../toolchain/catpass/
+cp -ar ./include/ ../toolchain/catpass/
+
+# Build from the toolchain
+cd ../toolchain 
 ./run_me.sh
+
 cd $nwd # Nautilus working directory --- very suspicious
