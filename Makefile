@@ -11,12 +11,6 @@ SYM_NAME:=nautilus.syms
 
 # LLVM IR sources
 BC_NAME:=nautilus.bc
-<<<<<<< HEAD
-LOOP_NAME:=nautilus_loop_simplify.bc
-OPT_NAME:=nautilus_opt.bc
-FINAL_NAME:=nautilus_final.bc
-=======
->>>>>>> 9815d73... consolidate top level makefile rules for compiler-timing
 LL_NAME:=nautilus.ll
 LOOP_LL_NAME:=nautilus_loop_simplify.ll
 OPT_LL_NAME:=nautilus_opt.ll
