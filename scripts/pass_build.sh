@@ -1,7 +1,7 @@
 #! /usr/bin/sh
 
 # For peroni
-source /project/extra/llvm/9.0.0/enable
+# source /project/extra/llvm/9.0.0/enable
 nwd=$(pwd)
 
 # Copy the source into the toolchain for build
