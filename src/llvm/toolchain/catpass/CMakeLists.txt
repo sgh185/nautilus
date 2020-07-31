@@ -1,10 +1,6 @@
 # Sources
 set(CATPassSrc 
   CatPass.cpp
-  src/LatencyDFA.cpp
-  src/LoopTransform.cpp
-  src/Utils.cpp
-  src/Configurations.cpp
 )
 
 # Compilation flags
