@@ -802,7 +802,7 @@ bitcode: $(BIN_NAME)
 
 # KARAT
 # Build --- scripts/pass_build.sh carat/nautilus-port KARAT.cpp --- FIX
-karat: ~/CAT/lib/CAT.so $(LL_NAME) $(BIN_NAME)
+karat: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
 	# Run select loop simplification passes
 	opt -loop-simplify -lcssa -S $(LL_NAME) -o $(LOOP_LL_NAME)
 	# Run compiler-timing pass	
