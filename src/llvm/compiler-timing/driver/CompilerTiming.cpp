@@ -202,6 +202,7 @@ struct CAT : public ModulePass
             // Inject callbacks at all specified injection locations
             Utils::InjectCallback(InjectionLocations, Routine);
 
+
             // Verify the function hasn't broken LLVM invariants --- if
             // it has, print to standard error
             if (verifyFunction(*Routine, &(errs())))
