@@ -2,6 +2,7 @@ To build pass (from top level directory):
   ./scripts/pass_build.sh compiler-timing CompilerTiming.cpp
 
 To build kernel and apply compiler-timing (from top level directory):
-  make -j ; make bitcode ; make timing ; make isoimage
+  make clean ; make -j ; make bitcode ; make timing ; make final ; make isoimage
 
 NOTE --- kernel compilation must use WLLVM
+NOTE --- to debug the final bitcode: make strip ;
