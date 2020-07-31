@@ -46,13 +46,13 @@ const string CARAT_MALLOC = "AddToAllocationTable",
 // Important/necessary methods/method names to track
 unordered_map<string, Function *> NecessaryMethods = unordered_map<string, Function *>();
 vector<string> ImportantMethodNames = {CARAT_MALLOC, 
-                                             CARAT_REALLOC, 
-                                             CARAT_CALLOC,
-                                             CARAT_REMOVE_ALLOC, 
-                                             CARAT_STATS,
-                                             CARAT_ESCAPE,
-                                             TEXAS_INIT,
-                                             ENTRY_SETUP};
+                                       CARAT_REALLOC, 
+                                       CARAT_CALLOC,
+                                       CARAT_REMOVE_ALLOC, 
+                                       CARAT_STATS,
+                                       CARAT_ESCAPE,
+                                       TEXAS_INIT,
+                                       ENTRY_SETUP};
 
 unordered_map<string, int> TargetMethods = {
     { "kmem_malloc",  2 }, 

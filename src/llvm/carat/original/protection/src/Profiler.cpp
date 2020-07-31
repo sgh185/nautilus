@@ -84,7 +84,7 @@ namespace {
             Type* int32Type = Type::getInt32Ty(MContext);
             Type* int64PtrType = Type::getInt64PtrTy(MContext, 0);
             ConstantInt* ptrNum = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0x22DEADBEEF22, /*bool*/false));
-            Constant* numNowPtr = ConstantExpr::getIntToPtr(ptrNum, int64PtrType, false);
+            Constant* numNowPtr = ConstantExpr::getIntToPtr(ptrNum, int64PtrType, false);s
 
             std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts;
             std::map<Function*, BasicBlock*> functionToEscapeBlock;
@@ -92,6 +92,10 @@ namespace {
                 if (F.empty()) {
                   continue ;
                 }
+
+
+
+            /* ---------------- DATA FLOW ANALYSIS ---------------- */
 
                 /*
                  * Define the GEN and KILL sets.
@@ -247,6 +251,10 @@ namespace {
                 errs() << "DFA: END\n";
                 */
 
+
+
+            /* ---------------- DETERMINE GUARD PLACEMENT ---------------- */
+
                 /*
                  * Define the code that will be executed to identify where to place the guards.
                  */
@@ -363,6 +371,13 @@ namespace {
                   nonOptimizedGuard++;
                   return ;
                 };
+
+
+
+
+
+            /* ---------------- FINDING INSTRUCTIONS TO INSTRUMENT ---------------- */
+
 
                 /*
                  * Check if there is no stack allocations other than those in the first basic block of the function.
@@ -487,7 +502,26 @@ namespace {
                   auto inst = guard.first;
                   //errs() << " " << *inst << "\n";
                 }
+
+
+
+
+
+
             }
+
+
+
+
+
+
+
+            /* ---------------- INJECTION SCHEME ---------------- */
+
+
+
+
+
 
             ConstantInt* constantNum = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0, /*bool*/false));
             ConstantInt* constantNum2 = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0, /*bool*/false));

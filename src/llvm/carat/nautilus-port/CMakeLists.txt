@@ -1,13 +1,17 @@
 # Sources
 set(CATPassSrc 
   CatPass.cpp
+  src/Allocation.cpp
+  src/Escapes.cpp
+  src/Utils.cpp
+  src/Configurations.cpp
 )
 
 # Compilation flags
-set_source_files_properties(${CATPassSrc} PROPERTIES COMPILE_FLAGS " -std=c++17 -fPIC")
+set_source_files_properties(${CATPassSrc} PROPERTIES COMPILE_FLAGS " -std=c++14 -fPIC")
 
 # Name of the LLVM pass
-set(CATPassName "CAT")
+set(CATPassName "KARAT")
 
 # configure LLVM 
 find_package(LLVM REQUIRED CONFIG)

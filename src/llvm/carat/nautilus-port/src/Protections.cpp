@@ -58,6 +58,173 @@ ProtectionsHandler::ProtectionsHandler(Module *M,
     this->_getAllNecessaryInstructions();
 }
 
+
+
+/* 
+ *
+ * --- Loop analysis, transformation, guard selection --- 
+ * 
+ */
+
+void ProtectionsHandler::_findGuardInsertionPoints(Function *F, 
+                                                   DataFlowResult *DFAResult, 
+                                                   Instruction *I,
+                                                   Instruction *PointerOfMemoryInstruction)
+{
+    DEBUG_INFO("\n\n\n");
+
+    /*
+     * Check if the pointer has already been guarded.
+     */
+    auto &INSetOfI = DFAResult->IN(I);
+    if (INSetOfI.find(PointerOfMemoryInstruction) != INSetOfI.end())
+    {
+        DEBUG_INFO("YAY: skip a guard for the instruction: ");
+        OBJ_INFO(I);
+
+        NumRedundantGuards++;
+        
+        return;
+    }
+
+    /*
+     * We have to guard the pointer.
+     *
+     * Check if we can hoist the guard outside the loop.
+     */
+    DEBUG_INFO("XAN: we have to guard the memory instruction: ");
+    OBJ_INFO(I);
+
+    auto added = false;
+    auto nestedLoop = loopInfo.getLoopFor(I->getParent());
+    if (nestedLoop == nullptr)
+    {
+        /*
+         * We have to guard just before the memory instruction.
+         */
+        MemoryInstructions[I] = {I, PointerOfMemoryInstruction};
+        NumNonOptimizedGuards++;
+
+        DEBUG_INFO("XAN:   The instruction doesn't belong to a loop so no further optimizations are available\n");
+        
+        return;
+    }
+
+    DEBUG_INFO("XAN:   It belongs to the loop ");
+    OBJ_INFO(nestedLoop);
+    Instruction *preheaderBBTerminator;
+
+    while (nestedLoop != NULL)
+    {
+        if (false 
+            || nestedLoop->isLoopInvariant(PointerOfMemoryInstruction) 
+            || isa<Argument>(PointerOfMemoryInstruction) 
+            || !isa<Instruction>(PointerOfMemoryInstruction) 
+            || !nestedLoop->contains(cast<Instruction>(PointerOfMemoryInstruction)))
+        {
+            DEBUG_INFO("YAY:   we found an invariant address to check:")
+            OBJ_INFO(I);
+
+            auto preheaderBB = nestedLoop->getLoopPreheader();
+            preheaderBBTerminator = preheaderBB->getTerminator();
+            nestedLoop = loopInfo.getLoopFor(preheaderBB);
+            added = true;
+        }
+        else { break; }
+    }
+
+    if (added)
+    {
+        /*
+         * We can hoist the guard outside the loop.
+         */
+        NumLoopInvariantGuards++;
+        MemoryInstructions[I] = {preheaderBBTerminator, PointerOfMemoryInstruction};
+        
+        return;
+    }
+
+    /*
+     * The memory instruction isn't loop invariant.
+     *
+     * Check if it is based on a bounded scalar evolution.
+     */
+    DEBUG_INFO("XAN:   It cannot be hoisted. Check if it can be merged\n");
+
+    auto scevPtrComputation = scalarEvo.getSCEV(PointerOfMemoryInstruction);
+    DEBUG_INFO("XAN:     SCEV = ");
+    OBJ_INFO(scevPtrComputation);
+
+    if (auto AR = dyn_cast<SCEVAddRecExpr>(scevPtrComputation))
+    {
+        DEBUG_INFO("XAN:       It is SCEVAddRecExpr\n");
+
+        /*
+         * The computation of the pointer is based on a bounded scalar evolution.
+         * This means, the guard can be hoisted outside the loop where the boundaries used in the check go from the lowest to the highest address.
+         */
+        SCEV_CARAT_Visitor visitor{};
+        auto startAddress = numNowPtr; // FIX ---- Iterate over SCEV to fetch 
+                                       // the actual start and end addresses
+
+        // numNowPtr = rsp-8 ideally
+        
+        /*
+
+        // BRIAN --- CHECK
+
+        auto startAddress = visitor.visit((const SCEV *)AR);
+        auto startAddressSCEV = AR->getStart();
+
+        DEBUG_INFO("XAN:         Start address = ");
+        OBJ_INFO(startAddressSCEV);
+
+        Value *startAddress = nullptr;
+        if (auto startGeneric = dyn_cast<SCEVUnknown>(startAddressSCEV)) {
+            startAddress = startGeneric->getValue();
+        } else if (auto startConst = dyn_cast<SCEVConstant>(startAddressSCEV)) {
+            startAddress = startConst->getValue();
+        }
+        
+        */
+
+        if (startAddress)
+        {
+            DEBUG_INFO("YAY: we found a scalar evolution-based memory instruction: ");
+            OBJ_INFO(I);
+
+            auto nestedLoop = AR->getLoop();
+            auto preheaderBB = nestedLoop->getLoopPreheader();
+            preheaderBBTerminator = preheaderBB->getTerminator();
+
+            NumScalarEvolutionGuards++;
+
+            MemoryInstructions[I] = {preheaderBBTerminator, startAddress};
+
+            return;
+        }
+    }
+
+    /*
+     * We have to guard just before the memory instruction.
+     */
+
+    DEBUG_INFO("NOOO: the guard cannot be hoisted or merged: \n");
+    OBJ_INFO(I);
+
+    MemoryInstructions[I] = {I, PointerOfMemoryInstruction};
+    NumNonOptimizedGuards++;
+
+    return;
+}
+
+
+/* 
+ * 
+ * --- Find instructions to instrument --- 
+ * 
+ */
+
 void ProtectionsHandler::_getAllNecessaryInstructions()
 {
     /*
@@ -138,9 +305,9 @@ void ProtectionsHandler::_getAllNecessaryInstructions()
                     /*
                      * We cannot hoist the guard.
                      */
-                    storeInsts[&I] = {&I, numNowPtr};
+                    MemoryInstructions[&I] = {&I, numNowPtr};
                     //errs() << "NOOO: missed optimization because alloca invocation outside the first BB for : " << I << "\n" ;
-                    nonOptimizedGuard++;
+                    NumNonOptimizedGuards++;
                     continue;
                 }
 
@@ -152,9 +319,9 @@ void ProtectionsHandler::_getAllNecessaryInstructions()
                         * This could be bad if we have a few calls to this callee and they could not be executed.
                         */
                 //errs() << "YAY: we found a call check that can be hoisted: " << I << "\n" ;
-                storeInsts[&I] = {firstInst, numNowPtr};
+                MemoryInstructions[&I] = {firstInst, numNowPtr};
                 functionAlreadyChecked[calleeFunction] = true;
-                callGuardOpt++;
+                NumCallGuardOptimized++;
                 continue;
             }
     #if STORE_GUARD
@@ -179,7 +346,12 @@ void ProtectionsHandler::_getAllNecessaryInstructions()
     }
 }
 
-// *** DATA-FLOW ANALYSIS ***
+
+/* 
+ *
+ * --- Data-flow analysis --- 
+ * 
+ */
 
 std::function<void (Instruction *, DataFlowResult *)> ProtectionsHandler::_buildComputeGEN()
 { 
@@ -293,7 +465,13 @@ std::function<void (Instruction *, DataFlowResult *)> ProtectionsHandler::_build
         auto &OUTPred = df->OUT(predecessor);
 
         std::set<Value *> tmpIN{};
-        std::set_intersection(IN.begin(), IN.end(), OUTPred.begin(), OUTPred.end(), std::inserter(tmpIN, tmpIN.begin()));
+        std::set_intersection(
+            IN.begin(), 
+            IN.end(), 
+            OUTPred.begin(), 
+            OUTPred.end(), 
+            std::inserter(tmpIN, tmpIN.begin())
+        );
         IN = tmpIN;
 
         return;
@@ -353,152 +531,20 @@ DataFlowResult *ProtectionsHandler::_exeucteDFA(Function *F)
     return DFAResult;
 }
 
-// *** LOOP ANALYSIS ***
 
-void ProtectionsHandler::_findGuardInsertionPoints(Function *F, DataFlowResult *DFAResult, Instruction *I,
-                                                   Instruction *PointerOfMemoryInstruction)
+
+
+
+/* --- Function call injection scheme --- */
+
+void ProtectionsHandler::InjectCheckCalls()
 {
-    DEBUG_INFO("\n\n\n");
 
-    /*
-     * Check if the pointer has already been guarded.
-     */
-    auto &INSetOfI = DFAResult->IN(I);
-    if (INSetOfI.find(PointerOfMemoryInstruction) != INSetOfI.end())
-    {
-        DEBUG_INFO("YAY: skip a guard for the instruction: ");
-        OBJ_INFO(I);
-
-        NumRedundantGuards++;
-        
-        return;
-    }
-
-    /*
-     * We have to guard the pointer.
-     *
-     * Check if we can hoist the guard outside the loop.
-     */
-    DEBUG_INFO("XAN: we have to guard the memory instruction: ");
-    OBJ_INFO(I);
-
-    auto added = false;
-    auto nestedLoop = loopInfo.getLoopFor(I->getParent());
-    if (nestedLoop == nullptr)
-    {
-        /*
-         * We have to guard just before the memory instruction.
-         */
-        MemoryInstructions[I] = {I, PointerOfMemoryInstruction};
-        NumNonOptimizedGuards++;
-
-        DEBUG_INFO("XAN:   The instruction doesn't belong to a loop so no further optimizations are available\n");
-        
-        return;
-    }
-
-    DEBUG_INFO("XAN:   It belongs to the loop ");
-    OBJ_INFO(nestedLoop);
-    Instruction *preheaderBBTerminator;
-
-    while (nestedLoop != NULL)
-    {
-        if (false 
-            || nestedLoop->isLoopInvariant(PointerOfMemoryInstruction) 
-            || isa<Argument>(PointerOfMemoryInstruction) 
-            || !isa<Instruction>(PointerOfMemoryInstruction) 
-            || !nestedLoop->contains(cast<Instruction>(PointerOfMemoryInstruction)))
-        {
-            DEBUG_INFO("YAY:   we found an invariant address to check:")
-            OBJ_INFO(I);
-
-            auto preheaderBB = nestedLoop->getLoopPreheader();
-            preheaderBBTerminator = preheaderBB->getTerminator();
-            nestedLoop = loopInfo.getLoopFor(preheaderBB);
-            added = true;
-        }
-        else { break; }
-    }
-
-    if (added)
-    {
-        /*
-         * We can hoist the guard outside the loop.
-         */
-        NumLoopInvariantGuards++;
-        MemoryInstructions[I] = {preheaderBBTerminator, PointerOfMemoryInstruction};
-        
-        return;
-    }
-
-    /*
-     * The memory instruction isn't loop invariant.
-     *
-     * Check if it is based on a bounded scalar evolution.
-     */
-    DEBUG_INFO("XAN:   It cannot be hoisted. Check if it can be merged\n");
-
-    auto scevPtrComputation = scalarEvo.getSCEV(PointerOfMemoryInstruction);
-    DEBUG_INFO("XAN:     SCEV = ");
-    OBJ_INFO(scevPtrComputation);
-
-    if (auto AR = dyn_cast<SCEVAddRecExpr>(scevPtrComputation))
-    {
-        DEBUG_INFO("XAN:       It is SCEVAddRecExpr\n");
-
-        /*
-         * The computation of the pointer is based on a bounded scalar evolution.
-         * This means, the guard can be hoisted outside the loop where the boundaries used in the check go from the lowest to the highest address.
-         */
-        SCEV_CARAT_Visitor visitor{};
-        auto startAddress = numNowPtr; // FIX ---- Iterate over SCEV to fetch 
-                                       // the actual start and end addresses
-        /*
-
-        auto startAddress = visitor.visit((const SCEV *)AR);
-        auto startAddressSCEV = AR->getStart();
-
-        DEBUG_INFO("XAN:         Start address = ");
-        OBJ_INFO(startAddressSCEV);
-
-        Value *startAddress = nullptr;
-        if (auto startGeneric = dyn_cast<SCEVUnknown>(startAddressSCEV)) {
-            startAddress = startGeneric->getValue();
-        } else if (auto startConst = dyn_cast<SCEVConstant>(startAddressSCEV)) {
-            startAddress = startConst->getValue();
-        }
-        
-        */
-
-        if (startAddress)
-        {
-            DEBUG_INFO("YAY: we found a scalar evolution-based memory instruction: ");
-            OBJ_INFO(I);
-
-            auto nestedLoop = AR->getLoop();
-            auto preheaderBB = nestedLoop->getLoopPreheader();
-            preheaderBBTerminator = preheaderBB->getTerminator();
-
-            NumScalarEvolutionGuards++;
-
-            MemoryInstructions[I] = {preheaderBBTerminator, startAddress};
-
-            return;
-        }
-    }
-
-    /*
-     * We have to guard just before the memory instruction.
-     */
-
-    DEBUG_INFO("NOOO: the guard cannot be hoisted or merged: \n");
-    OBJ_INFO(I);
-
-    MemoryInstructions[I] = {I, PointerOfMemoryInstruction};
-    NumNonOptimizedGuards++;
-
-    return;
 }
+
+
+
+/* --- Complete injection scheme --- DEPRECATED --- */
 
 BasicBlock *ProtectionsHandler::_buildEscapeBlock(Function *F)
 {
@@ -578,7 +624,7 @@ pair<LoadInst *, LoadInst *> *ProtectionsHandler::_buildBoundsLoadInsts(Function
     return NewBoundsPair;
 }
 
-void ProtectionsHandler::Inject()
+void ProtectionsHandler::InjectManualChecks()
 {
     for (auto const &[MI, InjPair] : MemoryInstructions)
     {

@@ -50,7 +50,7 @@ private:
     GlobalVariable *UpperBound;
 
     // Analyzed state
-    std::unordered_map<Instruction *, pair<Instruction *, Value *>> MemoryInstructions;
+    std::unordered_map<Instruction *, std::pair<Instruction *, Value *>> MemoryInstructions;
     std::unordered_map<Function *, BasicBlock *> EscapeBlocks;
     std::unordered_map<Function *, pair<LoadInst *, LoadInst *> *> BoundsLoadInsts;
 
@@ -59,11 +59,13 @@ private:
     uint64_t NumNonOptimizedGuards=0;
     uint64_t NumLoopInvariantGuards=0;
     uint64_t NumScalarEvolutionGuards=0;
+    uint64_t NumCallGuardOptimized=0;
 
     // Analysis driver
     void _getAllNecessaryInstructions();
 
     // Data-flow analysis
+
     
 
     // Injection methods
