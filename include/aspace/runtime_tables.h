@@ -42,6 +42,10 @@
 #ifndef __ALLOC_ENTRY__
 #define __ALLOC_ENTRY__
 
+
+/*
+ * Debugging macros --- for QEMU
+ */ 
 #define DB(x) outb(x, 0xe9)
 #define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
 #define DHB(x) DHN(x >> 4) ; DHN(x);
@@ -50,7 +54,12 @@
 #define DHQ(x) DHL(x >> 32) ; DHL(x);
 #define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
 
-// All useful macros
+
+/*
+ * =================== Utility Macros ===================  
+ */ 
+
+// Printing
 #define DO_CARAT_PRINT 0
 #if DO_CARAT_PRINT
 #define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
@@ -58,27 +67,52 @@
 #define CARAT_PRINT(...) 
 #endif
 
+// Malloc
 #define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 #define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
 
-
+// Conditions check
 #define CHECK_CARAT_READY if (!carat_ready) { return; }
+
+
+/*
+ * =================== Data Structures/Definitions ===================  
+ */ 
+
+typedef nk_slist_uintptr_t nk_carat_escape_map;
+typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
+
+/*
+ * struct allocEntry
+ *
+ * Setup for an allocation entry 
+ * - An allocEntry stores necessary information to *track* each allocation
+ * - There is one allocEntry object for each allocation
+ */ 
 
 // CONV [class] -> [typedef struct]
 typedef struct allocEntry_t {
-    // Pointer to the allocation, size of allocation
+
+    /*
+     * Pointer to the allocation, size of allocation
+     */ 
     void *pointer; // CONV [nullptr] -> [NULL --- moved to constructor]
     uint64_t length; // CONV [nullptr] -> [NULL --- moved to constructor]
 
-    // Set of all *potential* escapes for this particular
-    // allocation, the pointer -> void **
-    nk_slist_uintptr_t *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+    /*
+     * Set of all *potential* escapes for this particular
+     * allocation, the pointer -> void **
+     */ 
+    nk_carat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+
 } allocEntry;
 
+
+/*
+ * Setup/constructor for an allocEntry object
+ */ 
 allocEntry* allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
-
-#endif // allocEntry ifndef
 
 // Alloc addr, length
 extern nk_slist_uintptr_t_uintptr_t *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t *]
@@ -128,8 +162,13 @@ void AddCallocToAllocationTable(void *, uint64_t, uint64_t);
 void HandleReallocInAllocationTable(void *, void *, uint64_t);
 
 /*
- * 1) Search for address escaping within allocation table (an ordered map that contains all current allocations <non overlapping blocks of memory each consisting of an  address and length> made by the program
- * 2) If found (the addressEscaping variable falls within one of the blocks), then a new entry into the escape table is made consisting of the addressEscapingTo, the addressEscaping, and the length of the addressEscaping (for optimzation if consecutive escapes occur)
+ * 1. Search for address escaping within allocation table (an ordered map 
+ *    that contains all current allocations <non overlapping blocks of memory 
+ *    each consisting of an  address and length> made by the program
+ * 2) If found (the addressEscaping variable falls within one of the blocks), 
+ *    then a new entry into the escape table is made consisting of the 
+ *    addressEscapingTo, the addressEscaping, and the length of the addressEscaping 
+ *    (for optimzation if consecutive escapes occur)
  */
 void AddToEscapeTable(void *);
 
