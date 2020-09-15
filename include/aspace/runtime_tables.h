@@ -44,6 +44,10 @@
 
 
 /*
+ * =================== Utility Macros ===================  
+ */ 
+
+/*
  * Debugging macros --- for QEMU
  */ 
 #define DB(x) outb(x, 0xe9)
@@ -56,10 +60,8 @@
 
 
 /*
- * =================== Utility Macros ===================  
+ * Printing
  */ 
-
-// Printing
 #define DO_CARAT_PRINT 0
 #if DO_CARAT_PRINT
 #define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
@@ -67,11 +69,17 @@
 #define CARAT_PRINT(...) 
 #endif
 
-// Malloc
+
+/*
+ * Malloc
+ */ 
 #define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 #define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
 
-// Conditions check
+
+/*
+ * Conditions check 
+ */ 
 #define CHECK_CARAT_READY if (!carat_ready) { return; }
 
 
@@ -79,8 +87,12 @@
  * =================== Data Structures/Definitions ===================  
  */ 
 
-typedef nk_slist_uintptr_t nk_carat_escape_map;
-typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
+/*
+ * Typedefs for CARAT data structures
+ */ 
+typedef nk_slist_uintptr_t nk_karat_escape_map;
+typedef nk_slist_uintptr_t_uintptr_t nk_karat_allocation_map;
+
 
 /*
  * struct allocEntry
@@ -89,9 +101,7 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
  * - An allocEntry stores necessary information to *track* each allocation
  * - There is one allocEntry object for each allocation
  */ 
-
-// CONV [class] -> [typedef struct]
-typedef struct allocEntry_t {
+typedef struct allocEntry_t { // CONV [class] -> [typedef struct] 
 
     /*
      * Pointer to the allocation, size of allocation
@@ -103,7 +113,7 @@ typedef struct allocEntry_t {
      * Set of all *potential* escapes for this particular
      * allocation, the pointer -> void **
      */ 
-    nk_carat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+    nk_karat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 
 } allocEntry;
 
@@ -114,74 +124,138 @@ typedef struct allocEntry_t {
 allocEntry* allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
 
 
-// Alloc addr, length
-extern nk_slist_uintptr_t_uintptr_t *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t *]
+/*
+ * allocationMap
+ * - Global definition for the allocation map
+ * - Stores [allocation address : allocEntry address]
+ */ 
+extern nk_karat_allocation_map *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t_uintptr_t *]
 
-// Addr Escaping To , allocAddr, length
-extern allocEntry *StackEntry;
-extern uint64_t rsp;
 
-// This will hold the escapes yet to be processed
+/*
+ * Escape window
+ * - The escape window is an optimization to conduct escapes handling in batches
+ * - Functions in the following way:
+ *   
+ *   void **a = malloc(); // the data itself is treated as a void * --- therefore, malloc
+ *                        // treated with a double pointer
+ *   void **escape = a; // an escape
+ *   void ***escapeWindow = [escape, escape, escape, ...] // an array of escapes
+ * 
+ * - Statistics --- escapeWindowSize, totalEscapeEntries helps with batch processing,
+ *                  indicating how many escapes are yet to be processed
+ */ 
+extern void ***escapeWindow;
 extern uint64_t escapeWindowSize;
 extern uint64_t totalEscapeEntries;
 
-// void** a = malloc(); (the data itself is treated as a void*)
-// void** escape = a;
-// void*** escapeWindow = [escape, escape, escape... etc] (an array of escapes)
-extern void ***escapeWindow;
-
-
-extern int carat_ready; 
-
-void texas_init();
-
-//This will give a 64-bit value of the stack pointer
-uint64_t getrsp();
-
-//Initialize the stack
-// extern "C" int stack_init();
-// extern "C" void user_init();
-
-// void texasStartup(); // CONV [class] -> [init function]
-
-
-// This function will tell us if the escapeAddr aliases with the allocAddr
-// If it does the return value will be at what offset it does
-// If it does not, the return will be -1
-sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
-
-void GenerateConnectionGraph();
-
-
-// This function takes an arbitrary address and return the aliasing allocEntry*, else nullptr
-allocEntry *findAllocEntry(void *address);
-
-// These calls will build the allocation table
-void AddToAllocationTable(void *, uint64_t);
-void AddCallocToAllocationTable(void *, uint64_t, uint64_t);
-void HandleReallocInAllocationTable(void *, void *, uint64_t);
 
 /*
+ * =================== Init/Setup ===================  
+ */ 
+
+/*
+ * TOP --- Setup for KARAT inside init():
+ * - texas_init() will handle all setup for the allocation table, escape window,
+ *   and any stack address handling (StackEntry and rsp)
+ * - carat_ready is a global that will be set only after texas_init() is called, 
+ * - allocation and espapes methods only continue if carat_ready is true 
+ */
+
+
+/*
+ * Globals necessary for init
+ */ 
+extern int carat_ready; 
+extern allocEntry *StackEntry;
+extern uint64_t rsp;
+
+
+/*
+ * Main driver for KARAT initialization
+ */ 
+void texas_init();
+
+
+/*
+ * Utility for rsp 
+ */
+uint64_t getrsp();
+
+
+/*
+ * =================== Utility Analysis Methods ===================  
+ */ 
+
+/*
+ * - Determines if an escaped value aliases with a specified allocation 
+ * - Will return the offset of the escape if found, -1 otherwise
+ */ 
+sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
+
+
+/*
+ * Takes a specified allocation and returns its corresponding allocEntry,
+ * otherwise return nullptr
+ */ 
+allocEntry *findAllocEntry(void *address);
+
+
+/*
+ * Statistics --- obvious
+ */
+void ReportStatistics();
+
+
+/*
+ * =================== Allocations Handling Methods ===================  
+ */ 
+
+/*
+ * Instrumentation for "malloc" --- adding
+ */
+void AddToAllocationTable(void *, uint64_t);
+
+
+/*
+ * Instrumentation for "calloc" --- adding
+ */ 
+void AddCallocToAllocationTable(void *, uint64_t, uint64_t);
+
+
+/*
+ * Instrumentation for "realloc" --- adding
+ */
+void HandleReallocInAllocationTable(void *, void *, uint64_t);
+
+
+/*
+ * Instrumentation for "free" --- removing
+ */
+void RemoveFromAllocationTable(void *);
+
+
+/*
+ * =================== Escapes Handling Methods ===================  
+ */ 
+
+/*
+ * AddToEscapeTable
  * 1. Search for address escaping within allocation table (an ordered map 
  *    that contains all current allocations <non overlapping blocks of memory 
  *    each consisting of an  address and length> made by the program
- * 2) If found (the addressEscaping variable falls within one of the blocks), 
+ * 2. If found (the addressEscaping variable falls within one of the blocks), 
  *    then a new entry into the escape table is made consisting of the 
  *    addressEscapingTo, the addressEscaping, and the length of the addressEscaping 
  *    (for optimzation if consecutive escapes occur)
  */
 void AddToEscapeTable(void *);
 
+
+/*
+ * Batch processing for escapes
+ */ 
 void processEscapeWindow();
 
-// This function will remove an address from the allocation from a free() or free()-like instruction being called
-void RemoveFromAllocationTable(void *);
 
-// This will generate a connectionGraph that breaks down how Carat is connected
-void GenerateConnectionGraph();
 
-// This will report out the stats of a program run
-void ReportStatistics();
-
-// This will report a histogram relating to escapes per allocation.
-void HistogramReport();
