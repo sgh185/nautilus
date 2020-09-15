@@ -41,20 +41,57 @@
 
 #define CARAT_STACK_CHECK 0
 
-int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
+/*
+ * =================== Data Structures/Definitions ===================  
+ */
 
-int carat_update_entry(allocEntry *entry, void* allocationTarget);
-
+/*
+ * A packaged context for moving an allocation to a target address
+ */ 
 struct move_alloc_state {
-    void *allocationToMove;
-    void *allocationTarget;
-    uint64_t length;
-    int failed;
+    void *allocationToMove; // Address to move
+    void *allocationTarget; // Address to move to 
+    uint64_t length; // Length of allocation to move
+    int failed; // Move status
 };
 
-static void handle_thread(struct nk_thread *t, void *state);
 
+/*
+ * =================== Patching Methods ===================  
+ */ 
+
+/*
+ * Driver for performing a move of an allocation that's already tracked
+ */ 
 int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
 
 
+/*
+ * Upon a move --- "carat_patch_escapes" will iterate through all escapes
+ * from @entry (existing at @entry + (an offset)), and update each escaped 
+ * pointer to use @allocationTarget (at @allocationTarget + (an offset))
+ *
+ * TODO --- [Rename : _nk_carat_patch_escapes]
+ */ 
+int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
+
+
+/*
+ * Upon a move --- "handle_thread" will update each thread's register 
+ * state to use @state->allocationTarget instead of @state->allocationToMove
+ *
+ * TODO --- [Rename : _nk_carat_patch_thread_state]
+ * TODO --- @state needs to be a type [struct move_alloc_state *]
+ */ 
+static void handle_thread(struct nk_thread *t, void *state);
+
+
+/*
+ * DEPRECATED --- Handled by proper/known use of compiler instrumentation
+ *
+ * Manually performs an update from @entry, pointing it to @allocationTarget 
+ * by explicitly removing @entry's allocEntry object and adding an object
+ * for @allocationTarget
+ */ 
+int carat_update_entry(allocEntry *entry, void* allocationTarget);
 
