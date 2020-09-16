@@ -123,62 +123,60 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
 #define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
 
 
 /*
- * struct allocEntry
+ * struct allocation_entry
  *
  * Setup for an allocation entry 
- * - An allocEntry stores necessary information to *track* each allocation
- * - There is one allocEntry object for each allocation
+ * - An allocation_entry stores necessary information to *track* each allocation
+ * - There is one allocation_entry object for each allocation
  */ 
-typedef struct allocEntry_t { // CONV [class] -> [typedef struct] 
+typedef struct allocation_entry_t { 
 
     /*
      * Pointer to the allocation, size of allocation
      */ 
-    void *pointer; // CONV [nullptr] -> [NULL --- moved to constructor]
-    uint64_t length; // CONV [nullptr] -> [NULL --- moved to constructor]
+    void *pointer; 
+    uint64_t length;
 
     /*
      * Set of all *potential* escapes for this particular
      * allocation, the pointer -> void **
      */ 
-    nk_carat_escape_set *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+    nk_carat_escape_set *allocToEscapeMap;
 
-} allocEntry;
+} allocation_entry;
 
 
 /*
- * Setup/constructor for an allocEntry object
- *
- * TODO --- Rename to [_carat_create_allocation_entry]
+ * Setup/constructor for an allocation_entry object
  */ 
-allocEntry *allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
+allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_size);
 
 
 /*
- * Macro expansion utility --- creating allocEntry objects
+ * Macro expansion utility --- creating allocation_entry objects
  * and adding them to the allocation map
  */ 
 #define CREATE_ENTRY_AND_ADD(key, str) \
 	/*
-	 * Create a new allocEntry object for the @new_address to be added
+	 * Create a new allocation_entry object for the @new_address to be added
 	 */ \
-	allocEntry *newEntry = allocEntrySetup(key, length); \
+	allocation_entry *new_entry = _carat_create_allocation_entry(key, allocation_size); \
     \
     \
 	/*
 	 * Add the mapping [@##key : newEntry] to the allocationMap
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_INSERT(key, newEntry))) { \
+	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
 		panic(str" %p\n", key);
 	}
 
 
 /*
- * Macro expansion utility --- for deleting allocEntry objects
+ * Macro expansion utility --- for deleting allocation_entry objects
  */ 
 #define REMOVE_ENTRY(key, str) \
 	/*
@@ -193,9 +191,9 @@ allocEntry *allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor
 /*
  * allocationMap
  * - Global definition for the allocation map
- * - Stores [allocation address : allocEntry address]
+ * - Stores [allocation address : allocation_entry address]
  */ 
-extern nk_carat_allocation_map *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t_uintptr_t *]
+extern nk_carat_allocation_map *allocationMap;
 
 
 /*
@@ -233,20 +231,20 @@ extern uint64_t totalEscapeEntries;
  * Globals necessary for init
  */ 
 extern int carat_ready; 
-extern allocEntry *StackEntry;
+extern allocation_entry *StackEntry;
 extern uint64_t rsp;
 
 
 /*
  * Main driver for KARAT initialization
  */ 
-void texas_init();
+void nk_carat_init();
 
 
 /*
  * Utility for rsp 
  */
-uint64_t getrsp();
+uint64_t _carat_get_rsp();
 
 
 /*
@@ -254,23 +252,32 @@ uint64_t getrsp();
  */ 
 
 /*
- * - Determines if an escaped value aliases with a specified allocation 
- * - Will return the offset of the escape if found, -1 otherwise
+ * Determines if a target address @query_address aliases with the specified 
+ * allocation @alloc_address by performing a range search within the memory
+ * pointed to by @alloc_address --- returns boolean values
  */ 
-sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal);
+int _carat_does_alias(void *query_address, void *alloc_address, uint64_t allocation_size);
 
 
 /*
- * Takes a specified allocation and returns its corresponding allocEntry,
+ * Calculates the offset of @query_address within the memory pointed to by 
+ * @alloc_address IFF @query_address aliases @alloc_address --- returns -1
+ * upon failure
+ */ 
+sint64_t _carat_get_query_offset(void *query_address, void *alloc_address, uint64_t allocation_size);
+
+
+/*
+ * Takes a specified allocation and returns its corresponding allocation_entry,
  * otherwise return nullptr
  */ 
-allocEntry *findAllocEntry(void *address);
+allocation_entry *_carat_find_allocation_entry(void *address);
 
 
 /*
  * Statistics --- obvious
  */
-void ReportStatistics();
+void nk_carat_report_statistics();
 
 
 /*
