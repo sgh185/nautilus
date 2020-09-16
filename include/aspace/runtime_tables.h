@@ -84,14 +84,35 @@
 
 
 /*
+ * Skiplist setup
+ */
+#define CARAT_INIT_NUM_GEARS 6
+
+
+/*
  * =================== Data Structures/Definitions ===================  
  */ 
 
 /*
  * Typedefs for CARAT data structures
  */ 
-typedef nk_slist_uintptr_t nk_karat_escape_map;
-typedef nk_slist_uintptr_t_uintptr_t nk_karat_allocation_map;
+typedef nk_slist_uintptr_t nk_carat_escape_map;
+typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
+
+
+/*
+ * Interface for "nk_carat_escape_map"
+ */ 
+#define CARAT_ESCAPE_MAP_BUILD nk_slist_build(uintptr_t, 6)
+
+
+/*
+ * Interface for "nk_carat_allocation_map"
+ */ 
+#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
+#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
+#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
 
 
 /*
@@ -113,15 +134,36 @@ typedef struct allocEntry_t { // CONV [class] -> [typedef struct]
      * Set of all *potential* escapes for this particular
      * allocation, the pointer -> void **
      */ 
-    nk_karat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+    nk_carat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 
 } allocEntry;
 
 
 /*
  * Setup/constructor for an allocEntry object
+ *
+ * TODO --- Rename to [_carat_create_allocation_entry]
  */ 
-allocEntry* allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
+allocEntry *allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor] -> [function that returns an instance]
+
+
+/*
+ * Macro expansion utility --- creating allocEntry objects
+ * and adding them to the allocation map
+ */ 
+#define CREATE_ENTRY_AND_ADD(key, str) \
+	/*
+	 * Create a new allocEntry object for the @new_address to be added
+	 */ \
+	allocEntry *newEntry = allocEntrySetup(key, length); \
+    \
+    \
+	/*
+	 * Add the mapping [@##key : newEntry] to the allocationMap
+	 */ \
+	if (!(CARAT_ALLOCATION_MAP_INSERT(key, newEntry))) { \
+		panic(str" %p\n", key);
+	}
 
 
 /*
@@ -129,7 +171,7 @@ allocEntry* allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor
  * - Global definition for the allocation map
  * - Stores [allocation address : allocEntry address]
  */ 
-extern nk_karat_allocation_map *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t_uintptr_t *]
+extern nk_carat_allocation_map *allocationMap; // CONV [map<void *, allocEntry *>] -> [nk_slist_uintptr_t_uintptr_t *]
 
 
 /*
