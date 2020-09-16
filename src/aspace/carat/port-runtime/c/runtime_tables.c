@@ -159,10 +159,10 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 	
 
 	/*
-	 * CONDITION 2 --- gather the prospective entry's address, the length of
+	 * CONDITION 2 --- gather the prospective entry's address, the size of
 	 * the prospective's allocation, and CHECK if @address aliases this allocation
 	 */ 
-	uint64_t prospective_size = prospective_entry->length; 
+	uint64_t prospective_size = prospective_entry->size; 
 	void *prospective_address = ((void *) prospective_entry->data->first);
 	if (!(_carat_does_alias((address, prospective_address, prospective_size)))) { return NULL; }
 
@@ -226,7 +226,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 
 	/*
 	 * Create a new allocation_entry object for the @address to be added --- here,
-	 * the length has to be calculated from the parameters of calloc, which
+	 * the size has to be calculated from the parameters of calloc, which
 	 * are @num_elements, and @size_of_element
 	 */ 
 	uint64_t allocation_size = num_elements * size_of_element;

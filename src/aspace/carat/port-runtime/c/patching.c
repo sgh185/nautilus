@@ -29,7 +29,63 @@
 
 #include <aspace/patching.h>
 
-int carat_patch_escapes(allocEntry *entry, void* allocationTarget) {
+#if 0
+/*
+ * Handler for patching escapes upon moving @entry->pointer to @allocation_target 
+ */ 
+void _carat_patch_escapes(allocation_entry *entry, void *allocation_target) 
+{
+    /*
+     * TOP --- Iterate over each escape, and change what each escape  
+     * points to --- i.e. "patch" the escape
+     */ 
+
+    /*
+     * Iterate over the escapes of @entry --- NOTE --- the iteration 
+     * macro provides a variable "val," indicating the current element 
+     */ 
+    CARAT_ESCAPES_SET_ITERATE((entry->escapes_set))
+    {
+        /*
+         * Set up the escape
+         */ 
+		void **curr_escape = ((void **) val);
+        void *curr_escape_value = *curr_escape;
+
+
+        /*
+         * Calculate the offset, if possible, of the escape within the entry
+         */
+        sint64_t offset = _carat_get_query_offset (
+            curr_escape_value,
+            entry->pointer,
+            entry->size
+        );
+
+
+        /*
+         * Sanity check the offset
+         */ 
+        if (offset < 0) 
+        { 
+            CARAT_PRINT("_carat_patch_escapes: cannot find offset for %p\n", curr_escape);
+            continue;
+        }
+
+
+        /*
+         * Change what "curr_escape" points to
+         */ 
+        *curr_escape = (void *) (((uint64_t) allocation_target) + offset);
+    }
+
+
+    return 0;
+}
+#endif
+
+
+int carat_patch_escapes(allocation_entry *entry, void* allocation_target) {
 
     nk_slist_node_uintptr_t *iter;
     uintptr_t val;
@@ -44,7 +100,7 @@ int carat_patch_escapes(allocEntry *entry, void* allocationTarget) {
 		void** escape = (void**) val;
         sint64_t offset = doesItAlias(entry->pointer, entry->length, (uint64_t) *escape);
         if(offset >= 0) {
-            *escape = (void*) ((sint64_t) allocationTarget + offset);
+            *escape = (void*) ((sint64_t) allocation_target + offset);
         }
 
 
@@ -53,17 +109,54 @@ int carat_patch_escapes(allocEntry *entry, void* allocationTarget) {
     return 0;
 }
 
+
+// DEPRECATED
+#if 0
+void _carat_update_entry(allocation_entry *old_entry, void *allocation_target) 
+{
+    /*
+     * Create a new entry for @allocation_target
+     */ 
+    CREATE_ENTRY_AND_ADD (
+        allocation_target,
+        (old_entry->size),
+        "carat_update_entry: CREATE_ENTRY_AND_ADD failed on allocation_target"
+    );
+
+
+    /*
+     * Set the new entry's escapes set to @old_entry's escapes set
+     * NOTE --- "new_entry" is a variable generated from CREATE_ENTRY_AND_ADD
+     */
+    new_entry->escapes_set = old_entry->escapes_set;
+
+
+	/*
+     * Remove the address corresponding to @old_entry from the global
+     * allocation map
+     */ 
+    REMOVE_ENTRY (
+        (old_entry->pointer),
+        "carat_update_entry: REMOVE_ENTRY failed on old_entry->pointer"
+    )
+
+
+    return 0;
+}
+#endif
+
+
 // Possibly * DEPRECATED * --- replaced by proper placement of 
 // instrumented calls to the runtime
-int carat_update_entry(allocEntry *entry, void *allocationTarget) {
+int _carat_update_entry(allocation_entry *entry, void *allocation_target) {
 
     // Create a new entry
-    allocEntry *newEntry = allocEntrySetup(allocationTarget, entry->length);
+    allocation_entry *newEntry = allocation_entrySetup(allocation_target, entry->length);
     newEntry->allocToEscapeMap = entry->allocToEscapeMap;
     
 	// CONV [map::insert_or_assign] -> [nk_map_insert + status check]
-	if (!(nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) allocationTarget), ((uintptr_t) newEntry)))) {
-		panic("carat_update_entry: nk_map_insert failed on allocationTarget %p\n", allocationTarget);
+	if (!(nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) allocation_target), ((uintptr_t) newEntry)))) {
+		panic("carat_update_entry: nk_map_insert failed on allocation_target %p\n", allocation_target);
 	}
 
 	// Remove the old pointer from the map	
@@ -73,11 +166,8 @@ int carat_update_entry(allocEntry *entry, void *allocationTarget) {
 }
 
 // Debugging
-static void 
-print_regs (struct nk_regs * r)
+static void __carat_print_regs (struct nk_regs * r)
 {
-    // #define DS(x) nk_vc_printf(x);
-    // #define DHQ(x) nk_vc_printf("%lx", x);
     #define PRINT3(x, x_extra_space, y, y_extra_space, z, z_extra_space) DS(#x x_extra_space" = " ); DHQ(r->x); DS(", " #y y_extra_space" = " ); DHQ(r->y); DS(", " #z z_extra_space" = " ); DHQ(r->z); DS("\n");
 
     DS("[-------------- Register Contents --------------]\n");
@@ -88,7 +178,70 @@ print_regs (struct nk_regs * r)
     PRINT3(r10, "   ",  r11, "   ", r12, "   ");
     PRINT3(r13, "   ",  r14, "   ", r15, "   ");
 
-  }
+    return;
+}
+
+
+
+#if 0
+// Patch shared state in the threads, registers manually
+static void _carat_patch_thread_state(struct nk_thread *t, struct move_alloc_state *state) 
+{
+    /*
+     * Acquire all registers
+     */ 
+    struct nk_regs * r = ((struct nk_regs*) ((char*)t->rsp - 128)); // FIX: t->rsp - 128 might be wrong, look at garbage collector
+
+    /*
+     * Debugging, sanity check for t->rsp - 128
+     */  
+    CARAT_PRINT(t->name); // should be shell
+    __carat_print_regs(r); // r15 should have 0xDEADBEEFB000B000
+
+
+    /*
+     * Determine if the value stored in the register 
+     * aliases @allocation_to_move --- if it does, then
+     * "patch" the value to use @allocation_target at the
+     * correct offset
+     * 
+     * Macro-ized for engineering purposes
+     */ 
+
+#define REG_PTR(reg) ((void *) (r->reg))
+#define HANDLE_REG(state, reg) \
+    void *ptr_##reg = REG_PTR(reg); \
+    uint64_t offset_##reg = _carat_get_query_offset ( \
+        ptr_##reg, \
+        (state->allocation_to_move), \
+        (state->size) \
+    ); \
+    \
+    if (offset_##reg > 0) { r->reg = (((uint64_t) state->allocation_target) + offset); }
+
+    HANDLE_REG(state, r15)
+	HANDLE_REG(state, r14)
+    HANDLE_REG(state, r13)
+    HANDLE_REG(state, r12)
+    HANDLE_REG(state, r11)
+    HANDLE_REG(state, r10)
+    HANDLE_REG(state, r9)
+    HANDLE_REG(state, r8)
+    HANDLE_REG(state, rbp)
+    HANDLE_REG(state, rdi)
+    HANDLE_REG(state, rsi)
+    HANDLE_REG(state, rdx)
+    HANDLE_REG(state, rcx)
+    HANDLE_REG(state, rbx)
+    HANDLE_REG(state, rax)
+	// TODO --- handle rsp and rip later
+
+
+    return;
+}
+#endif
+
+
 
 // Patch shared state in the threads, registers manually
 static void handle_thread(struct nk_thread *t, void *state) {
@@ -97,44 +250,42 @@ static void handle_thread(struct nk_thread *t, void *state) {
 
     // Sanity check for t->rsp - 128
     nk_vc_printf(t->name); // should be shell
-    print_regs(r); // r15 should have 0xDEADBEEFB000B000
+    __carat_print_regs(r); // r15 should have 0xDEADBEEFB000B000
 
 
-// moved these comments out of our HANDLE
+// moved these comments out of our HANDLE_REG
 // if the register is within our alloc
 // DEBUG("It aliased %p will now become %p which is offset %ld\n", registerPtr.ptr, newAllocPtr.ptr, offset);
 // DEBUG("The register %s is now %p\n", regNames[i], (void*) uc->uc_mcontext.gregs[i]);
-#define HANDLE(state, reg) \
-    if((r->reg >= (uint64_t) state->allocationToMove) && (r->reg < ((uint64_t) state->allocationToMove + state->length))){ \
-            uint64_t offset = r->reg - (uint64_t) state->allocationToMove; \
-            uint64_t newAddr = (uint64_t) state->allocationTarget + offset; \
+#define HANDLE_REG(state, reg) \
+    if((r->reg >= (uint64_t) state->allocation_to_move) && (r->reg < ((uint64_t) state->allocation_to_move + state->length))){ \
+            uint64_t offset = r->reg - (uint64_t) state->allocation_to_move; \
+            uint64_t newAddr = (uint64_t) state->allocation_target + offset; \
             r->reg = newAddr; \
     } \
 
-    HANDLE(((struct move_alloc_state *) state), r15)
-	HANDLE(((struct move_alloc_state *) state), r14)
-    HANDLE(((struct move_alloc_state *) state), r13)
-    HANDLE(((struct move_alloc_state *) state), r12)
-    HANDLE(((struct move_alloc_state *) state), r11)
-    HANDLE(((struct move_alloc_state *) state), r10)
-    HANDLE(((struct move_alloc_state *) state), r9)
-    HANDLE(((struct move_alloc_state *) state), r8)
-    HANDLE(((struct move_alloc_state *) state), rbp)
-    HANDLE(((struct move_alloc_state *) state), rdi)
-    HANDLE(((struct move_alloc_state *) state), rsi)
-    HANDLE(((struct move_alloc_state *) state), rdx)
-    HANDLE(((struct move_alloc_state *) state), rcx)
-    HANDLE(((struct move_alloc_state *) state), rbx)
-    HANDLE(((struct move_alloc_state *) state), rax)
+    HANDLE_REG(state, r15)
+	HANDLE_REG(state, r14)
+    HANDLE_REG(state, r13)
+    HANDLE_REG(state, r12)
+    HANDLE_REG(state, r11)
+    HANDLE_REG(state, r10)
+    HANDLE_REG(state, r9)
+    HANDLE_REG(state, r8)
+    HANDLE_REG(state, rbp)
+    HANDLE_REG(state, rdi)
+    HANDLE_REG(state, rsi)
+    HANDLE_REG(state, rdx)
+    HANDLE_REG(state, rcx)
+    HANDLE_REG(state, rbx)
+    HANDLE_REG(state, rax)
 	// handle rsp and rip later
 
 }
 
 
-// Top-level interface for patching ---
-// - allocationToMove --- address to move/needs patching
-// - allocationTarget --- address to move to/patch to
-int nk_carat_move_allocation(void *allocationToMove, void *allocationTarget) {
+int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
+{
 
 	// Oaklahoma will indeed reopen if the damn 
 	// world can't be stopped
@@ -144,9 +295,9 @@ int nk_carat_move_allocation(void *allocationToMove, void *allocationTarget) {
     }
 
 
-	// Find the entry for the allocationToMove addr in the 
+	// Find the entry for the allocation_to_move addr in the 
 	// allocationMap --- if not found, return immediately
-    allocEntry* entry = findAllocEntry(allocationToMove);
+    allocation_entry* entry = findAllocEntry(allocation_to_move);
     if (!entry) {
         CARAT_PRINT("Cannot find entry\n");
         goto out_bad;
@@ -154,18 +305,18 @@ int nk_carat_move_allocation(void *allocationToMove, void *allocationTarget) {
 
 	
     // Generate what patches need to be executed for overwriting 
-	// memory, then executes patches for escapes to allocationTarget
-    if (carat_patch_escapes(entry, allocationTarget) == 1) {
+	// memory, then executes patches for escapes to allocation_target
+    if (carat_patch_escapes(entry, allocation_target) == 1) {
         CARAT_PRINT("The patch is toast --- can't patch escapes !\n");
         goto out_bad;
     }
 
 
-    // For each thread, patch registers to the allocationTarget --- 
+    // For each thread, patch registers to the allocation_target --- 
 	// takes a "state," which is just a packaged structure containing 
 	// necessary info to perform the patching --- like to and from 
 	// addrs, length, etc.
-    struct move_alloc_state state = {allocationToMove, allocationTarget, entry->length, 0};
+    struct move_alloc_state state = {allocation_to_move, allocation_target, entry->length, 0};
     nk_sched_map_threads(-1, handle_thread, &state);
     if (state.failed) {
         CARAT_PRINT("Unable to patch threads\n");
@@ -173,12 +324,12 @@ int nk_carat_move_allocation(void *allocationToMove, void *allocationTarget) {
     }
    
 	// Perform the real memory movement (the "actual patch") --- move
-	// the memory at allocationToMove to allocationTarget 
-    memmove(allocationToMove, allocationTarget, entry->length);
+	// the memory at allocation_to_move to allocation_target 
+    memmove(allocation_to_move, allocation_target, entry->length);
    
 
    	// DEPRECATED
-    /* carat_update_entry(entry, allocationTarget); */
+    /* carat_update_entry(entry, allocation_target); */
 
     /*
 	 * Do we need to handle our own stack? --- this is the possible 
@@ -194,24 +345,69 @@ out_bad:
 
 }
 
-allocEntry *findRandomAlloc() {
 
-	// Select a random index from the map 
-    srand48(29848349); 
-	uint64_t target = lrand48() % nk_map_get_size(allocationMap), // randomized
-    		 count = 0;
 
-	// Find the allocation at that index in the 
-	// allocationMap
-	nk_slist_node_uintptr_t_uintptr_t *iter;
-	nk_pair_uintptr_t_uintptr_t *pair;
-	nk_map_foreach(allocationMap, pair, iter) 
-	{
-		if (count == target) { return ((allocEntry *) (pair->second)); }
-		count++;
-	}
+// Top-level interface for patching ---
+// - allocation_to_move --- address to move/needs patching
+// - allocation_target --- address to move to/patch to
+int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) {
 
+	// Oaklahoma will indeed reopen if the damn 
+	// world can't be stopped
+	if (!(nk_sched_stop_world())) {
+        CARAT_PRINT("Oaklahoma has reopened!\n");
+        return -1;
+    }
+
+
+	// Find the entry for the allocation_to_move addr in the 
+	// allocationMap --- if not found, return immediately
+    allocation_entry* entry = findAllocEntry(allocation_to_move);
+    if (!entry) {
+        CARAT_PRINT("Cannot find entry\n");
+        goto out_bad;
+    }
+
+	
+    // Generate what patches need to be executed for overwriting 
+	// memory, then executes patches for escapes to allocation_target
+    if (carat_patch_escapes(entry, allocation_target) == 1) {
+        CARAT_PRINT("The patch is toast --- can't patch escapes !\n");
+        goto out_bad;
+    }
+
+
+    // For each thread, patch registers to the allocation_target --- 
+	// takes a "state," which is just a packaged structure containing 
+	// necessary info to perform the patching --- like to and from 
+	// addrs, length, etc.
+    struct move_alloc_state state = {allocation_to_move, allocation_target, entry->length, 0};
+    nk_sched_map_threads(-1, handle_thread, &state);
+    if (state.failed) {
+        CARAT_PRINT("Unable to patch threads\n");
+        goto out_bad;
+    }
+   
+	// Perform the real memory movement (the "actual patch") --- move
+	// the memory at allocation_to_move to allocation_target 
+    memmove(allocation_to_move, allocation_target, entry->length);
+   
+
+   	// DEPRECATED
+    /* carat_update_entry(entry, allocation_target); */
+
+    /*
+	 * Do we need to handle our own stack? --- this is the possible 
+	 * location in the handler where the stack needs to be handled 
+	 */
+
+    nk_sched_start_world();
     return 0;
+
+out_bad:
+    nk_sched_start_world();
+    return -1;
+
 }
 
 /* --------- TEST CASE ---------  */
@@ -227,6 +423,27 @@ allocEntry *findRandomAlloc() {
 // Test can execute an arbitrary number of sequential
 // moves based on user input
 
+// Utility
+allocation_entry *findRandomAlloc() {
+
+	// Select a random index from the map 
+    srand48(29848349); 
+	uint64_t target = lrand48() % nk_map_get_size(allocationMap), // randomized
+    		 count = 0;
+
+	// Find the allocation at that index in the 
+	// allocationMap
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) 
+	{
+		if (count == target) { return ((allocation_entry *) (pair->second)); }
+		count++;
+	}
+
+    return 0;
+}
+
 // Shell command handler
 static int handle_karat_test(char *buf, void *priv)
 {
@@ -241,7 +458,7 @@ static int handle_karat_test(char *buf, void *priv)
         for(i = 0; i < count; i++) {
 
 			// Find a random entry from the allocation table
-            allocEntry* entry = findRandomAlloc();
+            allocation_entry* entry = findRandomAlloc();
             if(!entry) {
                 nk_vc_printf("Random entry not found.\n");
                 return -1;
@@ -322,14 +539,14 @@ nk_register_shell_cmd(karat_test_impl);
 static int handle_print_table() {
 
 	// Table formatting:
-	nk_vc_printf("map node addr  :  ( real addr  :  allocEntry addr  ---  ( pointer,  len ))\n"); 
+	nk_vc_printf("map node addr  :  ( real addr  :  allocation_entry addr  ---  ( pointer,  len ))\n"); 
 
 	// Loop through the allocationMap, print all 
 	// information necessary
     nk_slist_node_uintptr_t_uintptr_t *iter;
     nk_pair_uintptr_t_uintptr_t *pair;
     nk_map_foreach(allocationMap, pair, iter) {        
-        allocEntry *the_entry = (allocEntry *) (pair->second);
+        allocation_entry *the_entry = (allocation_entry *) (pair->second);
 		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", 
 					 iter, 
 					 pair->first, 
