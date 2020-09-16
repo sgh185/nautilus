@@ -96,18 +96,20 @@
 /*
  * Typedefs for CARAT data structures
  */ 
-typedef nk_slist_uintptr_t nk_carat_escape_map;
+typedef nk_slist_uintptr_t nk_carat_escape_set;
 typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
 
 
-/*
- * Interface for "nk_carat_escape_map"
+/* 
+ * Interface for "nk_carat_escape_set" --- generic
  */ 
-#define CARAT_ESCAPE_MAP_BUILD nk_slist_build(uintptr_t, 6)
+#define CARAT_ESCAPE_SET_BUILD nk_slist_build(uintptr_t, CARAT_INIT_NUM_GEARS)
+#define CARAT_ESCAPE_SET_ADD(set, key) nk_slist_add(uintptr_t, set, ((uintptr_t) key));
 
 
 /*
- * Interface for "nk_carat_allocation_map"
+ * Interface for "nk_carat_allocation_map" --- specifically for the
+ * global "allocationMap" data structure
  */ 
 #define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
@@ -134,7 +136,7 @@ typedef struct allocEntry_t { // CONV [class] -> [typedef struct]
      * Set of all *potential* escapes for this particular
      * allocation, the pointer -> void **
      */ 
-    nk_carat_escape_map *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
+    nk_carat_escape_set *allocToEscapeMap; // CONV [unordered_set<void **>] -> [nk_slist_uintptr_t *]
 
 } allocEntry;
 
@@ -164,6 +166,19 @@ allocEntry *allocEntrySetup(void* ptr, uint64_t len); // CONV [class constructor
 	if (!(CARAT_ALLOCATION_MAP_INSERT(key, newEntry))) { \
 		panic(str" %p\n", key);
 	}
+
+
+/*
+ * Macro expansion utility --- for deleting allocEntry objects
+ */ 
+#define REMOVE_ENTRY(key, str) \
+	/*
+	 * Delete the @##key from the allocation map
+	 */ \
+	if (!(CARAT_ALLOCATION_MAP_REMOVE(key))) { \
+		panic(str" %p\n", key);
+	}
+
 
 
 /*

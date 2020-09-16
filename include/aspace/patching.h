@@ -71,7 +71,7 @@ int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
  * from @entry (existing at @entry + (an offset)), and update each escaped 
  * pointer to use @allocationTarget (at @allocationTarget + (an offset))
  *
- * TODO --- [Rename : _nk_carat_patch_escapes]
+ * TODO --- [Rename : _carat_patch_escapes]
  */ 
 int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
 
@@ -80,7 +80,7 @@ int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
  * Upon a move --- "handle_thread" will update each thread's register 
  * state to use @state->allocationTarget instead of @state->allocationToMove
  *
- * TODO --- [Rename : _nk_carat_patch_thread_state]
+ * TODO --- [Rename : _carat_patch_thread_state]
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
 static void handle_thread(struct nk_thread *t, void *state);
@@ -92,6 +92,8 @@ static void handle_thread(struct nk_thread *t, void *state);
  * Manually performs an update from @entry, pointing it to @allocationTarget 
  * by explicitly removing @entry's allocEntry object and adding an object
  * for @allocationTarget
+ * 
+ * TODO --- [Rename : _carat_update_entry]
  */ 
 int carat_update_entry(allocEntry *entry, void* allocationTarget);
 
