@@ -30,29 +30,13 @@
 
 
 /*
- * =================== Setting Global State ===================
+ * =================== Setting Necessary Global State ===================
  */ 
 
 /*
- * Declare allocationMap
+ * Set ready flag --- no need to set anything else before nk_carat_init
  */ 
-nk_carat_allocation_map *allocationMap = NULL; 
-
-
-/*
- * Set up globals for init()
- */ 
-int carat_ready = 0;
-allocation_entry* StackEntry;
-uint64_t rsp = 0;
-
-
-/*
- * Set up escapeWindow and statistics
- */ 
-uint64_t escapeWindowSize = 0;
-uint64_t totalEscapeEntries = 0;
-void*** escapeWindow = NULL; 
+global_carat_context.carat_ready = 0;
 
 
 /*
@@ -63,7 +47,7 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	/*
 	 * Allocate an allocation_entry object
 	 */
-	allocation_entry * new_entry = (allocation_entry *) CARAT_MALLOC(sizeof(allocation_entry));
+	allocation_entry *new_entry = (allocation_entry *) CARAT_MALLOC(sizeof(allocation_entry));
 
 
 	/*
@@ -71,8 +55,8 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	 * build a new escapes map for the new allocation_entry object
 	 */ 
 	new_entry->pointer = address;
-	new_entry->length = allocation_size;
-	new_entry->allocToEscapeMap = NK_CARAT_ESCAPE_SET_BUILD; 
+	new_entry->size = allocation_size;
+	new_entry->escapes_set = NK_CARAT_ESCAPE_SET_BUILD; 
 
 
 	/*
@@ -201,7 +185,7 @@ void nk_carat_report_statistics()
 	 * 
 	 * TODO --- add more statistics
 	 */ 
-	CARAT_PRINT("Size of Allocation Table: %lu\n", nk_map_get_size(allocationMap)); 
+	CARAT_PRINT("Size of Allocation Table: %lu\n", CARAT_ALLOCATION_MAP_SIZE); 
 	return;
 }
 
@@ -209,7 +193,7 @@ void nk_carat_report_statistics()
 /*
  * =================== Allocations Handling Methods ===================
  */ 
-void AddToAllocationTable(void *address, uint64_t allocation_size)
+void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -223,7 +207,8 @@ void AddToAllocationTable(void *address, uint64_t allocation_size)
 	 */ 
 	CREATE_ENTRY_AND_ADD (
 		address, 
-		"AddToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		allocation_size,
+		"nk_carat_instrument_malloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
 	);
 
 
@@ -231,7 +216,7 @@ void AddToAllocationTable(void *address, uint64_t allocation_size)
 }
 
 
-void AddCallocToAllocationTable(void *address, uint64_t num_elements, uint64_t size_of_element)
+void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -247,7 +232,8 @@ void AddCallocToAllocationTable(void *address, uint64_t num_elements, uint64_t s
 	uint64_t allocation_size = num_elements * size_of_element;
 	CREATE_ENTRY_AND_ADD (
 		address, 
-		"AddCallocToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		allocation_size,
+		"nk_carat_instrument_calloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
 	);
 
 
@@ -255,7 +241,7 @@ void AddCallocToAllocationTable(void *address, uint64_t num_elements, uint64_t s
 }
 
 
-void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64_t allocation_size)
+void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -270,7 +256,7 @@ void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64
 	 */ 
 	REMOVE_ENTRY (
 		old_address,
-		"HandleReallocToAllocationTable: REMOVE_ENTRY failed on address"
+		"nk_carat_instrument_realloc: REMOVE_ENTRY failed on address"
 	);
 
 
@@ -279,6 +265,7 @@ void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64
 	 */ 
 	CREATE_ENTRY_AND_ADD (
 		new_address, 
+		allocation_size,
 		"HandleReallocToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
 	);
 
@@ -287,7 +274,7 @@ void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64
 }
 
 
-void RemoveFromAllocationTable(void *address)
+void nk_carat_instrument_free(void *address)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -301,7 +288,7 @@ void RemoveFromAllocationTable(void *address)
 	 */ 
 	REMOVE_ENTRY (
 		address,
-		"RemoveFromAllocationTable: REMOVE_ENTRY failed on address"
+		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
 	);
 
 
@@ -313,7 +300,7 @@ void RemoveFromAllocationTable(void *address)
  * =================== Escapes Handling Methods ===================
  */ 
 
-void AddToEscapeTable(void *escaping_address)
+void nk_carat_instrument_escapes(void *escaping_address)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -326,15 +313,16 @@ void AddToEscapeTable(void *escaping_address)
 	 * Escapes are processed using batch processing --- if the escapeWindow
 	 * is completely filled --- we need to process it first
 	 */ 
-	if (totalEscapeEntries >= escapeWindowSize) { processEscapeWindow(); }
+	uint64_t num_entries = global_carat_context.total_escape_entries;
+	if (num_entries >= ESCAPE_WINDOW_SIZE) { _carat_process_escape_window(); }
 
 
 	/*
 	 * Add the escape to the end of the escapeWindow --- this will be
-	 * processed at some point in batch
+	 * processed at some point in batch, update the counter
 	 */ 
-	escapeWindow[totalEscapeEntries] = ((void**) escaping_address);
-	totalEscapeEntries++;
+	global_carat_context.escape_window[num_entries] = ((void**) escaping_address);
+	global_carat_context.total_escape_entries++;
 
 
 	return;
@@ -342,11 +330,14 @@ void AddToEscapeTable(void *escaping_address)
 
 
 
-void processEscapeWindow()
+void _carat_process_escape_window()
 {	
 	/*
 	 * TOP --- perform batch processing of escapes in the escape window
 	 */ 
+
+	uint64_t num_entries = global_carat_context.total_escape_entries;
+	void ***the_escape_window = global_carat_context.escape_window;
 
 	/*
 	 * Build a set of escapes that are already processed --- if we encounter
@@ -359,12 +350,12 @@ void processEscapeWindow()
 	/*
 	 * Iterate through each escape, process it
 	 */ 
-	for (uint64_t i = 0; i < totalEscapeEntries; i++)
+	for (uint64_t i = 0; i < num_entries; i++)
 	{
 		/*
 		 * Get the next escape
 		 */ 
-		void **escaping_address = escapeWindow[i];
+		void **escaping_address = the_escape_window[i];
 
 
 		/*
@@ -395,14 +386,14 @@ void processEscapeWindow()
 		 * current escape should be recorded --- save this state to the 
 		 * corresponding entry and continue
 		 */  
-		NK_ESCAPE_SET_ADD((corresponding_entry->allocToEscapeMap), escaping_address);
+		NK_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escaping_address);
 	}
 
 
 	/*
 	 * Reset the global escapes counter
 	 */ 
-	totalEscapeEntries = 0;
+	global_carat_context.total_escape_entries = 0;
 
 
 	return;
@@ -428,18 +419,18 @@ uint64_t _carat_get_rsp()
 /*
  * Main driver for initialization
  */ 
-void CARATInit()
+void nk_carat_init()
 {
 	/*
 	 * Stash %rsp for later initialization
 	 */ 
-	rsp = _carat_get_rsp(); // Set global
+	uint64_t rsp = _carat_get_rsp(); // Set global
 	 
 
 	/*
 	 * Set up global allocation map
 	 */ 
-	allocationMap = CARAT_ALLOCATION_MAP_BUILD;
+	global_carat_context.allocation_map = CARAT_ALLOCATION_MAP_BUILD;
 
 	
 	/*
@@ -448,30 +439,27 @@ void CARATInit()
 	 * 
 	 * Add the stack and its allocation_entry object to the allocation map
 	 */ 
-	allocation_entry *new_entry;
 	uint64_t allocation_size = THIRTY_TWO_GB;
 	void *rsp_as_void_ptr = ((void *)(rsp - allocation_size));
-
-	CREATE_ENTRY_AND_ADD(
+ 
+	CREATE_ENTRY_AND_ADD (
 		rsp_as_void_ptr,
+		allocation_size
 		"CARATInit: nk_map_insert failed on rspVoidPtr"
 	);
-
-	StackEntry = new_entry; // Set global from macro expansion
 
 
 	/*
 	 * Set of escape window and its corresponding statistics/counters
 	 */ 
-	escapeWindowSize = ESCAPE_WINDOW_SIZE;
-	totalEscapeEntries = 0;
-	escapeWindow = ((void ***) CARAT_MALLOC(escapeWindowSize * sizeof(void *)));
+	global_carat_context.total_escape_entries = 0;
+	global_carat_context.escape_window = ((void ***) CARAT_MALLOC(ESCAPE_WINDOW_SIZE * sizeof(void *)));
 
 
 	/*
 	 * KARAT is ready --- set the flag
 	 */ 
-	carat_ready = 1; // FIX --- Global needs change
+	global_carat_context.carat_ready = 1;
 
 
 	return;

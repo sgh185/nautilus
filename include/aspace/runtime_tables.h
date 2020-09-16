@@ -80,7 +80,7 @@
 /*
  * Conditions check 
  */ 
-#define CHECK_CARAT_READY if (!carat_ready) { return; }
+#define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
 
 
 /*
@@ -117,17 +117,72 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
 
 /*
  * Interface for "nk_carat_allocation_map" --- specifically for the
- * global "allocationMap" data structure
+ * global "allocation_map" data structure
  */ 
 #define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
-#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
-#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
-#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
+#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
+#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
+#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
 
 
 /*
- * struct allocation_entry
+ * carat_context
+ * 
+ * - Main, global context for CARAT in the kernel
+ * - Contains the global allocation map, escape window information, and 
+ *   state from initialization and about stack allocation tracking
+ * 
+ * NOTE --- this is an ENGINEERING fix --- it is possible that a global
+ * context will create more resource pressure, cache misses, and other 
+ * underlying inefficiencies than the original design (scattered globals)
+ */
+
+typedef struct carat_context_t {
+
+    /*
+     * allocation_map
+     * 
+     * - Global allocation map
+     * - Stores [allocation address : allocation_entry address]
+     */ 
+    nk_carat_allocation_map *allocation_map;
+
+
+    /*
+     * Escape window
+     * - The escape window is an optimization to conduct escapes handling in batches
+     * - Functions in the following way:
+     *   
+     *   void **a = malloc(); // the data itself is treated as a void * --- therefore, malloc
+     *                        // treated with a double pointer
+     *   void **escape = a; // an escape
+     *   void ***escape_window = [escape, escape, escape, ...] // an array of escapes
+     * 
+     * - Statistics --- total_escape_entries is a counter helps with batch processing,
+     *                  indicating how many escapes are yet to be processed
+     */ 
+    void ***escape_window;
+    uint64_t total_escape_entries;
+
+
+    /*
+     * Flag to indicate that CARAT is ready to run
+     */ 
+    int carat_ready; 
+
+} carat_context;
+
+
+/*
+ * Global carat context declaration
+ */ 
+carat_context global_carat_context;
+
+
+/*
+ * allocation_entry
  *
  * Setup for an allocation entry 
  * - An allocation_entry stores necessary information to *track* each allocation
@@ -139,13 +194,13 @@ typedef struct allocation_entry_t {
      * Pointer to the allocation, size of allocation
      */ 
     void *pointer; 
-    uint64_t length;
+    uint64_t size;
 
     /*
      * Set of all *potential* escapes for this particular
      * allocation, the pointer -> void **
      */ 
-    nk_carat_escape_set *allocToEscapeMap;
+    nk_carat_escape_set *escapes_set;
 
 } allocation_entry;
 
@@ -160,15 +215,15 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  * Macro expansion utility --- creating allocation_entry objects
  * and adding them to the allocation map
  */ 
-#define CREATE_ENTRY_AND_ADD(key, str) \
+#define CREATE_ENTRY_AND_ADD(key, size, str) \
 	/*
 	 * Create a new allocation_entry object for the @new_address to be added
 	 */ \
-	allocation_entry *new_entry = _carat_create_allocation_entry(key, allocation_size); \
+	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
     \
     \
 	/*
-	 * Add the mapping [@##key : newEntry] to the allocationMap
+	 * Add the mapping [@##key : newEntry] to the allocation_map
 	 */ \
 	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
 		panic(str" %p\n", key);
@@ -187,53 +242,17 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	}
 
 
-
-/*
- * allocationMap
- * - Global definition for the allocation map
- * - Stores [allocation address : allocation_entry address]
- */ 
-extern nk_carat_allocation_map *allocationMap;
-
-
-/*
- * Escape window
- * - The escape window is an optimization to conduct escapes handling in batches
- * - Functions in the following way:
- *   
- *   void **a = malloc(); // the data itself is treated as a void * --- therefore, malloc
- *                        // treated with a double pointer
- *   void **escape = a; // an escape
- *   void ***escapeWindow = [escape, escape, escape, ...] // an array of escapes
- * 
- * - Statistics --- escapeWindowSize, totalEscapeEntries helps with batch processing,
- *                  indicating how many escapes are yet to be processed
- */ 
-extern void ***escapeWindow;
-extern uint64_t escapeWindowSize;
-extern uint64_t totalEscapeEntries;
-
-
 /*
  * =================== Init/Setup ===================  
  */ 
 
 /*
- * TOP --- Setup for KARAT inside init():
- * - texas_init() will handle all setup for the allocation table, escape window,
- *   and any stack address handling (StackEntry and rsp)
- * - carat_ready is a global that will be set only after texas_init() is called, 
- * - allocation and espapes methods only continue if carat_ready is true 
+ * TOP --- 
+ * 
+ * Setup for CARAT inside init(): nk_carat_init() will handle all 
+ * setup for the allocation table, escape window, and any stack 
+ * address handling
  */
-
-
-/*
- * Globals necessary for init
- */ 
-extern int carat_ready; 
-extern allocation_entry *StackEntry;
-extern uint64_t rsp;
-
 
 /*
  * Main driver for KARAT initialization
@@ -287,25 +306,25 @@ void nk_carat_report_statistics();
 /*
  * Instrumentation for "malloc" --- adding
  */
-void AddToAllocationTable(void *, uint64_t);
+void nk_carat_instrument_malloc(void *address, uint64_t allocation_size);
 
 
 /*
  * Instrumentation for "calloc" --- adding
  */ 
-void AddCallocToAllocationTable(void *, uint64_t, uint64_t);
+void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element);
 
 
 /*
  * Instrumentation for "realloc" --- adding
  */
-void HandleReallocInAllocationTable(void *, void *, uint64_t);
+void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size);
 
 
 /*
  * Instrumentation for "free" --- removing
  */
-void RemoveFromAllocationTable(void *);
+void nk_carat_instrument_free(void *address);
 
 
 /*
@@ -313,22 +332,18 @@ void RemoveFromAllocationTable(void *);
  */ 
 
 /*
- * AddToEscapeTable
- * 1. Search for address escaping within allocation table (an ordered map 
- *    that contains all current allocations <non overlapping blocks of memory 
- *    each consisting of an  address and length> made by the program
- * 2. If found (the addressEscaping variable falls within one of the blocks), 
- *    then a new entry into the escape table is made consisting of the 
- *    addressEscapingTo, the addressEscaping, and the length of the addressEscaping 
- *    (for optimzation if consecutive escapes occur)
+ * Instrumentation for escapes
+ * 1. Search for @escaping_address within global allocation map
+ * 2. If an aliasing entry is found, the escape must be recorded into
+ *    the aliasing entry's escapes set
  */
-void AddToEscapeTable(void *);
+void nk_carat_instrument_escapes(void *escaping_address);
 
 
 /*
  * Batch processing for escapes
  */ 
-void processEscapeWindow();
+void _carat_process_escape_window();
 
 
 
