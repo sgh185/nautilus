@@ -49,9 +49,9 @@
  * A packaged context for moving an allocation to a target address
  */ 
 struct move_alloc_state {
-    void *allocationToMove; // Address to move
-    void *allocationTarget; // Address to move to 
-    uint64_t length; // Length of allocation to move
+    void *allocation_to_move; // Address to move
+    void *allocation_target; // Address to move to 
+    uint64_t size; // Size of allocation to move
     int failed; // Move status
 };
 
@@ -63,37 +63,33 @@ struct move_alloc_state {
 /*
  * Driver for performing a move of an allocation that's already tracked
  */ 
-int nk_carat_move_allocation(void* allocationToMove, void* allocationTarget);
+int nk_carat_move_allocation(void* allocation_to_move, void* allocation_target);
 
 
 /*
  * Upon a move --- "carat_patch_escapes" will iterate through all escapes
  * from @entry (existing at @entry + (an offset)), and update each escaped 
- * pointer to use @allocationTarget (at @allocationTarget + (an offset))
- *
- * TODO --- [Rename : _carat_patch_escapes]
+ * pointer to use @allocation_target (at @allocation_target + (an offset))
  */ 
-int carat_patch_escapes(allocEntry *entry, void* allocationTarget);
+void _carat_patch_escapes(allocation_entry *entry, void* allocation_target);
 
 
 /*
  * Upon a move --- "handle_thread" will update each thread's register 
- * state to use @state->allocationTarget instead of @state->allocationToMove
+ * state to use @state->allocation_target instead of @state->allocation_to_move
  *
- * TODO --- [Rename : _carat_patch_thread_state]
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
-static void handle_thread(struct nk_thread *t, void *state);
+static void __carat_print_regs (struct nk_regs * r);
+static void _carat_patch_thread_state(struct nk_thread *t, struct move_alloc_state *state);
 
 
 /*
  * DEPRECATED --- Handled by proper/known use of compiler instrumentation
  *
- * Manually performs an update from @entry, pointing it to @allocationTarget 
- * by explicitly removing @entry's allocEntry object and adding an object
- * for @allocationTarget
- * 
- * TODO --- [Rename : _carat_update_entry]
+ * Manually performs an update from @entry, pointing it to @allocation_target 
+ * by explicitly removing @entry's allocation_entry object and adding an object
+ * for @allocation_target
  */ 
-int carat_update_entry(allocEntry *entry, void* allocationTarget);
+void _carat_update_entry(allocation_entry *old_entry, void* allocation_target);
 

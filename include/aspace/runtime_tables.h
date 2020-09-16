@@ -113,6 +113,11 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
  */ 
 #define CARAT_ESCAPE_SET_BUILD nk_slist_build(uintptr_t, CARAT_INIT_NUM_GEARS)
 #define CARAT_ESCAPE_SET_ADD(set, key) nk_slist_add(uintptr_t, set, ((uintptr_t) key));
+#define CARAT_ESCAPES_SET_ITERATE(set) \
+    nk_slist_node_uintptr_t *iterator; \
+    uintptr_t val; \
+    \
+    nk_slist_foreach((entry->escapes_set), val, iterator) 
 
 
 /*
