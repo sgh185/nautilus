@@ -26,49 +26,121 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-
-//This header file holds the functions that will be injected into any program using Carat. The functions are responsible for building the runtime tables
-//as well as holding the PDG (will have to figure this out).
-
-//Determine C vs C++ (Probably C++)
-
-
 #include <aspace/runtime_tables.h> // CONV [.hpp] -> [.h]
 
 
+/*
+ * =================== Setting Global State ===================
+ */ 
 
-//Alloc addr, length
-nk_slist_uintptr_t_uintptr_t *allocationMap = NULL; // FIX (for pairs, maps)
+/*
+ * Declare allocationMap
+ */ 
+nk_carat_allocation_map *allocationMap = NULL; // FIX (for pairs, maps)
 
+
+/*
+ * Set up globals for init()
+ */ 
+int carat_ready = 0;
 allocEntry* StackEntry;
 uint64_t rsp = 0;
 
+
+/*
+ * Set up escapeWindow and statistics
+ */ 
 uint64_t escapeWindowSize = 0;
 uint64_t totalEscapeEntries = 0;
 void*** escapeWindow = NULL; // CONV [nullptr] -> [NULL]
 
-int carat_ready = 0;
 
-// CONV [class with an init constructor] -> [init function] FIX do we need to call this somewhere?
-// TODO: throw this in init, eventually call this with every new address space
 /*
-void texasStartup() {
-	user_init();
-	texas_init();
-} 
-*/
+ * Setup for allocations
+ */ 
+allocEntry *allocEntrySetup(void *ptr, uint64_t len) // CONV [class constructor] -> [function that returns an instance]
+{
+	/*
+	 * Allocate an allocEntry object
+	 */
+	allocEntry * newAllocEntry = (allocEntry *) CARAT_MALLOC(sizeof(allocEntry));
 
-// CONV [class constructor] -> [function that returns an instance]
-allocEntry* allocEntrySetup(void* ptr, uint64_t len){
-	allocEntry* newAllocEntry = (allocEntry*) CARAT_MALLOC(sizeof(allocEntry)); // maybe FIX
+
+	/*
+	 * Save the address (@ptr) and the size (@len), build a 
+	 * new escapes map for the new allocEntry object
+	 */ 
 	newAllocEntry->pointer = ptr;
 	newAllocEntry->length = len;
-	newAllocEntry->allocToEscapeMap = nk_slist_build(uintptr_t, 6); // maybe FIX the 6
+	newAllocEntry->allocToEscapeMap = NK_CARAT_ESCAPE_MAP_BUILD; 
+
+
+	/*
+	 * Return the new allocEntry object with saved state
+	 */
 	return newAllocEntry;
 }
 
 
-sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
+
+/*
+ * =================== Utility Analysis Methods ===================
+ */ 
+
+/*
+ * 
+ */ 
+#if 0
+__attribute__((always_inline))
+int _carat_does_alias(void *query_address, void *alloc_address, uint64_t length)
+{
+	/*
+	 * TOP --- Treat @alloc_address and @query_address as integers to perform 
+	 * a "range search" within @alloc_address' allocation size --- want
+	 * to see if @query_address is within this "range"
+	 */ 
+
+	/*
+	 * Set the ranges
+	 */ 
+	uint64_t allocation_range_start = ((uint64_t) alloc_address),
+			 allocation_range_end = allocation_range_start + length,
+			 query_address_int = ((uint64_t) query_address);
+
+
+	/*
+	 * Perform the range check and return the value
+	 */ 
+	int within_range = (true
+						&& (query_address_int >= allocation_range_start) 
+						&& (query_address_int < allocation_range_end));
+
+	return within_range;
+}
+
+__attribute__((always_inline))
+sint64_t _carat_get_query_offset(void *alloc_address, void *query_address, uint64_t length)
+{	
+	/*
+	 * Check if @query_address aliases @alloc_address:
+	 * - TRUE = return the offset (query_address - allocation_range_start)
+	 * - FALSE = -1
+	 */ 
+	uint64_t allocation_range_start = ((uint64_t) alloc_address),
+			 query_address_int = ((uint64_t) query_address); // Free computation
+
+	sint64_t the_offset = 
+		(_carat_does_alias(query_address, alloc_address, length)) ?
+		(query_address_int - allocation_range_start) : 
+		(-1);
+
+	return the_offset;
+}
+#endif
+
+
+sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal)
+{
 	uint64_t blockStart = (uint64_t) allocAddr;
 	if ((escapeVal >= blockStart) && (escapeVal < (blockStart + length))) { // CONV [no ()] -> [()]
 		return escapeVal - blockStart;
@@ -78,17 +150,61 @@ sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal){
 	}
 }
 
-void AddToAllocationTable(void *address, uint64_t length){
+/*
+ * =================== Allocations Handling Methods ===================
+ */ 
+#if 0
+void AddToAllocationTable(void *address, uint64_t length)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
 	CHECK_CARAT_READY
+
+
+	/*
+	 * Create an entry and add the mapping to the allocationMap
+	 */ 
+	CREATE_ENTRY_AND_ADD (
+		address, 
+		"AddToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+	);
+
+
+	return;
+}
+#endif
+
+void AddToAllocationTable(void *address, uint64_t length)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
 
 	CARAT_PRINT("In add to alloc: %p, %lu, %p\n", address, length, allocationMap);
 
 	allocEntry *newEntry = allocEntrySetup(address, length); // CONV [calling class constructor] -> [calling function that returns an instance]
 	CARAT_PRINT("Adding to allocationMap\n");
 
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) {
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
+	}
 	// CONV [map::insert] -> [nk_map_insert + status check]
 	if (!(nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address), ((uintptr_t) newEntry)))) {
 		panic("AddToAllocationTable: nk_map_insert failed on address %p\n", address);
+	}
+
+	nk_vc_printf("Post add\n");
+	nk_map_foreach(allocationMap, pair, iter) {
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
 	}
 
 	CARAT_PRINT("Returning\n");
@@ -104,6 +220,32 @@ void AddToAllocationTable(void *address, uint64_t length){
 	return;
 }
 
+#if 0
+void AddCallocToAllocationTable(void *address, uint64_t num_elements, uint64_t size_of_element)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
+	/*
+	 * Create a new allocEntry object for the @address to be added --- here,
+	 * the length has to be calculated from the parameters of calloc, which
+	 * are @num_elements, and @size_of_element
+	 */ 
+	uint64_t length = num_elements * size_of_element;
+	CREATE_ENTRY_AND_ADD (
+		address, 
+		"AddCallocToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+	);
+
+
+	return;
+}
+#endif
+
+
 void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntry){
 	CHECK_CARAT_READY
 	uint64_t length = len * sizeOfEntry;
@@ -117,6 +259,36 @@ void AddCallocToAllocationTable(void *address, uint64_t len, uint64_t sizeOfEntr
 
 	return;
 }
+
+#if 0
+void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64_t length)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
+
+	/*
+	 * Remove @old_address from the allocation map --- need to remove the 
+	 * corresponding allocEntry object because of realloc's resizing
+	 */ 
+	CARAT_ALLOCATION_MAP_REMOVE(old_address);
+
+
+	/*
+	 * Create an entry and add the mapping to the allocationMap
+	 */ 
+	CREATE_ENTRY_AND_ADD (
+		new_address, 
+		"HandleReallocToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+	);
+
+	
+	return;
+}
+#endif
 
 void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t length){
 	CHECK_CARAT_READY
@@ -137,6 +309,36 @@ void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t le
  * 1) Search for address escaping within allocation table (an ordered map that contains all current allocations <non overlapping blocks of memory each consisting of an  address and length> made by the program
  * 2) If found (the addressEscaping variable falls within one of the blocks), then a new entry into the escape table is made consisting of the addressEscapingTo, the addressEscaping, and the length of the addressEscaping (for optimzation if consecutive escapes occur)
  */
+
+#if 0
+void AddToEscapeTable(void *addressEscaping)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
+	
+	/*
+	 * Escapes are processed using batch processing --- if the escapeWindow
+	 * is completely filled --- we need to process it first
+	 */ 
+	if (totalEscapeEntries >= escapeWindowSize) { processEscapeWindow(); }
+
+
+	/*
+	 * Add the escape to the end of the escapeWindow --- this will be
+	 * processed at some point in batch
+	 */ 
+	escapeWindow[totalEscapeEntries] = (void**)addressEscaping;
+	totalEscapeEntries++;
+
+
+	return;
+}
+#endif
+
 void AddToEscapeTable(void* addressEscaping){
 	CHECK_CARAT_READY
 	if(totalEscapeEntries >= escapeWindowSize){
@@ -149,6 +351,58 @@ void AddToEscapeTable(void* addressEscaping){
 	return;
 }
 
+
+#if 0
+allocEntry * findAllocEntry(void *address)
+{
+	// CONV [brian] -> [better than brian] 	
+	/*
+	 * Find a prospective object (skiplist node) in the allocation map 
+	 * based on @address --- using "better_lower_bound"
+	 * 
+	 * "better_lower_bound" returns the node containing the
+	 * address that is the closest to @address AND <= @address
+	 */
+	__auto_type *lower_bound_node = CARAT_ALLOCATION_BETTER_LOWER_BOUND(address);
+
+
+	/* 
+	 * Possible exists --- [prospective] -> [findAllocEntry return]:
+	 * 1) the left sentinal (nk_slist_node, see below) -> NULL
+	 * 2) an allocEntry that does contain the address -> allocEntry *
+	 * 3) a allocEntry that does NOT contain the address -> NULL
+	 */ 
+
+	// skiplist node -> data -> second == allocEntry object from [address : allocEntry *]
+	allocEntry *prospective_entry = ((allocEntry *) lower_bound_node->data->second);
+
+	/*
+	 * CONDITION 1 --- better_lower_bound may return the left sential if  
+	 * the address is lower than all addresses that exist in the skip list 
+	 * (edge case)
+	 * 
+	 * Handle with a check against the left sentinal
+	 */
+	// FIX --- engineering issue
+	if (!prospective_entry) { return NULL; }
+	
+
+	/*
+	 * CONDITION 2 --- gather the prospective entry's address, the length of
+	 * the prospective's allocation, and check if @address aliases this allocation
+	 */ 
+	uint64_t prospective_size = prospective_entry->length; 
+	void *prospective_address = ((void *) prospective_entry->data->first);
+	if (!(_carat_does_alias((address, prospective_address, prospective_size))) { return NULL; }
+
+
+	/*
+	 * prospective_entry is the correct allocEntry object! Return it
+	 */ 
+	return prospective_entry;
+}
+#endif
+
 allocEntry* findAllocEntry(void *address){
 
 	// CONV [brian] -> [better than brian] 
@@ -157,6 +411,8 @@ allocEntry* findAllocEntry(void *address){
 
 	nk_slist_node_uintptr_t_uintptr_t *iter;
     nk_pair_uintptr_t_uintptr_t *pair;
+	
+	nk_vc_printf("map node addr  :  ( real addr  :  allocEntry addr  ---  ( pointer,  len ))\n"); 
     nk_map_foreach(allocationMap, pair, iter) {        
         allocEntry *the_entry = (allocEntry *) (pair->second);
 		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", iter, pair->first, the_entry, the_entry->pointer, the_entry->length);
@@ -256,7 +512,9 @@ void RemoveFromAllocationTable(void *address){
 	}
 
 	// CONV [map::erase] -> [nk_map_remove]
-	nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
+	if (!(nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)))) {
+		panic("RemoveFromAllocationTable: nk_map_remove failed on address %p\n", address);
+	}
 
 	nk_vc_printf("POST TOAST\n");
 	
