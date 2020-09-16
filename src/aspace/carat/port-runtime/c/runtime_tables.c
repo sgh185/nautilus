@@ -150,6 +150,117 @@ sint64_t doesItAlias(void *allocAddr, uint64_t length, uint64_t escapeVal)
 	}
 }
 
+
+
+#if 0
+allocEntry * findAllocEntry(void *address)
+{
+	// CONV [brian] -> [better than brian] 	
+	/*
+	 * Find a prospective object (skiplist node) in the allocation map 
+	 * based on @address --- using "better_lower_bound"
+	 * 
+	 * "better_lower_bound" returns the node containing the
+	 * address that is the closest to @address AND <= @address
+	 */
+	__auto_type *lower_bound_node = CARAT_ALLOCATION_BETTER_LOWER_BOUND(address);
+
+
+	/* 
+	 * Possible exists --- [prospective] -> [findAllocEntry return]:
+	 * 1) the left sentinal (nk_slist_node, see below) -> NULL
+	 * 2) an allocEntry that does contain the address -> allocEntry *
+	 * 3) a allocEntry that does NOT contain the address -> NULL
+	 */ 
+
+	// skiplist node -> data -> second == allocEntry object from [address : allocEntry *]
+	allocEntry *prospective_entry = ((allocEntry *) lower_bound_node->data->second);
+
+	/*
+	 * CONDITION 1 --- better_lower_bound may return the left sential if  
+	 * the address is lower than all addresses that exist in the skip list 
+	 * (edge case)
+	 * 
+	 * Handle with a check against the left sentinal
+	 */
+	// FIX --- engineering issue
+	if (!prospective_entry) { return NULL; }
+	
+
+	/*
+	 * CONDITION 2 --- gather the prospective entry's address, the length of
+	 * the prospective's allocation, and CHECK if @address aliases this allocation
+	 */ 
+	uint64_t prospective_size = prospective_entry->length; 
+	void *prospective_address = ((void *) prospective_entry->data->first);
+	if (!(_carat_does_alias((address, prospective_address, prospective_size))) { return NULL; }
+
+
+	/*
+	 * "prospective_entry" is the correct allocEntry object! Return it
+	 */ 
+	return prospective_entry;
+}
+#endif
+
+allocEntry* findAllocEntry(void *address){
+
+	// CONV [brian] -> [better than brian] 
+	nk_vc_printf("%lu", (uintptr_t) address);	
+	__auto_type *prospective = nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
+
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+    nk_pair_uintptr_t_uintptr_t *pair;
+	
+	nk_vc_printf("map node addr  :  ( real addr  :  allocEntry addr  ---  ( pointer,  len ))\n"); 
+    nk_map_foreach(allocationMap, pair, iter) {        
+        allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", iter, pair->first, the_entry, the_entry->pointer, the_entry->length);
+    }
+
+
+	/* 
+	 * [prospective] -> [findAllocEntry return]:
+	 * 1) the left sentinal (see below) -> NULL
+	 * 2) a nk_slist_node that does contain the address -> allocEntry *
+	 * 3) a nk_slist_node that does NOT contain the address -> NULL
+	 */ 
+
+	// better_lower_bound may return the left sential if the address is 
+	// lower than all addresses that exist in the skip list (edge case)
+	
+	nk_vc_printf("in findAllocEntry\n");
+	nk_vc_printf("prospective: %p\n", prospective);
+	nk_vc_printf("prospective->data: %p\n", prospective->data);
+	nk_vc_printf("prospective->data->first: %p\n", prospective->data->first);
+	
+	// FIX --- engineering issue
+	if (!(prospective->data->second)) { return NULL; }
+	
+	nk_vc_printf("in findAllocEntry --- part 2\n");
+	nk_vc_printf("the address: %p\n", address);
+	
+
+	// Gather length of the block
+	allocEntry *prospective_entry = ((allocEntry *) prospective->data->second); 
+	nk_vc_printf("prospective_entry\n");
+
+	nk_vc_printf("prospective_entry: %p\n", prospective_entry);
+
+	uint64_t blockLen = prospective_entry->length; 
+	
+	nk_vc_printf("prospective --- %p : (%p, %d)\n", prospective->data->first, prospective_entry->pointer, prospective_entry->length);
+
+	nk_vc_printf("blockLen : %d\n", blockLen);
+
+	// Could be in the block (return NULL otherwise)
+	if (doesItAlias(((void **) (prospective->data->first)), blockLen, (uint64_t) address) == -1) { return NULL; }
+
+	return prospective_entry;
+}
+
+
+
 /*
  * =================== Allocations Handling Methods ===================
  */ 
@@ -274,7 +385,10 @@ void HandleReallocInAllocationTable(void *old_address, void *new_address, uint64
 	 * Remove @old_address from the allocation map --- need to remove the 
 	 * corresponding allocEntry object because of realloc's resizing
 	 */ 
-	CARAT_ALLOCATION_MAP_REMOVE(old_address);
+	REMOVE_ENTRY (
+		old_address,
+		"HandleReallocToAllocationTable: REMOVE_ENTRY failed on address"
+	);
 
 
 	/*
@@ -304,6 +418,63 @@ void HandleReallocInAllocationTable(void *address, void *newAddress, uint64_t le
 }
 
 
+
+#if 0
+void RemoveFromAllocationTable(void *address)
+{
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * free before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
+
+	/*
+	 * Remove @address from the allocation map
+	 */ 
+	REMOVE_ENTRY (
+		address,
+		"RemoveFromAllocationTable: REMOVE_ENTRY failed on address"
+	);
+
+
+	return;
+}
+#endif
+
+// This function will remove an address from the allocation from a free() or free()-like instruction being called
+void RemoveFromAllocationTable(void *address){
+	CHECK_CARAT_READY
+
+	nk_vc_printf("RemoveFromAllocationTable: %p\n", address);
+
+	nk_slist_node_uintptr_t_uintptr_t *iter;
+	nk_pair_uintptr_t_uintptr_t *pair;
+	nk_map_foreach(allocationMap, pair, iter) {
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
+	}
+
+	// CONV [map::erase] -> [nk_map_remove]
+	if (!(nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)))) {
+		panic("RemoveFromAllocationTable: nk_map_remove failed on address %p\n", address);
+	}
+
+	nk_vc_printf("POST TOAST\n");
+	
+	nk_map_foreach(allocationMap, pair, iter) {
+		allocEntry *the_entry = (allocEntry *) (pair->second);
+		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
+	}
+
+}
+
+
+
+
+/*
+ * =================== Escapes Handling Methods ===================
+ */ 
 
 /*
  * 1) Search for address escaping within allocation table (an ordered map that contains all current allocations <non overlapping blocks of memory each consisting of an  address and length> made by the program
@@ -353,111 +524,73 @@ void AddToEscapeTable(void* addressEscaping){
 
 
 #if 0
-allocEntry * findAllocEntry(void *address)
-{
-	// CONV [brian] -> [better than brian] 	
+void processEscapeWindow()
+{	
 	/*
-	 * Find a prospective object (skiplist node) in the allocation map 
-	 * based on @address --- using "better_lower_bound"
-	 * 
-	 * "better_lower_bound" returns the node containing the
-	 * address that is the closest to @address AND <= @address
-	 */
-	__auto_type *lower_bound_node = CARAT_ALLOCATION_BETTER_LOWER_BOUND(address);
-
-
-	/* 
-	 * Possible exists --- [prospective] -> [findAllocEntry return]:
-	 * 1) the left sentinal (nk_slist_node, see below) -> NULL
-	 * 2) an allocEntry that does contain the address -> allocEntry *
-	 * 3) a allocEntry that does NOT contain the address -> NULL
+	 * TOP --- perform batch processing of escapes in the escape window
 	 */ 
 
-	// skiplist node -> data -> second == allocEntry object from [address : allocEntry *]
-	allocEntry *prospective_entry = ((allocEntry *) lower_bound_node->data->second);
+	/*
+	 * Build a set of escapes that are already processed --- if we encounter
+	 * another escape that is part of this set, the batch processing will
+	 * ignore it
+	 */  
+	nk_carat_escape_set *processed_escapes = CARAT_ESCAPE_SET_BUILD;
+
 
 	/*
-	 * CONDITION 1 --- better_lower_bound may return the left sential if  
-	 * the address is lower than all addresses that exist in the skip list 
-	 * (edge case)
-	 * 
-	 * Handle with a check against the left sentinal
-	 */
-	// FIX --- engineering issue
-	if (!prospective_entry) { return NULL; }
-	
-
-	/*
-	 * CONDITION 2 --- gather the prospective entry's address, the length of
-	 * the prospective's allocation, and check if @address aliases this allocation
+	 * Iterate through each escape, process it
 	 */ 
-	uint64_t prospective_size = prospective_entry->length; 
-	void *prospective_address = ((void *) prospective_entry->data->first);
-	if (!(_carat_does_alias((address, prospective_address, prospective_size))) { return NULL; }
+	for (uint64_t i = 0; i < totalEscapeEntries; i++)
+	{
+		/*
+		 * Get the next escape
+		 */ 
+		void **escaping_address = escapeWindow[i];
+
+
+		/*
+		 * Perform conditions checks on the escape:
+		 * 1. Check if it's a valid pointer
+		 * 2. Check if it's already been processed
+		 * 3. Check if it corresponds to an allocation (allocEntry object)
+		 * 
+		 * TRUE == mark as processed, continue
+		 * FALSE == process fully, continue
+		 * 
+		 * NOTE --- Condition 2 and "marking as processed" can be completed 
+		 * in the same step because of the design of nk_slist_add --- which
+		 * returns a status flag if an addition to the skiplist has actually 
+		 * occurred
+		 */ 
+		allocEntry *corresponding_entry = NULL;
+
+		if (false 
+			|| (!escaping_address) /* Condition 1 */
+			|| (!(NK_ESCAPE_SET_ADD(processed_escapes, escaping_address))) /* Condition 2, marking */
+			|| (!(corresponding_entry = findAllocEntry(*escaping_address)))) /* Condition 3 */
+			{ continue; }
+
+		
+		/*
+		 * At this point --- we have found a corresponding entry where the 
+		 * current escape should be recorded --- save this state to the 
+		 * corresponding entry and continue
+		 */  
+		NK_ESCAPE_SET_ADD((corresponding_entry->allocToEscapeMap), escaping_address);
+	}
 
 
 	/*
-	 * prospective_entry is the correct allocEntry object! Return it
+	 * Reset the global escapes counter
 	 */ 
-	return prospective_entry;
+	totalEscapeEntries = 0;
+
+
+	return;
 }
 #endif
 
-allocEntry* findAllocEntry(void *address){
-
-	// CONV [brian] -> [better than brian] 
-	nk_vc_printf("%lu", (uintptr_t) address);	
-	__auto_type *prospective = nk_map_better_lower_bound(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address));
-
-	nk_slist_node_uintptr_t_uintptr_t *iter;
-    nk_pair_uintptr_t_uintptr_t *pair;
-	
-	nk_vc_printf("map node addr  :  ( real addr  :  allocEntry addr  ---  ( pointer,  len ))\n"); 
-    nk_map_foreach(allocationMap, pair, iter) {        
-        allocEntry *the_entry = (allocEntry *) (pair->second);
-		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", iter, pair->first, the_entry, the_entry->pointer, the_entry->length);
-    }
-
-
-	/* 
-	 * [prospective] -> [findAllocEntry return]:
-	 * 1) the left sentinal (see below) -> NULL
-	 * 2) a nk_slist_node that does contain the address -> allocEntry *
-	 * 3) a nk_slist_node that does NOT contain the address -> NULL
-	 */ 
-
-	// better_lower_bound may return the left sential if the address is 
-	// lower than all addresses that exist in the skip list (edge case)
-	
-	nk_vc_printf("in findAllocEntry\n");
-	nk_vc_printf("prospective: %p\n", prospective);
-	nk_vc_printf("prospective->data: %p\n", prospective->data);
-	nk_vc_printf("prospective->data->first: %p\n", prospective->data->first);
-	
-	// FIX --- engineering issue
-	if (!(prospective->data->second)) { return NULL; }
-	
-	nk_vc_printf("in findAllocEntry --- part 2\n");
-	nk_vc_printf("the address: %p\n", address);
-	
-
-	// Gather length of the block
-	allocEntry *prospective_entry = ((allocEntry *) prospective->data->second); 
-	nk_vc_printf("prospective_entry\n");
-
-	nk_vc_printf("prospective_entry: %p\n", prospective_entry);
-
-	uint64_t blockLen = prospective_entry->length; 
-	
-	nk_vc_printf("prospective --- %p : (%p, %d)\n", prospective->data->first, prospective_entry->pointer, prospective_entry->length);
-
-	nk_vc_printf("blockLen : %d\n", blockLen);
-
-	// Could be in the block (return NULL otherwise)
-	if (doesItAlias(((void **) (prospective->data->first)), blockLen, (uint64_t) address) == -1) { return NULL; }
-
-	return prospective_entry;
-}
 
 void processEscapeWindow(){
 	CARAT_PRINT("\n\n\nI am invoked!\n\n\n");
@@ -497,33 +630,6 @@ void processEscapeWindow(){
 	totalEscapeEntries = 0;
 }
 
-
-// This function will remove an address from the allocation from a free() or free()-like instruction being called
-void RemoveFromAllocationTable(void *address){
-	CHECK_CARAT_READY
-
-	nk_vc_printf("RemoveFromAllocationTable: %p\n", address);
-
-	nk_slist_node_uintptr_t_uintptr_t *iter;
-	nk_pair_uintptr_t_uintptr_t *pair;
-	nk_map_foreach(allocationMap, pair, iter) {
-		allocEntry *the_entry = (allocEntry *) (pair->second);
-		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
-	}
-
-	// CONV [map::erase] -> [nk_map_remove]
-	if (!(nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) address)))) {
-		panic("RemoveFromAllocationTable: nk_map_remove failed on address %p\n", address);
-	}
-
-	nk_vc_printf("POST TOAST\n");
-	
-	nk_map_foreach(allocationMap, pair, iter) {
-		allocEntry *the_entry = (allocEntry *) (pair->second);
-		nk_vc_printf("%p : (ptr: %p, len: %d)\n", pair->first, the_entry->pointer, the_entry->length);
-	}
-
-}
 
 void ReportStatistics(){
 	// CONV [map::size] -> [nk_slist_get_size]
