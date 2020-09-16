@@ -260,6 +260,21 @@ allocEntry* findAllocEntry(void *address){
 }
 
 
+/*
+ * Self explanatory stats for KARAT
+ */ 
+__attribute__((always_inline))
+void ReportStatistics()
+{
+	/*
+	 * Report size of allocation map
+	 * 
+	 * TODO --- add more statistics
+	 */ 
+	CARAT_PRINT("Size of Allocation Table: %lu\n", nk_map_get_size(allocationMap)); 
+	return;
+}
+
 
 /*
  * =================== Allocations Handling Methods ===================
@@ -631,19 +646,76 @@ void processEscapeWindow(){
 }
 
 
-void ReportStatistics(){
-	// CONV [map::size] -> [nk_slist_get_size]
-	// NOTE --- nk_slist_get_size ISN'T implemented yet
-	CARAT_PRINT("Size of Allocation Table: %lu\n", nk_map_get_size(allocationMap)); 
-}
 
+/*
+ * =================== Initilization Methods ===================
+ */ 
 
-uint64_t getrsp(){
+/*
+ * Utility to get %rsp
+ */ 
+__attribute__((always_inline))
+uint64_t getrsp()
+{
 	uint64_t retVal;
 	__asm__ __volatile__("movq %%rsp, %0" : "=a"(retVal) : : "memory");
 	return retVal;
 }
 
+
+/*
+ * Main driver for initialization
+ */ 
+#if 0
+void texas_init()
+{
+	/*
+	 * Stash %rsp for later initialization
+	 */ 
+	rsp = getrsp();
+	
+
+	/*
+	 * Set up global allocation map
+	 */ 
+	allocationMap = CARAT_ALLOCATION_MAP_BUILD;
+
+	
+	/*
+	 * Block 32 GB worth of "stack space" --- to "handle" the stack --- this
+	 * is a hack/precursor for tracking stack allocations
+	 * 
+	 * Add the stack and its allocEntry object to the allocation map
+	 */ 
+	allocEntry *newEntry;
+	uint64_t length = THIRTY_TWO_GB;
+	void *rspVoidPtr = ((void *)(rsp - length)); // Set global
+
+	CREATE_ENTRY_AND_ADD(
+		rspVoidPtr,
+		"texas_init: nk_map_insert failed on rspVoidPtr"
+	);
+
+	StackEntry = newEntry; // Set global from macro expansion
+
+
+	/*
+	 * Set of escape window and its corresponding statistics/counters
+	 */ 
+	escapeWindowSize = ESCAPE_WINDOW_SIZE;
+	totalEscapeEntries = 0;
+	escapeWindow = ((void ***) CARAT_MALLOC(escapeWindowSize * sizeof(void *)));
+
+
+	/*
+	 * KARAT is ready --- set the flag
+	 */ 
+	carat_ready = 1; // FIX --- Global needs change
+
+
+	return;
+}
+#endif
 
 void texas_init(){
 	rsp = getrsp();

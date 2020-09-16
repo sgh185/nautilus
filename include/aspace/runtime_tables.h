@@ -90,6 +90,14 @@
 
 
 /*
+ * Sizes
+ */ 
+#define ONE_MB 1048576
+#define THIRTY_TWO_GB 0x800000000ULL
+#define ESCAPE_WINDOW_SIZE ONE_MB
+
+
+/*
  * =================== Data Structures/Definitions ===================  
  */ 
 
@@ -111,6 +119,7 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
  * Interface for "nk_carat_allocation_map" --- specifically for the
  * global "allocationMap" data structure
  */ 
+#define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
 #define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove(allocationMap, uintptr_t, uintptr_t, ((uintptr_t) key))
