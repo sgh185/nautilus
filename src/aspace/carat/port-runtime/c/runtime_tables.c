@@ -175,7 +175,7 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 
 
 /*
- * Self explanatory stats for KARAT
+ * Self explanatory stats for CARAT
  */ 
 __attribute__((always_inline))
 void nk_carat_report_statistics()
@@ -457,7 +457,7 @@ void nk_carat_init()
 
 
 	/*
-	 * KARAT is ready --- set the flag
+	 * CARAT is ready --- set the flag
 	 */ 
 	global_carat_context.carat_ready = 1;
 

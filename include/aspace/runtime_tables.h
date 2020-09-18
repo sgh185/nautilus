@@ -260,7 +260,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  */
 
 /*
- * Main driver for KARAT initialization
+ * Main driver for CARAT initialization
  */ 
 void nk_carat_init();
 

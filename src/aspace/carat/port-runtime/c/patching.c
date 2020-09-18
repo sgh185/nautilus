@@ -445,11 +445,11 @@ allocation_entry *findRandomAlloc() {
 }
 
 // Shell command handler
-static int handle_karat_test(char *buf, void *priv)
+static int handle_carat_test(char *buf, void *priv)
 {
     uint64_t count;
     uint64_t i;
-    if(sscanf(buf, "karat_test %lu", &count) == 1) {
+    if(sscanf(buf, "carat_test %lu", &count) == 1) {
 
         nk_vc_printf("Moving %lu times.\n", count);
 
@@ -524,13 +524,13 @@ static int handle_karat_test(char *buf, void *priv)
     return 0;
 }
 
-static struct shell_cmd_impl karat_test_impl = {
-    .cmd = "karat_test",
-    .help_str = "karat_test",
-    .handler = handle_karat_test,
+static struct shell_cmd_impl carat_test_impl = {
+    .cmd = "carat_test",
+    .help_str = "carat_test",
+    .handler = handle_carat_test,
 };
 
-nk_register_shell_cmd(karat_test_impl);
+nk_register_shell_cmd(carat_test_impl);
 
 
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
