@@ -293,7 +293,7 @@ allocation_entry *_carat_find_random_alloc() {
 	/* 
     * Select a random index from the map  
     */
-    srand48(29848349); 
+    srand48(29848349);
 	uint64_t target = lrand48() % CARAT_ALLOCATION_MAP_SIZE,
     		 count = 0;
 
@@ -356,7 +356,10 @@ static int handle_carat_test(char *buf, void *priv)
             * Perform move from "old" to "new"
             * nk_carat_move_allocation does all checks and panicks if any fail 
             */
-			nk_carat_move_allocation(old, new);
+            nk_vc_printf("%d ", i);
+            nk_carat_move_allocation(old, new);
+
+
 
 			/* 
             * ***NOTE*** --- this free will be instrumented by
