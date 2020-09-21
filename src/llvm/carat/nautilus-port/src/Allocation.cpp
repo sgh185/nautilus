@@ -35,7 +35,7 @@ AllocationHandler::AllocationHandler(Module *M)
 
     // Set state
     this->M = M;
-    this->Init = M->getFunction("texas_init");
+    this->Init = M->getFunction(TEXAS_INIT);
     if (this->Init == nullptr) { abort(); }
 
     // Set up data structures

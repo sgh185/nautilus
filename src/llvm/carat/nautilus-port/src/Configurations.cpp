@@ -29,17 +29,17 @@
 #include "../include/Configurations.hpp"
 
 // Function names to inject
-const string CARAT_MALLOC = "AddToAllocationTable",
-             CARAT_REALLOC = "HandleReallocInAllocationTable",
-             CARAT_CALLOC = "AddCallocToAllocationTable",
-             CARAT_REMOVE_ALLOC = "RemoveFromAllocationTable",
-             CARAT_STATS = "ReportStatistics",
-             CARAT_ESCAPE = "AddToEscapeTable",
+const string CARAT_MALLOC = "nk_carat_instrument_malloc",
+             CARAT_REALLOC = "nk_carat_instrument_realloc",
+             CARAT_CALLOC = "nk_carat_instrument_calloc",
+             CARAT_REMOVE_ALLOC = "nk_carat_instrument_free",
+             CARAT_STATS = "nk_carat_report_statistics",
+             CARAT_ESCAPE = "nk_carat_instrument_escapes",
              PANIC_STRING = "LLVM_panic_string",
              LOWER_BOUND = "lower_bound",
              UPPER_BOUND = "upper_bound",
-             TEXAS_INIT = "texas_init",
-             ENTRY_SETUP = "allocEntrySetup",
+             TEXAS_INIT = "nk_carat_init",
+             ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
              ANNOTATION = "llvm.global.annotations",
              NOCARAT = "nocarat";
 
