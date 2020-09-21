@@ -48,7 +48,7 @@
 /*
  * A packaged context for moving an allocation to a target address
  */ 
-struct move_alloc_state {
+struct move_context {
     void *allocation_to_move; // Address to move
     void *allocation_target; // Address to move to 
     uint64_t size; // Size of allocation to move
@@ -63,7 +63,7 @@ struct move_alloc_state {
 /*
  * Driver for performing a move of an allocation that's already tracked
  */ 
-int nk_carat_move_allocation(void* allocation_to_move, void* allocation_target);
+void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
 
 
 /*
@@ -71,7 +71,7 @@ int nk_carat_move_allocation(void* allocation_to_move, void* allocation_target);
  * from @entry (existing at @entry + (an offset)), and update each escaped 
  * pointer to use @allocation_target (at @allocation_target + (an offset))
  */ 
-void _carat_patch_escapes(allocation_entry *entry, void* allocation_target);
+int _carat_patch_escapes(allocation_entry *entry, void *allocation_target);
 
 
 /*
@@ -80,8 +80,8 @@ void _carat_patch_escapes(allocation_entry *entry, void* allocation_target);
  *
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
-static void __carat_print_regs (struct nk_regs * r);
-static void _carat_patch_thread_state(struct nk_thread *t, struct move_alloc_state *state);
+static void __carat_print_registers (struct nk_regs * r);
+static void _carat_patch_thread_registers(struct nk_thread *t, struct move_alloc_state *state);
 
 
 /*

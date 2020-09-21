@@ -117,7 +117,7 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
     nk_slist_node_uintptr_t *iterator; \
     uintptr_t val; \
     \
-    nk_slist_foreach((entry->escapes_set), val, iterator) 
+    nk_slist_foreach(set, val, iterator) 
 
 
 /*
@@ -130,6 +130,14 @@ typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
 #define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
 #define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
 #define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_ITERATE \
+	nk_slist_node_uintptr_t_uintptr_t *iterator;
+	nk_pair_uintptr_t_uintptr_t *pair;
+    \
+    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator) 
+
+#define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (pair->first)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
+#define CARAT_ALLOCATION_MAP_CURRENT_ENTRY ((allocation_entry *) (pair->second)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
 
 
 /*
