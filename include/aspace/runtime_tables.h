@@ -39,9 +39,6 @@
 #include <nautilus/naut_string.h>
 #include <nautilus/skiplist.h>
 
-#ifndef __ALLOC_ENTRY__
-#define __ALLOC_ENTRY__
-
 
 /*
  * =================== Utility Macros ===================  
@@ -78,12 +75,6 @@
 
 
 /*
- * Conditions check 
- */ 
-#define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
-
-
-/*
  * Skiplist setup
  */
 #define CARAT_INIT_NUM_GEARS 6
@@ -106,39 +97,6 @@
  */ 
 typedef nk_slist_uintptr_t nk_carat_escape_set;
 typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
-
-
-/* 
- * Interface for "nk_carat_escape_set" --- generic
- */ 
-#define CARAT_ESCAPE_SET_BUILD nk_slist_build(uintptr_t, CARAT_INIT_NUM_GEARS)
-#define CARAT_ESCAPE_SET_ADD(set, key) nk_slist_add(uintptr_t, set, ((uintptr_t) key));
-#define CARAT_ESCAPES_SET_ITERATE(set) \
-    nk_slist_node_uintptr_t *iterator; \
-    uintptr_t val; \
-    \
-    nk_slist_foreach(set, val, iterator) 
-
-
-/*
- * Interface for "nk_carat_allocation_map" --- specifically for the
- * global "allocation_map" data structure
- */ 
-#define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
-#define CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
-#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
-#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)) 
-#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_MAP_ITERATE \
-	nk_slist_node_uintptr_t_uintptr_t *iterator;
-	nk_pair_uintptr_t_uintptr_t *pair;
-    \
-    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator) 
-
-#define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (pair->first)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
-#define CARAT_ALLOCATION_MAP_CURRENT_ENTRY ((allocation_entry *) (pair->second)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
-
 
 /*
  * carat_context
@@ -191,7 +149,46 @@ typedef struct carat_context_t {
 /*
  * Global carat context declaration
  */ 
-carat_context global_carat_context;
+extern carat_context global_carat_context;
+
+
+/*
+ * Conditions check 
+ */ 
+#define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
+
+
+/* 
+ * Interface for "nk_carat_escape_set" --- generic
+ */ 
+#define CARAT_ESCAPE_SET_BUILD nk_slist_build(uintptr_t, CARAT_INIT_NUM_GEARS)
+#define CARAT_ESCAPE_SET_ADD(set, key) nk_slist_add(uintptr_t, set, ((uintptr_t) key))
+#define CARAT_ESCAPES_SET_ITERATE(set) \
+    nk_slist_node_uintptr_t *iterator; \
+    uintptr_t val; \
+    \
+    nk_slist_foreach(set, val, iterator) 
+
+
+/*
+ * Interface for "nk_carat_allocation_map" --- specifically for the
+ * global "allocation_map" data structure
+ */ 
+#define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
+#define CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
+#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
+#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
+#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_ITERATE \
+	nk_slist_node_uintptr_t_uintptr_t *iterator; \
+	nk_pair_uintptr_t_uintptr_t *pair; \
+    \
+    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator)
+
+#define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (pair->first)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
+#define CARAT_ALLOCATION_MAP_CURRENT_ENTRY ((allocation_entry *) (pair->second)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
+
 
 
 /*
@@ -230,7 +227,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  */ 
 #define CREATE_ENTRY_AND_ADD(key, size, str) \
 	/*
-	 * Create a new allocation_entry object for the @new_address to be added
+	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
 	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
     \
@@ -239,7 +236,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	 * Add the mapping [@##key : newEntry] to the allocation_map
 	 */ \
 	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
-		panic(str" %p\n", key);
+		panic(str" %p\n", key); \
 	}
 
 
@@ -251,7 +248,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	 * Delete the @##key from the allocation map
 	 */ \
 	if (!(CARAT_ALLOCATION_MAP_REMOVE(key))) { \
-		panic(str" %p\n", key);
+		panic(str" %p\n", key); \
 	}
 
 

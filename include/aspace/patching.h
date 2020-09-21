@@ -81,7 +81,7 @@ int _carat_patch_escapes(allocation_entry *entry, void *allocation_target);
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
 static void __carat_print_registers (struct nk_regs * r);
-static void _carat_patch_thread_registers(struct nk_thread *t, struct move_alloc_state *state);
+static void _carat_patch_thread_registers(struct nk_thread *t, void *state);
 
 
 /*

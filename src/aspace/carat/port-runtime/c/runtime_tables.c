@@ -33,10 +33,13 @@
  * =================== Setting Necessary Global State ===================
  */ 
 
+
 /*
  * Set ready flag --- no need to set anything else before nk_carat_init
  */ 
-global_carat_context.carat_ready = 0;
+carat_context global_carat_context = {
+	.carat_ready = 0
+};
 
 
 /*
@@ -56,7 +59,7 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	 */ 
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
-	new_entry->escapes_set = NK_CARAT_ESCAPE_SET_BUILD; 
+	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
 
 
 	/*
@@ -163,8 +166,8 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 	 * the prospective's allocation, and CHECK if @address aliases this allocation
 	 */ 
 	uint64_t prospective_size = prospective_entry->size; 
-	void *prospective_address = ((void *) prospective_entry->data->first);
-	if (!(_carat_does_alias((address, prospective_address, prospective_size)))) { return NULL; }
+	void *prospective_address = ((void *) lower_bound_node->data->first);
+	if (!(_carat_does_alias(address, prospective_address, prospective_size))) { return NULL; }
 
 
 	/*
@@ -376,7 +379,7 @@ void _carat_process_escape_window()
 
 		if (false 
 			|| (!escaping_address) /* Condition 1 */
-			|| (!(NK_ESCAPE_SET_ADD(processed_escapes, escaping_address))) /* Condition 2, marking */
+			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escaping_address))) /* Condition 2, marking */
 			|| (!(corresponding_entry = _carat_find_allocation_entry(*escaping_address)))) /* Condition 3 */
 			{ continue; }
 
@@ -386,7 +389,7 @@ void _carat_process_escape_window()
 		 * current escape should be recorded --- save this state to the 
 		 * corresponding entry and continue
 		 */  
-		NK_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escaping_address);
+		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escaping_address);
 	}
 
 
@@ -444,7 +447,7 @@ void nk_carat_init()
  
 	CREATE_ENTRY_AND_ADD (
 		rsp_as_void_ptr,
-		allocation_size
+		allocation_size,
 		"CARATInit: nk_map_insert failed on rspVoidPtr"
 	);
 
