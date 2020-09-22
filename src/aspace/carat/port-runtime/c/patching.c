@@ -83,9 +83,6 @@ int _carat_patch_escapes(allocation_entry *entry, void *allocation_target)
 }
 
 
-
-
-
 // DEPRECATED
 #if 0
 void _carat_update_entry(allocation_entry *old_entry, void *allocation_target) 
@@ -121,7 +118,10 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
 }
 #endif
 
-// Debugging
+
+/*
+ * Debugging
+ */ 
 static void __carat_print_registers (struct nk_regs * r)
 {
     #define PRINT3(x, x_extra_space, y, y_extra_space, z, z_extra_space) DS(#x x_extra_space" = " ); DHQ(r->x); DS(", " #y y_extra_space" = " ); DHQ(r->y); DS(", " #z z_extra_space" = " ); DHQ(r->z); DS("\n");
@@ -138,11 +138,10 @@ static void __carat_print_registers (struct nk_regs * r)
 }
 
 
-
 /*
-* Search through all registers in a thread and patch 
-* any of them that refer to the allocation being moved
-*/ 
+ * Search through all registers in a thread and patch 
+ * any of them that refer to the allocation being moved
+ */ 
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state) 
 {
     /*
@@ -204,32 +203,37 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
 }
 
 
+/*
+ * Driver method for moving an allocation (@allocation_to_move)
+ * to a new address (@allocation_target)
+ */ 
 void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
 {
-
     /*
-    * Pauses all execution so we can perform a move
-    * TODO: hoist this to caller so that caller can perform multiple moves at once
-    */
+     * Pauses all execution so we can perform a move
+     * TODO: hoist this to caller so that caller can perform multiple moves at once
+     */
 	if (!(nk_sched_stop_world())) {
         CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
         goto out_bad;
     }
 
+
     /*
-    * Find the entry for the @allocation_to_move addr in the 
-    * allocation_map --- if not found, panic
-    */
+     * Find the entry for the @allocation_to_move addr in the 
+     * allocation_map --- if not found, panic
+     */
     allocation_entry *entry = _carat_find_allocation_entry(allocation_to_move);
     if (!entry) {
         CARAT_PRINT("CARAT: Cannot find entry\n");
         goto out_bad;
     }
 
+
 	/*
-    * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
-    * to use the address of @allocation_target
-    */
+     * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
+     * to use the address of @allocation_target
+     */
     if (!_carat_patch_escapes(entry, allocation_target)) {
         CARAT_PRINT("CARAT: The patch is toast --- can't patch escapes!\n");
         goto out_bad;
@@ -237,10 +241,10 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
 
 
     /*
-    * For each thread, patch the registers that currently contain references to 
-    * @allocation_target. In order to patch each thread, 
-    * all necessary info is packaged into a move_context struct
-    */
+     * For each thread, patch the registers that currently contain references to 
+     * @allocation_target. In order to patch each thread, 
+     * all necessary info is packaged into a move_context struct
+     */
     struct move_context context = {allocation_to_move, allocation_target, entry->size, 0};
     nk_sched_map_threads(-1, _carat_patch_thread_registers, &context);
     if (context.failed) {
@@ -248,15 +252,17 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
         goto out_bad;
     }
    
+
     /*
 	 * TODO: Do we need to handle our own stack? --- this is the possible 
 	 * location in the handler where the stack needs to be handled 
 	 */
 
+
     /*
-    * Move the contents pointed to by @allocation_to_move to the 
-    * location @allocation_target (this is the "actual" move)
-    */
+     * Move the contents pointed to by @allocation_to_move to the 
+     * location @allocation_target (this is the "actual" move)
+     */
     memmove(allocation_to_move, allocation_target, entry->size);
     CARAT_PRINT("CARAT: Move succeeded.\n");
 
@@ -273,106 +279,128 @@ out_bad:
 /* --------- TEST CASE ---------  */
 
 /* 
-* Test --- perform a random move:
-* - Pick a random allocation from the allocationMap
-* - Allocate new memory of the same size as the randomly
-*   picked allocation --- this will be the new destination
-*   for the move
-* - call nk_carat_move_allocation on the old and new 
-*   memory addresses
-* 
-* Test can execute an arbitrary number of sequential
-* moves based on user input 
-*/
+ * Test --- perform a random move:
+ * - Pick a random allocation from the allocationMap
+ * - Allocate new memory of the same size as the randomly
+ *   picked allocation --- this will be the new destination
+ *   for the move
+ * - call nk_carat_move_allocation on the old and new 
+ *   memory addresses
+ * 
+ * Test can execute an arbitrary number of sequential
+ * moves based on user input 
+ */
 
 /* 
-* Utility
-*/
-allocation_entry *_carat_find_random_alloc() {
+ * Utility
+ */
+allocation_entry *_carat_find_random_alloc() 
+{
 
 	/* 
-    * Select a random index from the map  
-    */
-    srand48(29848349);
+     * Select a random index from the map
+     *
+     * NOTE --- Seed for RNG in handler
+     */
 	uint64_t target = lrand48() % CARAT_ALLOCATION_MAP_SIZE,
     		 count = 0;
 
+    
     /* 	
-    * Find the allocation at index "target" in the allocation_map
-    * The iteration macro produces a variable "pair" that represents the current object
-    * pair — [address : allocation_entry object] 
-    */
+     * Find the allocation at index "target" in the allocation_map
+     * The iteration macro produces a variable "pair" that represents the current object
+     * pair — [address : allocation_entry object] 
+     */
     CARAT_ALLOCATION_MAP_ITERATE
 	{
 		if (count == target) { return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
 		count++;
 	}
 
+
     return NULL;
 }
 
+
 /* 
-* Shell command handler
-*/
+ * Shell command handler
+ */
+uint64_t global_test_seed = 23894748;
 static int handle_carat_test(char *buf, void *priv)
 {
-    uint64_t count;
-    uint64_t i;
-    if(sscanf(buf, "carat_test %lu", &count) == 1) {
+    /*
+     * Setup
+     */ 
+    uint64_t count, i;
 
+
+    /*
+     * Scan for command and "count" moves
+     */
+    if(sscanf(buf, "carat_test %lu", &count) == 1) 
+    {
         nk_vc_printf("Moving %lu times.\n", count);
+        
+
+        /*
+         * Seed RNG
+         */ 
+        srand48(global_test_seed);
+        global_test_seed++;
+
 
         /* 		
-        * peform "count" number of sequential moves 
-        */
-        for(i = 0; i < count; i++) {
-
+         * Perform "count" number of sequential moves 
+         */
+        for (i = 0; i < count; i++) 
+        {
             /* 		
-            * Find a random entry from the allocation table
-            */
+             * Find a random entry from the allocation table
+             */
             allocation_entry* entry = _carat_find_random_alloc();
-            if(!entry) {
+            if(!entry) 
+            {
                 nk_vc_printf("CARAT: Random entry not found.\n");
                 return -1;
             }
 
+
             /* 			
-            * Set "old" and "new" --- the new memory allocation
-			* is based on the size of the randomly selected
-			* allocation from the allocation_map 
-            */
-            void* old = entry->pointer;
+             * Set "old" and "new" --- the new memory allocation
+			 * is based on the size of the randomly selected
+			 * allocation from the allocation_map 
+             */
+            void *old = entry->pointer;
             uint64_t size = entry->size;
 
+
 			/* 
-            * ***NOTE*** --- this malloc will be instrumented by
-			* the compiler 
-            */
+             * ***NOTE*** --- this malloc will be instrumented by
+			 * the compiler 
+             */
            	void *new = CARAT_MALLOC(size);
 
-            nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, size);
            
 		   	/* 
-            * Perform move from "old" to "new"
-            * nk_carat_move_allocation does all checks and panicks if any fail 
-            */
+             * Perform move from "old" to "new"
+             * nk_carat_move_allocation does all checks and panicks if any fail 
+             */
+            nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, size);
             nk_vc_printf("%d ", i);
-            nk_carat_move_allocation(old, new);
-
+            nk_carat_move_allocation(old, new); // Driver
 
 
 			/* 
-            * ***NOTE*** --- this free will be instrumented by
-			* the compiler 
-            */
+             * ***NOTE*** --- this free will be instrumented by
+			 * the compiler 
+             */
             free(old);
-
             nk_vc_printf("Free succeeded.\n");
         }
 
-    } else {
-        nk_vc_printf("Invalid Command.");
-    }
+    } 
+    else { nk_vc_printf("Invalid Command."); }
+
 
     return 0;
 }
@@ -388,24 +416,33 @@ nk_register_shell_cmd(carat_test_impl);
 
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
 
-// Handler --- printing the allocationMap
-static int handle_print_table() {
-
-	// Table formatting:
+/*
+ * Handler --- printing the allocation_map
+ */ 
+static int handle_print_table() 
+{
+	/*
+     * Table formatting:
+     */
 	nk_vc_printf("map node addr  :  ( real addr  :  allocation_entry addr  ---  ( pointer,  len ))\n"); 
 
-	// Loop through the allocationMap, print all 
-	// information necessary
+
+	/*
+     * Loop through the allocationMap, print all information necessary
+     */ 
     CARAT_ALLOCATION_MAP_ITERATE
     {        
         allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", 
-					 iterator, 
-					 CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
-					 the_entry, 
-					 the_entry->pointer, 
-					 the_entry->size);
+        nk_vc_printf(
+            "%p : (%p : %p --- (ptr: %p, len: %d))\n", 
+             iterator, 
+             CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
+             the_entry, 
+             the_entry->pointer, 
+             the_entry->size
+         );
     }
+
 
     return 0;
 }
