@@ -1,3 +1,3 @@
 obj-y += carat.o \
-		 port-runtime/c/ 
-   	  # port-runtime/c/stub/	
+		 runtime_tables.o \
+		 patching.o
