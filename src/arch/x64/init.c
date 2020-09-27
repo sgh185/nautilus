@@ -55,6 +55,7 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
+#include <nautilus/syscall_kernel.h>
 #include <aspace/patching.h>
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
@@ -567,6 +568,10 @@ init (unsigned long mbd,
 #ifdef NAUT_CONFIG_WATCHDOG
     nk_watchdog_init(NAUT_CONFIG_WATCHDOG_DEFAULT_TIME_MS * 1000000UL);
 #endif
+
+    // Initialize system call interface
+    nk_syscall_init();
+    init_syscall_table();
     
     nk_launch_shell("root-shell",0,0,0);
 

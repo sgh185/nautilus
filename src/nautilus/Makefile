@@ -42,6 +42,7 @@ obj-y += \
 	pmc.o \
 	setjmp.o \
 	mm/ \
+	syscalls/ \
 	dev.o \
 	chardev.o \
 	blkdev.o \

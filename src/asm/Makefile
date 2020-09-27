@@ -3,6 +3,7 @@ obj-y += smpboot.o \
 		 thread_lowlevel.o \
 		 setjmp_low.o \
 		 timing_loops.o \
+		 syscall_lowlevel.o \
 		 string_lowlevel.o
 
 obj-$(NAUT_CONFIG_FIBER_ENABLE) += fiber_lowlevel.o
