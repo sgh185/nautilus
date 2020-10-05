@@ -206,7 +206,7 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
 
 void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
 {
-
+    // TODO: handle batched escapes BEFORE you do any sort of move
     /*
     * Pauses all execution so we can perform a move
     * TODO: hoist this to caller so that caller can perform multiple moves at once
@@ -288,14 +288,20 @@ out_bad:
 /* 
 * Utility
 */
+
+static uint64_t carat_seed = 29848349;
 allocation_entry *_carat_find_random_alloc() {
 
 	/* 
     * Select a random index from the map  
     */
-    srand48(29848349);
-	uint64_t target = lrand48() % CARAT_ALLOCATION_MAP_SIZE,
-    		 count = 0;
+    extern char* _data_end;
+    addr_t min_addr = (addr_t) &_data_end; // pick any allocation above this
+    nk_vc_printf("min_addr: %p\n", min_addr);
+    // srand48(carat_seed);
+    // carat_seed++;
+    uint64_t target = lrand48() % CARAT_ALLOCATION_MAP_SIZE,
+            count = 0;
 
     /* 	
     * Find the allocation at index "target" in the allocation_map
@@ -303,10 +309,15 @@ allocation_entry *_carat_find_random_alloc() {
     * pair — [address : allocation_entry object] 
     */
     CARAT_ALLOCATION_MAP_ITERATE
-	{
-		if (count == target) { return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
-		count++;
-	}
+    {
+        if ((count >= target) 
+        && (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
+        //&& (nk_slist_is_right_sentinal(CARAT_ALLOCATION_MAP_CURRENT_ADDRESS)) 
+        ){ return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
+        count++;
+    }
+    
+    
 
     return NULL;
 }
@@ -348,6 +359,7 @@ static int handle_carat_test(char *buf, void *priv)
             * ***NOTE*** --- this malloc will be instrumented by
 			* the compiler 
             */
+            nk_vc_printf("Attempting to move address %p, size %lu\n", old, size);
            	void *new = CARAT_MALLOC(size);
 
             nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, size);
@@ -399,12 +411,13 @@ static int handle_print_table() {
     CARAT_ALLOCATION_MAP_ITERATE
     {        
         allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d))\n", 
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d), es : %d)\n", 
 					 iterator, 
 					 CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
 					 the_entry, 
 					 the_entry->pointer, 
-					 the_entry->size);
+					 the_entry->size,
+                     CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set));
     }
 
     return 0;
