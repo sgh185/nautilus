@@ -162,6 +162,7 @@ extern carat_context global_carat_context;
  * Interface for "nk_carat_escape_set" --- generic
  */ 
 #define CARAT_ESCAPE_SET_BUILD nk_slist_build(uintptr_t, CARAT_INIT_NUM_GEARS)
+#define CARAT_ESCAPE_SET_SIZE(set) (nk_slist_get_size(set) - 2)
 #define CARAT_ESCAPE_SET_ADD(set, key) nk_slist_add(uintptr_t, set, ((uintptr_t) key))
 #define CARAT_ESCAPES_SET_ITERATE(set) \
     nk_slist_node_uintptr_t *iterator; \
