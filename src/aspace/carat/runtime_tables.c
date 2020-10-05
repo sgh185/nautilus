@@ -302,8 +302,13 @@ void nk_carat_instrument_free(void *address)
 /*
  * =================== Escapes Handling Methods ===================
  */ 
-
-void nk_carat_instrument_escapes(void *escaping_address)
+/*
+* nk_carat_instrument_escapes gets called when a pointer is stored in memory, or escaped
+* @new_destination_of_escaping_address is the place we store our pointer that we now need to track
+* In case that pointer ever gets moved, we need to keep track of everywhere that it is stored so 
+* we can patch all the escapes
+*/ 
+void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 {
 	/*
 	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
@@ -324,7 +329,7 @@ void nk_carat_instrument_escapes(void *escaping_address)
 	 * Add the escape to the end of the escapeWindow --- this will be
 	 * processed at some point in batch, update the counter
 	 */ 
-	global_carat_context.escape_window[num_entries] = ((void**) escaping_address);
+	global_carat_context.escape_window[num_entries] = ((void **) new_destination_of_escaping_address);
 	global_carat_context.total_escape_entries++;
 
 
@@ -358,14 +363,14 @@ void _carat_process_escape_window()
 		/*
 		 * Get the next escape
 		 */ 
-		void **escaping_address = the_escape_window[i];
+		void **escape_address = the_escape_window[i];
 
 
 		/*
 		 * Perform conditions checks on the escape:
 		 * 1. Check if it's a valid pointer
 		 * 2. Check if it's already been processed
-		 * 3. Check if it corresponds to an allocation (allocation_entry object)
+		 * 3. Check if it points to an allocation (allocation_entry object)
 		 * 
 		 * TRUE == mark as processed, continue
 		 * FALSE == process fully, continue
@@ -378,9 +383,9 @@ void _carat_process_escape_window()
 		allocation_entry *corresponding_entry = NULL;
 
 		if (false 
-			|| (!escaping_address) /* Condition 1 */
-			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escaping_address))) /* Condition 2, marking */
-			|| (!(corresponding_entry = _carat_find_allocation_entry(*escaping_address)))) /* Condition 3 */
+			|| (!escape_address) /* Condition 1 */
+			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
+			|| (!(corresponding_entry = _carat_find_allocation_entry(*escape_address)))) /* Condition 3 */
 			{ continue; }
 
 		
@@ -389,7 +394,7 @@ void _carat_process_escape_window()
 		 * current escape should be recorded --- save this state to the 
 		 * corresponding entry and continue
 		 */  
-		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escaping_address);
+		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
 	}
 
 
