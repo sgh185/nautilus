@@ -32,6 +32,7 @@
 /*
  * Handler for patching escapes upon moving @entry->pointer to @allocation_target 
  */ 
+NO_CARAT_NO_INLINE
 int _carat_patch_escapes(allocation_entry *entry, void *allocation_target) 
 {
     /*
@@ -122,6 +123,7 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
 #endif
 
 // Debugging
+NO_CARAT
 static void __carat_print_registers (struct nk_regs * r)
 {
     #define PRINT3(x, x_extra_space, y, y_extra_space, z, z_extra_space) DS(#x x_extra_space" = " ); DHQ(r->x); DS(", " #y y_extra_space" = " ); DHQ(r->y); DS(", " #z z_extra_space" = " ); DHQ(r->z); DS("\n");
@@ -138,11 +140,11 @@ static void __carat_print_registers (struct nk_regs * r)
 }
 
 
-
 /*
 * Search through all registers in a thread and patch 
 * any of them that refer to the allocation being moved
 */ 
+NO_CARAT
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state) 
 {
     /*
@@ -203,10 +205,21 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
     return;
 }
 
+/*
+* Catches the runtime up before any move happens
+*/
+NO_CARAT
+void _carat_cleanup() {
+    nk_vc_printf("CARAT: processesing escape window of size %lu\n", global_carat_context.total_escape_entries);
+    _carat_process_escape_window();
+    //TODO: if we implement batch freeing, process frees here
+}
 
+NO_CARAT
 void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
 {
     // TODO: handle batched escapes BEFORE you do any sort of move
+    // make a function called carat_cleanup or something
     /*
     * Pauses all execution so we can perform a move
     * TODO: hoist this to caller so that caller can perform multiple moves at once
@@ -215,6 +228,8 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
         CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
         goto out_bad;
     }
+
+    _carat_cleanup();
 
     /*
     * Find the entry for the @allocation_to_move addr in the 
@@ -290,6 +305,7 @@ out_bad:
 */
 
 static uint64_t carat_seed = 29848349;
+NO_CARAT
 allocation_entry *_carat_find_random_alloc() {
 
 	/* 
@@ -401,6 +417,7 @@ nk_register_shell_cmd(carat_test_impl);
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
 
 // Handler --- printing the allocationMap
+NO_CARAT
 static int handle_print_table() {
 
 	// Table formatting:
