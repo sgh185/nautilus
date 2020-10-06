@@ -13,3 +13,5 @@
 #define exit(X) ({ SYSCALL(EXIT, X); })
 #define ftruncate(X, Y) ({ SYSCALL(FTRUNCATE, X, Y); })
 #define getpid() ({ SYSCALL(GETPID); })
+#define gettimeofday(X, Y) ({ SYSCALL(GETTIMEOFDAY, X, Y); })
+#define settimeofday(X, Y) ({ SYSCALL(SETTIMEOFDAY, X, Y); })

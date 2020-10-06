@@ -4,6 +4,7 @@
 int
 sys_stat(int a,int b, int c, int d, int e, int f)
 {
+	// TODO: add protection against bad fd
 	char* pathname = (char*)a;
 	struct nk_fs_stat *st = (struct nk_fs_stat *)b;
 	int ret = nk_fs_stat(pathname,st);

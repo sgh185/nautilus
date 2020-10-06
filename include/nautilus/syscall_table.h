@@ -10,3 +10,5 @@
 # define EXIT 60
 # define FTRUNCATE 77
 # define GETPID 39
+# define GETTIMEOFDAY 96
+# define SETTIMEOFDAY 164

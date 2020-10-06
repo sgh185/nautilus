@@ -42,6 +42,8 @@ void init_syscall_table() {
   syscall_table[EXIT] = &sys_exit;
   syscall_table[FTRUNCATE] = &sys_ftruncate;
   syscall_table[GETPID] = &sys_getpid;
+  syscall_table[GETTIMEOFDAY] = &sys_gettimeofday;
+  syscall_table[SETTIMEOFDAY] = &sys_settimeofday;
 
   return;
 }

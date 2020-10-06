@@ -11,4 +11,5 @@ obj-y += \
 	ftruncate.o \
 	getpid.o \
 	syscall_testfs.o \
-	syscall.o
+	syscall.o \
+	timeofday.o

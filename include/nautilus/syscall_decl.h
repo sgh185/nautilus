@@ -19,3 +19,7 @@ int sys_stat(int pathname,int st, int c, int d, int e, int f);
 int sys_write(int fd, int buf, int len, int d, int e, int f);
 
 int sys_getpid(int a, int b, int c, int d, int e, int f);
+
+int sys_gettimeofday(int timeval_ptr, int timezone_ptr);
+
+int sys_settimeofday(int timeval_ptr, int timezone_ptr);
