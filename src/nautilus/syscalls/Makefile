@@ -10,6 +10,6 @@ obj-y += \
 	lseek.o \
 	ftruncate.o \
 	getpid.o \
-	syscall_testfs.o \
+	syscall_tests.o \
 	syscall.o \
 	timeofday.o

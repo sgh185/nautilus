@@ -18,7 +18,22 @@ static int handle_syscall_testfs(char* buf, void* priv) {
   INFO_PRINT("Shell command for testing file system system calls\n");
   INFO_PRINT("%s\n", buf);
 
-  // Test open / read / write / close
+  // Test read / wrtie on fd [0,2]
+  {
+    char msg_stdout[] = "This is a print to 'stdout'\n";
+    char msg_stderr[] = "This is a print to 'stderr'\n";
+    write(1, msg_stdout, sizeof(msg_stdout));
+    write(2, msg_stdout, sizeof(msg_stderr));
+
+    char read_buffer[8] = {0};
+    printk("Please enter 8 chars to test read from stdin: ");
+    read(0, read_buffer, 8);
+    printk("\nYour input: ");
+    write(1, read_buffer, strlen(read_buffer));
+    printk("\n");
+  }
+
+  // Test open / read / write / close on files
   {
     // TODO: Don't print ERROR here once debug print works
     int fn = open("fs:/new_file2", 3 | 8); // RW/Create
@@ -78,14 +93,14 @@ static int handle_syscall_testfs(char* buf, void* priv) {
   return 0;
 }
 
-static struct shell_cmd_impl syscallfs_impl = {
+static struct shell_cmd_impl syscalltest_impl = {
 
-    .cmd = "syscallfs",
+    .cmd = "syscalltest",
 
-    .help_str = "syscallfs (test system calls for fs, no args)",
+    .help_str = "syscalltest (run system call tests)",
 
     .handler = handle_syscall_testfs,
 
 };
 
-nk_register_shell_cmd(syscallfs_impl);
+nk_register_shell_cmd(syscalltest_impl);
