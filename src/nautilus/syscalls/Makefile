@@ -12,4 +12,9 @@ obj-y += \
 	getpid.o \
 	syscall_tests.o \
 	syscall.o \
-	timeofday.o
+	timeofday.o \
+	mmap.o \
+	mprotect.o \
+	munmap.o \
+	nanosleep.o \
+	syscall_stubs.o

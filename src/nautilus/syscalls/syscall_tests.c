@@ -12,24 +12,35 @@
 #define EXPECT(x)                  \
   if (!(x)) {                      \
     ERROR("Expectation failed\n"); \
+    total_tests++;                 \
+  } else {                         \
+    total_tests++;                 \
+    passed_tests++;                \
   }
 
-static int handle_syscall_testfs(char* buf, void* priv) {
-  INFO_PRINT("Shell command for testing file system system calls\n");
-  INFO_PRINT("%s\n", buf);
+static int passed_tests;
+static int total_tests;
+
+static int handle_syscall_tests(char* buf, void* priv) {
+  INFO("Shell command for testing file system system calls\n");
+  INFO("%s\n", buf);
+
+  /// Test setup
+  passed_tests = 0;
+  total_tests = 0;
 
   // Test read / wrtie on fd [0,2]
   {
     char msg_stdout[] = "This is a print to 'stdout'\n";
     char msg_stderr[] = "This is a print to 'stderr'\n";
-    write(1, msg_stdout, sizeof(msg_stdout));
-    write(2, msg_stdout, sizeof(msg_stderr));
+    EXPECT(write(1, msg_stdout, sizeof(msg_stdout)) == sizeof(msg_stdout));
+    EXPECT(write(2, msg_stderr, sizeof(msg_stderr)) == sizeof(msg_stderr));
 
     char read_buffer[8] = {0};
-    printk("Please enter 8 chars to test read from stdin: ");
-    read(0, read_buffer, 8);
+    printk("Please enter 7 chars to test read from stdin: ");
+    EXPECT(read(0, read_buffer, 7) == 7);
     printk("\nYour input: ");
-    write(1, read_buffer, strlen(read_buffer));
+    EXPECT(write(1, read_buffer, strlen(read_buffer)) == strlen(read_buffer));
     printk("\n");
   }
 
@@ -37,18 +48,15 @@ static int handle_syscall_testfs(char* buf, void* priv) {
   {
     // TODO: Don't print ERROR here once debug print works
     int fn = open("fs:/new_file2", 3 | 8); // RW/Create
-    char* wr_buf = "this used to not exist";
+    EXPECT(fn != -1);
+    char wr_buf[] = "this used to not exist";
 
-    int wr_bytes = write(fn, wr_buf, 22);
+    int wr_bytes = write(fn, wr_buf, sizeof(wr_buf));
 
-    EXPECT(wr_bytes == 22);
+    EXPECT(wr_bytes == sizeof(wr_buf));
 
     char read_buf[32] = {0};
-    if (read(fn, read_buf, 32)) {
-      ERROR("Read returned non-zero\n");
-    }
-
-    // ERROR("Content of buffer: %s\n", read_buf);
+    EXPECT(read(fn, read_buf, 32) == sizeof(wr_buf));
 
     EXPECT(strcmp(read_buf, wr_buf) == 0);
 
@@ -67,28 +75,51 @@ static int handle_syscall_testfs(char* buf, void* priv) {
     // TODO: Don't print ERROR here once debug print works
     int f_val = fork();
     int tid = getpid();
-    ERROR("Return value of fork()/getpid(): %d/%d\n", f_val, tid);
+    DEBUG("Return value of fork()/getpid(): %d/%d\n", f_val, tid);
     if (f_val == 0) {
+      DEBUG("In forked thread\n");
       exit(0);
     }
   }
 
-  // get/set timeofday
+  /// get/set timeofday; nanosleep
   {
     /// TODO: include from wherever this is defined correctly
     struct timeval {
-      int tv_sec;  // seconds
-      int tv_usec; // microseconds
+      int tv_sec;  /* seconds */
+      int tv_usec; /* microseconds */
     };
     struct timeval time;
-    gettimeofday(&time, NULL);
+
+    EXPECT(gettimeofday(&time, NULL) == 0);
     printk("Initial time of day in s: %d\n", time.tv_sec);
-    time.tv_sec = 100000;
-    settimeofday(&time, NULL);
+
+    const int time_to_set = 100000;
+    time.tv_sec = time_to_set;
+    EXPECT(settimeofday(&time, NULL) == 0);
+
     time.tv_sec = 0; // just to be sure gettimeofday updates it
+    EXPECT(gettimeofday(&time, NULL) == 0);
+    EXPECT(time.tv_sec >= time_to_set);
+    printk("Modified time of day in s: %d\nSleeping...\n", time.tv_sec);
+
+    /// TODO: include from wherever this is defined correctly
+    struct timespec {
+      uint64_t tv_sec;  /* seconds */
+      uint64_t tv_nsec; /* nanoseconds */
+    };
+
+    struct timespec sleep_time;
+    sleep_time.tv_sec = 10;
+    sleep_time.tv_nsec = 0;
+
+    nanosleep(&sleep_time, NULL);
     gettimeofday(&time, NULL);
-    printk("Modified time of day in s: %d\n", time.tv_sec);
+    printk("Time of day after sleeping: %d\n", time.tv_sec);
   }
+
+  /// Test teardown
+  printk("Passed %d of %d tests.\n", passed_tests, total_tests);
 
   return 0;
 }
@@ -99,7 +130,7 @@ static struct shell_cmd_impl syscalltest_impl = {
 
     .help_str = "syscalltest (run system call tests)",
 
-    .handler = handle_syscall_testfs,
+    .handler = handle_syscall_tests,
 
 };
 

@@ -1,0 +1,1 @@
+#define NAUT_CONFIG_ASPACE_BASE 1

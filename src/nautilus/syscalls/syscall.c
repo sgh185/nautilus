@@ -1,5 +1,3 @@
-
-
 #include <nautilus/irq.h>
 
 #include <nautilus/msr.h>
@@ -9,14 +7,9 @@
 #include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
 
-#ifndef NAUT_CONFIG_DEBUG_TIMERS
-#undef DEBUG_PRINT
-#define DEBUG_PRINT(fmt, args...)
-#endif
-
-#define ERROR(fmt, args...) ERROR_PRINT("timer: " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT("timer: " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT("timer: " fmt, ##args)
+#define ERROR(fmt, args...) ERROR_PRINT("syscall: " fmt, ##args)
+#define DEBUG(fmt, args...) DEBUG_PRINT("syscall: " fmt, ##args)
+#define INFO(fmt, args...) INFO_PRINT("syscall: " fmt, ##args)
 #define MAX_SYSCALL 301
 
 typedef int (*syscall_t)(int, int, int, int, int, int);
@@ -31,19 +24,23 @@ void init_syscall_table() {
     syscall_table[i] = 0;
   }
 
-  syscall_table[READ] = &sys_read;
-  syscall_table[WRITE] = &sys_write;
-  syscall_table[OPEN] = &sys_open;
-  syscall_table[CLOSE] = &sys_close;
-  syscall_table[STAT] = &sys_stat;
-  syscall_table[FSTAT] = &sys_fstat;
-  syscall_table[LSEEK] = &sys_lseek;
-  syscall_table[FORK] = &sys_fork;
-  syscall_table[EXIT] = &sys_exit;
-  syscall_table[FTRUNCATE] = &sys_ftruncate;
-  syscall_table[GETPID] = &sys_getpid;
-  syscall_table[GETTIMEOFDAY] = &sys_gettimeofday;
-  syscall_table[SETTIMEOFDAY] = &sys_settimeofday;
+  syscall_table[READ] = (syscall_t)&sys_read;
+  syscall_table[WRITE] = (syscall_t)&sys_write;
+  syscall_table[OPEN] = (syscall_t)&sys_open;
+  syscall_table[CLOSE] = (syscall_t)&sys_close;
+  syscall_table[STAT] = (syscall_t)&sys_stat;
+  syscall_table[FSTAT] = (syscall_t)&sys_fstat;
+  syscall_table[LSEEK] = (syscall_t)&sys_lseek;
+  syscall_table[FORK] = (syscall_t)&sys_fork;
+  syscall_table[EXIT] = (syscall_t)&sys_exit;
+  syscall_table[FTRUNCATE] = (syscall_t)&sys_ftruncate;
+  syscall_table[GETPID] = (syscall_t)&sys_getpid;
+  syscall_table[GETTIMEOFDAY] = (syscall_t)&sys_gettimeofday;
+  syscall_table[SETTIMEOFDAY] = (syscall_t)&sys_settimeofday;
+  syscall_table[MMAP] = (syscall_t)&sys_mmap;
+  syscall_table[MPROTECT] = (syscall_t)&sys_mprotect;
+  syscall_table[MUNMAP] = (syscall_t)&sys_munmap;
+  syscall_table[NANOSLEEP] = (syscall_t)&sys_nanosleep;
 
   return;
 }
@@ -52,25 +49,25 @@ int int80_handler(excp_entry_t *excp, excp_vec_t vector, void *state) {
 
   struct nk_regs *r = (struct nk_regs *)((char *)excp - 128);
   int syscall_nr = (int)r->rax;
-  INFO_PRINT("Inside syscall irq handler\n");
+  INFO("Inside syscall irq handler\n");
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
   } else {
-    INFO_PRINT("System Call not Implemented!!");
+    INFO("System Call not Implemented!!");
   }
   return 0;
 }
 
 uint64_t nk_syscall_handler(struct nk_regs *r) {
-  INFO_PRINT("Inside syscall_syscall handler\n");
+  INFO("Inside syscall_syscall handler\n");
   int syscall_nr = (int)r->rax;
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-        INFO_PRINT("%d\n",r->rax);
+        INFO("%d\n",r->rax);
   } else {
-    INFO_PRINT("System Call not Implemented!!");
+    INFO("System Call not Implemented!!");
   }
   return r->rax;
 }
@@ -97,16 +94,16 @@ void nk_syscall_init() {
 // handle shell command
 
 static int handle_syscall_test(char *buf, void *priv) {
-  INFO_PRINT("Shell command for testing syscall invoked\n");
-  INFO_PRINT("%s\n", buf);
+  INFO("Shell command for testing syscall invoked\n");
+  INFO("%s\n", buf);
 
   char syscall_name[32],syscall_argument[32];
 
   if (sscanf(buf,"syscall %s %s",syscall_name, syscall_argument)!=2) {
-      INFO_PRINT("No arguments\n");
+      INFO("No arguments\n");
   }
   else if (sscanf(buf,"syscall %s",syscall_name)!=1) {
-      INFO_PRINT("Don't understand %s\n",buf);
+      INFO("Don't understand %s\n",buf);
   }
 
   if (strcmp(syscall_name, "getpid") == 0) {
