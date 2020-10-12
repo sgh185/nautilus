@@ -156,6 +156,8 @@ extern carat_context global_carat_context;
  * Conditions check 
  */ 
 #define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
+#define CARAT_READY_ON global_carat_context.carat_ready = 1
+#define CARAT_READY_OFF global_carat_context.carat_ready = 0
 
 
 /* 

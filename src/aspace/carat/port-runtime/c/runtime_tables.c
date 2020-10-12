@@ -295,6 +295,10 @@ void nk_carat_instrument_free(void *address)
 	/*
 	 * Remove @address from the allocation map
 	 */ 
+	DS("RE: ");
+	DHQ(((uint64_t) address));
+	DS("\n");
+	
 	REMOVE_ENTRY (
 		address,
 		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
@@ -338,7 +342,9 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 	 */ 
 	global_carat_context.escape_window[num_entries] = ((void **) new_destination_of_escaping_address);
 	global_carat_context.total_escape_entries++;
-
+	// DS("ES: ");
+	// DHQ((global_carat_context.total_escape_entries));
+	// DS("\n");
 
 	return;
 }
@@ -365,6 +371,7 @@ void _carat_process_escape_window()
 	/*
 	 * Iterate through each escape, process it
 	 */ 
+	uint64_t missed_escapes_counter = 0;
 	for (uint64_t i = 0; i < num_entries; i++)
 	{
 		/*
@@ -393,7 +400,9 @@ void _carat_process_escape_window()
 			|| (!escape_address) /* Condition 1 */
 			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
 			|| (!(corresponding_entry = _carat_find_allocation_entry(*escape_address)))) /* Condition 3 */
-			{ continue; }
+			{ 
+				missed_escapes_counter++;
+				continue; }
 
 		
 		/*
@@ -403,8 +412,9 @@ void _carat_process_escape_window()
 		 */  
 		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
 	}
-
-
+	DS("me: ");
+	DHQ(missed_escapes_counter);
+	DS("\n");
 	/*
 	 * Reset the global escapes counter
 	 */ 
@@ -475,7 +485,7 @@ void nk_carat_init()
 	/*
 	 * CARAT is ready --- set the flag
 	 */ 
-	global_carat_context.carat_ready = 1;
+	CARAT_READY_ON;
 
 
 	return;
