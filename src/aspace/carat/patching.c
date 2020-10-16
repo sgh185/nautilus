@@ -210,7 +210,7 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
 */
 NO_CARAT
 void _carat_cleanup() {
-    nk_vc_printf("CARAT: processesing escape window of size %lu\n", global_carat_context.total_escape_entries);
+    CARAT_PRINT("CARAT: processesing escape window of size %lu\n", global_carat_context.total_escape_entries);
     _carat_process_escape_window();
     //TODO: if we implement batch freeing, process frees here
 }
@@ -275,11 +275,14 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
     * Move the contents pointed to by @allocation_to_move to the 
     * location @allocation_target (this is the "actual" move)
     */
-    memmove(allocation_to_move, allocation_target, entry->size);
-    CARAT_PRINT("CARAT: Move succeeded.\n");
+    memmove(allocation_target, allocation_to_move, entry->size);
+
 
     CARAT_READY_ON;
     nk_sched_start_world();
+
+    CARAT_PRINT("CARAT: Move succeeded.\n");
+    
     return;
 
 out_bad:
