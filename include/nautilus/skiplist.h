@@ -544,7 +544,8 @@ NK_SLIST_DECL(uintptr_t);
 
 #define nk_map_remove(map, kt, vt, key) ({ \
 	__auto_type *pair = nk_pair_build(kt, vt, key, 0); /* Dummy pair */ \
- 	nk_slist_remove(kt##_##vt, map, pair); \
+ 	uint8_t status = nk_slist_remove(kt##_##vt, map, pair); \
+    status; \
 })	
 
 #define nk_map_better_lower_bound(map, kt, vt, key) ({ \
