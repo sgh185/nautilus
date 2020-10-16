@@ -32,6 +32,7 @@
 /*
  * Handler for patching escapes upon moving @entry->pointer to @allocation_target 
  */ 
+NO_CARAT_NO_INLINE
 int _carat_patch_escapes(allocation_entry *entry, void *allocation_target) 
 {
     /*
@@ -122,6 +123,7 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
 #endif
 
 // Debugging
+NO_CARAT
 static void __carat_print_registers (struct nk_regs * r)
 {
     #define PRINT3(x, x_extra_space, y, y_extra_space, z, z_extra_space) DS(#x x_extra_space" = " ); DHQ(r->x); DS(", " #y y_extra_space" = " ); DHQ(r->y); DS(", " #z z_extra_space" = " ); DHQ(r->z); DS("\n");
@@ -138,11 +140,11 @@ static void __carat_print_registers (struct nk_regs * r)
 }
 
 
-
 /*
 * Search through all registers in a thread and patch 
 * any of them that refer to the allocation being moved
 */ 
+NO_CARAT
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state) 
 {
     /*
@@ -203,10 +205,21 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
     return;
 }
 
+/*
+* Catches the runtime up before any move happens
+*/
+NO_CARAT
+void _carat_cleanup() {
+    nk_vc_printf("CARAT: processesing escape window of size %lu\n", global_carat_context.total_escape_entries);
+    _carat_process_escape_window();
+    //TODO: if we implement batch freeing, process frees here
+}
 
+NO_CARAT
 void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
 {
     // TODO: handle batched escapes BEFORE you do any sort of move
+    // make a function called carat_cleanup or something
     /*
     * Pauses all execution so we can perform a move
     * TODO: hoist this to caller so that caller can perform multiple moves at once
@@ -215,6 +228,11 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
         CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
         goto out_bad;
     }
+
+    CARAT_READY_OFF;
+
+    _carat_cleanup();
+
 
     /*
     * Find the entry for the @allocation_to_move addr in the 
@@ -260,6 +278,7 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
     memmove(allocation_to_move, allocation_target, entry->size);
     CARAT_PRINT("CARAT: Move succeeded.\n");
 
+    CARAT_READY_ON;
     nk_sched_start_world();
     return;
 
@@ -268,6 +287,43 @@ out_bad:
     return;
 
 }
+
+
+/* ---------- ALLOCATION MAP DEBUGGING ---------- */
+
+// Handler --- printing the allocationMap
+NO_CARAT
+static int handle_print_table() {
+
+	// Table formatting:
+	nk_vc_printf("map node addr  :  ( real addr  :  allocation_entry addr  ---  ( pointer,  len ))\n"); 
+
+	// Loop through the allocationMap, print all 
+	// information necessary
+    CARAT_ALLOCATION_MAP_ITERATE
+    {        
+        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d), es : %d)\n", 
+					 iterator, 
+					 CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
+					 the_entry, 
+					 the_entry->pointer, 
+					 the_entry->size,
+                     CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set));
+    }
+    nk_vc_printf("Number of escapes in escape window: %lu\n", global_carat_context.total_escape_entries);
+    
+    return 0;
+}
+
+static struct shell_cmd_impl print_table_impl = {
+    .cmd = "print_table",
+    .help_str = "print_table",
+    .handler = handle_print_table,
+};
+
+nk_register_shell_cmd(print_table_impl);
+
 
 
 /* --------- TEST CASE ---------  */
@@ -290,6 +346,7 @@ out_bad:
 */
 
 static uint64_t carat_seed = 29848349;
+NO_CARAT
 allocation_entry *_carat_find_random_alloc() {
 
 	/* 
@@ -300,7 +357,7 @@ allocation_entry *_carat_find_random_alloc() {
     nk_vc_printf("min_addr: %p\n", min_addr);
     // srand48(carat_seed);
     // carat_seed++;
-    uint64_t target = lrand48() % CARAT_ALLOCATION_MAP_SIZE,
+    uint64_t target = rdtsc() % CARAT_ALLOCATION_MAP_SIZE,
             count = 0;
 
     /* 	
@@ -311,7 +368,7 @@ allocation_entry *_carat_find_random_alloc() {
     CARAT_ALLOCATION_MAP_ITERATE
     {
         if ((count >= target) 
-        && (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
+        //&& (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
         //&& (nk_slist_is_right_sentinal(CARAT_ALLOCATION_MAP_CURRENT_ADDRESS)) 
         ){ return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
         count++;
@@ -377,6 +434,8 @@ static int handle_carat_test(char *buf, void *priv)
             * ***NOTE*** --- this free will be instrumented by
 			* the compiler 
             */
+            handle_print_table();
+
             free(old);
 
             nk_vc_printf("Free succeeded.\n");
@@ -396,37 +455,3 @@ static struct shell_cmd_impl carat_test_impl = {
 };
 
 nk_register_shell_cmd(carat_test_impl);
-
-
-/* ---------- ALLOCATION MAP DEBUGGING ---------- */
-
-// Handler --- printing the allocationMap
-static int handle_print_table() {
-
-	// Table formatting:
-	nk_vc_printf("map node addr  :  ( real addr  :  allocation_entry addr  ---  ( pointer,  len ))\n"); 
-
-	// Loop through the allocationMap, print all 
-	// information necessary
-    CARAT_ALLOCATION_MAP_ITERATE
-    {        
-        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d), es : %d)\n", 
-					 iterator, 
-					 CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
-					 the_entry, 
-					 the_entry->pointer, 
-					 the_entry->size,
-                     CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set));
-    }
-
-    return 0;
-}
-
-static struct shell_cmd_impl print_table_impl = {
-    .cmd = "print_table",
-    .help_str = "print_table",
-    .handler = handle_print_table,
-};
-
-nk_register_shell_cmd(print_table_impl);

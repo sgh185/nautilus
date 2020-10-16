@@ -45,6 +45,7 @@ carat_context global_carat_context = {
 /*
  * Setup for allocations
  */ 
+NO_CARAT
 allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocation_size)
 {
 	/*
@@ -77,7 +78,7 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 /*
  * Analysis of address aliasing
  */ 
-__attribute__((always_inline))
+NO_CARAT
 int _carat_does_alias(void *query_address, void *alloc_address, uint64_t allocation_size)
 {
 	/*
@@ -105,7 +106,7 @@ int _carat_does_alias(void *query_address, void *alloc_address, uint64_t allocat
 }
 
 
-__attribute__((always_inline))
+NO_CARAT
 sint64_t _carat_get_query_offset(void *query_address, void *alloc_address, uint64_t allocation_size)
 {	
 	/*
@@ -128,6 +129,7 @@ sint64_t _carat_get_query_offset(void *query_address, void *alloc_address, uint6
 /*
  * Find a corresponding allocation_entry object for @address
  */ 
+NO_CARAT
 allocation_entry * _carat_find_allocation_entry(void *address)
 {
 	// CONV [brian] -> [better than brian] 	
@@ -180,7 +182,7 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 /*
  * Self explanatory stats for CARAT
  */ 
-__attribute__((always_inline))
+NO_CARAT
 void nk_carat_report_statistics()
 {
 	/*
@@ -196,6 +198,7 @@ void nk_carat_report_statistics()
 /*
  * =================== Allocations Handling Methods ===================
  */ 
+NO_CARAT_NO_INLINE
 void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 {
 	/*
@@ -219,6 +222,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 }
 
 
+NO_CARAT_NO_INLINE
 void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element)
 {
 	/*
@@ -244,6 +248,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 }
 
 
+NO_CARAT_NO_INLINE
 void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size)
 {
 	/*
@@ -277,6 +282,7 @@ void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t 
 }
 
 
+NO_CARAT_NO_INLINE
 void nk_carat_instrument_free(void *address)
 {
 	/*
@@ -289,6 +295,10 @@ void nk_carat_instrument_free(void *address)
 	/*
 	 * Remove @address from the allocation map
 	 */ 
+	DS("RE: ");
+	DHQ(((uint64_t) address));
+	DS("\n");
+	
 	REMOVE_ENTRY (
 		address,
 		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
@@ -308,6 +318,7 @@ void nk_carat_instrument_free(void *address)
 * In case that pointer ever gets moved, we need to keep track of everywhere that it is stored so 
 * we can patch all the escapes
 */ 
+NO_CARAT_NO_INLINE
 void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 {
 	/*
@@ -331,19 +342,21 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 	 */ 
 	global_carat_context.escape_window[num_entries] = ((void **) new_destination_of_escaping_address);
 	global_carat_context.total_escape_entries++;
-
+	// DS("ES: ");
+	// DHQ((global_carat_context.total_escape_entries));
+	// DS("\n");
 
 	return;
 }
 
 
-
+NO_CARAT_NO_INLINE
 void _carat_process_escape_window()
 {	
 	/*
 	 * TOP --- perform batch processing of escapes in the escape window
 	 */ 
-
+	DS("CARAT: pew\n");
 	uint64_t num_entries = global_carat_context.total_escape_entries;
 	void ***the_escape_window = global_carat_context.escape_window;
 
@@ -358,6 +371,7 @@ void _carat_process_escape_window()
 	/*
 	 * Iterate through each escape, process it
 	 */ 
+	uint64_t missed_escapes_counter = 0;
 	for (uint64_t i = 0; i < num_entries; i++)
 	{
 		/*
@@ -386,7 +400,9 @@ void _carat_process_escape_window()
 			|| (!escape_address) /* Condition 1 */
 			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
 			|| (!(corresponding_entry = _carat_find_allocation_entry(*escape_address)))) /* Condition 3 */
-			{ continue; }
+			{ 
+				missed_escapes_counter++;
+				continue; }
 
 		
 		/*
@@ -396,8 +412,9 @@ void _carat_process_escape_window()
 		 */  
 		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
 	}
-
-
+	DS("me: ");
+	DHQ(missed_escapes_counter);
+	DS("\n");
 	/*
 	 * Reset the global escapes counter
 	 */ 
@@ -415,7 +432,7 @@ void _carat_process_escape_window()
 /*
  * Utility to get %rsp
  */ 
-__attribute__((always_inline))
+NO_CARAT
 uint64_t _carat_get_rsp()
 {
 	uint64_t rsp;
@@ -427,6 +444,7 @@ uint64_t _carat_get_rsp()
 /*
  * Main driver for initialization
  */ 
+NO_CARAT
 void nk_carat_init()
 {
 	/*
@@ -453,7 +471,7 @@ void nk_carat_init()
 	CREATE_ENTRY_AND_ADD (
 		rsp_as_void_ptr,
 		allocation_size,
-		"CARATInit: nk_map_insert failed on rspVoidPtr"
+		"CARATInit: nk_map_insert failed on rsp_as_void_ptr"
 	);
 
 
@@ -467,7 +485,7 @@ void nk_carat_init()
 	/*
 	 * CARAT is ready --- set the flag
 	 */ 
-	global_carat_context.carat_ready = 1;
+	CARAT_READY_ON;
 
 
 	return;

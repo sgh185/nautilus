@@ -51,12 +51,14 @@ extern "C" {
 #define SLIST_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { SLIST_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 #define RAND_MAGIC 0x7301
-#define SEED srand48(rdtsc() % RAND_MAGIC)
+#define SEED
+#define RAND (rdtsc() % RAND_MAGIC)
 #define SLIST_TOP_GEAR 8 // Deprecated
 #define DEFAULT_TOP_GEAR 12
 
 #define NO_CARAT __attribute__((used, annotate("nocarat")))
 #define NO_CARAT_NO_INLINE __attribute__((used, noinline, annotate("nocarat")))
+#define NO_CARAT_ALWAYS_INLINE __attribute__((used, always_inline, annotate("nocarat")))
 
 #define UPSHIFT(g) g++
 #define WHILE_DOWNSHIFTING(i, start) for (i = start; i >= 0; i--)
@@ -299,7 +301,7 @@ extern "C" {
 // Skip list internals
 #define _nk_slist_get_rand_gear(top_gear) ({ \
 	uint8_t gear = 1; \
-	while (((lrand48()) & 1) && (gear < top_gear)) { UPSHIFT(gear); } \
+	while (((RAND) & 1) && (gear < top_gear)) { UPSHIFT(gear); } \
 	gear; \
 })
 

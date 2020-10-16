@@ -430,7 +430,8 @@ init (unsigned long mbd,
 
     mm_boot_kmem_cleanup();
 
-
+    // Placed with medium amount intelligence
+	nk_carat_init();
     smp_setup_xcall_bsp(naut->sys.cpus[0]);
 
     nk_cpu_topo_discover(naut->sys.cpus[0]); 
@@ -492,9 +493,6 @@ init (unsigned long mbd,
 #ifdef NAUT_CONFIG_VIRTUAL_CONSOLE_CHARDEV_CONSOLE
     nk_vc_start_chardev_console(NAUT_CONFIG_VIRTUAL_CONSOLE_CHARDEV_CONSOLE_NAME);
 #endif
-
-	// Placed with some intelligence
-	nk_carat_init();
 
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
     nk_partition_init(naut);
