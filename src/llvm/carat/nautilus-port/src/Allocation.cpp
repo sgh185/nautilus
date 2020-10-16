@@ -58,8 +58,8 @@ void AllocationHandler::Inject()
 #endif
 
     InjectMallocCalls();
-    InjectCallocCalls();
-    InjectReallocCalls();
+    // InjectCallocCalls();
+    // InjectReallocCalls();
     InjectFreeCalls();
 
     return;

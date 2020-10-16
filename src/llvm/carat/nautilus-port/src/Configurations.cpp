@@ -55,9 +55,7 @@ vector<string> ImportantMethodNames = {CARAT_MALLOC,
                                        ENTRY_SETUP};
 
 unordered_map<string, int> TargetMethods = {
-    { "kmem_malloc",  2 }, 
-    { "kmem_mallocz",  2 }, 
-    { "kmem_realloc",  4 },
+    { "_kmem_malloc",  2 },
     { "kmem_free", 1 }
 };
 
