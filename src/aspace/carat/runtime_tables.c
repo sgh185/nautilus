@@ -208,6 +208,12 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 	CHECK_CARAT_READY
 
 
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF;
+
+
 	/*
 	 * Create an entry and add the mapping to the allocationMap
 	 */ 
@@ -216,6 +222,12 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 		allocation_size,
 		"nk_carat_instrument_malloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
 	);
+
+
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON;
 
 
 	return;
@@ -292,6 +304,12 @@ void nk_carat_instrument_free(void *address)
 	CHECK_CARAT_READY
 
 
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF;
+
+
 	/*
 	 * Remove @address from the allocation map
 	 */ 
@@ -303,6 +321,12 @@ void nk_carat_instrument_free(void *address)
 		address,
 		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
 	);
+
+
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON;
 
 
 	return;
@@ -327,7 +351,13 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 	 */
 	CHECK_CARAT_READY
 
-	
+
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF;
+
+
 	/*
 	 * Escapes are processed using batch processing --- if the escapeWindow
 	 * is completely filled --- we need to process it first
@@ -346,6 +376,13 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 	// DS("ES: ");
 	// DHQ((global_carat_context.total_escape_entries));
 	// DS("\n");
+
+    
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON;
+
 
 	return;
 }

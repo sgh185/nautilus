@@ -300,6 +300,7 @@ int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t re
     // find each allocation in the original region
     // move it to the new region + offset
     // 
+    return 0;
 }
 
 
@@ -381,11 +382,16 @@ allocation_entry *_carat_find_random_alloc() {
     */
     CARAT_ALLOCATION_MAP_ITERATE
     {
+        if ((CARAT_ALLOCATION_MAP_CURRENT_ENTRY->size != 24656)
+            || !(((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)) continue;
+#if 0
         if ((count >= target) 
-        && (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
+        //&& (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
         //&& (nk_slist_is_right_sentinal(CARAT_ALLOCATION_MAP_CURRENT_ADDRESS)) 
         ){ return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
         count++;
+#endif
+        return CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
     }
     
     
@@ -450,7 +456,7 @@ static int handle_carat_test(char *buf, void *priv)
             */
             handle_print_table();
 
-            //free(old);
+            free(old);
             // nk_carat_insrtument_free
             nk_vc_printf("Free succeeded.\n");
         }

@@ -67,8 +67,8 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
 
 /*
  * Driver for performing a move of multiple allocations that are tracked
- */ 
-void nk_carat_move_allocations(void *allocations_to_move, void *allocation_targets, uint64_t length);
+ */
+// void nk_carat_move_allocations(void *allocations_to_move, void *allocation_targets, uint64_t length);
 
 int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length);
 
