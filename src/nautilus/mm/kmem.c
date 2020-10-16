@@ -39,6 +39,8 @@
 
 #include <dev/gpio.h>
 
+#define KARAT_MEM_DEBUG 1
+
 #ifndef NAUT_CONFIG_DEBUG_KMEM
 #undef DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...)
@@ -989,6 +991,10 @@ handle_meminfo (char * buf, void * priv)
         return 0;
     }
 
+#if KARAT_MEM_DEBUG
+    nk_vc_printf("KARAT: handle_meminfo (after malloc) : %p\n", s);
+#endif
+
     s->max_pools = num;
 
     kmem_stats(s);
@@ -1007,6 +1013,9 @@ handle_meminfo (char * buf, void * priv)
     nk_vc_printf("%lu pools %lu blks free %lu bytes free\n", s->total_num_pools, s->total_blocks_free, s->total_bytes_free);
     nk_vc_printf("  %lu bytes min %lu bytes max\n", s->min_alloc_size, s->max_alloc_size);
 
+#if KARAT_MEM_DEBUG
+    nk_vc_printf("KARAT: handle_meminfo (before free) : %p\n", s);
+#endif
     free(s);
 
     return 0;
