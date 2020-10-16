@@ -288,6 +288,20 @@ out_bad:
 
 }
 
+NO_CARAT
+void nk_carat_move_allocations(void *allocation_to_move, void *allocation_target) 
+{
+}
+
+// 0 if success, 1 if fail
+NO_CARAT
+int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length) 
+{
+    // find each allocation in the original region
+    // move it to the new region + offset
+    // 
+}
+
 
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
 
@@ -303,7 +317,7 @@ static int handle_print_table() {
     CARAT_ALLOCATION_MAP_ITERATE
     {        
         allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %d), es : %d)\n", 
+		nk_vc_printf("%p : (%p : %p --- (ptr: %p, len: %lu), es : %d)\n", 
 					 iterator, 
 					 CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
 					 the_entry, 
@@ -368,7 +382,7 @@ allocation_entry *_carat_find_random_alloc() {
     CARAT_ALLOCATION_MAP_ITERATE
     {
         if ((count >= target) 
-        //&& (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
+        && (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
         //&& (nk_slist_is_right_sentinal(CARAT_ALLOCATION_MAP_CURRENT_ADDRESS)) 
         ){ return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
         count++;
@@ -436,8 +450,8 @@ static int handle_carat_test(char *buf, void *priv)
             */
             handle_print_table();
 
-            free(old);
-
+            //free(old);
+            // nk_carat_insrtument_free
             nk_vc_printf("Free succeeded.\n");
         }
 

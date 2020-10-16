@@ -97,7 +97,7 @@ static uint8_t    debug_irq;
 
 /* The following state is for late output */
 
-#define BUFSIZE 512
+#define BUFSIZE 16384
   
 struct serial_state {
     struct nk_char_dev *dev;

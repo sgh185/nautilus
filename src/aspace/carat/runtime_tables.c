@@ -333,6 +333,7 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 	 * is completely filled --- we need to process it first
 	 */ 
 	uint64_t num_entries = global_carat_context.total_escape_entries;
+	// todo: disable CARAT before and after this call
 	if (num_entries >= ESCAPE_WINDOW_SIZE) { _carat_process_escape_window(); }
 
 
