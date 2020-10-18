@@ -17,4 +17,5 @@ obj-y += \
 	mprotect.o \
 	munmap.o \
 	nanosleep.o \
+	mkdir.o \
 	syscall_stubs.o

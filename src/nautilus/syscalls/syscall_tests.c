@@ -4,6 +4,7 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
 #include <nautilus/syscall_user.h>
+#include <nautilus/loader.h>
 
 #define ERROR(fmt, args...) ERROR_PRINT("sycall_test: " fmt, ##args)
 #define DEBUG(fmt, args...) DEBUG_PRINT("syscall_test: " fmt, ##args)
@@ -17,6 +18,8 @@
     total_tests++;                 \
     passed_tests++;                \
   }
+
+extern void syscall_test_main();
 
 static int passed_tests;
 static int total_tests;
@@ -70,6 +73,9 @@ static int handle_syscall_tests(char* buf, void* priv) {
     */
   }
 
+  // Test mkdir
+  { EXPECT(mkdir("fs:/test_dir", 0) == 0); }
+
   // Test fork / exit
   {
     // TODO: Don't print ERROR here once debug print works
@@ -82,45 +88,73 @@ static int handle_syscall_tests(char* buf, void* priv) {
     }
   }
 
-  /// get/set timeofday; nanosleep
-  {
-    /// TODO: include from wherever this is defined correctly
-    struct timeval {
-      int tv_sec;  /* seconds */
-      int tv_usec; /* microseconds */
-    };
-    struct timeval time;
-
-    EXPECT(gettimeofday(&time, NULL) == 0);
-    printk("Initial time of day in s: %d\n", time.tv_sec);
-
-    const int time_to_set = 100000;
-    time.tv_sec = time_to_set;
-    EXPECT(settimeofday(&time, NULL) == 0);
-
-    time.tv_sec = 0; // just to be sure gettimeofday updates it
-    EXPECT(gettimeofday(&time, NULL) == 0);
-    EXPECT(time.tv_sec >= time_to_set);
-    printk("Modified time of day in s: %d\nSleeping...\n", time.tv_sec);
-
-    /// TODO: include from wherever this is defined correctly
-    struct timespec {
-      uint64_t tv_sec;  /* seconds */
-      uint64_t tv_nsec; /* nanoseconds */
-    };
-
-    struct timespec sleep_time;
-    sleep_time.tv_sec = 10;
-    sleep_time.tv_nsec = 0;
-
-    nanosleep(&sleep_time, NULL);
-    gettimeofday(&time, NULL);
-    printk("Time of day after sleeping: %d\n", time.tv_sec);
+  struct nk_exec* e = nk_load_exec("fs:/hello.exe");
+  if (e) {
+    void* inarg;
+    void* outarg;
+    if (nk_start_exec(e, inarg, &outarg)) {
+      // error
+    } else {
+      // result is return from main func of exec
+    }
+    nk_unload_exec(e); // will also free this
   }
+
+  /// get/set timeofday; nanosleep; clock_getres (etc)
+  // {
+  //   /// TODO: include from wherever this is defined correctly
+  //   struct timeval {
+  //     int tv_sec;  /* seconds */
+  //     int tv_usec; /* microseconds */
+  //   };
+  //   struct timeval time;
+
+  //   EXPECT(gettimeofday(&time, NULL) == 0);
+  //   printk("Initial time of day in s: %d\n", time.tv_sec);
+
+  //   const int time_to_set = 100000;
+  //   time.tv_sec = time_to_set;
+  //   EXPECT(settimeofday(&time, NULL) == 0);
+
+  //   time.tv_sec = 0; // just to be sure gettimeofday updates it
+  //   EXPECT(gettimeofday(&time, NULL) == 0);
+  //   EXPECT(time.tv_sec >= time_to_set);
+  //   printk("Modified time of day in s: %d\nSleeping...\n", time.tv_sec);
+
+  //   /// TODO: include from wherever this is defined correctly
+  //   struct timespec {
+  //     uint64_t tv_sec;  /* seconds */
+  //     uint64_t tv_nsec; /* nanoseconds */
+  //   };
+
+  //   struct timespec sleep_time;
+  //   sleep_time.tv_sec = 10;
+  //   sleep_time.tv_nsec = 0;
+
+  //   struct timespec clock_time = {
+  //     .tv_sec = 0,
+  //     .tv_nsec = 0
+  //   };
+
+  //   // EXPECT(clock_getres(0, &clock_time) == 0);
+  //   // EXPECT((clock_time.tv_nsec != 0) || (clock_time.tv_sec != 0));
+
+  //   uint64_t pre_sleep_time = clock_time.tv_sec;
+
+  //   nanosleep(&sleep_time, NULL);
+  //   gettimeofday(&time, NULL);
+  //   printk("Time of day after sleeping: %d\n", time.tv_sec);
+
+  //   clock_time.tv_sec = 0;
+  //   clock_time.tv_nsec = 0;
+
+  //   // EXPECT(clock_gettime(0, &clock_time) == 0);
+  //   // uint64_t post_sleep_time = clock_time.tv_sec;
+  //   // EXPECT(post_sleep_time > pre_sleep_time);
+  // }
 
   /// Test teardown
   printk("Passed %d of %d tests.\n", passed_tests, total_tests);
-
   return 0;
 }
 

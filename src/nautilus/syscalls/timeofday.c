@@ -4,8 +4,13 @@
 
 #include <nautilus/nautilus.h>
 
+#include <errno.h>
+
 #define NSEC_PER_SEC (uint64_t)1000000000
 #define NSEC_PER_USEC (uint64_t)1000U
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
 
 /// Offset applied when calculating the time from the cycle count
 static uint64_t time_offset = 0;
@@ -16,15 +21,19 @@ struct timeval {
   int tv_usec; // microseconds
 };
 
+/// TODO: include from wherever this is defined correctly
+struct timespec {
+  uint64_t tv_sec;  /* seconds */
+  uint64_t tv_nsec; /* nanoseconds */
+};
+
 /// TODO: add multiarch support if rdtsc is not a compiler intrinsic
 /// @return The cycle count
 uint64_t get_cycles() { return rdtsc(); }
 
 /// TODO: make this based on the arch instead of being fake
 /// @return Elapsed seconds since the cycle count was reset
-uint64_t cycles2ns(uint64_t cycles) {
-  return cycles;
-}
+uint64_t cycles2ns(uint64_t cycles) { return cycles; }
 
 /// @return The time in nanoseconds
 uint64_t get_time() { return cycles2ns(get_cycles()) + time_offset; }
@@ -58,5 +67,31 @@ int sys_settimeofday(int timeval_ptr, int timezone_ptr) {
   return 0;
 }
 
-#undef NSEC_PER_SEC
-#undef NSEC_PER_USEC
+uint64_t sys_clock_gettime(uint64_t which_clock, uint64_t tp_) {
+  struct timespec* tp = (struct timespec*)tp;
+  uint64_t when = get_time();
+
+  if ((which_clock != CLOCK_REALTIME) && (which_clock != CLOCK_MONOTONIC))
+    return -EINVAL;
+
+  tp->tv_sec = when / NSEC_PER_SEC;
+  tp->tv_nsec = when % NSEC_PER_SEC;
+
+  return 0;
+}
+
+uint64_t sys_clock_getres(uint64_t clk_id, uint64_t tp_) {
+  DEBUG_PRINT("Got to getres begin\n");
+  if (tp_ == NULL) {
+    return 0;
+  }
+  struct timespec* tp = (struct timespec*)tp;
+  DEBUG_PRINT("Got past getres pointer cast\n");
+  tp->tv_sec = 0;
+  DEBUG_PRINT("Got past getres set a value\n");
+  tp->tv_nsec = 1000000000;
+
+  DEBUG_PRINT("Got to end of getres\n");
+
+  return 0;
+}

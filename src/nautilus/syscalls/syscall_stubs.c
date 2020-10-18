@@ -422,12 +422,6 @@ uint64_t sys_rename(uint64_t oldname, uint64_t newname) {
   return 0;
 }
 
-uint64_t sys_mkdir(uint64_t pathname, uint64_t mode) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (mkdir)");
-  return 0;
-}
-
 uint64_t sys_rmdir(uint64_t pathname) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (rmdir)");
@@ -1298,18 +1292,6 @@ uint64_t sys_timer_delete(uint64_t timer_id) {
 uint64_t sys_clock_settime(uint64_t which_clock, uint64_t tp) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (clock_settime)");
-  return 0;
-}
-
-uint64_t sys_clock_gettime(uint64_t which_clock, uint64_t tp) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (clock_gettime)");
-  return 0;
-}
-
-uint64_t sys_clock_getres(uint64_t which_clock, uint64_t tp) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (clock_getres)");
   return 0;
 }
 

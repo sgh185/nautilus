@@ -4,7 +4,7 @@
 # Framework code for building "user" executables for Nautilus
 #
 
-NAUTILUS_DIR = /home/pdinda/test/rt/nautilus
+NAUTILUS_DIR = ../..
 
 
 TARGET = hello.exe
@@ -40,7 +40,7 @@ CFLAGS = -O2 \
 #
 
 
-CC = gcc -static -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
+CC = gcc -static -static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
 
 all: $(TARGET)
 
@@ -53,9 +53,11 @@ framework_low_level.o: framework_low_level.S
 framework.o : framework.c
 	$(CC) $(CFLAGS) -c framework.c
 
-$(TARGET) : $(TARGET:.exe=.o) framework.o framework_low_level.o framework.lds
-	ld -T framework.lds -static -dp -z max-page-size=0x1000 $(TARGET:.exe=.o) framework.o framework_low_level.o -o $(TARGET)
+glue.o : glue.c
+	$(CC) $(CFLAGS) -c glue.c
 
+$(TARGET) : $(TARGET:.exe=.o) framework.o framework_low_level.o glue.o framework.lds
+	ld -T framework.lds -L/usr/lib/x86_64-linux-gnu/ -static -dp -z max-page-size=0x1000 $(TARGET:.exe=.o) framework.o framework_low_level.o -lc glue.o -o $(TARGET) 
 clean: 
 	rm -f $(TARGET) *.o
 

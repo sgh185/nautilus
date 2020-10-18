@@ -102,6 +102,7 @@ typedef struct nk_fs_open_file_state *nk_fs_fd_t;
 
 int        nk_fs_stat(char *path, struct nk_fs_stat *st);
 int        nk_fs_truncate(char *path, off_t len);
+int        nk_fs_mkdir(char *path, int mode);
 #define O_RDONLY 1
 #define O_WRONLY 2
 #define O_RDWR   3 // OR of RD and WR ONLY
