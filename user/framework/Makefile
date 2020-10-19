@@ -40,7 +40,7 @@ CFLAGS = -O2 \
 #
 
 
-CC = gcc -static -static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
+CC = gcc -g3 -static -static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
 
 all: $(TARGET)
 

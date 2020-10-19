@@ -36,6 +36,11 @@ SECTIONS
         *(.bss*)
         *(.gnu.linkonce.b*)
     }
+
+    /* Added this to silence the seemingly-benign linker error when including libc -ARN */
+    .tdata : ALIGN(0x1000) {
+        *(.tdata .tdata.* .gnu.linkonce.td.*)
+    }
     
     _bssEnd = .; 
     
