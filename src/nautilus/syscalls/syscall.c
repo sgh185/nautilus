@@ -352,6 +352,7 @@ int int80_handler(excp_entry_t* excp, excp_vec_t vector, void* state) {
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
+    INFO("Syscall returned %d\n", r->rax);
   } else {
     INFO("System Call not Implemented!!\n");
   }
@@ -364,7 +365,7 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    INFO("%d\n", r->rax);
+    INFO("Syscall returned %d\n", r->rax);
   } else {
     INFO("System Call not Implemented: %d!!\n", syscall_nr);
   }
@@ -389,68 +390,3 @@ void nk_syscall_init() {
   register_int_handler(0x80, int80_handler, 0);
   syscall_setup();
 }
-
-// handle shell command
-
-static int handle_syscall_test(char* buf, void* priv) {
-  INFO("Shell command for testing syscall invoked\n");
-  INFO("%s\n", buf);
-
-  char syscall_name[32], syscall_argument[32];
-
-  if (sscanf(buf, "syscall %s %s", syscall_name, syscall_argument) != 2) {
-    INFO("No arguments\n");
-  } else if (sscanf(buf, "syscall %s", syscall_name) != 1) {
-    INFO("Don't understand %s\n", buf);
-  }
-
-  if (strcmp(syscall_name, "getpid") == 0) {
-    uint64_t pid = SYSCALL(39, 0, 0, 0, 0, 0, 0);
-    nk_vc_printf("%ld\n", pid);
-  }
-
-  else if (strcmp(syscall_name, "test") == 0) {
-    uint64_t pid = SYSCALL(39, 0, 0, 0, 0, 0, 0);
-    nk_vc_printf("%ld\n", pid);
-  }
-
-  else if (strcmp(syscall_name, "exit") == 0) {
-    uint64_t pid = SYSCALL(60, 0, 0, 0, 0, 0, 0);
-    nk_vc_printf("%ld\n", pid);
-  }
-
-  else if (strcmp(syscall_name, "fork") == 0) {
-    uint64_t pid = SYSCALL(57, 0, 0, 0, 0, 0, 0);
-    nk_vc_printf("%ld\n", pid);
-  }
-
-  else if (strcmp(syscall_name, "write") == 0) {
-    uint64_t pid =
-        SYSCALL(1, 1, syscall_argument, strlen(syscall_argument), 0, 0, 0);
-    nk_vc_printf("%ld\n", pid);
-  }
-
-  else if (strcmp(syscall_name, "read") == 0) {
-    char* buf = "";
-    uint64_t pid = SYSCALL(0, 0, (int)buf, atoi(syscall_argument), 0, 0, 0);
-    nk_vc_printf("%s\n", buf);
-  }
-
-  else {
-    syscall_int80(MAX_SYSCALL - 1, 0, 0, 0, 0, 0, 0);
-  }
-
-  return 0;
-}
-
-static struct shell_cmd_impl syscall_impl = {
-
-    .cmd = "syscall",
-
-    .help_str = "syscall [test]",
-
-    .handler = handle_syscall_test,
-
-};
-
-nk_register_shell_cmd(syscall_impl);

@@ -18,4 +18,9 @@ obj-y += \
 	munmap.o \
 	nanosleep.o \
 	mkdir.o \
+	gettid.o \
+	getcpu.o \
+	uname.o \
+	sethostname.o \
+	syscall_state.o \
 	syscall_stubs.o

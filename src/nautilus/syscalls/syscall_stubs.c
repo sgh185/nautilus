@@ -305,12 +305,6 @@ uint64_t sys_kill(uint64_t pid, uint64_t sig) {
   return 0;
 }
 
-uint64_t sys_uname(uint64_t name) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (uname)");
-  return 0;
-}
-
 uint64_t sys_semget(uint64_t key, uint64_t nsems, uint64_t semflg) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (semget)");
@@ -931,11 +925,6 @@ uint64_t sys_reboot(uint64_t magic1, uint64_t magic2, uint64_t cmd,
   return 0;
 }
 
-uint64_t sys_sethostname(uint64_t name, uint64_t len) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (sethostname)");
-  return 0;
-}
 
 uint64_t sys_setdomainname(uint64_t name, uint64_t len) {
   /// TODO: entire syscall
@@ -1025,12 +1014,6 @@ uint64_t sys_tuxcall() {
 uint64_t sys_security() {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (security)");
-  return 0;
-}
-
-uint64_t sys_gettid() {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (gettid)");
   return 0;
 }
 
@@ -1812,12 +1795,6 @@ uint64_t sys_sendmmsg(uint64_t fd, uint64_t mmsg, uint64_t vlen,
 uint64_t sys_setns(uint64_t fd, uint64_t nstype) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (setns)");
-  return 0;
-}
-
-uint64_t sys_getcpu(uint64_t cpup, uint64_t nodep, uint64_t unused) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (getcpu)");
   return 0;
 }
 

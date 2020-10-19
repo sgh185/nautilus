@@ -68,7 +68,7 @@ int sys_settimeofday(int timeval_ptr, int timezone_ptr) {
 }
 
 uint64_t sys_clock_gettime(uint64_t which_clock, uint64_t tp_) {
-  struct timespec* tp = (struct timespec*)tp;
+  struct timespec* tp = (struct timespec*)tp_;
   uint64_t when = get_time();
 
   if ((which_clock != CLOCK_REALTIME) && (which_clock != CLOCK_MONOTONIC))
@@ -85,7 +85,7 @@ uint64_t sys_clock_getres(uint64_t clk_id, uint64_t tp_) {
   if (tp_ == NULL) {
     return 0;
   }
-  struct timespec* tp = (struct timespec*)tp;
+  struct timespec* tp = (struct timespec*)tp_;
   DEBUG_PRINT("Got past getres pointer cast\n");
   tp->tv_sec = 0;
   DEBUG_PRINT("Got past getres set a value\n");
