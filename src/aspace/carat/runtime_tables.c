@@ -480,7 +480,9 @@ uint64_t _carat_get_rsp()
 
 
 /*
- * Main driver for initialization
+ * Main driver for initialization. 
+ * This function must successfully return in exactly one spot for global allocation 
+ * tracking injections to be properly instrumented. They will all happen right before the return.
  */ 
 NO_CARAT
 void nk_carat_init()
@@ -525,7 +527,7 @@ void nk_carat_init()
 	 */ 
 	CARAT_READY_ON;
 
-
+	// Global allocation tracking calls are injected at this point
 	return;
 }
 

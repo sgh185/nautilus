@@ -41,8 +41,6 @@ AllocationHandler::AllocationHandler(Module *M)
     // Set up data structures
     this->Globals = std::unordered_map<GlobalValue *, uint64_t>();
     this->Mallocs = std::vector<Instruction *>();
-    this->Callocs = std::vector<Instruction *>();
-    this->Reallocs = std::vector<Instruction *>();
     this->Frees = std::vector<Instruction *>();
     this->Allocas = std::vector<Instruction *>();
 
@@ -58,8 +56,6 @@ void AllocationHandler::Inject()
 #endif
 
     InjectMallocCalls();
-    // InjectCallocCalls();
-    // InjectReallocCalls();
     InjectFreeCalls();
 
     return;
@@ -154,16 +150,6 @@ void AllocationHandler::_getAllNecessaryInstructions()
                             Mallocs.push_back(&I);
                             break;
                         }
-                        case 3: // Function has the signature of calloc
-                        {
-                            Callocs.push_back(&I);
-                            break;
-                        }
-                        case 4: // Function has the signature of realloc
-                        {
-                            Reallocs.push_back(&I);
-                            break;
-                        }
                         case 1: //Function is a deallocation instuction
                         {
                             Frees.push_back(&I);
@@ -202,7 +188,16 @@ void AllocationHandler::_getAllGlobals()
             || (Global.isDeclaration())
             || (!(Global.hasExactDefinition()))
             || (Global.isDiscardableIfUnused()))
-            { continue; }
+            { 
+                errs() << "Not getting global: ";
+                errs() << Global << "\n";
+                errs() << "     Global.getName() == \"llvm.global_ctors\"" << (Global.getName() == "llvm.global_ctors") <<  "\n";
+                errs() << "     Global.getName() == \"llvm.used\"" << (Global.getName() == "llvm.used") <<  "\n";
+                errs() << "     Global.getName() == \"llvm.global.annotations\"" << (Global.getName() == "llvm.global.annotations") <<  "\n";
+                errs() << "     Global.isDeclaration()" << (Global.isDeclaration()) <<  "\n";
+                errs() << "     !(Global.hasExactDefinition())" << (!(Global.hasExactDefinition())) <<  "\n";
+                errs() << "     Global.isDiscardableIfUnused()" << (Global.isDiscardableIfUnused()) <<  "\n";
+                continue; }
 
         uint64_t totalSizeInBytes;
 
@@ -247,13 +242,16 @@ void AllocationHandler::AddAllocationTableCallToInit()
 
     IRBuilder<> InitBuilder = Utils::GetBuilder(Init, InsertionPoint);
 
-    LLVMContext &TheContext = Init->getContext();
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+    Type *VoidPointerType = InitBuilder.getInt8PtrTy(); // For pointer injection
     Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
 
     for (auto const &[GV, Length] : Globals)
     {
-        if (Length == 0) continue;
+        if (Length == 0) { 
+            errs() << "Skipping global: ";
+            errs() << *GV << "\n";
+            continue; 
+        }
 
         // Set up arguments for call instruction to malloc
         std::vector<Value *> CallArgs;
@@ -263,7 +261,7 @@ void AllocationHandler::AddAllocationTableCallToInit()
 
         // Add to arguments vector
         CallArgs.push_back(PointerCast);
-        CallArgs.push_back(ConstantInt::get(IntegerType::get(TheContext, 64), Length, false));
+        CallArgs.push_back(InitBuilder.getInt64(Length));
 
         // Convert to LLVM data structure
         ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
@@ -333,129 +331,6 @@ void AllocationHandler::InjectMallocCalls()
     return;
 }
 
-void AllocationHandler::InjectCallocCalls()
-{
-    Function *CARATCalloc = NecessaryMethods[CARAT_CALLOC];
-    LLVMContext &TheContext = CARATCalloc->getContext();
-
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
-
-    for (auto CI : Callocs)
-    {
-        errs() << "CI: " << *CI << "\n";
-
-        Instruction *InsertionPoint = CI->getNextNode();
-        if (InsertionPoint == nullptr)
-        {
-            errs() << "Not able to instrument: ";
-            CI->print(errs());
-            errs() << "\n";
-
-            continue;
-        }
-
-        // Set up injections and call instruction arguments
-        IRBuilder<> CIBuilder = Utils::GetBuilder(CI->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
-
-        // Cast inst as value to grab returned value
-        Value *CallocReturnCast = CIBuilder.CreatePointerCast(CI, VoidPointerType);
-
-        // Cast inst for size argument to original calloc call (CI)
-        Value *CallocSizeArgCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(0), Int64Type);
-
-        // Cast inst for second argument (number of elements) to original calloc call (CI)
-        Value *CallocNumElmCast = CIBuilder.CreateZExtOrBitCast(CI->getOperand(1), Int64Type);
-
-        // Add CARAT calloc call instruction arguments
-        CallArgs.push_back(CallocReturnCast);
-        CallArgs.push_back(CallocSizeArgCast);
-        CallArgs.push_back(CallocNumElmCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
-
-        // Build the call instruction to CARAT calloc
-        CallInst *AddToAllocationTable = CIBuilder.CreateCall(CARATCalloc, LLVMCallArgs);
-
-#if VERIFY
-        if (verifyFunction(*(CI->getFunction()), &(errs())))
-        {
-            VERIFY_DEBUG_INFO("\n");
-            VERIFY_DEBUG_INFO(CI->getFunction()->getName() + "\n");
-            VERIFY_OBJ_INFO((CI->getFunction()));
-            VERIFY_DEBUG_INFO("\n\n\n");
-
-            break;
-        }
-#endif
-
-    }
-
-    return;
-}
-
-void AllocationHandler::InjectReallocCalls()
-{
-    Function *CARATRealloc = NecessaryMethods[CARAT_REALLOC];
-    LLVMContext &TheContext = CARATRealloc->getContext();
-
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
-
-    for (auto RI : Reallocs)
-    {
-        errs() << "RI: " << *RI << "\n";
-        
-        Instruction *InsertionPoint = RI->getNextNode();
-        if (InsertionPoint == nullptr)
-        {
-            errs() << "Not able to instrument: ";
-            RI->print(errs());
-            errs() << "\n";
-
-            continue;
-        }
-
-        // Set up injections and call instruction arguments
-        IRBuilder<> RIBuilder = Utils::GetBuilder(RI->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
-
-        // Cast inst for the old pointer passed to realloc
-        Value *ReallocOldPtrCast = RIBuilder.CreatePointerCast(RI->getOperand(0), VoidPointerType);
-
-        // Cast inst for return value from original Realloc call (RI)
-        Value *ReallocReturnCast = RIBuilder.CreateZExtOrBitCast(RI, VoidPointerType);
-
-        // Cast inst for size argument to original Realloc call (RI)
-        Value *ReallocNewSizeCast = RIBuilder.CreateZExtOrBitCast(RI->getOperand(1), Int64Type);
-
-        // Add CARAT Realloc call instruction arguments
-        CallArgs.push_back(ReallocOldPtrCast);
-        CallArgs.push_back(ReallocReturnCast);
-        CallArgs.push_back(ReallocNewSizeCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
-
-        // Build the call instruction to CARAT Realloc
-        CallInst *AddToAllocationTable = RIBuilder.CreateCall(CARATRealloc, LLVMCallArgs);
-
-#if VERIFY
-        if (verifyFunction(*(RI->getFunction()), &(errs())))
-        {
-            VERIFY_DEBUG_INFO("\n");
-            VERIFY_DEBUG_INFO(RI->getFunction()->getName() + "\n");
-            VERIFY_OBJ_INFO((RI->getFunction()));
-            VERIFY_DEBUG_INFO("\n\n\n");
-
-            break;
-        }
-#endif 
-
-    }
-
-    return;
-}
 
 void AllocationHandler::InjectFreeCalls()
 {

@@ -39,8 +39,6 @@ public:
     void Inject(); // Injection driver
     void AddAllocationTableCallToInit();
     void InjectMallocCalls();
-    void InjectCallocCalls();
-    void InjectReallocCalls();
     void InjectFreeCalls();
 
 private:
@@ -51,8 +49,6 @@ private:
     // Analyzed state
     std::unordered_map<GlobalValue *, uint64_t> Globals;
     std::vector<Instruction *> Mallocs;
-    std::vector<Instruction *> Callocs;
-    std::vector<Instruction *> Reallocs;
     std::vector<Instruction *> Frees;
     std::vector<Instruction *> Allocas;
 
