@@ -123,6 +123,15 @@ typedef union ph_cr3e {
 } __attribute__((packed)) ph_cr3e_t;
 typedef ph_cr3e_t ph_ptbre_t;
 
+typedef union ph_cr3_pcide {
+    uint64_t val;
+    struct {
+	uint16_t pcid		  : 12; // pcid for current address space
+	uint64_t pml4_base    : 40; // pointer to pml4e (bits 12..51, bits 0..11 are zero)
+	uint_t res3           : 12; // reserved must be zero
+    } __attribute__((packed));
+} __attribute__((packed)) ph_cr3_pcide_t;
+
 // page table entries
 typedef union ph_pml4e {
     uint64_t  val;
@@ -153,7 +162,8 @@ typedef union ph_pdpe {  // mostly the same as pml4e, comments show diffs
 	uint_t cache_disable  : 1;
 	uint_t accessed       : 1;
 	uint_t reserved       : 1;
-	uint_t zero           : 2;  // must be zero
+	uint_t is_leaf		  : 1;
+	uint_t zero           : 1;  // must be zero
 	                            // bit 7 set makes this a huge page
 	uint_t avail1         : 3;   
 	uint64_t pd_base      : 40; // pointer to PDT (bits 12..51, bits 0..11 are zero)
@@ -173,7 +183,8 @@ typedef union ph_pde {  // mostly the same as pdpe, comments show diffs
 	uint_t cache_disable   : 1;
 	uint_t accessed        : 1;
 	uint_t reserved        : 1;
-	uint_t zero            : 2;  // must be zero
+	uint_t is_leaf		  : 1;
+	uint_t zero           : 1;  // must be zero
 	                             // bit 7 makes this a large page
 	                             // bit 8 makes this a global page
 	uint_t avail1          : 3;
@@ -204,13 +215,16 @@ typedef union ph_pte {  // mostly the same as a pde, comments show diffs
 
 
 // page fault error code deconstruction
-typedef struct ph_pf_error {
-    uint_t present           : 1; // if 0, fault due to page not present
-    uint_t write             : 1; // if 1, faulting access was a write
-    uint_t user              : 1; // if 1, faulting access was in user mode
-    uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
-    uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
-    uint_t rsvd              : 27;
+typedef union ph_pf_error {
+    uint32_t val;
+    struct {
+	uint_t present           : 1; // if 0, fault due to page not present
+	uint_t write             : 1; // if 1, faulting access was a write
+	uint_t user              : 1; // if 1, faulting access was in user mode
+	uint_t rsvd_access       : 1; // if 1, fault from reading a 1 from a reserved field (?)
+	uint_t ifetch            : 1; // if 1, faulting access was an instr fetch (only with NX)
+	uint_t rsvd              : 27;
+    };
 } __attribute__((packed)) ph_pf_error_t;
 
 // for access use, present is ignored, write=>writeable, user=>user allowed, ifetch=>ifetch ok
@@ -229,19 +243,35 @@ int paging_helper_free(ph_cr3e_t cr3, int free_data);
 
 int paging_helper_permissions_ok(uint64_t *entry, ph_pf_access_t a);
 int paging_helper_set_permissions(uint64_t *entry, ph_pf_access_t a);
+int paging_helper_set_highest_permissions(uint64_t *entry);
+
+#define perm_ok(p,a) paging_helper_permissions_ok((uint64_t*)p,a)
+#define perm_set(p,a) paging_helper_set_permissions((uint64_t*)p,a)
+#define perm_set_highest(p) paging_helper_set_highest_permissions((uint64_t*)p)
 
 // walk page table as if we were the hardware doing an access of the given type
-// return -1 if walk results in error
-// return 0 if walk is successful, *pte points to succeeding last level PTE
-// return 1 if walk is unsuccessful, *pte points to failing PML4 entry
-// reutrn 2 if walk is unsucesssful, *pte points to failing PDPE entry
-// return 3 if walk is unsuccessful, *pte points to failing PDE entry
-// return 4 if walk is unsuccessful, *pte points to failing PTE entry
+// return 1 if walk is successful, *pte points to succeeding last level PTE
+// return 2 if walk is successful, *pte points to leaf level PDE entry (large page)
+// return 3 if walk is successful, *pte points to leaf level PDPE entry (huge page)
+// return -1 if walk is unsuccessful, *pte points to failing PTE entry
+// reutrn -2 if walk is unsucesssful, *pte points to failing PDE entry
+// return -3 if walk is unsuccessful, *pte points to failing PDPE entry
+// return -4 if walk is unsuccessful, *pte points to failing PML4E entry
 int paging_helper_walk(ph_cr3e_t cr3, addr_t vaddr, ph_pf_access_t access_type, uint64_t **entry);
 
 // build a path through the PT hierarchy to enable an access of the given type
-int paging_helper_drill(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
+// last level to drill = PTE, pagesize = 4K, default implementation
+int paging_helper_drill_4KB(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
+
+// build a path through the PT hierarchy to enable an access of the given type
+// last level to drill = PDE, pagesize = 2MB
+// have PDE.is_leaf = 1
+int paging_helper_drill_2MB(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
 
 
+// build a path through the PT hierarchy to enable an access of the given type
+// last level to drill = PDPE, pagesize = 1GB
+// have PDPE.is_leaf = 1
+int paging_helper_drill_1GB(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
 
 #endif

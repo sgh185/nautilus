@@ -24,7 +24,6 @@
 #ifndef __NK_ASPACE
 #define __NK_ASPACE
 
-#include <nautilus/list.h>
 #include <nautilus/idt.h>
 
 typedef struct nk_aspace_characteristics {
@@ -61,13 +60,6 @@ typedef struct nk_aspace_protections {
 #define NK_ASPACE_KERN   16   // meaning "kernel only", which is not yet supported
 #define NK_ASPACE_SWAP   32   // meaning "is swaped", which is not yet supported
 #define NK_ASPACE_EAGER  64   // meaning the mapping must be immediately constructed
-#define NK_ASPACE_GET_READ(flags) ((flags & NK_ASPACE_READ) >> 0)
-#define NK_ASPACE_GET_WRITE(flags) ((flags & NK_ASPACE_WRITE) >> 1)
-#define NK_ASPACE_GET_EXEC(flags) ((flags & NK_ASPACE_EXEC) >> 2)
-#define NK_ASPACE_GET_PIN(flags) ((flags & NK_ASPACE_PIN) >> 3)
-#define NK_ASPACE_GET_KERN(flags) ((flags & NK_ASPACE_KERN) >> 4)
-#define NK_ASPACE_GET_SWAP(flags) ((flags & NK_ASPACE_SWAP) >> 5)
-#define NK_ASPACE_GET_EAGER(flags) ((flags & NK_ASPACE_EAGER) >> 6)
 } nk_aspace_protection_t;
 
 
