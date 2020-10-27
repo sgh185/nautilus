@@ -1,4 +1,4 @@
-CFLAGS += -o3 -I ../common
+CFLAGS += -O3 -I ../common
 
 OBJS =	cg.o \
 

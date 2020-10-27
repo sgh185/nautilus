@@ -374,8 +374,8 @@ int nk_switch_to_next_vc()
 
 }
 
-
-static int _vc_scrollup_specific(struct nk_virtual_console *vc) 
+#define INTERRUPT __attribute__((target("no-sse")))
+INTERRUPT static int _vc_scrollup_specific(struct nk_virtual_console *vc) 
 {
   int i;
 
@@ -657,7 +657,8 @@ int nk_vc_setpos_specific(struct nk_virtual_console *vc, uint8_t x, uint8_t y)
 
 
 // display scrolling or explicitly on screen at a given location
-static int _vc_putchar_specific(struct nk_virtual_console *vc, uint8_t c) 
+#define INTERRUPT __attribute__((target("no-sse")))
+INTERRUPT static int _vc_putchar_specific(struct nk_virtual_console *vc, uint8_t c) 
 {
   if (!vc) { 
     return 0;
@@ -718,7 +719,8 @@ static int _vc_putchar_specific(struct nk_virtual_console *vc, uint8_t c)
 }
 
 // display scrolling or explicitly on screen at a given location
-static int _vc_putchar(uint8_t c) 
+#define INTERRUPT __attribute__((target("no-sse")))
+INTERRUPT static int _vc_putchar(uint8_t c) 
 {
   struct nk_virtual_console *vc;
   struct nk_thread *t = get_cur_thread();
@@ -769,8 +771,8 @@ int nk_vc_putchar(uint8_t c)
   return c;
 }
 
-
-static int _vc_print_specific(struct nk_virtual_console *vc, char *s) 
+#define INTERRUPT __attribute__((target("no-sse")))
+INTERRUPT static int _vc_print_specific(struct nk_virtual_console *vc, char *s) 
 {
   if (!vc) { 
     return 0;
