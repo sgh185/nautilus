@@ -33,6 +33,8 @@
 #include "npbparams.h"
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
+#include <nautilus/thread.h>
+
 
 //#include <stdlib.h>
 //#include <stdio.h>
@@ -585,6 +587,7 @@ void rank( int iteration )
 
 
 static int program_IS(char *_buf, void* _priv);
+static int program_IS_paging(char *_buf, void* _priv);
 
 static struct shell_cmd_impl nas_is_impl = {
     .cmd      = "nas-is",
@@ -592,6 +595,139 @@ static struct shell_cmd_impl nas_is_impl = {
     .handler  = program_IS,
 };
 nk_register_shell_cmd(nas_is_impl);
+
+
+static struct shell_cmd_impl nas_is_paging_impl = {
+    .cmd      = "nas-is-paging",
+    .help_str = "NAS parallel benchmark IS with paging",
+    .handler  = program_IS_paging,
+};
+nk_register_shell_cmd(nas_is_paging_impl);
+
+
+int program_IS_paging(char * _buf, void *_priv){
+
+    nk_thread_id_t t;
+    t = nk_thread_fork();
+    if(t==NK_BAD_THREAD_ID){
+       printf("Failed to fork thread\n");
+       return 0;
+    }
+
+    if (t==0) {
+                // child thread
+                char buf[32];
+                struct nk_thread *t = get_cur_thread();
+                nk_thread_name(get_cur_thread(),buf);
+                get_cur_thread()->vc = get_cur_thread()->parent->vc;
+                printf("Hello from forked thread tid %lu \n", t->tid);
+                // if the function being forked is inlined
+                // we must explicitly invoke
+                // nk_thread_exit(0);
+                // here
+
+     #ifdef NAUT_CONFIG_ASPACE_PAGING
+
+            nk_aspace_t *old_aspace = t->aspace;
+
+	    printf("The old aspace is %p\n", old_aspace);
+
+
+ 	    if(old_aspace){
+	    printf("The remove will be called\n");
+	    }
+
+	    nk_aspace_characteristics_t c;
+       
+	    if (nk_aspace_query("paging",&c)) {
+	       printf("failed to find paging implementation\n");
+	       return -1;
+	    }
+
+	    // create a new address space for this shell thread
+	    nk_aspace_t *mas = nk_aspace_create("paging","paging for NAS benchmark",&c);
+
+	    if (!mas) {
+	        printf("failed to create new address space\n");
+	        return -1;
+	    }
+	    
+	    nk_aspace_region_t r;
+	    // create a 1-1 region mapping all of physical memory
+	    // so that the kernel can work when that thread is active
+	    r.va_start = 0;
+	    r.pa_start = 0;
+	    r.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+	    // set protections for kernel
+	    // use EAGER to tell paging implementation that it needs to build all these PTs right now
+	    r.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+ 	   // now add the region
+ 	   // this should build the page tables immediately
+ 	   if (nk_aspace_add_region(mas,&r)) {
+ 	     printf("failed to add initial eager region to address space\n");
+ 	     return -1;
+ 	   }
+
+   	 if (nk_aspace_move_thread(mas)) {
+   	    printf("failed to move shell thread to new address space\n");
+    	   return -1;
+    	}
+	
+	    printf("Survived moving thread into its own address space\n");
+	
+	    printf("Start executing the benchmakr\n");
+		
+	    if(program_IS(_buf,_priv)==0){
+	        printf("Failed running benchmark\n");
+	        return -1;
+	    }
+
+	    printf("The mas aspace now is %p\n", mas);
+	
+
+	   if( nk_aspace_switch(old_aspace)){
+		
+	   	printf("Something wrong during swtiching to the old aspace\n");
+	   }
+	  
+
+
+	   // stuck when move thread 
+	   //nk_aspace_move_thread(old_aspace);
+
+           printf("Move thread succeeded\n");
+
+
+	   if(nk_aspace_destroy(mas)){
+	   
+	        printf("Something wrong during destorying the new aspace\n");
+	   }
+	   printf("Destory succeeded\n");
+
+	#endif
+
+	return 0;
+            }
+    else {
+	    printf("Hello from parent thread \n");
+                // parent thread just forks again
+            }
+
+    
+    if (nk_join_all_children(0)) {
+            printf("Failed to join forked threads on pass \n");
+            return -1;
+        }
+     printf("Joined forked threads in pass\n");
+
+     nk_sched_reap(1); // clean up unconditionally
+    
+    
+    
+    return 0;
+}
+
 
 int program_IS(char * _buf, void *_priv) {
 
@@ -715,6 +851,8 @@ int program_IS(char * _buf, void *_priv) {
          /**************************/
 }        /*  E N D  P R O G R A M  */
          /**************************/
+
+
 
 
 
