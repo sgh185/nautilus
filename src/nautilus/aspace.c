@@ -237,12 +237,13 @@ int nk_aspace_move_thread(nk_aspace_t *aspace)
     
     // old address space is losing thread
     if (t->aspace) { 
-	BOILERPLATE_DO(t->aspace,remove_thread);
+	    BOILERPLATE_DO(t->aspace,remove_thread);
     }
 
-    // new address space is gaining it
-    BOILERPLATE_DO(aspace,add_thread);
-
+    if(aspace){
+        // new address space is gaining it
+        BOILERPLATE_DO(aspace,add_thread);
+    }
     
     DEBUG("Doing switch to %p\n",aspace);
 

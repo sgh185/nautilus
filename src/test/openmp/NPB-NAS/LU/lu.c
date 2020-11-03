@@ -34,6 +34,8 @@
 --------------------------------------------------------------------*/
 
 #include "../common/npb-C.h"
+#include "../paging_benchmark.h"
+
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
 #include "../math/nas_math.h"
@@ -98,6 +100,17 @@ static struct shell_cmd_impl nas_lu_impl = {
     .handler  = program_LU,
 };
 nk_register_shell_cmd(nas_lu_impl);
+
+int program_LU_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_LU);
+}
+
+static struct shell_cmd_impl nas_lu_paging_impl = {
+    .cmd      = "nas-lu-paging",
+    .help_str = "NAS parallel benchmark LU with paging",
+    .handler  = program_LU_paging,
+};
+nk_register_shell_cmd(nas_lu_paging_impl);
 
 int program_LU(char * _buf, void *_priv) {
 
@@ -184,6 +197,8 @@ c   verification test
 		  maxtime, mflops, "          floating point", verified, 
 		  NPBVERSION, COMPILETIME, CS1, CS2, CS3, CS4, CS5, CS6, 
 		  "(none)");
+
+	return 0;
 }
 
 /*--------------------------------------------------------------------
