@@ -47,8 +47,7 @@ typedef struct splay_tree_key_s *splay_tree_key;
 #ifndef __MM_SPLAY_TREE_H__
 #define __MM_SPLAY_TREE_H__
 
-#include "node_struct.h"
-
+#include <aspace/region_tracking/node_struct.h>
 
 // keys are single uint64_ts
 

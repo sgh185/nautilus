@@ -1,7 +1,7 @@
 #ifndef __MM_RB_TREE_H__
 #define __MM_RB_TREE_H__
 
-#include "node_struct.h"
+#include <aspace/region_tracking/node_struct.h>
 
 #define RB_TREE_CHECK_AFTER_TRAVERSAL 0
 #define MAX_DEPTH_LEVEL_ORDER_PRINT 6

@@ -2,7 +2,7 @@
 #define __MM_LINKED_LIST_H__
 
 
-#include "node_struct.h"
+#include <aspace/region_tracking/node_struct.h>
 
 typedef struct mm_llist_node {
     nk_aspace_region_t region;

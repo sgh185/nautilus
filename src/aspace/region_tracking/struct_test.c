@@ -1,7 +1,6 @@
-#include "struct_test.h"
-#include "mm_linked_list.h"
-#include "mm_rb_tree.h"
-#include "mm_splay_tree.h"
+#include <nautilus/region_tracking/struct_test.h>
+#include <nautilus/region_tracking/mm_rb_tree.h>
+#include <nautilus/region_tracking/mm_splay_tree.h>
 #include <nautilus/random.h>
 #include <nautilus/nautilus.h>
 
