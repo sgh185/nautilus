@@ -78,5 +78,7 @@ obj-$(NAUT_CONFIG_FIBER_ENABLE) += fiber.o
 
 obj-$(NAUT_CONFIG_ASPACES) +=  aspace.o 
 
+obj-$(NAUT_CONFIG_ALLOCS) +=  alloc.o 
+
 obj-$(NAUT_CONFIG_PARTITION_SUPPORT) += partition.o
 

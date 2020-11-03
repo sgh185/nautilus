@@ -1339,6 +1339,51 @@ menu "Address Spaces"
 
 endmenu
 
+menu "Allocators"
+        config ALLOCS
+	  bool "Enable Allocators"
+	  default n
+	  depends on X86_64_HOST
+	  select ALLOC_BASE
+	  help
+	     Enable allocator abstractions
+	     
+	config DEBUG_ALLOCS
+	  bool "Debug allocators core"
+	  depends on ALLOCS
+	  default n
+	  help
+	     Turn on debugging prints for the allocator core
+
+	config ALLOC_BASE
+	  bool "Base allocator"
+	  depends on ALLOCS
+	  default y
+	  help
+	     This is the base allocator, just a wrapper on the system allocator
+
+        config DEBUG_ALLOC_BASE
+	  bool "Debug the base allocator"
+	  depends on ALLOC_BASE
+	  default n
+	  help
+	     Turn on debugging prints for the base allocator
+
+	config ALLOC_DUMB
+	  bool "Dumb allocator"
+	  depends on ALLOCS
+	  default n
+	  help
+	     This allocator never deallocates, but allocates in constant time
+
+        config DEBUG_ALLOC_DUMB
+	  bool "Debug the dumb allocator"
+	  depends on ALLOC_DUMB
+	  default n
+	  help
+	     Turn on debugging prints for the dumb allocator
+endmenu
+
 menu "Runtimes"
 
         config LEGION_RT
@@ -1425,20 +1470,20 @@ menu "Runtimes"
               Debugging output for the OpenMP RT
 
         config OPENMP_RT_TESTS
-            bool "Include tests/benchmarks for OpenMP RT";
+            bool "Include tests/benchmarks for OpenMP RT"
 	    default n
             depends on OPENMP_RT
             help 
               Include OpenMP simple tests and Edinburgh microbenchmarks
 
-       config RACKET_RT
-            bool "Racket RT (via Multiverse)";
+        config RACKET_RT
+            bool "Racket RT (via Multiverse)"
 	    default y
             help 
               Racket support (via Multiverse only - no special code)
 
-		config CARAT_RT
-            bool "CARAT RT";
+        config CARAT_RT
+            bool "CARAT RT"
 	    default n 
             help 
               CARAT support in Nautilus --- useless without compiling the
