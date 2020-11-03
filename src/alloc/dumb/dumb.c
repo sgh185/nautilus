@@ -64,7 +64,7 @@ static  int destroy(void *state)
     struct nk_alloc_dumb *as = (struct nk_alloc_dumb *)state;
     DEBUG("%s: destroy - note all memory leaked...\n",as->alloc->name);
     
-    kmem_free(state);  // should call the lowest-level
+    kmem_sys_free(state);  // should call the lowest-level
     // note that we leak everything else
     
     return 0;
