@@ -33,6 +33,9 @@
 
 #include "../common/npb-C.h"
 #include "../math/nas_math.h"
+
+#include "../paging_benchmark.h"
+
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
 /* global variables */
@@ -74,6 +77,16 @@ static struct shell_cmd_impl nas_sp_impl = {
 };
 nk_register_shell_cmd(nas_sp_impl);
 
+int program_SP_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_SP);
+}
+
+static struct shell_cmd_impl nas_is_paging_impl = {
+    .cmd      = "nas-sp-paging",
+    .help_str = "NAS parallel benchmark SP with paging",
+    .handler  = program_SP_paging,
+};
+nk_register_shell_cmd(nas_is_paging_impl);
 
 int program_SP(char* _buf, void * _priv) {
     
@@ -179,6 +192,8 @@ c-------------------------------------------------------------------*/
 		  tmax, mflops, "          floating point", 
 		  verified, NPBVERSION, COMPILETIME, CS1, CS2, CS3, CS4, CS5, 
 		  CS6, "(none)");
+  
+  return 0;
 }
 
 /*--------------------------------------------------------------------

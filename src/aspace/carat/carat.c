@@ -39,13 +39,13 @@
 // DATA structure go outside
 #include <nautilus/list.h>
 
-#ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE
+#ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
     #include <aspace/region_tracking/mm_rb_tree.h>
 
-#elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE
+#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_SPLAY_TREE
     #include <aspace/region_tracking/mm_splay_tree.h>
 
-#elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST
+#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_LINKED_LIST
     #include <aspace/region_tracking/mm_linked_list.h>
 
 #else
