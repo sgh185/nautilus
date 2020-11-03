@@ -280,7 +280,10 @@ int  nk_aspace_move_region(nk_aspace_t *aspace, nk_aspace_region_t *cur_region, 
     BOILERPLATE_LEAVE(aspace,move_region,cur_region,new_region);
 }
 
-
+int  nk_aspace_protection_check(nk_aspace_t *aspace, nk_aspace_region_t * region) 
+{
+    BOILERPLATE_LEAVE(aspace, protection_check, region);
+}
 
 int nk_aspace_exception(excp_entry_t *entry, excp_vec_t vec, void *priv_data)
 {
