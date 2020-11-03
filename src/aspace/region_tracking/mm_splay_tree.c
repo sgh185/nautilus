@@ -30,7 +30,7 @@
    are amortized O(log n) time for a tree with n nodes.  */
 
 #include <nautilus/nautilus.h>
-#include "mm_splay_tree.h"
+#include <aspace/region_tracking/mm_splay_tree.h>
 
 #ifndef NAUT_CONFIG_DEBUG_ASPACE_PAGING
 #undef DEBUG_PRINT

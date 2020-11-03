@@ -38,20 +38,20 @@
 // TODO: path need to be changed
 // DATA structure go outside
 #include <nautilus/list.h>
+
 #ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE
-#include "../paging/mm_rb_tree.h"
+    #include <aspace/region_tracking/mm_rb_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE
-#include "../paging/mm_splay_tree.h"
+    #include <aspace/region_tracking/mm_splay_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST
-#include "../paging/mm_linked_list.h"
+    #include <aspace/region_tracking/mm_linked_list.h>
 
 #else
-#include "../paging/node_struct.h"
+    #include <aspace/region_tracking/node_struct.h>
 
 #endif
-
 
 
 #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
@@ -158,7 +158,7 @@ static int destroy(void *state) {
         free(wrapper_ptr);
     }
 
-    nk_aspace_unregister(carat);
+    nk_aspace_unregister(carat->aspace);
     ASPACE_UNLOCK(carat);
 
     nk_vc_printf("Everything is fine before free carat at %p", carat);

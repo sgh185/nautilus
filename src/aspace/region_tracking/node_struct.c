@@ -1,5 +1,5 @@
 #include "assert.h"
-#include "node_struct.h"
+#include <aspace/region_tracking/node_struct.h>
 #include <nautilus/nautilus.h>
 
 int virtual_insert(mm_struct_t * self, nk_aspace_region_t * region) {

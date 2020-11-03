@@ -48,21 +48,21 @@
 #include "paging_helpers.h"
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE
-    #include "mm_rb_tree.h"
+    #include <aspace/region_tracking/mm_rb_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE
-    #include "mm_splay_tree.h"
+    #include <aspace/region_tracking/mm_splay_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST
-    #include "mm_linked_list.h"
+    #include <aspace/region_tracking/mm_linked_list.h>
 
 #else
-    #include "node_struct.h"
+    #include <aspace/region_tracking/node_struct.h>
     
 #endif
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_STRUCT_TEST
-    #include "struct_test.h"
+    #include <aspace/region_tracking/node_test.h>
 #endif
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_PCID
