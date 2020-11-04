@@ -23,10 +23,19 @@ SECTIONS
         *(.rodata*)
         *(.gnu.linkonce.r*)
     }
+
+    /* This order may cause problems, but who knows? */
+    .dynamic        : { *(.dynamic) }
     
     .got : ALIGN(0x1000) {
         *(.got*)
         *(.gnu.linkconce.got*)
+    }
+
+
+    /* Added this to silence the seemingly-benign linker error when including libc -ARN */
+    .tdata : ALIGN(0x1000) {
+        *(.tdata .tdata.* .gnu.linkonce.td.*)
     }
 
     _loadEnd = .; 
@@ -37,17 +46,21 @@ SECTIONS
         *(.gnu.linkonce.b*)
     }
 
-    /* Added this to silence the seemingly-benign linker error when including libc -ARN */
-    .tdata : ALIGN(0x1000) {
-        *(.tdata .tdata.* .gnu.linkonce.td.*)
-    }
-    
     _bssEnd = .; 
+
+    __preinit_array_start = .;
+    __preinit_array_end = .;
+    __init_array_start = .;
+    __init_array_end = .;
+    __fini_array_start = .;
+    __fini_array_end = .;
+
+    heap_start = .;
     
     /DISCARD/ :
     {
         *(.comment)
-        *(.eh_frame)
+        /* *(.eh_frame) */
 	
     }
 }
