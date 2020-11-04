@@ -2003,7 +2003,9 @@ static int pump_sized_tasks(rt_scheduler *scheduler, rt_thread *next)
 // In both cases updates the timer to reflect the thread
 // that should be running
 //
-struct nk_thread *_sched_need_resched(int have_lock, int force_resched)
+
+#define INTERRUPT __attribute__((target("no-sse")))
+INTERRUPT struct nk_thread *_sched_need_resched(int have_lock, int force_resched)
 {
     LOCAL_LOCK_CONF;
     

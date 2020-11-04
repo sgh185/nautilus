@@ -5,7 +5,8 @@
 #include ../config/make.def
 
 #CFLAGS = -o3 -I ../common
-CFLAGS += -o3 -I ../common 
+
+CFLAGS += -O3 -I ../common 
 #-fnoopenmp-use-tls
 
 

@@ -39,6 +39,10 @@
 
 #include <dev/gpio.h>
 
+#ifdef NAUT_CONFIG_ALLOCS
+#include <nautilus/alloc.h>
+#endif
+
 #define KARAT_MEM_DEBUG 1
 
 #ifndef NAUT_CONFIG_DEBUG_KMEM
@@ -498,7 +502,7 @@ void kmem_inform_boot_allocation(void *low, void *high)
  *       Failure: NULL
  */
 static void *
-_kmem_malloc (size_t size, int cpu, int zero)
+_kmem_sys_malloc (size_t size, int cpu, int zero)
 {
     NK_GPIO_OUTPUT_MASK(0x20,GPIO_OR);
     int first = 1;
@@ -600,23 +604,71 @@ _kmem_malloc (size_t size, int cpu, int zero)
 }
 
 
-void *kmem_malloc(size_t size)
+void *kmem_sys_malloc(size_t size)
 {
-    return _kmem_malloc(size,-1,0);
+    return _kmem_sys_malloc(size,-1,0);
 }
 
-void *kmem_mallocz(size_t size)
+void *kmem_sys_mallocz(size_t size)
 {
-    return _kmem_malloc(size,-1,1);
+    return _kmem_sys_malloc(size,-1,1);
 }
 
-void *kmem_malloc_specific(size_t size, int cpu, int zero)
+void *kmem_sys_malloc_specific(size_t size, int cpu, int zero)
 {
-    return _kmem_malloc(size,cpu,zero);
+    return _kmem_sys_malloc(size,cpu,zero);
+}
+
+
+/*
+ * This is a *dead simple* implementation of realloc that tries to change the
+ * size of the allocation pointed to by ptr to size, and returns ptr.  Realloc will
+ * malloc a new block of memory, copy as much of the old data as it can, and free the
+ * old block. If ptr is NULL, this is equivalent to a malloc for the specified size.
+ *
+ */
+void * 
+kmem_sys_realloc_specific(void * ptr, size_t size, int cpu)
+{
+	struct kmem_block_hdr *hdr;
+	size_t old_size;
+	void * tmp = NULL;
+	
+	/* this is just a malloc */
+	if (!ptr) {
+	    return kmem_sys_malloc_specific(size,cpu,0);
+	}
+
+	hdr = block_hash_find_entry(ptr);
+
+	if (!hdr) {
+		KMEM_DEBUG("Realloc failed to find entry for block %p\n", ptr);
+		return NULL;
+	}
+
+	old_size = 1 << hdr->order;
+	tmp = kmem_sys_malloc_specific(size,cpu,0);
+	if (!tmp) {
+		panic("Realloc failed\n");
+	}
+
+	if (old_size >= size) {
+		memcpy(tmp, ptr, size);
+	} else {
+		memcpy(tmp, ptr, old_size);
+	}
+	
+	kmem_sys_free(ptr);
+	return tmp;
+}
+
+void * kmem_sys_realloc(void * ptr, size_t size)
+{
+    return kmem_sys_realloc_specific(ptr,size,-1);
 }
 
 /**
- * Frees memory previously allocated with kmem_alloc().
+ * Frees memory previously allocated with kmem_sys_alloc().
  *
  * Arguments:
  *       [IN] addr: Address of the memory region to free.
@@ -627,8 +679,9 @@ void *kmem_malloc_specific(size_t size, int cpu, int zero)
  *       kmem_alloc().
  */
 void
-kmem_free (void * addr)
+kmem_sys_free (void * addr)
 {
+
     struct kmem_block_hdr *hdr;
     struct buddy_mempool * zone;
     uint64_t order;
@@ -692,48 +745,61 @@ kmem_free (void * addr)
 
 }
 
-/*
- * This is a *dead simple* implementation of realloc that tries to change the
- * size of the allocation pointed to by ptr to size, and returns ptr.  Realloc will
- * malloc a new block of memory, copy as much of the old data as it can, and free the
- * old block. If ptr is NULL, this is equivalent to a malloc for the specified size.
- *
- */
-void * 
-kmem_realloc (void * ptr, size_t size)
+
+
+// the general kmem_* wrappers should be optimized to be free
+// if the allocator interface is not enabled
+
+void * kmem_malloc_specific(size_t size, int cpu, int zero)
 {
-	struct kmem_block_hdr *hdr;
-	size_t old_size;
-	void * tmp = NULL;
-
-	/* this is just a malloc */
-	if (!ptr) {
-		return kmem_malloc(size);
-	}
-
-	hdr = block_hash_find_entry(ptr);
-
-	if (!hdr) {
-		KMEM_DEBUG("Realloc failed to find entry for block %p\n", ptr);
-		return NULL;
-	}
-
-	old_size = 1 << hdr->order;
-	tmp = kmem_malloc(size);
-	if (!tmp) {
-		panic("Realloc failed\n");
-	}
-
-	if (old_size >= size) {
-		memcpy(tmp, ptr, size);
-	} else {
-		memcpy(tmp, ptr, old_size);
-	}
-	
-	kmem_free(ptr);
-	return tmp;
+#ifdef NAUT_CONFIG_ALLOCS
+    nk_alloc_t *alloc = nk_alloc_get_associated();
+    if (alloc) {
+	return nk_alloc_alloc_extended(alloc,size,NK_ALLOC_DEFAULT_ALIGNMENT,cpu,zero ? NK_ALLOC_ZERO : 0);
+    }
+#endif
+    return kmem_sys_malloc_specific(size,cpu,zero);
+}
+    
+void * kmem_malloc(size_t size)
+{
+    return kmem_malloc_specific(size,-1,0);
 }
 
+void * kmem_mallocz(size_t size)
+{
+    return kmem_malloc_specific(size,-1,1);
+}
+
+void * kmem_realloc_specific(void * ptr, size_t size, int cpu)
+{
+#ifdef NAUT_CONFIG_ALLOCS
+    nk_alloc_t *alloc = nk_alloc_get_associated();
+    if (alloc) {
+	return nk_alloc_realloc(alloc,size,NK_ALLOC_DEFAULT_ALIGNMENT,cpu,0);
+    }
+#endif
+    return kmem_sys_realloc_specific(ptr,size,cpu);
+}
+
+void *kmem_realloc(void * ptr, size_t size)
+{
+    return kmem_realloc_specific(ptr,size,-1);
+}
+
+
+void kmem_free(void *addr)
+{
+#ifdef NAUT_CONFIG_ALLOCS
+    // actually, this needs to work even if we have the wrong context...
+    nk_alloc_t *alloc = nk_alloc_get_associated();
+    if (alloc) {
+	nk_alloc_free_extended(alloc,addr);
+	return;
+    }
+#endif
+    kmem_sys_free(addr);
+}
 
 typedef enum {GET,COUNT} stat_type_t;
 

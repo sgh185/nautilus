@@ -105,9 +105,16 @@ SECTIONS
         __stop_aspace_impls = .;
     }
 
+    .alloc_impls ALIGN(0x1000) : AT(ADDR(.aspace_impls)+SIZEOF(.aspace_impls))
+    {
+        __start_alloc_impls = .;
+        *(.alloc_impls*);
+        __stop_alloc_impls = .;
+    }
+
     _loadEnd = .; 
     
-    .bss ALIGN(0x1000) : AT(ADDR(.aspace_impls)+SIZEOF(.aspace_impls))
+    .bss ALIGN(0x1000) : AT(ADDR(.alloc_impls)+SIZEOF(.alloc_impls))
     {
         *(COMMON)
         *(.bss*)

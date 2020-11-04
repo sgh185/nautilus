@@ -39,6 +39,7 @@ multiboot_hdr:
     /* BEGIN TAGS */
 
     /* sections */
+ 
     .word 2, 0
     .long 24
     .long multiboot_hdr
@@ -122,16 +123,31 @@ paging_longmode_setup:
     orl $0x3, %eax
     movl $pdpt, %ebx
     movl %eax, (%ebx)
+   
+    //set first 4 entry of PDPT 4GB total
+    movl $4, %ecx
+    movl $pd, %edx
+    movl $0x83, %eax // set PS bit also (PDE -> 2MB page)
+
+.write_pdpe:
+    push %ecx
 
     // Identity map the first GB
     movl $512, %ecx
-    movl $pd, %edx
-    movl $0x83, %eax // set PS bit also (PDE -> 2MB page)
 .write_pde:
     movl %eax, (%edx)
     addl $0x200000, %eax
     addl $0x8, %edx
-    loop .write_pde
+    loop .write_pde 
+    
+    push %edx
+    orl $0x3, %edx
+    addl $0x8, %ebx  //next entry of pdpt
+    movl %edx, (%ebx) 
+    pop %edx
+    pop %ecx
+    loop .write_pdpe
+
 
     /* put pml4 address in cr3 */
     movl $pml4, %eax

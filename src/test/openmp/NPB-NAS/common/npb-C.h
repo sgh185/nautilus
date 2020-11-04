@@ -4,6 +4,10 @@
 #ifndef _NPB_C_H_
 #define _NPB_C_H_
 /* #include <stdio.h> */
+
+int printf(const char *fmt, ...);
+void exit(int);
+
 /* #include <stdlib.h> */
 
 #include<nautilus/nautilus.h>
