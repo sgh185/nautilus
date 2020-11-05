@@ -128,6 +128,7 @@ int nk_process_name(nk_process_id_t proc, char *name)
   return 0;
 }
 
+// add this right after loader init
 int nk_process_init() {
   memset(&global_process_info, 0, sizeof(process_info));
   INIT_LIST_HEAD(&(global_process_info.process_list));
