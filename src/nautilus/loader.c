@@ -36,12 +36,6 @@
 #define DEBUG(fmt, args...) DEBUG_PRINT("loader: " fmt, ##args)
 #define INFO(fmt, args...) INFO_PRINT("loader: " fmt, ##args)
 
-struct nk_exec {
-    void      *blob;          // where we loaded it
-    uint64_t   blob_size;     // extent in memory
-    uint64_t   entry_offset;  // where to start executing in it
-};
-
 
 /******************************************************************
      Data contained in the ELF file we will attempt to load

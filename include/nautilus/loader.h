@@ -25,6 +25,11 @@
 #ifndef __LOADER
 #define __LOADER
 
+struct nk_exec {
+    void      *blob;          // where we loaded it
+    uint64_t   blob_size;     // extent in memory
+    uint64_t   entry_offset;  // where to start executing in it
+};
 
 // load executable from file, do not run
 struct nk_exec *nk_load_exec(char *path);
