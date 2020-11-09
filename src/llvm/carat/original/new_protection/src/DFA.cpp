@@ -43,7 +43,7 @@ DFA::DFA(Function *F)
 /*
  * ---------- Drivers ----------
  */
-void DFA::Compute(void)
+DataFlowResult DFA::Compute(void)
 {
     /* 
      * Play god
@@ -70,7 +70,7 @@ void DFA::Compute(void)
 }
 
 
-DataFlowResult *DFA::FetchResult(void)
+DataFlowResult *DFA::FetchResult(void) // TODO: do we need this?
 {
     return this->TheResult;
 }

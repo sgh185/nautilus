@@ -107,7 +107,7 @@ struct CAT : public ModulePass
             /*
              * Inject guards
              */
-            Injector *I = new Injector(&F, TheDFA);
+            Injector *I = new Injector(&F, TheDFA, storeInsts);
             I->Inject();
         }
 
@@ -119,7 +119,7 @@ struct CAT : public ModulePass
         GlobalVariable* tempGlob = nullptr; 
         GlobalVariable* lowerBound = new GlobalVariable(M, int64Type, false, GlobalValue::CommonLinkage, constantNum2, "lowerBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
         GlobalVariable* upperBound = new GlobalVariable(M, int64Type, false, GlobalValue::ExternalLinkage, constantNum1, "upperBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
-        auto mainFunction = noelle.getEntryFunction();
+        auto mainFunction = Noelle.getEntryFunction();
         for(auto& myPair : storeInsts){
             auto I = myPair.second.first;
             auto singleCycleStore = new StoreInst(constantNum, lowerBound, true, I);
