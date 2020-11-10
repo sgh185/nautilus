@@ -1369,7 +1369,21 @@ menu "Allocators"
 	  help
 	     Turn on debugging prints for the base allocator
 
-	config ALLOC_DUMB
+	config ALLOC_CS213
+	  bool "CS213 Implicit Free allocator"
+	  depends on ALLOCS
+	  default n
+	  help
+	     Implicit Free list implementation
+
+        config DEBUG_ALLOC_CS213
+	  bool "Debug the cs213 allocator"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Turn on debugging prints for the cs213 allocator
+
+  config ALLOC_DUMB
 	  bool "Dumb allocator"
 	  depends on ALLOCS
 	  default n
