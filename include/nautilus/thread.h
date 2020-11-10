@@ -37,6 +37,7 @@ extern "C" {
 // Always included so we get the necessary type
 #include <nautilus/cachepart.h>
 #include <nautilus/aspace.h>
+#include <nautilus/alloc.h>
 
 typedef uint64_t nk_stack_size_t;
     
@@ -181,6 +182,8 @@ struct nk_thread {
              cache_part_state;   /* Always included to reserve this "slot" for asm code */
     nk_aspace_t      *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
                                  /* Always included to reserve this "slot" for asm code */
+
+    nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 
     nk_stack_size_t stack_size;
     unsigned long tid;

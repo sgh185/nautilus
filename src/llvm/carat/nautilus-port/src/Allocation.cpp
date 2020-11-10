@@ -179,25 +179,11 @@ void AllocationHandler::_getAllGlobals()
 {
     // This will go through the current global variables and make sure
     // we are covering all heap allocations
+    
     for (auto &Global : M->getGlobalList())
     {
         // Cannot target LLVM-specific globals
-        if ((Global.getName() == "llvm.global_ctors") 
-            || (Global.getName() == "llvm.used")
-            || (Global.getName() == "llvm.global.annotations")
-            || (Global.isDeclaration())
-            || (!(Global.hasExactDefinition()))
-            || (Global.isDiscardableIfUnused()))
-            { 
-                errs() << "Not getting global: ";
-                errs() << Global << "\n";
-                errs() << "     Global.getName() == \"llvm.global_ctors\"" << (Global.getName() == "llvm.global_ctors") <<  "\n";
-                errs() << "     Global.getName() == \"llvm.used\"" << (Global.getName() == "llvm.used") <<  "\n";
-                errs() << "     Global.getName() == \"llvm.global.annotations\"" << (Global.getName() == "llvm.global.annotations") <<  "\n";
-                errs() << "     Global.isDeclaration()" << (Global.isDeclaration()) <<  "\n";
-                errs() << "     !(Global.hasExactDefinition())" << (!(Global.hasExactDefinition())) <<  "\n";
-                errs() << "     Global.isDiscardableIfUnused()" << (Global.isDiscardableIfUnused()) <<  "\n";
-                continue; }
+        if (Global.getSection() == "llvm.metadata") { continue; }
 
         uint64_t totalSizeInBytes;
 
