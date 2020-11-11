@@ -1,17 +1,17 @@
-/* 
+/*
  * This file is part of the Nautilus AeroKernel developed
- * by the Hobbes and V3VEE Projects with funding from the 
- * United States National  Science Foundation and the Department of Energy.  
+ * by the Hobbes and V3VEE Projects with funding from the
+ * United States National  Science Foundation and the Department of Energy.
  *
  * The V3VEE Project is a joint project between Northwestern University
  * and the University of New Mexico.  The Hobbes Project is a collaboration
- * led by Sandia National Laboratories that includes several national 
+ * led by Sandia National Laboratories that includes several national
  * laboratories and universities. You can find out more at:
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
  * Copyright (c) 2020, Peter Dinda
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org>
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
@@ -40,7 +40,7 @@
 
 #ifndef NAUT_CONFIG_DEBUG_ALLOC_CS213
 #undef DEBUG_PRINT
-#define DEBUG_PRINT(fmt, args...) 
+#define DEBUG_PRINT(fmt, args...)
 #endif
 
 #define ALLOC_ERROR(fmt, args...) ERROR_PRINT("alloc-cs213: " fmt, ##args)
@@ -49,7 +49,7 @@
 
 
 /*
- *  * If NEXT_FIT defined use next fit search, else use first-fit search 
+ *  * If NEXT_FIT defined use next fit search, else use first-fit search
  *   */
 #define NEXT_FITx
 
@@ -57,9 +57,9 @@
 /* Basic constants and macros */
 #define WSIZE       4       /* Word and header/footer size (bytes) */ //line:vm:mm:beginconst
 #define DSIZE       8       /* Double word size (bytes) */
-#define CHUNKSIZE  (1<<12)  /* Extend heap by this amount (bytes) */  //line:vm:mm:endconst 
+#define CHUNKSIZE  (1<<12)  /* Extend heap by this amount (bytes) */  //line:vm:mm:endconst
 
-#define MAX(x, y) ((x) > (y)? (x) : (y))  
+#define MAX(x, y) ((x) > (y)? (x) : (y))
 
 /* Pack a size and allocated bit into a word */
 #define PACK(size, alloc)  ((size) | (alloc)) //line:vm:mm:pack
@@ -88,7 +88,7 @@
 struct nk_alloc_cs213 {
   nk_alloc_t *alloc;
   /* Global variables */
-  char *heap_listp = 0;  /* Pointer to first block */  
+  char *heap_listp = 0;  /* Pointer to first block */
 #ifdef NEXT_FIT
   char *rover;           /* Next fit rover */
 #endif
@@ -100,7 +100,7 @@ static void *extend_heap(void* state, size_t words);
 static void place(void* state, void *bp, size_t asize);
 static void *find_fit(void* state, size_t asize);
 static void *coalesce(void* state, void *bp);
-static void printblock(void* state, void *bp); 
+static void printblock(void* state, void *bp);
 
 
 
@@ -116,7 +116,7 @@ static int print(void *state, int detailed)
  *  * coalesce - Boundary tag coalescing. Return ptr to coalesced block
  *   */
 /* $begin mmfree */
-static void *coalesce(void* state, void *bp) 
+static void *coalesce(void* state, void *bp)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
   size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
@@ -141,7 +141,7 @@ static void *coalesce(void* state, void *bp)
   }
 
   else {                                     /* Case 4 */
-    size += GET_SIZE(HDRP(PREV_BLKP(bp))) + 
+    size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
       GET_SIZE(FTRP(NEXT_BLKP(bp)));
     PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
     PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
@@ -151,18 +151,18 @@ static void *coalesce(void* state, void *bp)
 #ifdef NEXT_FIT
   /* Make sure the as->rover isn't pointing into the free block */
   /* that we just coalesced */
-  if ((as->rover > (char *)bp) && (as->rover < NEXT_BLKP(bp))) 
+  if ((as->rover > (char *)bp) && (as->rover < NEXT_BLKP(bp)))
     as->rover = bp;
 #endif
   /* $begin mmfree */
   return bp;
 }
 
-/* 
+/*
  *  * extend_heap - Extend heap with free block and return its block pointer
  *   */
 /* $begin mmextendheap */
-static void *extend_heap(void *state, size_t words) 
+static void *extend_heap(void *state, size_t words)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
   char *bp;
@@ -170,7 +170,7 @@ static void *extend_heap(void *state, size_t words)
 
   /* Allocate an even number of words to maintain alignment */
   size = (words % 2) ? (words+1) * WSIZE : words * WSIZE; //line:vm:mm:beginextend
-  if ((long)(bp = mem_sbrk(size)) == -1)  
+  if ((long)(bp = mem_sbrk(size)) == -1)
     return NULL;                                        //line:vm:mm:endextend
 
   /* Initialize free block header/footer and the epilogue header */
@@ -189,17 +189,17 @@ static void place(void* state, void *bp, size_t asize)
   /* $end mmplace-proto */
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
-  
-  size_t csize = GET_SIZE(HDRP(bp));   
 
-  if ((csize - asize) >= (2*DSIZE)) { 
+  size_t csize = GET_SIZE(HDRP(bp));
+
+  if ((csize - asize) >= (2*DSIZE)) {
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
     bp = NEXT_BLKP(bp);
     PUT(HDRP(bp), PACK(csize-asize, 0));
     PUT(FTRP(bp), PACK(csize-asize, 0));
   }
-  else { 
+  else {
     PUT(HDRP(bp), PACK(csize, 1));
     PUT(FTRP(bp), PACK(csize, 1));
   }
@@ -214,7 +214,7 @@ static void *find_fit(void* state, size_t asize)
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
   /* $end mmfirstfit */
 
-#ifdef NEXT_FIT 
+#ifdef NEXT_FIT
   /* Next fit search */
   char *oldrover = as->rover;
 
@@ -229,7 +229,7 @@ static void *find_fit(void* state, size_t asize)
       return as->rover;
 
   return NULL;  /* no fit found */
-#else 
+#else
   /* $begin mmfirstfit */
   /* First-fit search */
   void *bp;
@@ -244,25 +244,25 @@ static void *find_fit(void* state, size_t asize)
 }
 /* $end mmfirstfit */
 
-static void printblock(void* state, void *bp) 
+static void printblock(void* state, void *bp)
 {
 
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
   size_t hsize, halloc, fsize, falloc;
 
   hsize = GET_SIZE(HDRP(bp));
-  halloc = GET_ALLOC(HDRP(bp));  
+  halloc = GET_ALLOC(HDRP(bp));
   fsize = GET_SIZE(FTRP(bp));
-  falloc = GET_ALLOC(FTRP(bp));  
+  falloc = GET_ALLOC(FTRP(bp));
 
   if (hsize == 0) {
     ALLOC_INFO("%p: EOL\n", bp);
     return;
   }
 
-  ALLOC_INFO("%p: header: [%ld:%c] footer: [%ld:%c]\n", bp, 
-      hsize, (halloc ? 'a' : 'f'), 
-      fsize, (falloc ? 'a' : 'f')); 
+  ALLOC_INFO("%p: header: [%ld:%c] footer: [%ld:%c]\n", bp,
+      hsize, (halloc ? 'a' : 'f'),
+      fsize, (falloc ? 'a' : 'f'));
 }
 
 static int mm_init(void *state){
@@ -271,10 +271,10 @@ static int mm_init(void *state){
   if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
     return -1;
   PUT(as->heap_listp, 0);                          /* Alignment padding */
-  PUT(as->heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */ 
-  PUT(as->heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */ 
+  PUT(as->heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
+  PUT(as->heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
   PUT(as->heap_listp + (3*WSIZE), PACK(0, 1));     /* Epilogue header */
-  as->heap_listp += (2*WSIZE);                     //line:vm:mm:endinit  
+  as->heap_listp += (2*WSIZE);                     //line:vm:mm:endinit
   /* $end mminit */
 
 #ifdef NEXT_FIT
@@ -283,7 +283,7 @@ static int mm_init(void *state){
   /* $begin mminit */
 
   /* Extend the empty heap with a free block of CHUNKSIZE bytes */
-  if (extend_heap(CHUNKSIZE/WSIZE) == NULL) 
+  if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
     return -1;
   return 0;
 }
@@ -295,7 +295,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
 
   size_t asize;      /* Adjusted block size */
   size_t extendsize; /* Amount to extend heap if no fit */
-  char *bp;      
+  char *bp;
 
   /* $end mmmalloc */
   if (as->heap_listp == 0){
@@ -320,7 +320,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
 
   /* No fit found. Get more memory and place the block */
   extendsize = MAX(asize,CHUNKSIZE);                 //line:vm:mm:growheap1
-  if ((bp = extend_heap(extendsize/WSIZE)) == NULL)  
+  if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
     return NULL;                                  //line:vm:mm:growheap2
   place(bp, asize);                                 //line:vm:mm:growheap3
   return bp;
@@ -335,16 +335,16 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
   /* If size == 0 then this is just free, and we return NULL. */
   if(size == 0) {
-    mm_free(ptr);
+    impl_free(ptr);
     return 0;
   }
 
   /* If oldptr is NULL, then this is just malloc. */
   if(ptr == NULL) {
-    return mm_malloc(size);
+    return impl_alloc(size);
   }
 
-  newptr = mm_malloc(size);
+  newptr = impl_alloc(size);
 
   /* If realloc() fails the original block is left untouched  */
   if(!newptr) {
@@ -357,7 +357,7 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
   memcpy(newptr, ptr, oldsize);
 
   /* Free the old block. */
-  mm_free(ptr);
+  impl_free(ptr);
 
   return newptr;
 
@@ -368,7 +368,7 @@ static void impl_free(void *state, void *ptr)
 
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
   /* $end mmfree */
-  if (ptr == 0) 
+  if (ptr == 0)
     return;
 
   /* $begin mmfree */
@@ -438,8 +438,3 @@ static nk_alloc_impl_t cs213 = {
 
 
 nk_alloc_register_impl(cs213);
-
-
-
-
-
