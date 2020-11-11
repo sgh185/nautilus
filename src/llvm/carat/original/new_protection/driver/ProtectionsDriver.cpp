@@ -107,7 +107,7 @@ struct CAT : public ModulePass
             /*
              * Inject guards
              */
-            Injector *I = new Injector(&F, TheDFA, storeInsts);
+            Injector *I = new Injector(&F, TheDFA, Noelle, ProgramLoops, storeInsts);
             I->Inject();
         }
 

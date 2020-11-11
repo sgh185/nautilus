@@ -35,6 +35,8 @@ Injector::Injector(
     Function *F, 
     DFA *TheDFA, 
     Constant* numNowPtr,
+    AnalysisType &noelle,
+    std::vector<LoopDependenceInfo *> * programLoops,
     std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts
     ) {
     /*
@@ -42,7 +44,9 @@ Injector::Injector(
      */ 
     this->F = F;
     this->TheDFA = TheDFA;
-    this->numNowPtr = numNowPtr,
+    this->numNowPtr = numNowPtr;
+    this->noelle = noelle;
+    this->programLoops = programLoops;
     this->storeInsts = storeInsts;
 }
 
@@ -53,7 +57,7 @@ Injector::Injector(
 void Injector::Inject(void)
 {
 
-    bool allocaOutsideFirstBB = allocaOutsideFirstBB();
+    bool allocaOutsideFirstBB = allocaOutsideFirstBBChecker();
 
     /*
      * Identify where to place the guards. TODO: this needs to be split up
@@ -121,6 +125,8 @@ void Injector::Inject(void)
             * This could be bad if we have a few calls to this callee and they could not be executed.
             */
             //errs() << "YAY: we found a call check that can be hoisted: " << I << "\n" ;
+            auto firstBB = &*F.begin();
+            auto firstInst = &*firstBB->begin();
             storeInsts[&I] = {firstInst, numNowPtr};
             functionAlreadyChecked[calleeFunction] = true;
             callGuardOpt++;
@@ -131,7 +137,7 @@ void Injector::Inject(void)
         if(isa<StoreInst>(I)){
             auto storeInst = cast<StoreInst>(&I);
             auto pointerOfStore = storeInst->getPointerOperand();
-            findPointToInsertGuard(&I, pointerOfStore);
+            _findPointToInsertGuard(&I, pointerOfStore);
             continue ;
         }
 #endif
@@ -139,14 +145,14 @@ void Injector::Inject(void)
         if(isa<LoadInst>(I)){
             auto loadInst = cast<LoadInst>(&I);
             auto pointerOfStore = loadInst->getPointerOperand();
-            findPointToInsertGuard(&I, pointerOfStore);
+            _findPointToInsertGuard(&I, pointerOfStore);
             continue ;
         }
 #endif
         }
     }
 
-    printGuards(storeInsts);
+    printGuards();
 
 
 }
@@ -159,8 +165,8 @@ void Injector::Inject(void)
 std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void) {
 
     /*
-        * Define the code that will be executed to identify where to place the guards.
-        */
+    * Define the lamda that will be executed to identify where to place the guards.
+    */
     //errs() << "COMPILER OPTIMIZATION\n";
     //F.print(errs());
     auto findPointToInsertGuard = 
@@ -274,11 +280,12 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _find
     return findPointToInsertGuard;
 }
 
-bool Injector::allocaOutsideFirstBB() {
+bool Injector::allocaOutsideFirstBBChecker() {
     /*
      * Check if there is no stack allocations other than 
      * those in the first basic block of the function.
      */
+    auto firstBB = &*F.begin();
     for(auto& B : F){
         for(auto& I : B){
             if (  true

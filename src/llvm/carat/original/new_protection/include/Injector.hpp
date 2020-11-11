@@ -43,6 +43,8 @@ public:
         Function *F, 
         DFA *TheDFA, 
         Constant* numNowPtr,
+        AnalysisType &noelle,
+        std::vector<LoopDependenceInfo *> * programLoops,
         std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts
         );
 
@@ -62,8 +64,8 @@ private:
     Function *F;
     DFA *TheDFA;
     Constant* numNowPtr;
-    // &Noelle, 
-    // &programLoops, 
+    AnalysisType &noelle;
+    std::vector<LoopDependenceInfo *> * programLoops;
     std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts;
 
 
@@ -83,7 +85,7 @@ private:
      */ 
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void);
 
-    bool allocaOutsideFirstBB();
+    bool allocaOutsideFirstBBChecker();
 
     void printGuards();
 };
