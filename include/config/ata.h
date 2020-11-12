@@ -1,1 +1,1 @@
-#define NAUT_CONFIG_ATA 1
+#undef NAUT_CONFIG_ATA

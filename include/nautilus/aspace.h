@@ -143,6 +143,8 @@ int          nk_aspace_query(char *impl_name, nk_aspace_characteristics_t *chars
 nk_aspace_t *nk_aspace_create(char *impl_name, char *name, nk_aspace_characteristics_t *chars);
 int          nk_aspace_destroy(nk_aspace_t *aspace);
 
+int nk_aspace_rename(nk_aspace_t *aspace, char *name);
+
 nk_aspace_t *nk_aspace_find(char *name);
 
 // move the current thread to a different address space

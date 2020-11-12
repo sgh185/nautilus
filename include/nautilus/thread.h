@@ -36,7 +36,13 @@ extern "C" {
 
 // Always included so we get the necessary type
 #include <nautilus/cachepart.h>
+//#include <nautilus/aspace.h>
+
+#ifdef NAUT_CONFIG_PROCESSES
+#include <nautilus/process.h>
+#else
 #include <nautilus/aspace.h>
+#endif
 
 typedef uint64_t nk_stack_size_t;
     
@@ -181,6 +187,10 @@ struct nk_thread {
              cache_part_state;   /* Always included to reserve this "slot" for asm code */
     nk_aspace_t      *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
                                  /* Always included to reserve this "slot" for asm code */
+
+#ifdef NAUT_CONFIG_PROCESSES
+    nk_process_t *process;       /* Initialized if part of a process */
+#endif
 
     nk_stack_size_t stack_size;
     unsigned long tid;

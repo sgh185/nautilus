@@ -81,3 +81,5 @@ obj-$(NAUT_CONFIG_ASPACES) +=  aspace.o
 
 obj-$(NAUT_CONFIG_PARTITION_SUPPORT) += partition.o
 
+obj-$(NAUT_CONFIG_PROCESSES) += process.o
+

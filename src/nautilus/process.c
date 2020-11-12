@@ -26,6 +26,8 @@
  */
 
 #include <nautilus/process.h>
+#include <nautilus/thread.h>
+#include <nautilus/printk.h>
 
 #ifndef NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
@@ -53,26 +55,97 @@ process_info* get_process_info() {
 
 void add_to_process_list(nk_process_t *p) {
   struct list_head p_list = get_process_info()->process_list;
-  list_add_tail(p, &p_list);
+  list_add_tail(&(p->process_node), &p_list);
 }
 
 int get_new_pid(process_info *p_info) {
+  int pid_map_ind;
   do {
     pid_map_ind = p_info->next_pid % MAX_PID;
-    next_pid++;
-  } while (!(p_info->pid_map[pid_map_ind]));
-  p_info->pid_map[pid_map_ind] = 1;
+    (p_info->next_pid)++;
+  } while ((p_info->used_pids)[pid_map_ind].val > 0);
+  (p_info->used_pids)[pid_map_ind].val = 1;
   return pid_map_ind;
 }
 
 void free_pid(process_info *p_info, uint64_t old_pid) {
-  p_info->pid_map[old_pid] = 0;
+  (p_info->used_pids)[old_pid].val = 0;
+}
+
+int count(char *arr) {
+  // implement soon!!
+  return -1;
+}
+
+void __nk_process_wrapper(void *i, void **o) {
+  nk_process_t *p = (nk_process_t*)i;
+  nk_aspace_move_thread(p->aspace); 
+  nk_start_exec(p->exe, (void *)(*(p->argv)), 0); 
+}
+
+int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace) {
+  nk_aspace_characteristics_t c;
+  if (nk_aspace_query(aspace_type, &c)) {
+    PROCESS_ERROR("failed to find %s aspace implementation\n");
+    return -1;
+  } 
+
+  nk_aspace_t *addr_space = nk_aspace_create(aspace_type, exe_name, &c);
+  if (!addr_space) {
+    PROCESS_ERROR("failed to create address space\n");
+    return -1;
+  }  
+
+  // allocate heap
+  void *p_addr_start = malloc(PHEAP_1MB);
+  if (!p_addr_start) {
+    nk_aspace_destroy(addr_space);
+    PROCESS_ERROR("failed to allocate aspace heap\n");
+    return -1;
+  }
+  memset(p_addr_start, 0, PHEAP_1MB);
+  
+  // add heap to addr space
+  nk_aspace_region_t r_heap;
+  r_heap.va_start = 0;
+  r_heap.pa_start = p_addr_start;
+  r_heap.len_bytes = (uint64_t)PHEAP_1GB; 
+  r_heap.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EAGER;
+
+  if (nk_aspace_add_region(addr_space, &r_heap)) {
+    PROCESS_ERROR("failed to add initial process aspace heap region\n");
+    nk_aspace_destroy(addr_space);
+    free(p_addr_start);
+    return -1;
+  }
+
+  // map executable in address space
+  p->exe = nk_load_exec(exe_name);
+  nk_aspace_region_t r_exe;
+  r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
+  r_exe.pa_start = p->exe->blob;
+  r_exe.len_bytes = p->exe->blob_size;
+  r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
+
+  if (nk_aspace_add_region(addr_space, &r_exe)) {
+    PROCESS_ERROR("failed to add initial process aspace exe region\n");
+    nk_unload_exec(p->exe);
+    free(p);
+    nk_aspace_destroy(addr_space);
+    free(p_addr_start);
+    return -1;
+  }
+  if (new_aspace) {
+    *new_aspace = addr_space;
+  } 
+  return 0;
+
 }
 
 /* External Functions */
 // in the future, we'll create an allocator for the process as well
 // path or name, argc, argv, envp, addr space type, 
-int nk_process_create(char *exe_name, char *cmd_line, char *cmd_line_args, void **addr_space, nk_process_t **proc_struct) {
+int nk_process_create(char *exe_name, uint64_t argc, char *argv[], uint64_t envc, char *envp[], char *aspace_type, nk_process_t **proc_struct) {
   // Fetch current process info
   process_info *p_info = get_process_info();
   if (p_info->process_count >= MAX_PROCESS_COUNT) {
@@ -88,34 +161,53 @@ int nk_process_create(char *exe_name, char *cmd_line, char *cmd_line_args, void 
     return -1;
   }
   memset(p, 0, sizeof(nk_process_t));
- 
 
   // TODO MAC: allocate aspace of type addr_space_type
+  nk_aspace_t *addr_space;
+  if (create_process_aspace(p, aspace_type, exe_name, &addr_space) || !addr_space) {
+    PROCESS_ERROR("failed to create process address space\n");
+    free(p);
+    return -1;
+  }
 
   // set parent process if current thread is part of a process
-  curr_thread = get_cur_thred();
+  p->parent = NULL;
+  nk_thread_t *curr_thread = get_cur_thread();
+  if (curr_thread->process) {
+    p->parent = curr_thread->process;
+  }
 
   // ensure that lock has been initialized to 0
   // CALL spinlock init instead
   p->lock = 0;
   
-  // acquire the process lock
+  // acquire locks and get new pid
   _LOCK_PROCESS(p);
   _LOCK_PROCESS_INFO(p_info);
-
-  // assign new pid
   p->pid = get_new_pid(p_info);
   add_to_process_list(p);
 
-  // release process info lock
+  // release process_info lock, no global state left to modify
   _UNLOCK_PROCESS_INFO(p_info);
 
   // name process
   snprintf(p->name, MAX_PROCESS_NAME, "p-%ul-%s", p->pid, exe_name);
   p->name[MAX_PROCESS_NAME-1] = 0;
 
+  // set address space ptr and rename it
+  p->aspace = addr_space;
+  nk_aspace_rename(p->aspace, p->name); 
+
+  // create thread group (empty for now)
+  nk_thread_group_create(p->name);
+
   // release process lock
   _UNLOCK_PROCESS(p);
+
+  // set output ptr (if not null)
+  if (proc_struct) {
+    *proc_struct = p;
+  }
 
   return 0;  
 }
@@ -127,6 +219,25 @@ int nk_process_name(nk_process_id_t proc, char *name)
   p->name[MAX_PROCESS_NAME-1] = 0;
   return 0;
 }
+
+int nk_process_run(nk_process_t *p, int target_cpu) {
+  nk_thread_id_t tid;
+  return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 0, &tid, target_cpu);
+}
+
+int nk_process_start(char *exe_name, uint64_t argc, char *argv[], uint64_t envc, char *envp[], char *aspace_type, nk_process_t **p, int target_cpu) {
+  if (nk_process_create(exe_name, argc, argv, envc, envp, aspace_type, p)) {
+    PROCESS_ERROR("failed to create process\n");
+    return -1;
+  }
+  if (nk_process_run(*p, target_cpu)) {
+    PROCESS_ERROR("failed to run new process\n");
+    //nk_process_destroy(*p);
+    return -1;
+  }
+  return 0;
+}
+
 
 // add this right after loader init
 int nk_process_init() {

@@ -367,6 +367,11 @@ nk_thread_create (nk_thread_fun_t fun,
 
     // a thread joins its creator's address space 
     t->aspace = get_cur_thread()->aspace;
+
+#ifdef NAUT_CONFIG_PROCESSES
+    // a thread will not belong to a process by default
+    t->process = NULL;
+#endif
     
     t->fun = fun;
     t->input = input;

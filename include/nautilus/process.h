@@ -31,16 +31,16 @@
 extern "C" {
 #endif
 
-#ifndef __ASSEMBLER__
-
 #include <nautilus/spinlock.h>
 #include <nautilus/intrinsics.h>
 
 // Always included so we get the necessary type
-#include <nautilus/cachepart.h>
+#include <nautilus/list.h>
 #include <nautilus/aspace.h>
-#include <nautilus/scheduler.h>
 #include <nautilus/group.h>
+#include <nautilus/loader.h>
+//#include <nautilus/cachepart.h>
+//#include <nautilus/scheduler.h>
 
 /* common thread stack sizes */
 #define PSTACK_DEFAULT 0  // will be 4K
@@ -48,18 +48,25 @@ extern "C" {
 #define PSTACK_1MB     0x100000
 #define PSTACK_2MB     0x200000
 
+#define PHEAP_4KB 0x00001000
+#define PHEAP_1MB 0x00100000
+#define PHEAP_1GB 0x40000000
+
 #define MAX_PROCESS_NAME 32
 #define MAX_PID 32767 // 4Kb in bits
 #define MAX_PROCESS_COUNT 16384 // half of MAX_PID for now
 
-struct proc_info {
+typedef struct PID_MAP {
+    uint8_t val : 1;
+} __packed pid_map;
+
+
+typedef struct proc_info {
   struct list_head process_list;
   int lock;
   uint64_t process_count;
   uint64_t next_pid;
-  struct PID_MAP {
-    uint8_t val : 1,
-  } __packed pid_map[MAX_PID];
+  pid_map used_pids[MAX_PID];
 } __packed process_info;
   
 
@@ -73,7 +80,7 @@ typedef void* nk_process_id_t;
 
 /************* INTERNALS *************/
 
-struct nk_process {
+typedef struct nk_process {
   // may need kernel stack in threads when we have user processes
   // could possibly use kernel stack for each core?
 
@@ -82,8 +89,11 @@ struct nk_process {
 
   // Current process status - might add later 
 
-  // exec struct -- might have to ask Brian about location for Karat
-  struct nk_struct exe;
+  // exec struct and arg/env info -- might have to ask Brian about location for Karat
+  struct nk_exec *exe;
+  uint64_t argc;
+  char **argv;
+  char **envp;
   
   // process id, same for all threads in group
   unsigned long pid;
@@ -92,10 +102,10 @@ struct nk_process {
   int lock;
   
   // sched info/thread group
-  nk_thread_group_t *t_group
+  nk_thread_group_t *t_group;
 
   // Process Name
-  char proc_name[MAX_PROCESS_NAME];
+  char name[MAX_PROCESS_NAME];
 
   // process list
   struct list_head process_node;
@@ -117,7 +127,6 @@ struct nk_process {
   //    implemented in the future
 
   // process hierarchy info
-  //struct nk_process* real_parent;
   struct nk_process* parent;
 
   // Need to figure out signals in the future
@@ -140,7 +149,13 @@ struct nk_process {
 //   current_process
 //   fork (cannot rely on paging to implement fork)
 
-int nk_process_create(char *exe_name, char *cmd_line, char *cmd_line_args, void **addr_space, void **proc_struct);
+int nk_process_create(char *exe_name, 
+                      uint64_t argc,
+                      char *argv[],
+                      uint64_t envc,
+                      char *envp[], 
+                      char *aspace_type,
+                      nk_process_t **proc_struct);
 
 int nk_process_name(nk_process_id_t proc, char *name);
 
@@ -148,9 +163,17 @@ int nk_process_init();
 
 // create a new thread, pass in proc struct as arg, have thread func call exec start
 // thread created will have stack and heap -- can associate thread w/ allocator (and handle heap). The stack should be allocated using process' allocator. Might need thread_create variant that takes stack as arg
-int nk_process_start();
+int nk_process_run(nk_process_t *p, int target_cpu);
 
-int nk_process_run();
+// create and run a process
+int nk_process_start(char *exe_name,
+                     uint64_t argc,
+                     char *argv[],
+                     uint64_t envc,
+                     char *envp[],
+                     char *aspace_type,
+                     nk_process_t **p,
+                     int target_cpu);
 
 /*
 int nk_process_exec();
@@ -163,3 +186,8 @@ int nk_process_current();
 
 int nk_process_fork();
 */
+
+#ifdef __cplusplus
+}
+#endif
+#endif
