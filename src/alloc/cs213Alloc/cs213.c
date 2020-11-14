@@ -357,7 +357,7 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
   /* If size == 0 then this is just free, and we return NULL. */
   if(size == 0) {
-    impl_free(ptr);
+    impl_free(state, ptr);
     return 0;
   }
 
@@ -379,7 +379,7 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
   memcpy(newptr, ptr, oldsize);
 
   /* Free the old block. */
-  impl_free(ptr);
+  impl_free(state, ptr);
 
   return newptr;
 
