@@ -108,7 +108,7 @@ static void printblock(void* state, void *bp);
 
 static int print(void *state, int detailed)
 {
-
+return 0;
 }
 
 /* $end mmfree */
@@ -283,7 +283,7 @@ static int mm_init(void *state){
   /* $begin mminit */
 
   /* Extend the empty heap with a free block of CHUNKSIZE bytes */
-  if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
+  if (extend_heap(state, CHUNKSIZE/WSIZE) == NULL)
     return -1;
   return 0;
 }
@@ -327,6 +327,28 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
 
 }
 
+static void impl_free(void *state, void *ptr)
+{
+
+  struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
+  /* $end mmfree */
+  if (ptr == 0)
+    return;
+
+  /* $begin mmfree */
+  size_t size = GET_SIZE(HDRP(ptr));
+  /* $end mmfree */
+  if (as->heap_listp == 0){
+    mm_init(state);
+  }
+  /* $begin mmfree */
+
+  PUT(HDRP(ptr), PACK(size, 0));
+  PUT(FTRP(ptr), PACK(size, 0));
+  coalesce(state, ptr);
+
+}
+
 static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
@@ -341,10 +363,10 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
   /* If oldptr is NULL, then this is just malloc. */
   if(ptr == NULL) {
-    return impl_alloc(state, size);
+    return impl_alloc(state, size, align, cpu, flags);
   }
 
-  newptr = impl_alloc(state, size);
+  newptr = impl_alloc(state, size, align, cpu, flags);
 
   /* If realloc() fails the original block is left untouched  */
   if(!newptr) {
@@ -363,26 +385,17 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
 }
 
-static void impl_free(void *state, void *ptr)
+
+
+static  int destroy(void *state)
 {
-
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
-  /* $end mmfree */
-  if (ptr == 0)
-    return;
+  ALLOC_DEBUG("%s: destroy - note all memory leaked...\n",as->alloc->name);
 
-  /* $begin mmfree */
-  size_t size = GET_SIZE(HDRP(ptr));
-  /* $end mmfree */
-  if (as->heap_listp == 0){
-    mm_init();
-  }
-  /* $begin mmfree */
+  kmem_sys_free(state);  // should call the lowest-level
+  // note that we leak everything else
 
-  PUT(HDRP(ptr), PACK(size, 0));
-  PUT(FTRP(ptr), PACK(size, 0));
-  coalesce(state, ptr);
-
+  return 0;
 }
 
 
@@ -419,16 +432,7 @@ static struct nk_alloc * create(char *name)
   return as->alloc;
 }
 
-static  int destroy(void *state)
-{
-  struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
-  ALLOC_DEBUG("%s: destroy - note all memory leaked...\n",as->alloc->name);
 
-  kmem_sys_free(state);  // should call the lowest-level
-  // note that we leak everything else
-
-  return 0;
-}
 
 static nk_alloc_impl_t cs213 = {
   .impl_name = "cs213",
