@@ -396,23 +396,23 @@ static nk_alloc_interface_t cs213_interface = {
 
 static struct nk_alloc * create(char *name)
 {
-  DEBUG("create allocator %s\n",name);
+  ALLOC_DEBUG("create allocator %s\n",name);
 
   struct nk_alloc_cs213 *as = kmem_sys_malloc_specific(sizeof(*as),my_cpu_id(),1);
 
   if (!as) {
-    ERROR("unable to allocate allocator state for %s\n",name);
+    ALLOC_ERROR("unable to allocate allocator state for %s\n",name);
     return 0;
   }
   as->alloc = nk_alloc_register(name,0,&cs213_interface, as);
 
   if (!as->alloc) {
-    ERROR("Unable to register allocator %s\n",name);
+    ALLOC_ERROR("Unable to register allocator %s\n",name);
     kmem_sys_free(as);
     return 0;
   }
 
-  DEBUG("allocator %s configured and initialized\n", as->alloc->name);
+  ALLOC_DEBUG("allocator %s configured and initialized\n", as->alloc->name);
 
 
 
@@ -422,7 +422,7 @@ static struct nk_alloc * create(char *name)
 static  int destroy(void *state)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
-  DEBUG("%s: destroy - note all memory leaked...\n",as->alloc->name);
+  ALLOC_DEBUG("%s: destroy - note all memory leaked...\n",as->alloc->name);
 
   kmem_sys_free(state);  // should call the lowest-level
   // note that we leak everything else
