@@ -33,7 +33,7 @@
 #include <nautilus/mm.h>
 #include <nautilus/naut_string.h>
 
-#include "mmcs213.h"
+
 #include "memlib.h"
 
 
@@ -88,7 +88,7 @@
 struct nk_alloc_cs213 {
   nk_alloc_t *alloc;
   /* Global variables */
-  char *heap_listp = 0;  /* Pointer to first block */
+  char *heap_listp;  /* Pointer to first block */
 #ifdef NEXT_FIT
   char *rover;           /* Next fit rover */
 #endif
@@ -179,7 +179,7 @@ static void *extend_heap(void *state, size_t words)
   PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue header */ //line:vm:mm:newepihdr
 
   /* Coalesce if the previous block was free */
-  return coalesce(bp);                                          //line:vm:mm:returnblock
+  return coalesce(state, bp);                                          //line:vm:mm:returnblock
 }
 /* $end mmextendheap */
 
@@ -299,7 +299,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
 
   /* $end mmmalloc */
   if (as->heap_listp == 0){
-    mm_init();
+    mm_init(state);
   }
   /* $begin mmmalloc */
   /* Ignore spurious requests */
@@ -313,16 +313,16 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
     asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE); //line:vm:mm:sizeadjust3
 
   /* Search the free list for a fit */
-  if ((bp = find_fit(asize)) != NULL) {  //line:vm:mm:findfitcall
-    place(bp, asize);                  //line:vm:mm:findfitplace
+  if ((bp = find_fit(state, asize)) != NULL) {  //line:vm:mm:findfitcall
+    place(state, bp, asize);                  //line:vm:mm:findfitplace
     return bp;
   }
 
   /* No fit found. Get more memory and place the block */
   extendsize = MAX(asize,CHUNKSIZE);                 //line:vm:mm:growheap1
-  if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
+  if ((bp = extend_heap(state, extendsize/WSIZE)) == NULL)
     return NULL;                                  //line:vm:mm:growheap2
-  place(bp, asize);                                 //line:vm:mm:growheap3
+  place(state, bp, asize);                                 //line:vm:mm:growheap3
   return bp;
 
 }
@@ -341,10 +341,10 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
   /* If oldptr is NULL, then this is just malloc. */
   if(ptr == NULL) {
-    return impl_alloc(size);
+    return impl_alloc(state, size);
   }
 
-  newptr = impl_alloc(size);
+  newptr = impl_alloc(state, size);
 
   /* If realloc() fails the original block is left untouched  */
   if(!newptr) {
@@ -381,7 +381,7 @@ static void impl_free(void *state, void *ptr)
 
   PUT(HDRP(ptr), PACK(size, 0));
   PUT(FTRP(ptr), PACK(size, 0));
-  coalesce(ptr);
+  coalesce(state, ptr);
 
 }
 
