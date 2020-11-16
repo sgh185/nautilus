@@ -67,7 +67,7 @@ typedef struct proc_info {
   uint64_t process_count;
   uint64_t next_pid;
   pid_map used_pids[MAX_PID];
-} __packed process_info;
+} process_info;
   
 
 /******** EXTERNAL INTERFACE **********/

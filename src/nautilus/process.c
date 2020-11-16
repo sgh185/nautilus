@@ -79,8 +79,15 @@ int count(char *arr) {
 
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
-  nk_aspace_move_thread(p->aspace); 
-  nk_start_exec(p->exe, (void *)(*(p->argv)), 0); 
+  char *args = NULL;
+  if (p->argv) {
+    args = *(p->argv);
+  }
+  struct nk_exec *exe = p->exe;
+  // might require more setup
+  nk_thread_group_join(p->t_group);
+  nk_aspace_move_thread(p->aspace);
+  nk_start_exec(exe, (void *)args, 0); 
 }
 
 int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace) {
@@ -122,7 +129,8 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   // map executable in address space
   p->exe = nk_load_exec(exe_name);
   nk_aspace_region_t r_exe;
-  r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
+  //r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
+  r_exe.va_start = p->exe->blob;
   r_exe.pa_start = p->exe->blob;
   r_exe.len_bytes = p->exe->blob_size;
   r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
@@ -197,6 +205,11 @@ int nk_process_create(char *exe_name, uint64_t argc, char *argv[], uint64_t envc
   // set address space ptr and rename it
   p->aspace = addr_space;
   nk_aspace_rename(p->aspace, p->name); 
+
+  // for now, set arg vars to NULL. Eventually we want to put them into addr space
+  p->argc = 0;
+  p->argv = NULL;
+  p->envp = NULL;
 
   // create thread group (empty for now)
   nk_thread_group_create(p->name);
