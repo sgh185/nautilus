@@ -288,6 +288,12 @@ static int launch_vmm_environment()
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
 
+char* script[] = {
+    "attach ata0-0-0 ext2 rootfs",
+    "syscalltest",
+    NULL,
+};
+
 void
 init (unsigned long mbd,
       unsigned long magic)
@@ -573,7 +579,7 @@ init (unsigned long mbd,
     nk_syscall_init();
     init_syscall_table();
     
-    nk_launch_shell("root-shell",0,0,0);
+    nk_launch_shell("root-shell",0,script,0);
 
     runtime_init();
 

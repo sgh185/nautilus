@@ -416,6 +416,8 @@ struct nk_exec *nk_load_exec(char *path)
 
     blob_size = ALIGN_UP(bss_end - load_start + 1);
 
+    blob_size += MB_LOAD;
+
     DEBUG("Load continuing... start=0x%lx, end=0x%lx, bss_end=0x%lx, blob_size=0x%lx\n",
 	  load_start, load_end, bss_end, blob_size);
     
@@ -435,24 +437,26 @@ struct nk_exec *nk_load_exec(char *path)
         ERROR("Cannot allocate executable blob for %s\n",path);
         goto out_bad;
     }
+
+    memcpy(e->blob, page, MB_LOAD);
     
     e->blob_size = blob_size;
-    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB; 
+    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB + MB_LOAD; // Double check
     
     // now copy it to memory
     ssize_t n;
     
     
-    if ((n = nk_fs_read(fd,e->blob,e->blob_size))<0) {
+    if ((n = nk_fs_read(fd,e->blob+MB_LOAD,e->blob_size-MB_LOAD))<0) {
         ERROR("Unable to read blob from %s\n", path);
         goto out_bad;
     }
 
-    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size, n);
+    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size-MB_LOAD, n);
     
     DEBUG("Successfully loaded executable %s\n",path);
 
-    memset(e->blob+(load_end-load_start),0,bss_end-load_end);
+    memset(e->blob+MB_LOAD+(load_end-load_start),0,bss_end-load_end);
 
     DEBUG("Cleared BSS\n");
 

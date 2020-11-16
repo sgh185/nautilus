@@ -65,18 +65,16 @@ $(TARGET) : $(TARGET:.exe=.o) framework.o framework_low_level.o glue.o framework
 -T framework.lds -dp -z max-page-size=0x1000 \
 -z relro \
 -z now \
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu/rcrt1.o \
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu/crti.o \
+/usr/lib/x86_64-linux-gnu/rcrt1.o \
+/usr/lib/x86_64-linux-gnu/crti.o \
 /usr/lib/gcc/x86_64-linux-gnu/9/crtbeginS.o \
--L/usr/lib/gcc/x86_64-linux-gnu/9 -L/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu \
--L/usr/lib/gcc/x86_64-linux-gnu/9/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib \
+-L/usr/lib/gcc/x86_64-linux-gnu/9 \
 -L/usr/lib/x86_64-linux-gnu \
--L/usr/lib/../lib \
--L/usr/lib/gcc/x86_64-linux-gnu/9/../../.. \
+-L/usr/lib \
 hello.o glue.o framework.o framework_low_level.o  \
 --start-group -lgcc  -lc -lrt --end-group \
 /usr/lib/gcc/x86_64-linux-gnu/9/crtendS.o \
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../x86_64-linux-gnu/crtn.o \
+/usr/lib/x86_64-linux-gnu/crtn.o \
 -o $(TARGET)
 
 #-lgcc_eh
