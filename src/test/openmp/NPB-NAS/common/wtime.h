@@ -30,7 +30,7 @@ static inline int gettimeofdayEDIT(struct timeval *tv, struct timezone *tz_ignor
   unsigned long ns = nk_sched_get_realtime();
 
   tv->tv_sec = (time_t) (ns / 1000000000UL);
-  tv->tv_usec = (suseconds_t) ((ns % 100000000UL) / 1000UL);
+  tv->tv_usec = (suseconds_t) ((ns % 1000000000UL) / 1000UL);
   return 0;
 }
 
