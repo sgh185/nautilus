@@ -10,9 +10,11 @@ int main(void *in, void **out)
     char write_msg[] = "Write using write\n";
     write(STDOUT_FILENO, write_msg, sizeof(write_msg));
 
-    /// TODO: figure out why puts and printf cause exceptions
-    puts("Write using putc\n");
+    dprintf(STDOUT_FILENO, "Write using dprintf\n");
 
-    // printf("Write using printf\n");
+    /// TODO: figure out why puts and printf do nothing
+    puts("Write using puts\n");
+
+    printf("Write using printf\n");
     return 42; // To test the return val
 }

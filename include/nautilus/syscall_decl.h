@@ -16,7 +16,7 @@ uint64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t d, uint64_t 
 
 uint64_t sys_stat(uint64_t pathname,uint64_t st, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
 
-uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len);
 
 uint64_t sys_getpid(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
 

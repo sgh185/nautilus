@@ -4,6 +4,7 @@ SECTIONS
 {
     . = 0x0;  /* we will relocate in all cases */
 
+    __ehdr_start = . - 0x1000;
 
     .text : ALIGN(0x1000) {
         *(.mbhdr)
@@ -22,6 +23,30 @@ SECTIONS
     .rodata : ALIGN(0x1000) {
         *(.rodata*)
         *(.gnu.linkonce.r*)
+    }
+
+    .rela.dyn       :
+    {
+      *(.rela.init)
+      *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
+      *(.rela.fini)
+      *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
+      *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
+      *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
+      *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)
+      *(.rela.ctors)
+      *(.rela.dtors)
+      *(.rela.got)
+      *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+      *(.rela.ldata .rela.ldata.* .rela.gnu.linkonce.l.*)
+      *(.rela.lbss .rela.lbss.* .rela.gnu.linkonce.lb.*)
+      *(.rela.lrodata .rela.lrodata.* .rela.gnu.linkonce.lr.*)
+      *(.rela.ifunc)
+    }
+    .rela.plt       :
+    {
+      *(.rela.plt)
+      *(.rela.iplt)
     }
 
     /* This order may cause problems, but who knows? */
@@ -64,4 +89,3 @@ SECTIONS
 	
     }
 }
-
