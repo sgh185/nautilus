@@ -1403,7 +1403,7 @@ menu "Allocators"
 	     test framework for allocator.
 
         config DEBUG_ALLOC_TEST
-	  bool "Debug the dumb allocator"
+	  bool "Debug allocator test"
 	  depends on ALLOC_TEST
 	  default n
 	  help
