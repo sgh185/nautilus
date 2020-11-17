@@ -45,3 +45,5 @@ obj-$(NAUT_CONFIG_LEGION_RT) += test_legion.o \
 								# global_vars.o \
 								# index_tasks.o \
 								# tasks_and_futures.o	\
+
+obj-$(NAUT_CONFIG_ALLOC_TESTS) += alloc/
