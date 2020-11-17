@@ -4,6 +4,12 @@
  *    * package with the system's malloc package in libc.
  *     *
  *      */
+
+#include <nautilus/nautilus.h>
+#include <nautilus/errno.h>
+#include <nautilus/paging.h>
+/**
+ *  original standard libraray inclusion
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -11,9 +17,20 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <errno.h>
+*/
 
-#include "csapp.h"
+// #include "csapp.h"
 #include "memlib.h"
+
+#ifndef NAUT_CONFIG_DEBUG_ALLOC_CS213
+#undef DEBUG_PRINT
+#define DEBUG_PRINT(fmt, args...)
+#endif
+
+#define MEMLIB_ERROR(fmt, args...) ERROR_PRINT("alloc-cs213-memlib: " fmt, ##args)
+#define MEMLIB_DEBUG(fmt, args...) DEBUG_PRINT("alloc-cs213-memlib: " fmt, ##args)
+#define MEMLIB_INFO(fmt, args...)   INFO_PRINT("alloc-cs213-memlib: " fmt, ##args)
+
 
 #define MAX_HEAP (20*(1<<20))  /* 20 MB */
 
@@ -29,7 +46,7 @@ static char *mem_max_addr; /* Max legal heap addr plus 1*/
  *   */
 void mem_init(void)
 {
-  mem_heap = (char *)Malloc(MAX_HEAP);
+  mem_heap = (char *)malloc(MAX_HEAP);
   mem_brk = (char *)mem_heap;               
   mem_max_addr = (char *)(mem_heap + MAX_HEAP); 
 }
@@ -44,8 +61,9 @@ void *mem_sbrk(int incr)
   char *old_brk = mem_brk;
 
   if ( (incr < 0) || ((mem_brk + incr) > mem_max_addr)) {
-    errno = ENOMEM;
-    fprintf(stderr, "ERROR: mem_sbrk failed. Ran out of memory...\n");
+    // errno = ENOMEM;
+    // fprintf(stderr, "ERROR: mem_sbrk failed. Ran out of memory...\n");
+    MEMLIB_ERROR("ERROR: mem_sbrk failed. Ran out of memory...\n");
     return (void *)-1;
   }
   mem_brk += incr;
@@ -97,5 +115,10 @@ size_t mem_heapsize()
  *   */
 size_t mem_pagesize()
 {
-  return (size_t)getpagesize();
+  /**
+     *  TODO: getpagesize for KARAT and PAGING 
+     *  GetPageSize system call. We don't have it right now.
+     **/
+  // return (size_t)getpagesize();
+  return nk_paging_default_page_size();
 }
