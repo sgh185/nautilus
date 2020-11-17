@@ -23,4 +23,7 @@ obj-y += \
 	uname.o \
 	sethostname.o \
 	syscall_state.o \
+	brk.o \
+	arch_prctl.o \
+	writev.o \
 	syscall_stubs.o

@@ -7,12 +7,12 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-int sys_write(int fd, int buf, int len, int d, int e, int f) {
+uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len) {
   unsigned long flags;
-  int ret = -1;
+  uint64_t ret = -1;
 
   if (fd == STDOUT_FILENO || fd == STDERR_FILENO) {
-    int i = 0;
+    uint64_t i = 0;
     while (i < len) {
       nk_vc_putchar(*(char*)buf);
       buf++;
@@ -20,7 +20,7 @@ int sys_write(int fd, int buf, int len, int d, int e, int f) {
     }
     ret = len;
   } else {
-    ret = (int)nk_fs_write((struct nk_fs_open_file_state*)fd, (void*)buf,
+    ret = (uint64_t)nk_fs_write((struct nk_fs_open_file_state*)fd, (void*)buf,
                            (ssize_t)len);
   }
   // open file from descriptor. I have assumed the fd to be a pointer to

@@ -59,7 +59,7 @@ multiboot_hdr:
     .long 16
     // This will be an offset from the begining of the file
     // and the 64 bit version will be included in the MB64 header
-    .long __nk_exec_entry
+    .long _start
     .long 0
 
 
@@ -69,7 +69,7 @@ multiboot_hdr:
     .quad 0x3             /* HRT flags - reloc+exe - no meory prefs*/
     .quad 0               /* GPA Memory to initially map - ignored */
     .quad 0               /* GVA Offset - ignored */
-    .quad __nk_exec_entry /* GVA Entry 0 the *offset* of our entry point */
+    .quad _start /* GVA Entry 0 the *offset* of our entry point */
     .quad 0               /* Desired GPA of communication page - ignored */
     .byte 0               /* Desired interrupt vector for communication - ignored */
     .byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 /*padding */
