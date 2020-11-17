@@ -28,7 +28,6 @@ menu "Platform"
 	       that Gem5 gets timers right, but given how slow it is,
 	       it can feel ridiculous in real-time, especially
 	       when used interactively.
-
 	       DO NOT SET THIS IF YOU WANT ACCURATE SIMULATED TIME
 
         config GEM5_APIC_BUS_FREQ_HZ
@@ -1260,8 +1259,69 @@ menu "Address Spaces"
 	     This is the paging address space abstraction.
 	     It does lazy build of identity-mapped page tables, plus
 	     it allows creation of non-identity-mapped addresses
+	
+	  choice
+      	  	depends on ASPACE_PAGING
+          	prompt "Region data structure"
+          	default ASPACE_PAGING_REGION_RB_TREE
 
-	config DEBUG_ASPACE_PAGING
+          	config ASPACE_PAGING_REGION_RB_TREE
+           	  bool "Red Black Tree"
+
+          	config ASPACE_PAGING_REGION_SPLAY_TREE
+              	  bool "Splay Tree"
+
+          	config ASPACE_PAGING_REGION_LINKED_LIST
+              	  bool "Linked List"
+
+                config ASPACE_PAGING_REGION_SKIP_LIST
+                  bool "Skip List"
+    	  endchoice
+
+
+	 config ASPACE_PAGING_1GB
+            bool "Huge Page 1GB "
+            depends on ASPACE_PAGING
+            default y
+            help
+              Enable 1GB Huge Page for region aligned with 1GB and length as multiple of 1GB
+
+       config ASPACE_PAGING_2MB
+         bool "Large Page 2MB"
+         depends on ASPACE_PAGING
+         default y
+         help
+           Enable 2MB Large Page for region aligned with 2MB and length as multiple of 2MB
+
+       config ASPACE_PAGING_REGION_STRUCT_TEST
+         bool "Test region tracking data structures"
+         depends on ASPACE_PAGING
+         default n
+         help
+          Test red black tree, splay tree, and linked list against each other
+
+       config ASPACE_PAGING_PCID
+      	bool "PCID for Paging"
+      	depends on ASPACE_PAGING
+      	default y
+      	help
+        Enable PCID support for paging address aspace
+
+      	choice
+        depends on ASPACE_PAGING_PCID
+            prompt "PCID implementation"
+            default ASPACE_PAGING_PCID_QUEUE
+
+            config ASPACE_PAGING_PCID_QUEUE
+                bool "Queue"
+
+            config ASPACE_PAGING_PCID_BITMAP
+                bool "Bitmap"
+
+    	endchoice
+
+
+       config DEBUG_ASPACE_PAGING
 	  bool "Debug the paging address space abstraction"
 	  depends on ASPACE_PAGING
 	  default n
@@ -1282,6 +1342,78 @@ menu "Address Spaces"
 	  help
 	     Turn on debugging prints for the CARAT address space abstraction
 
+endmenu
+
+menu "Allocators"
+        config ALLOCS
+	  bool "Enable Allocators"
+	  default n
+	  depends on X86_64_HOST
+	  select ALLOC_BASE
+	  help
+	     Enable allocator abstractions
+	     
+	config DEBUG_ALLOCS
+	  bool "Debug allocators core"
+	  depends on ALLOCS
+	  default n
+	  help
+	     Turn on debugging prints for the allocator core
+
+	config ALLOC_BASE
+	  bool "Base allocator"
+	  depends on ALLOCS
+	  default y
+	  help
+	     This is the base allocator, just a wrapper on the system allocator
+
+        config DEBUG_ALLOC_BASE
+	  bool "Debug the base allocator"
+	  depends on ALLOC_BASE
+	  default n
+	  help
+	     Turn on debugging prints for the base allocator
+
+	config ALLOC_CS213
+	  bool "CS213 Implicit Free allocator"
+	  depends on ALLOCS
+	  default n
+	  help
+	     Implicit Free list implementation
+
+        config DEBUG_ALLOC_CS213
+	  bool "Debug the cs213 allocator"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Turn on debugging prints for the cs213 allocator
+
+  config ALLOC_DUMB
+	  bool "Dumb allocator"
+	  depends on ALLOCS
+	  default n
+	  help
+	     This allocator never deallocates, but allocates in constant time
+
+        config DEBUG_ALLOC_DUMB
+	  bool "Debug the dumb allocator"
+	  depends on ALLOC_DUMB
+	  default n
+	  help
+	     Turn on debugging prints for the dumb allocator
+    config ALLOC_TEST
+	  bool "Allocator Test"
+	  depends on ALLOCS
+	  default n
+	  help
+	     test framework for allocator.
+
+        config DEBUG_ALLOC_TEST
+	  bool "Debug allocator test"
+	  depends on ALLOC_TEST
+	  default n
+	  help
+	     Turn on debugging prints for the allocator test
 endmenu
 
 menu "Runtimes"
@@ -1370,20 +1502,20 @@ menu "Runtimes"
               Debugging output for the OpenMP RT
 
         config OPENMP_RT_TESTS
-            bool "Include tests/benchmarks for OpenMP RT";
+            bool "Include tests/benchmarks for OpenMP RT"
 	    default n
             depends on OPENMP_RT
             help 
               Include OpenMP simple tests and Edinburgh microbenchmarks
 
-       config RACKET_RT
-            bool "Racket RT (via Multiverse)";
+        config RACKET_RT
+            bool "Racket RT (via Multiverse)"
 	    default y
             help 
               Racket support (via Multiverse only - no special code)
 
-		config CARAT_RT
-            bool "CARAT RT";
+        config CARAT_RT
+            bool "CARAT RT"
 	    default n 
             help 
               CARAT support in Nautilus --- useless without compiling the

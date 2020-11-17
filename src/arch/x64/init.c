@@ -74,6 +74,10 @@
 
 // #include <aspace/carat/port-runtime/c/runtime_tables.h>
 
+#ifdef NAUT_CONFIG_ALLOCS
+#include <nautilus/alloc.h>
+#endif
+
 #ifdef NAUT_CONFIG_ASPACES
 #include <nautilus/aspace.h>
 #endif
@@ -370,6 +374,10 @@ init (unsigned long mbd,
      * allocated in the boot mem allocator are kept reserved */
     mm_boot_kmem_init();
 
+#ifdef NAUT_CONFIG_ALLOCS
+    nk_alloc_init();
+#endif
+
 #ifdef NAUT_CONFIG_ASPACES
     nk_aspace_init();
 #endif
@@ -432,7 +440,9 @@ init (unsigned long mbd,
     mm_boot_kmem_cleanup();
 
     // Placed with medium amount intelligence
+#ifdef NAUT_CONFIG_ASPACE_CARAT
 	nk_carat_init();
+#endif
     smp_setup_xcall_bsp(naut->sys.cpus[0]);
 
     nk_cpu_topo_discover(naut->sys.cpus[0]); 

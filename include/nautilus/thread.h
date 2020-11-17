@@ -44,6 +44,8 @@ extern "C" {
 #include <nautilus/aspace.h>
 #endif
 
+#include <nautilus/alloc.h>
+
 typedef uint64_t nk_stack_size_t;
     
 #include <nautilus/scheduler.h>
@@ -191,6 +193,7 @@ struct nk_thread {
 #ifdef NAUT_CONFIG_PROCESSES
     nk_process_t *process;       /* Initialized if part of a process */
 #endif
+    nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 
     nk_stack_size_t stack_size;
     unsigned long tid;

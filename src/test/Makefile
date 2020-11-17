@@ -18,7 +18,10 @@ obj-$(NAUT_CONFIG_PROCESSES) += process.o
 
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 
-obj-$(NAUT_CONFIG_OPENMP_RT_TESTS)  += openmp/
+#obj-$(NAUT_CONFIG_OPENMP_RT_TESTS)  += openmp/
+# KARAT TESTING
+obj-y += openmp/
+
 obj-$(NAUT_CONFIG_NDPC_RT_TESTS) += ndpc/
 obj-$(NAUT_CONFIG_NESL_RT_TESTS) += nesl/
 
@@ -44,3 +47,5 @@ obj-$(NAUT_CONFIG_LEGION_RT) += test_legion.o \
 								# global_vars.o \
 								# index_tasks.o \
 								# tasks_and_futures.o	\
+
+obj-$(NAUT_CONFIG_ALLOC_TEST) += alloc/

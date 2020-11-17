@@ -40,6 +40,10 @@
 #include <dev/ioapic.h>
 #include <dev/apic.h>
 
+#ifdef NAUT_CONFIG_ALLOCS
+#include <nautilus/alloc.h>
+#endif
+
 #ifdef NAUT_CONFIG_ASPACES
 #include <nautilus/aspace.h>
 #endif
@@ -328,6 +332,12 @@ smp_ap_setup (struct cpu * core)
     if (nk_gdb_init_ap() != 0) {
         ERROR_PRINT("Could not initialize remote debugging for core %u\n", core->id);
 	return -1;
+    }
+#endif
+
+#ifdef NAUT_CONFIG_ALLOCS
+    if (nk_alloc_init_ap()) { 
+	ERROR_PRINT("Could not set up allocators for core %u\n",core->id);
     }
 #endif
 

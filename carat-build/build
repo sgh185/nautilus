@@ -1,3 +1,3 @@
 cp carat-build/carat-config .config
-./scripts/pass_build.sh carat/nautilus-port KARAT.cpp ; make clean ; make -j ; make bitcode ; make karat ; make final ; make isoimage
+./scripts/pass_build.sh carat/nautilus-port KARAT.cpp ; make clean ; make -j; make bitcode ; make karat ; make final ; make isoimage
 
