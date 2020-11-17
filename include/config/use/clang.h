@@ -1,1 +1,0 @@
-#define NAUT_CONFIG_USE_CLANG 1

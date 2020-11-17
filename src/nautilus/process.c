@@ -92,8 +92,9 @@ void __nk_process_wrapper(void *i, void **o) {
 
 int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace) {
   nk_aspace_characteristics_t c;
-  if (nk_aspace_query(aspace_type, &c)) {
-    PROCESS_ERROR("failed to find %s aspace implementation\n");
+  //if (nk_aspace_query(aspace_type, &c)) {
+  if (nk_aspace_query("paging", &c)) {
+    PROCESS_ERROR("failed to find %s aspace implementation\n", aspace_type);
     return -1;
   } 
 

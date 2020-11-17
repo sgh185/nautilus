@@ -1,1 +1,0 @@
-#undef NAUT_CONFIG_LEGION_RT

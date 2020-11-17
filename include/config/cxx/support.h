@@ -1,1 +1,0 @@
-#define NAUT_CONFIG_CXX_SUPPORT 1

@@ -14,6 +14,8 @@ obj-y += map_test.o
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o
 
+obj-$(NAUT_CONFIG_PROCESSES) += process.o
+
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 
 obj-$(NAUT_CONFIG_OPENMP_RT_TESTS)  += openmp/
