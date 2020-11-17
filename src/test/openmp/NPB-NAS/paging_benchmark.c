@@ -275,7 +275,7 @@ int paging_wrapper(
 				args,
 				0,
 				0	,
-				PAGE_SIZE_4KB,
+				PAGE_SIZE_2MB,
 				NULL,
 				-1)) { 
 		nk_vc_printf("Failed running benchmark\n");
