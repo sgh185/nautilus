@@ -1,1 +1,0 @@
-#define NAUT_CONFIG_MAX_IOAPICS 16

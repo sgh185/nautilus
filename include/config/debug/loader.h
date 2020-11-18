@@ -1,1 +1,0 @@
-#define NAUT_CONFIG_DEBUG_LOADER 1

@@ -1,1 +1,0 @@
-#undef NAUT_CONFIG_XEON_PHI

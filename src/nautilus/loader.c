@@ -482,7 +482,6 @@ static void * (*__nk_func_table[])() = {
     [NK_VC_PRINTF] = (void * (*)()) nk_vc_printf,
 };
 
-
 int 
 nk_start_exec (struct nk_exec *exec, void *in, void **out)
 {
@@ -512,6 +511,55 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
     DEBUG("Executable %p has returned with rc=%d and *out=%p\n", exec, rc, out ? *out : 0);
     
     return rc;
+}
+
+int 
+nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv)
+{
+    /// TODO: implement envp
+    int (*start)(void*, int, char**, void*);
+
+    if (!exec) { 
+        ERROR("Exec of null\n");
+        return -1;
+    }
+
+    if (!exec->blob) { 
+        ERROR("Exec of null blob\n");
+        return -1;
+    }
+
+    if (exec->entry_offset > exec->blob_size) { 
+        ERROR("Exec attempt beyond end of blob\n");
+        return -1;
+    }
+
+    start = exec->blob + exec->entry_offset;
+
+    DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %d and %p\n", exec, exec->blob, start, argc, argv);
+
+    __asm__(
+        "pushq $0\n" /* NULL after envp (unimplemented) */
+        "pushq $0\n" /* NULL after argv */
+        "mov %1, %%rax\n"
+        "dec %%rax\n"
+        "loop:\n"
+        "pushq (%2, %%rax, 8)\n" /* Push members of argv */
+        "dec %%rax\n"
+        "cmpq $0, %%rax\n"
+        "jge loop\n"
+        "pushq %1\n" /* argc */
+        "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist */
+        "jmpq *%0\n" 
+        :
+        : "r"(start), "r"((uint64_t)argc), "r"(argv)
+        : "rax", "rsp"
+    );
+
+    // TODO something other than panic here (such as clean up the process)
+    panic("Returned from a C runtime exec\n");
+    
+    return 0;
 }
 
 

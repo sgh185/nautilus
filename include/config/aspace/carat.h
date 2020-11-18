@@ -1,1 +1,0 @@
-#define NAUT_CONFIG_ASPACE_CARAT 1

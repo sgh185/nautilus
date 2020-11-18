@@ -3,7 +3,7 @@
 
 // #include <nautilus/nautilus_exe.h>
 
-int main(void *in, void **out)
+int main(int argc, char** argv)
 {
     // nk_vc_printf("Write using nk_vc_printf\n");
 
@@ -12,9 +12,11 @@ int main(void *in, void **out)
 
     dprintf(STDOUT_FILENO, "Write using dprintf\n");
 
-    /// TODO: figure out why puts and printf do nothing
     puts("Write using puts\n");
-
     printf("Write using printf\n");
+    
+    if (argc > 1) {
+        printf("Arg0: %s\nArg1: %s\n", argv[0], argv[1]);
+    }
     return 42; // To test the return val
 }
