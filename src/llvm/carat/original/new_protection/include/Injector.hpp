@@ -41,18 +41,18 @@ public:
     // TODO: Pass in more globals
     Injector(
         Function *F, 
-        DFA *TheDFA, 
-        Constant* numNowPtr,
-        AnalysisType &noelle,
+        DataFlowResult *DFR, 
+        Constant *numNowPtr,
+        Noelle *noelle,
         std::vector<LoopDependenceInfo *> * programLoops,
-        std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts
-        );
+        std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts
+    );
 
 
     /*
      * Drivers
      */ 
-    void Inject(void);
+    void Inject (void);
 
 
 private:
@@ -62,11 +62,11 @@ private:
      */ 
     // TODO: add more globals
     Function *F;
-    DFA *TheDFA;
+    DataFlowResult *DFR;
     Constant* numNowPtr;
-    AnalysisType &noelle;
+    Noelle *noelle;
     std::vector<LoopDependenceInfo *> * programLoops;
-    std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts;
+    std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts;
 
 
     /*
@@ -83,6 +83,8 @@ private:
     /*
      * Private methods
      */ 
+    void _doTheInjectBusiness(void);
+
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void);
 
     bool allocaOutsideFirstBBChecker();

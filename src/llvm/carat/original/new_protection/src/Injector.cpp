@@ -33,21 +33,20 @@
  */
 Injector::Injector(
     Function *F, 
-    DFA *TheDFA, 
-    Constant* numNowPtr,
-    AnalysisType &noelle,
+    DataFlowResult *DFR, 
+    Constant *numNowPtr,
+    Noelle *noelle,
     std::vector<LoopDependenceInfo *> * programLoops,
-    std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts
-    ) {
+    std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts
+    ) : storeInsts(storeInsts) {
     /*
      * Set passed state
      */ 
     this->F = F;
-    this->TheDFA = TheDFA;
+    this->DFR = DFR;
     this->numNowPtr = numNowPtr;
     this->noelle = noelle;
     this->programLoops = programLoops;
-    this->storeInsts = storeInsts;
 }
 
 
@@ -56,6 +55,26 @@ Injector::Injector(
  */
 void Injector::Inject(void)
 {
+    /*
+     * Do the dirty work
+     */
+    _doTheInjectBusiness();
+
+
+    /*
+     * Now do the inject
+     */ 
+    
+}
+
+
+/*
+ * ---------- Private methods ----------
+ */
+void Injector::_doTheInjectBusiness(void)
+{
+
+    errs() << "Internally --- size of store insts before: " << storeInsts.size() << "\n";
 
     bool allocaOutsideFirstBB = allocaOutsideFirstBBChecker();
 
@@ -63,8 +82,8 @@ void Injector::Inject(void)
      * Identify where to place the guards. TODO: this needs to be split up
      */
     std::unordered_map<Function *, bool> functionAlreadyChecked;
-    for(auto& B : F){
-        for(auto& I : B){
+    for(auto &B : *F){
+        for(auto &I : B){
 #if CALL_GUARD
         if(isa<CallInst>(I) || isa<InvokeInst>(I)){
 #if !OPTIMIZED
@@ -125,19 +144,22 @@ void Injector::Inject(void)
             * This could be bad if we have a few calls to this callee and they could not be executed.
             */
             //errs() << "YAY: we found a call check that can be hoisted: " << I << "\n" ;
-            auto firstBB = &*F.begin();
-            auto firstInst = &*firstBB->begin();
+            auto firstBB = &*(F->begin());
+            auto firstInst = &*(firstBB->begin());
             storeInsts[&I] = {firstInst, numNowPtr};
             functionAlreadyChecked[calleeFunction] = true;
             callGuardOpt++;
             continue ;
         }
 #endif
+
+        auto TheLambda = _findPointToInsertGuard();
+
 #if STORE_GUARD
         if(isa<StoreInst>(I)){
             auto storeInst = cast<StoreInst>(&I);
             auto pointerOfStore = storeInst->getPointerOperand();
-            _findPointToInsertGuard(&I, pointerOfStore);
+            TheLambda(&I, pointerOfStore);
             continue ;
         }
 #endif
@@ -145,24 +167,22 @@ void Injector::Inject(void)
         if(isa<LoadInst>(I)){
             auto loadInst = cast<LoadInst>(&I);
             auto pointerOfStore = loadInst->getPointerOperand();
-            _findPointToInsertGuard(&I, pointerOfStore);
+            TheLambda(&I, pointerOfStore);
             continue ;
         }
 #endif
         }
     }
 
+    errs() << "Internally --- size of store insts after: " << storeInsts.size() << "\n";
+
     printGuards();
 
-
+    return;
 }
 
 
-
-/*
- * ---------- Private methods ----------
- */
-std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void) {
+std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injector::_findPointToInsertGuard(void) {
 
     /*
     * Define the lamda that will be executed to identify where to place the guards.
@@ -170,12 +190,12 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _find
     //errs() << "COMPILER OPTIMIZATION\n";
     //F.print(errs());
     auto findPointToInsertGuard = 
-    [&redundantGuard, numNowPtr, TheDFA, &noelle, &programLoops, &storeInsts, &nonOptimizedGuard, &scalarEvolutionGuard, &loopInvariantGuard](Instruction *inst, Value *pointerOfMemoryInstruction) -> void {
+    [this](Instruction *inst, Value *pointerOfMemoryInstruction) -> void {
 #if OPTIMIZED
         /*
         * Check if the pointer has already been guarded.
         */
-        auto& INSetOfI = TheDFA->IN(inst);
+        auto& INSetOfI = DFR->IN(inst);
         if (INSetOfI.find(pointerOfMemoryInstruction) != INSetOfI.end()){
             //errs() << "YAY: skip a guard for the instruction: " << *inst << "\n";
             redundantGuard++;                  
@@ -189,7 +209,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _find
         */
         //errs() << "XAN: we have to guard the memory instruction: " << *inst << "\n" ;
         auto added = false;
-        auto nestedLoop = noelle.getInnermostLoopThatContains(*programLoops, inst);
+        auto nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, inst);
         if (nestedLoop == nullptr){
             /*
              * We have to guard just before the memory instruction.
@@ -210,7 +230,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _find
             //errs() << "YAY:   we found an invariant address to check:" << *inst << "\n";
             auto preheaderBB = nestedLoopLS->getPreHeader();
             preheaderBBTerminator = preheaderBB->getTerminator();
-            nestedLoop = noelle.getInnermostLoopThatContains(*programLoops, preheaderBB);
+            nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, preheaderBB);
             added = true;
 
         } else {
@@ -232,7 +252,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _find
         *
         * Check if it is based on an induction variable.
         */
-        nestedLoop = noelle.getInnermostLoopThatContains(*programLoops, inst);
+        nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, inst);
         assert(nestedLoop != nullptr);
         nestedLoopLS = nestedLoop->getLoopStructure();
         auto ivManager = nestedLoop->getInductionVariableManager();
@@ -285,8 +305,8 @@ bool Injector::allocaOutsideFirstBBChecker() {
      * Check if there is no stack allocations other than 
      * those in the first basic block of the function.
      */
-    auto firstBB = &*F.begin();
-    for(auto& B : F){
+    auto firstBB = &*(F->begin());
+    for(auto& B : *F){
         for(auto& I : B){
             if (  true
                 && isa<AllocaInst>(&I)
@@ -304,13 +324,26 @@ bool Injector::allocaOutsideFirstBBChecker() {
     return false;
 }
 
-void printGuards() {
+void Injector::printGuards() {
     /*
      * Print where to put the guards
      */
-    //errs() << "GUARDS\n";
+    errs() << "GUARDS\n";
     for (auto& guard : storeInsts){
         auto inst = guard.first;
-        //errs() << " " << *inst << "\n";
+        errs() << " " << *inst << "\n";
     }
+
+
+    //Print results
+    errs() << "Guard Information\n";
+    errs() << "Unoptimized Guards:\t" << nonOptimizedGuard << "\n"; 
+    errs() << "Redundant Optimized Guards:\t" << redundantGuard << "\n"; 
+    errs() << "Loop Invariant Hoisted Guards:\t" << loopInvariantGuard << "\n"; 
+    errs() << "Scalar Evolution Combined Guards:\t" << scalarEvolutionGuard << "\n"; 
+    errs() << "Hoisted Call Guards\t" << callGuardOpt << "\n"; 
+    errs() << "Total Guards:\t" << nonOptimizedGuard + loopInvariantGuard + scalarEvolutionGuard << "\n"; 
+
+
+    return;
 }

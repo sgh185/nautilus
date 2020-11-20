@@ -31,19 +31,23 @@
 /*
  * ---------- Constructors ----------
  */
-DFA::DFA(Function *F)
+DFA::DFA(
+    Function *F,
+    Noelle *noelle
+)
 {
     /*
      * Set passed state
      */ 
     this->F = F;
+    this->noelle = noelle;
 }
 
 
 /*
  * ---------- Drivers ----------
  */
-DataFlowResult DFA::Compute(void)
+void DFA::Compute(void)
 {
     /* 
      * Play god
@@ -54,9 +58,9 @@ DataFlowResult DFA::Compute(void)
     /*
      * Apply the available CARAT DFA.
      */
-    auto dfe = noelle.getDataFlowEngine();
+    auto dfe = noelle->getDataFlowEngine();
 
-    auto dfaResult = dfe.applyForward(
+    TheResult = dfe.applyForward(
         F, 
         _computeGEN(), 
         _computeKILL(), 
@@ -66,15 +70,14 @@ DataFlowResult DFA::Compute(void)
         _computeOUT()
     );
 
-    return dfaResult;
+    return;
 }
 
 
-DataFlowResult *DFA::FetchResult(void) // TODO: do we need this?
+DataFlowResult *DFA::FetchResult(void)
 {
     return this->TheResult;
 }
-
 
 
 /*
@@ -159,7 +162,7 @@ void DFA::_initializeUniverse(void)
                  Index < I.getNumOperands(); 
                  Index++)
             {
-                Value *NextOperand = I.getOperand(i);
+                Value *NextOperand = I.getOperand(Index);
 
                 if (false
                     || (isa<Function>(NextOperand))
@@ -175,7 +178,7 @@ void DFA::_initializeUniverse(void)
 
     for (auto &Arg : F->args()) { TheUniverse.insert(&Arg); }
     
-    Entry = F->begin();
+    Entry = &*F->begin();
     First = &*Entry->begin();
     
 
@@ -186,7 +189,7 @@ void DFA::_initializeUniverse(void)
 std::function<void (Instruction *inst, std::set<Value *> &IN)> DFA::_initializeIN(void)
 {
     auto initIN = 
-        [TheUniverse, First] 
+        [this] 
         (Instruction *inst, std::set<Value *> &IN) -> void {
         if (inst == First) { return; }
         IN = TheUniverse;
@@ -201,7 +204,7 @@ std::function<void (Instruction *inst, std::set<Value *> &IN)> DFA::_initializeI
 std::function<void (Instruction *inst, std::set<Value *> &OUT)> DFA::_initializeOUT(void)
 {
     auto initOUT = 
-        [TheUniverse]
+        [this]
         (Instruction *inst, std::set<Value *> &OUT) -> void {
         OUT = TheUniverse;
         return ;
@@ -211,7 +214,7 @@ std::function<void (Instruction *inst, std::set<Value *> &OUT)> DFA::_initialize
 }
 
 
-std::function<void (Instruction *inst, std::set<Value *> &IN, Instruction *predecessor, DataFlowResult *df)> DFA::_computeGEN(void)
+std::function<void (Instruction *inst, std::set<Value *> &IN, Instruction *predecessor, DataFlowResult *df)> DFA::_computeIN(void)
 {
     /*
      * Define the IN and OUT data flow equations.
