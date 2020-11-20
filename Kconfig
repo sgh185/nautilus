@@ -28,7 +28,6 @@ menu "Platform"
 	       that Gem5 gets timers right, but given how slow it is,
 	       it can feel ridiculous in real-time, especially
 	       when used interactively.
-
 	       DO NOT SET THIS IF YOU WANT ACCURATE SIMULATED TIME
 
         config GEM5_APIC_BUS_FREQ_HZ
@@ -1396,6 +1395,19 @@ menu "Allocators"
 	  default n
 	  help
 	     Turn on debugging prints for the dumb allocator
+    config ALLOC_TEST
+	  bool "Allocator Test"
+	  depends on ALLOCS
+	  default n
+	  help
+	     test framework for allocator.
+
+        config DEBUG_ALLOC_TEST
+	  bool "Debug allocator test"
+	  depends on ALLOC_TEST
+	  default n
+	  help
+	     Turn on debugging prints for the allocator test
 endmenu
 
 menu "Runtimes"
