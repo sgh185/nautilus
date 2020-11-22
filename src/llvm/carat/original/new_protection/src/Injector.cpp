@@ -36,17 +36,27 @@ Injector::Injector(
     DataFlowResult *DFR, 
     Constant *numNowPtr,
     Noelle *noelle,
-    std::vector<LoopDependenceInfo *> * programLoops,
-    std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts
-    ) : storeInsts(storeInsts) {
+    Function *ProtectionsMethod
+) : F(F), DFR(DFR), numNowPtr(numNowPtr), ProtectionsMethod(ProtectionsMethod), noelle(noelle) 
+{
+   
     /*
-     * Set passed state
+     * Set new state
      */ 
-    this->F = F;
-    this->DFR = DFR;
-    this->numNowPtr = numNowPtr;
-    this->noelle = noelle;
-    this->programLoops = programLoops;
+    this->programLoops = noelle.getProgramLoops();
+
+
+    /*
+     * Perform initial analysis
+     */ 
+    __allocaOutsideFirstBBChecker();
+
+
+    /*
+     * Fetch the first instruction of the entry basic block
+     */ 
+    First = F->getEntryBasicBlock().getFirstNonPHI();
+
 }
 
 
@@ -58,127 +68,188 @@ void Injector::Inject(void)
     /*
      * Do the dirty work
      */
-    _doTheInjectBusiness();
+    _doTheBusiness();
 
 
     /*
      * Now do the inject
      */ 
-    
+    _doTheInject();
+
+
+    return;
 }
+
+
+
+/*
+ * ---------- Visitor methods ----------
+ */
+
+/*
+ * Simplification --- reduce code repitition
+ */ 
+#define LAMBDA_INVOCATION \
+    auto TheLambda = _findPointToInsertGuard(); \
+    \
+    Value *PointerToHandle = I.getPointerOperand(); \
+    TheLambda(&I, PointerToHandle); \
+
+
+void Injector::visitInvokeInst(InvokeInst &I)
+{
+    /*
+     * Assumption for Nautilus
+     */  
+
+    errs() << "Found a invoke instruction in function " << F->getName() << "\n"
+           << I << "\n";
+
+    abort();
+}
+
+void Injector::visitCallInst(CallInst &I)
+{
+    /*
+     * Debugging --- FIX
+     * 
+     * NOTE --- Ideally, only some intrinsics should be 
+     * instrumented (i.e. llvm.memcpy, etc.), and markers
+     * (i.e. llvm.lifetime, etc.) should be ignored. For
+     * now, we are instrumenting ALL intrinsics as a 
+     * conservative approach
+     */  
+    if (I.isIntrinsic())
+    {
+        errs() << "Found an intrinsic! Instrumenting for now ... \n" 
+               << I << "\n";
+    }
+
+
+    /*
+     * Fetch the callee of @I
+     */ 
+    Function *Callee = I.getCalledFunction();
+
+
+    /*
+     * Debugging --- FIX 
+     * 
+     * NOTE --- We are instrumenting all indirect calls
+     * because we have no idea what to do about this
+     */ 
+    if (!Callee) 
+    {
+        errs() << "Found an indirect call! Instrumenting for now ... \n" 
+               << I << "\n";
+    }
+
+
+    /*
+     * If the callee of @I has already been instrumented and 
+     * all stack locations are at the top of the entry basic
+     * block (@this->AllocaOutsideEntry), then nothing else 
+     * needs to be done --- return
+     */ 
+    if (true
+        && !AllocaOutsideEntry
+        && (Callee)
+        && (InstrumentedFunctions[Callee])) { return; }
+
+
+    /*
+     * If not all stack locations are grouped at the 
+     * top of the entry basic block, we cannot hoist
+     * any guards of the call instruction --- instrument
+     * @I at @I
+     * 
+     * Otherwise, hoist the guard for @I to the first 
+     * instruction in the entry basic block
+     * 
+     * Update statistics
+     */ 
+    if (AllocaOutsideEntry)
+    {
+        InjectionLocations[&I] = 
+            GuardInfo(
+                &I, 
+                &I,
+                numNowPtr,
+                true /* IsWrite */ 
+            );
+
+        nonOptimizedGuard++;
+    }
+    else
+    {
+        InjectionLocations[&I] = 
+            GuardInfo(
+                &I,
+                First,
+                numNowPtr,
+                true /* IsWrite */ 
+            );
+
+        callGuardOpt++;
+    }
+
+
+    /*
+     * Mark the callee as handled
+     */ 
+    InstrumentedFunctions[Callee] = true;
+
+
+    return;
+}
+
+
+void Injector::visitStoreInst(StoreInst &I)
+{
+    LAMBDA_INVOCATION
+    return;
+}
+
+
+void Injector::visitLoadInst(LoadInst &I)
+{
+    LAMBDA_INVOCATION
+    return;
+}
+
+
+
+
+
 
 
 /*
  * ---------- Private methods ----------
  */
-void Injector::_doTheInjectBusiness(void)
+void Injector::_doTheBusiness(void)
 {
+    /*
+     * Invoke the visitors
+     */ 
+    this->visit(F);
 
-    errs() << "Internally --- size of store insts before: " << storeInsts.size() << "\n";
-
-    bool allocaOutsideFirstBB = allocaOutsideFirstBBChecker();
 
     /*
-     * Identify where to place the guards. TODO: this needs to be split up
-     */
-    std::unordered_map<Function *, bool> functionAlreadyChecked;
-    for(auto &B : *F){
-        for(auto &I : B){
-#if CALL_GUARD
-        if(isa<CallInst>(I) || isa<InvokeInst>(I)){
-#if !OPTIMIZED
-            allocaOutsideFirstBB = true;
-#endif
-
-            Function *calleeFunction;
-#if OPTIMIZED
-            /*
-            * Check if we are invoking an LLVM metadata callee. We don't need to guard these calls.
-            */
-            if (auto tmpCallInst = dyn_cast<CallInst>(&I)){
-                calleeFunction = tmpCallInst->getCalledFunction();
-            } else {
-                auto tmpInvokeInst = cast<InvokeInst>(&I);
-                calleeFunction = tmpInvokeInst->getCalledFunction();
-            }
-            if ( true
-                && (calleeFunction != nullptr)
-                && calleeFunction->isIntrinsic()
-                ){
-                //errs() << "YAY: no need to guard calls to intrinsic LLVM functions: " << I << "\n" ;
-                continue;
-            }
-
-            /*
-            * Check if we have already checked the callee and there is no alloca outside the first basic block. We don't need to guard more than once a function in this case.
-            */
-            if (  true
-                && !allocaOutsideFirstBB
-                && (calleeFunction != nullptr)
-                && (functionAlreadyChecked[calleeFunction] == true)
-                ){
-            //errs() << "YAY: no need to guard twice the callee of the instruction " << I << "\n" ;
-                continue ;
-            }
-#endif
-
-            /*
-             * Check if we can hoist the guard.
-             */
-            if (allocaOutsideFirstBB){
-
-                /*
-                 * We cannot hoist the guard.
-                 */
-                storeInsts[&I] = {&I, numNowPtr};
-                //errs() << "NOOO: missed optimization because alloca invocation outside the first BB for : " << I << "\n" ;
-                nonOptimizedGuard++;
-                continue ;
-            }
-
-            /*
-            * We can hoist the guard because the size of the allocation frame is constant.
-            *
-            * We decided to place the guard at the beginning of the function. 
-            * This could be good if we have many calls to this callee.
-            * This could be bad if we have a few calls to this callee and they could not be executed.
-            */
-            //errs() << "YAY: we found a call check that can be hoisted: " << I << "\n" ;
-            auto firstBB = &*(F->begin());
-            auto firstInst = &*(firstBB->begin());
-            storeInsts[&I] = {firstInst, numNowPtr};
-            functionAlreadyChecked[calleeFunction] = true;
-            callGuardOpt++;
-            continue ;
-        }
-#endif
-
-        auto TheLambda = _findPointToInsertGuard();
-
-#if STORE_GUARD
-        if(isa<StoreInst>(I)){
-            auto storeInst = cast<StoreInst>(&I);
-            auto pointerOfStore = storeInst->getPointerOperand();
-            TheLambda(&I, pointerOfStore);
-            continue ;
-        }
-#endif
-#if LOAD_GUARD
-        if(isa<LoadInst>(I)){
-            auto loadInst = cast<LoadInst>(&I);
-            auto pointerOfStore = loadInst->getPointerOperand();
-            TheLambda(&I, pointerOfStore);
-            continue ;
-        }
-#endif
-        }
-    }
-
-    errs() << "Internally --- size of store insts after: " << storeInsts.size() << "\n";
-
+     * Debugging
+     */ 
     printGuards();
 
+
     return;
+}
+
+
+void Inject::_doTheInject(void)
+{
+    /*
+     * Do the inject
+     */ 
+    for (auto const &[])
 }
 
 
@@ -214,7 +285,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
             /*
              * We have to guard just before the memory instruction.
              */
-            storeInsts[inst] = {inst, pointerOfMemoryInstruction};
+            InjectionLocations[inst] = {inst, pointerOfMemoryInstruction};
             nonOptimizedGuard++;
             //errs() << "XAN:   The instruction doesn't belong to a loop so no further optimizations are available\n";
             return ;
@@ -242,7 +313,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
                 * We can hoist the guard outside the loop.
                 */
             loopInvariantGuard++;
-            storeInsts[inst] = {preheaderBBTerminator, pointerOfMemoryInstruction};
+            InjectionLocations[inst] = {preheaderBBTerminator, pointerOfMemoryInstruction};
             return ;
         }
         //errs() << "XAN:   It cannot be hoisted. Check if it can be merged\n";
@@ -282,7 +353,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
 
                 scalarEvolutionGuard++;
 
-                storeInsts[inst] = {preheaderBBTerminator, startAddress};
+                InjectionLocations[inst] = {preheaderBBTerminator, startAddress};
                 return;
             }
         }
@@ -292,7 +363,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
         /*
         * We have to guard just before the memory instruction.
         */
-        storeInsts[inst] = {inst, pointerOfMemoryInstruction};
+        InjectionLocations[inst] = {inst, pointerOfMemoryInstruction};
         nonOptimizedGuard++;
         return ;
     };
@@ -300,7 +371,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
     return findPointToInsertGuard;
 }
 
-bool Injector::allocaOutsideFirstBBChecker() {
+bool Injector::_allocaOutsideFirstBBChecker() {
     /*
      * Check if there is no stack allocations other than 
      * those in the first basic block of the function.
@@ -317,11 +388,13 @@ bool Injector::allocaOutsideFirstBBChecker() {
                 * We found a stack allocation not in the first basic block.
                 */
                 //errs() << "NOOOO: Found an alloca outside the first BB = " << I << "\n";
-                return true;
+                AllocaOutsideEntry = true;
             }
         }
     }
-    return false;
+    AllocaOutsideEntry = false;
+
+    return;
 }
 
 void Injector::printGuards() {
@@ -329,7 +402,7 @@ void Injector::printGuards() {
      * Print where to put the guards
      */
     errs() << "GUARDS\n";
-    for (auto& guard : storeInsts){
+    for (auto& guard : InjectionLocations){
         auto inst = guard.first;
         errs() << " " << *inst << "\n";
     }

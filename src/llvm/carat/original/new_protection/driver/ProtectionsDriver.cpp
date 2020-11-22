@@ -29,6 +29,11 @@
 #include "include/DFA.hpp"
 #include "include/Injector.hpp"
 
+
+cl::opt<bool> Dummy("dummy",
+                    cl::init(true), /* TODO : Change to false */
+                    cl::desc("Builds a dummy protections method"));
+
 namespace 
 {
 
@@ -47,11 +52,6 @@ struct CAT : public ModulePass
 
     bool runOnModule (Module &M) override 
     {
-        std::set<string> functionsInProgram;
-        std::unordered_map<string, int> functionCalls;
-        bool modified = false;
-
-
         /*
          * Fetch NOELLE.
          */
@@ -59,40 +59,19 @@ struct CAT : public ModulePass
 
 
         /*
-         * Fetch all the loops of the program.
-         */
-        auto ProgramLoops = noelle.getLoops();
-
-
-        /*
-         * Build the global variables
+         * Fetch the runtime function (or build if no 
+         * function is present/command line argument
+         * says otherwise)
          */ 
-        IRBuilder<> TheBuilder{M.getContext()};
+        Function *ProtectionsMethod = 
+            (Dummy) ? 
+            (BuildDummyProtectionsMethod(M)) :
+            (M.getFunction("the_correct_protections_method_TODO")) ; /* FIX */
 
-        
-
-        LLVMContext &MContext = M.getContext();
-        Type *int64Type = Type::getInt64Ty(MContext);
-        Type *int64PtrType = Type::getInt64PtrTy(MContext, 0);
-        ConstantInt *ptrNum = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0x22DEADBEEF22, /*bool*/false));
-        Constant *numNowPtr = ConstantExpr::getIntToPtr(ptrNum, int64PtrType, false);
-
-        ConstantInt *constantNum = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0, /*bool*/false));
-        ConstantInt *constantNum2 = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, 0, /*bool*/false));
-        ConstantInt *constantNum1 = ConstantInt::get(MContext, llvm::APInt(/*nbits*/64, (((uint64_t)pow(2, 64)) - 1), /*bool*/false));
-        Type *voidType = IRBuilder.getVoidTy();
-
-
-        GlobalVariable *lowerBound = new GlobalVariable(M, int64Type, false, GlobalValue::CommonLinkage, constantNum2, "lowerBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
-        GlobalVariable *upperBound = new GlobalVariable(M, int64Type, false, GlobalValue::ExternalLinkage, constantNum1, "upperBound", tempGlob, GlobalValue::NotThreadLocal, 0, false);
-
-        std::unordered_map<Instruction*, pair<Instruction*, Value*>> storeInsts;
-        std::map<Function*, BasicBlock*> functionToEscapeBlock;
 
         /*
          * Iterate through each funtion, compute the DFA and inject guards
          */ 
-        errs() << "The size before: " << storeInsts.size() << "\n";
         for (auto &F : M)
         {
             /*
@@ -115,22 +94,76 @@ struct CAT : public ModulePass
                 &F, 
                 TheDFA->FetchResult(), 
                 numNowPtr, 
-                &noelle, 
-                ProgramLoops, 
-                storeInsts
+                ProtectionsMethod,
+                &noelle
             );
 
             I->Inject();  
         }
-        errs() << "The size after: " << storeInsts.size() << "\n";
 
-        for(auto& myPair : storeInsts){
-            auto I = myPair.second.first;
-            auto singleCycleStore = new StoreInst(constantNum, lowerBound, true, I);
-        }
 
         return true;
+    }
 
+
+    Function *BuildDummyProtectionsMethod(Module &M)
+    {
+        /*
+         * Set up IRBuilder
+         */
+        IRBuilder<> ReturnTypeBuilder{M.getContext()};
+
+
+        /*
+         * Build return type --- void type
+         */ 
+        Type *VoidType = ReturnTypeBuilder.getVoidTy();
+
+
+        /*
+         * Generate function type
+         */
+        FunctionType *DummyFunctionType = 
+            FunctionType::get(
+                VoidType,
+                None /* Params */,
+                false /* IsVarArg */
+            );
+
+
+        /*
+         * Build function signature
+         */ 
+        Function *DummyProtections = Function::Create(
+            DummyFunctionType,
+            GlobalValue::InternalLinkage,
+            Twine("dummy_protections"),
+            M
+        );
+
+
+        /*
+         * Add optnone, noinline attributes to the dummy handler
+         */
+        DummyProtections->addFnAttr(Attribute::OptimizeNone);
+        DummyProtections->addFnAttr(Attribute::NoInline);
+
+
+        /*
+         * Build an entry basic block and return void
+         */ 
+        BasicBlock *Entry = 
+            BasicBlock::Create(
+                M.getContext(), 
+                "entry",
+                DummyProtections
+            );
+
+        IRBuilder<> EntryBuilder{Entry};
+        ReturnInst *DummyReturn = EntryBuilder.CreateRetVoid();
+
+
+        return DummyProtections;
     }
 
 

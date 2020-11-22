@@ -30,7 +30,27 @@
 
 #include "Configurations.hpp"
 
-class Injector
+
+class GuardInfo 
+{
+
+public:
+    GuardInfo(
+        Instruction *IL,
+        Value *PTG,
+        bool IW
+    ) : InjectionLocation(IL), PointerToGuard(PTG), IsWrite(IW) {};
+
+private:
+    Instruction *InjectionLocation;
+    Value *PointerToGuard;
+    bool IsWrite; /* i.e. store=TRUE, load=FALSE */
+
+};
+
+
+
+class Injector : public InstVisitor<Injector>
 {
 
 public:
@@ -38,14 +58,12 @@ public:
     /*
      * Constructors
      */ 
-    // TODO: Pass in more globals
     Injector(
         Function *F, 
         DataFlowResult *DFR, 
         Constant *numNowPtr,
         Noelle *noelle,
-        std::vector<LoopDependenceInfo *> * programLoops,
-        std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts
+        Function *ProtectionsMethod
     );
 
 
@@ -55,22 +73,46 @@ public:
     void Inject (void);
 
 
+    /*
+     * Visitors
+     */ 
+    void visitCallInst(CallInst &I);
+    void visitStoreInst(StoreInst &I);
+    void visitLoadInst(LoadInst &I);
+    void visitInvokeInst(Invoke &I);
+
+
 private:
 
     /*
      * Passed state
      */ 
-    // TODO: add more globals
     Function *F;
+    Function *ProtectionsMethod;
     DataFlowResult *DFR;
-    Constant* numNowPtr;
+    Constant *numNowPtr;
     Noelle *noelle;
-    std::vector<LoopDependenceInfo *> * programLoops;
-    std::unordered_map<Instruction*, pair<Instruction*, Value*>> &storeInsts;
 
 
     /*
-     * Counters
+     * New analysis state
+     */ 
+    std::vector<LoopDependenceInfo *> * programLoops;
+
+    Instruction *First;
+
+    bool AllocaOutsideEntry=true;
+
+    std::unordered_map<Function *, bool> InstrumentedFunctions;
+
+    std::unordered_map<
+        Instruction *, /* The load/store/call for which the guard is generated --- SYMBOLIC */
+        GuardInfo * /* The information needed to generate the guard (see above) */
+    > &InjectionLocations;
+
+
+    /*
+     * Counters/Statistics
      */     
     uint64_t redundantGuard = 0;
     uint64_t loopInvariantGuard = 0;
@@ -83,11 +125,13 @@ private:
     /*
      * Private methods
      */ 
-    void _doTheInjectBusiness(void);
+    void _doTheBusiness(void);
+
+    void _doTheInject(void);
 
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void);
 
-    bool allocaOutsideFirstBBChecker();
+    bool _allocaOutsideFirstBBChecker();
 
     void printGuards();
 };
