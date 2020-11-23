@@ -38,7 +38,10 @@ public:
     /*
      * Constructors
      */ 
-    DFA(Function *F);
+    DFA(
+        Function *F,
+        Noelle *noelle
+    );
 
 
     /*
@@ -54,6 +57,7 @@ private:
      * Passed state
      */ 
     Function *F;
+    Noelle *noelle;
 
 
     /*
@@ -62,7 +66,7 @@ private:
     std::set<Value *> TheUniverse;
     BasicBlock *Entry;
     Instruction *First;
-
+    DataFlowResult *TheResult;
 
 
     /*

@@ -462,6 +462,28 @@ void _carat_process_escape_window()
 	return;
 }
 
+/*
+ * =================== Protection Handling Methods ===================  
+ */ 
+
+/*
+ * Instrumentation for memory accesses
+ * If the type of access specified by @is_write 
+ * is determined to be illegal, panic. Otherwise, 
+ * do nothing
+ */
+void nk_carat_guard_address(void *memory_address, int is_write) {
+	// TODO: implement this
+	int is_legal_access = 1;
+
+	if(!is_legal_access) {
+		panic("Tried to make an illegal memory access! \n");
+	}
+
+	return;
+}
+
+
 
 /*
  * =================== Initilization Methods ===================

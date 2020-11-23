@@ -358,5 +358,16 @@ void nk_carat_instrument_escapes(void *escaping_address);
  */ 
 void _carat_process_escape_window();
 
+/*
+ * =================== Protection Handling Methods ===================  
+ */ 
+
+/*
+ * Instrumentation for memory accesses
+ * If the type of access specified by @is_write 
+ * is determined to be illegal, panic. Otherwise, 
+ * do nothing
+ */
+void nk_carat_guard_address(void *memory_address, int is_write);
 
 
