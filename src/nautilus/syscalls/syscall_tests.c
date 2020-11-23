@@ -158,7 +158,7 @@ static int handle_syscall_tests(char* buf, void* priv) {
 
   struct nk_exec* e = nk_load_exec("/hello.exe");
   if (e) {
-    char* argv[] = {"program_name", "the_second_arg"};
+    char* argv[] = {"/fbench", "1"};
     EXPECT(nk_start_exec_crt(e, 2, &argv) == 42);
     nk_unload_exec(e); // will also free this
   }
