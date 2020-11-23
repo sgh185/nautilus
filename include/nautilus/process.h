@@ -93,6 +93,7 @@ typedef struct nk_process {
   struct nk_exec *exe;
   uint64_t argc;
   char **argv;
+  uint64_t envc;
   char **envp;
   
   // process id, same for all threads in group
@@ -150,9 +151,7 @@ typedef struct nk_process {
 //   fork (cannot rely on paging to implement fork)
 
 int nk_process_create(char *exe_name, 
-                      uint64_t argc,
                       char *argv[],
-                      uint64_t envc,
                       char *envp[], 
                       char *aspace_type,
                       nk_process_t **proc_struct);
@@ -167,9 +166,7 @@ int nk_process_run(nk_process_t *p, int target_cpu);
 
 // create and run a process
 int nk_process_start(char *exe_name,
-                     uint64_t argc,
                      char *argv[],
-                     uint64_t envc,
                      char *envp[],
                      char *aspace_type,
                      nk_process_t **p,

@@ -72,10 +72,39 @@ void free_pid(process_info *p_info, uint64_t old_pid) {
   (p_info->used_pids)[old_pid].val = 0;
 }
 
-int count(char *arr) {
-  // implement soon!!
-  return -1;
+void count_and_len(char **arr, uint64_t *len, uint64_t *count) {
+  *len = 0;
+  *count = 0;
+  if (arr) {
+    for (*count = *len = 0; *arr[*count]; (*count)++) {
+      *len += strlen(arr[*count]) + 1;
+      (*count)++;
+    }
+    (*len)++;
+  }
 }
+
+char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len) {
+  if (arr) {
+    char **ptr_arr = (char **)malloc(sizeof(char *) * count + 1);
+    char *heap_arr = (char *)malloc(sizeof(char) * len);
+    uint64_t i, heap_idx, new_str_len;
+    new_str_len = 0;
+    for (i = heap_idx = 0; i < count; i++) {
+      PROCESS_INFO("copying %s to the heap\n", arr[i]);
+      new_str_len = strlen(arr[i]) + 1;
+      //char *new_str = (char *)malloc(sizeof(char) * new_str_len);
+      ptr_arr[i] = &(heap_arr[heap_idx]);
+      strcpy(&(heap_arr[heap_idx]), arr[i]);
+      heap_arr[new_str_len] = 0;
+      heap_idx += new_str_len + 1;
+    }
+    ptr_arr[i] = 0;
+    return ptr_arr;
+  }
+  return NULL;
+}
+
 
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
@@ -92,8 +121,7 @@ void __nk_process_wrapper(void *i, void **o) {
 
 int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace) {
   nk_aspace_characteristics_t c;
-  //if (nk_aspace_query(aspace_type, &c)) {
-  if (nk_aspace_query("paging", &c)) {
+  if (nk_aspace_query(aspace_type, &c)) {
     PROCESS_ERROR("failed to find %s aspace implementation\n", aspace_type);
     return -1;
   } 
@@ -151,10 +179,67 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
 
 }
 
+int add_args_to_aspace(nk_aspace_t *addr_space, char **argv, uint64_t argc, uint64_t argv_len, char **envp, uint64_t envc, uint64_t envp_len) {
+  
+  // initialize region struct
+  nk_aspace_region_t r_args;
+  r_args.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EAGER;
+  
+  // add memory that holds ptrs to argv strings
+  if (argv && argc) {
+    r_args.va_start = (void *)argv;
+    r_args.pa_start = (void *)argv;
+    r_args.len_bytes = sizeof(char *) * (argc + 1); 
+
+    if (nk_aspace_add_region(addr_space, &r_args)) {
+      PROCESS_ERROR("failed to add argv aspace region\n");
+      nk_aspace_destroy(addr_space);
+      return -1;
+    }
+    
+    // add argv string memory
+    r_args.va_start = (void *)(*argv);
+    r_args.pa_start = (void *)(*argv);
+    r_args.len_bytes = sizeof(char) * (argv_len); 
+
+    if (nk_aspace_add_region(addr_space, &r_args)) {
+      PROCESS_ERROR("failed to add argv aspace region\n");
+      nk_aspace_destroy(addr_space);
+      return -1;
+    }
+  }
+
+  if (envp && envp) {
+    r_args.va_start = (void *)envp;
+    r_args.pa_start = (void *)envp;
+    r_args.len_bytes = sizeof(char *) * (envc + 1); 
+
+    if (nk_aspace_add_region(addr_space, &r_args)) {
+      PROCESS_ERROR("failed to add argv aspace region\n");
+      nk_aspace_destroy(addr_space);
+      return -1;
+    }
+    
+    // add argv string memory
+    r_args.va_start = (void *)(*envp);
+    r_args.pa_start = (void *)(*envp);
+    r_args.len_bytes = sizeof(char) * (envp_len); 
+
+    if (nk_aspace_add_region(addr_space, &r_args)) {
+      PROCESS_ERROR("failed to add argv aspace region\n");
+      nk_aspace_destroy(addr_space);
+      return -1;
+    }
+  }
+  return 0;
+
+
+}
+
 /* External Functions */
 // in the future, we'll create an allocator for the process as well
 // path or name, argc, argv, envp, addr space type, 
-int nk_process_create(char *exe_name, uint64_t argc, char *argv[], uint64_t envc, char *envp[], char *aspace_type, nk_process_t **proc_struct) {
+int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **proc_struct) {
   // Fetch current process info
   process_info *p_info = get_process_info();
   if (p_info->process_count >= MAX_PROCESS_COUNT) {
@@ -170,25 +255,42 @@ int nk_process_create(char *exe_name, uint64_t argc, char *argv[], uint64_t envc
     return -1;
   }
   memset(p, 0, sizeof(nk_process_t));
-
-  // TODO MAC: allocate aspace of type addr_space_type
-  nk_aspace_t *addr_space;
-  if (create_process_aspace(p, aspace_type, exe_name, &addr_space) || !addr_space) {
-    PROCESS_ERROR("failed to create process address space\n");
-    free(p);
-    return -1;
-  }
-
+ 
   // set parent process if current thread is part of a process
+  // use parent process aspace if it exists
+  nk_aspace_t *addr_space;
   p->parent = NULL;
   nk_thread_t *curr_thread = get_cur_thread();
   if (curr_thread->process) {
     p->parent = curr_thread->process;
+    addr_space = p->parent->aspace;
+  } else { // no parent? create new aspace
+    if (create_process_aspace(p, aspace_type, exe_name, &addr_space) || !addr_space) {
+      PROCESS_ERROR("failed to create process address space\n");
+      free(p);
+      return -1;
+    }
   }
+  PROCESS_DEBUG("Created address space\n"); 
+
+  // count argv and envp, allocate them on heap
+  uint64_t argc, argv_len, envc, envp_len;
+  argc = argv_len = envc = envp_len = 0;
+  count_and_len(argv, &argc, &argv_len);
+  count_and_len(envp, &envc, &envp_len);
+  char **args, **envs;
+  args = envs = NULL;
+  args = copy_argv_or_envp(argv, argc, argv_len);
+  envs = copy_argv_or_envp(envp, envc, envp_len);  
+  if (add_args_to_aspace(addr_space, args, argc, argv_len, envs, envc, envp_len)) {
+    PROCESS_ERROR("failed to add args to address space\n");
+    return -1;
+  }
+  PROCESS_DEBUG("Added args to address space\n"); 
 
   // ensure that lock has been initialized to 0
   // CALL spinlock init instead
-  p->lock = 0;
+  spinlock_init(&(p->lock));
   
   // acquire locks and get new pid
   _LOCK_PROCESS(p);
@@ -208,9 +310,10 @@ int nk_process_create(char *exe_name, uint64_t argc, char *argv[], uint64_t envc
   nk_aspace_rename(p->aspace, p->name); 
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
-  p->argc = 0;
-  p->argv = NULL;
-  p->envp = NULL;
+  p->argc = argc;
+  p->argv = argv;
+  p->envc = envc;
+  p->envp = envp;
 
   // create thread group (empty for now)
   nk_thread_group_create(p->name);
@@ -239,8 +342,8 @@ int nk_process_run(nk_process_t *p, int target_cpu) {
   return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 0, &tid, target_cpu);
 }
 
-int nk_process_start(char *exe_name, uint64_t argc, char *argv[], uint64_t envc, char *envp[], char *aspace_type, nk_process_t **p, int target_cpu) {
-  if (nk_process_create(exe_name, argc, argv, envc, envp, aspace_type, p)) {
+int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **p, int target_cpu) {
+  if (nk_process_create(exe_name, argv, envp, aspace_type, p)) {
     PROCESS_ERROR("failed to create process\n");
     return -1;
   }
