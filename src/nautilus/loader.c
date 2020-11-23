@@ -410,6 +410,8 @@ struct nk_exec *nk_load_exec(char *path)
 
     blob_size = ALIGN_UP(bss_end - load_start + 1);
 
+    blob_size += MB_LOAD;
+
     DEBUG("Load continuing... start=0x%lx, end=0x%lx, bss_end=0x%lx, blob_size=0x%lx\n",
 	  load_start, load_end, bss_end, blob_size);
     
@@ -429,24 +431,26 @@ struct nk_exec *nk_load_exec(char *path)
         ERROR("Cannot allocate executable blob for %s\n",path);
         goto out_bad;
     }
+
+    memcpy(e->blob, page, MB_LOAD);
     
     e->blob_size = blob_size;
-    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB; 
+    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB + MB_LOAD; // Double check
     
     // now copy it to memory
     ssize_t n;
     
     
-    if ((n = nk_fs_read(fd,e->blob,e->blob_size))<0) {
+    if ((n = nk_fs_read(fd,e->blob+MB_LOAD,e->blob_size-MB_LOAD))<0) {
         ERROR("Unable to read blob from %s\n", path);
         goto out_bad;
     }
 
-    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size, n);
+    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size-MB_LOAD, n);
     
     DEBUG("Successfully loaded executable %s\n",path);
 
-    memset(e->blob+(load_end-load_start),0,bss_end-load_end);
+    memset(e->blob+MB_LOAD+(load_end-load_start),0,bss_end-load_end);
 
     DEBUG("Cleared BSS\n");
 
@@ -471,7 +475,6 @@ struct nk_exec *nk_load_exec(char *path)
 static void * (*__nk_func_table[])() = {
     [NK_VC_PRINTF] = (void * (*)()) nk_vc_printf,
 };
-
 
 int 
 nk_start_exec (struct nk_exec *exec, void *in, void **out)
@@ -502,6 +505,55 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
     DEBUG("Executable %p has returned with rc=%d and *out=%p\n", exec, rc, out ? *out : 0);
     
     return rc;
+}
+
+int 
+nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv)
+{
+    /// TODO: implement envp
+    int (*start)(void*, int, char**, void*);
+
+    if (!exec) { 
+        ERROR("Exec of null\n");
+        return -1;
+    }
+
+    if (!exec->blob) { 
+        ERROR("Exec of null blob\n");
+        return -1;
+    }
+
+    if (exec->entry_offset > exec->blob_size) { 
+        ERROR("Exec attempt beyond end of blob\n");
+        return -1;
+    }
+
+    start = exec->blob + exec->entry_offset;
+
+    DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %d and %p\n", exec, exec->blob, start, argc, argv);
+
+    __asm__(
+        "pushq $0\n" /* NULL after envp (unimplemented) */
+        "pushq $0\n" /* NULL after argv */
+        "mov %1, %%rax\n"
+        "dec %%rax\n"
+        "loop:\n"
+        "pushq (%2, %%rax, 8)\n" /* Push members of argv */
+        "dec %%rax\n"
+        "cmpq $0, %%rax\n"
+        "jge loop\n"
+        "pushq %1\n" /* argc */
+        "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist */
+        "jmpq *%0\n" 
+        :
+        : "r"(start), "r"((uint64_t)argc), "r"(argv)
+        : "rax", "rsp"
+    );
+
+    // TODO something other than panic here (such as clean up the process)
+    panic("Returned from a C runtime exec\n");
+    
+    return 0;
 }
 
 

@@ -1,20 +1,35 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-// #include <nautilus/nautilus_exe.h>
+static volatile int GLOB = 1;
 
-int main(void *in, void **out)
-{
-    // nk_vc_printf("Write using nk_vc_printf\n");
+static void func1_a(void) { printf("A implementation\n"); }
 
-    char write_msg[] = "Write using write\n";
-    write(STDOUT_FILENO, write_msg, sizeof(write_msg));
+static void func1_b(void) { printf("B implementation\n"); }
 
-    dprintf(STDOUT_FILENO, "Write using dprintf\n");
+static void func1_c(void) { printf("C implementation\n"); }
 
-    /// TODO: figure out why puts and printf do nothing
-    puts("Write using puts\n");
+asm(".type func1, %gnu_indirect_function");
+void* func1(void) {
+  if (GLOB) {
+    return &func1_a;
+  } else {
+    return &func1_b;
+  }
+}
 
-    printf("Write using printf\n");
-    return 42; // To test the return val
+int main(int argc, char** argv) {
+  char write_msg[] = "Write using write\n";
+  write(STDOUT_FILENO, write_msg, sizeof(write_msg));
+
+  /// TODO: figure out why puts and printf cause exceptions
+  puts("Write using puts\n");
+
+  printf("Write using printf\n");
+
+  func1();
 }
