@@ -17,7 +17,8 @@ static int
 handle_proctest1 (char * buf, void * priv)
 {
   nk_process_t *process1;
-  if (nk_process_create("/hello.exe", 0, 0, "paging", &process1)) {
+  char *args[4] = {"arg1", "arg2", "arg3", NULL};
+  if (nk_process_create("/hello.exe", NULL, NULL, "paging", &process1)) {
     nk_vc_printf("handle_proctest1: Failed to create new process\n");
     return -1;
   }

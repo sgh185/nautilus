@@ -72,13 +72,14 @@ void free_pid(process_info *p_info, uint64_t old_pid) {
   (p_info->used_pids)[old_pid].val = 0;
 }
 
-void count_and_len(char **arr, uint64_t *len, uint64_t *count) {
+void count_and_len(char **arr, uint64_t *count, uint64_t *len) {
   *len = 0;
   *count = 0;
   if (arr) {
-    for (*count = *len = 0; *arr[*count]; (*count)++) {
+    PROCESS_INFO("Entering count_and_len for loop.\n");
+    for (*count = *len = 0; arr[*count]; (*count)++) {
       *len += strlen(arr[*count]) + 1;
-      (*count)++;
+      PROCESS_INFO("Found len of arg %s, total len is %lu. Arg count is %lu.\n", arr[*count], *len, *count);
     }
     (*len)++;
   }
@@ -132,6 +133,8 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }  
 
+  // TODO MAC: Figure out if it's necessary to create heap
+  /*
   // allocate heap
   void *p_addr_start = malloc(PHEAP_1MB);
   if (!p_addr_start) {
@@ -154,6 +157,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     free(p_addr_start);
     return -1;
   }
+  */
 
   // map executable in address space
   p->exe = nk_load_exec(exe_name);
@@ -169,7 +173,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     nk_unload_exec(p->exe);
     free(p);
     nk_aspace_destroy(addr_space);
-    free(p_addr_start);
+    //free(p_addr_start);
     return -1;
   }
   if (new_aspace) {
@@ -271,12 +275,13 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
       return -1;
     }
   }
-  PROCESS_DEBUG("Created address space\n"); 
+  PROCESS_INFO("Created address space\n"); 
 
   // count argv and envp, allocate them on heap
   uint64_t argc, argv_len, envc, envp_len;
   argc = argv_len = envc = envp_len = 0;
   count_and_len(argv, &argc, &argv_len);
+  PROCESS_INFO("argc: %lu, envc: %lu\n", argc, envc);
   count_and_len(envp, &envc, &envp_len);
   char **args, **envs;
   args = envs = NULL;
@@ -286,7 +291,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
     PROCESS_ERROR("failed to add args to address space\n");
     return -1;
   }
-  PROCESS_DEBUG("Added args to address space\n"); 
+  PROCESS_INFO("Added args to address space\n"); 
 
   // ensure that lock has been initialized to 0
   // CALL spinlock init instead
