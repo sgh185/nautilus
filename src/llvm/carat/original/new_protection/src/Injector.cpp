@@ -68,7 +68,7 @@ void Injector::Inject(void)
     /*
      * Do the dirty work
      */
-    _doTheBusiness();
+    _findInjectionLocations();
 
 
     /*
@@ -85,15 +85,6 @@ void Injector::Inject(void)
 /*
  * ---------- Visitor methods ----------
  */
-
-/*
- * Simplification --- reduce code repitition
- */ 
-#define LAMBDA_INVOCATION \
-    auto TheLambda = _findPointToInsertGuard(); \
-    \
-    Value *PointerToHandle = I.getPointerOperand(); \
-    TheLambda(&I, PointerToHandle); \
 
 
 void Injector::visitInvokeInst(InvokeInst &I)
@@ -172,9 +163,8 @@ void Injector::visitCallInst(CallInst &I)
     {
         InjectionLocations[&I] = 
             GuardInfo(
-                &I, 
                 &I,
-                numNowPtr,
+                numNowPtr, // TODO: change to the stack pointer location during the function call
                 true /* IsWrite */ 
             );
 
@@ -184,9 +174,8 @@ void Injector::visitCallInst(CallInst &I)
     {
         InjectionLocations[&I] = 
             GuardInfo(
-                &I,
                 First,
-                numNowPtr,
+                numNowPtr, // TODO: change to the stack pointer location during the function call
                 true /* IsWrite */ 
             );
 
@@ -203,9 +192,19 @@ void Injector::visitCallInst(CallInst &I)
     return;
 }
 
+/*
+ * Simplification --- reduce code repitition
+ */ 
+#define LAMBDA_INVOCATION \
+    auto TheLambda = _findPointToInsertGuard(); \
+    \
+    Value *PointerToHandle = I.getPointerOperand(); \
+    TheLambda(&I, PointerToHandle, isWrite); \
+
 
 void Injector::visitStoreInst(StoreInst &I)
 {
+    bool isWrite = true;
     LAMBDA_INVOCATION
     return;
 }
@@ -213,23 +212,19 @@ void Injector::visitStoreInst(StoreInst &I)
 
 void Injector::visitLoadInst(LoadInst &I)
 {
+    bool isWrite = false;
     LAMBDA_INVOCATION
     return;
 }
 
 
-
-
-
-
-
 /*
  * ---------- Private methods ----------
  */
-void Injector::_doTheBusiness(void)
+void Injector::_findInjectionLocations(void)
 {
     /*
-     * Invoke the visitors
+     * Invoke the visitors to fill out the InjectionLocations map
      */ 
     this->visit(F);
 
@@ -249,72 +244,90 @@ void Inject::_doTheInject(void)
     /*
      * Do the inject
      */ 
-    for (auto const &[])
+    for (auto const &[guardedInst, guardInfo] : InjectionLocations) {
+
+        // TODO: insert call to ProtectionsMethod at guardInfo.InjectionLocation, 
+        // with arguments guardInfo.PointerToGuard and guardInfo.IsWrite
+    }
+
 }
 
 
 std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injector::_findPointToInsertGuard(void) {
 
     /*
-    * Define the lamda that will be executed to identify where to place the guards.
-    */
-    //errs() << "COMPILER OPTIMIZATION\n";
-    //F.print(errs());
+     * Define the lamda that will be executed to identify where to place the guards.
+     */
+
     auto findPointToInsertGuard = 
-    [this](Instruction *inst, Value *pointerOfMemoryInstruction) -> void {
+    [this](Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite) -> void {
 #if OPTIMIZED
         /*
-        * Check if the pointer has already been guarded.
-        */
+         * Check if the pointer has already been guarded.
+         */
         auto& INSetOfI = DFR->IN(inst);
-        if (INSetOfI.find(pointerOfMemoryInstruction) != INSetOfI.end()){
+        if (INSetOfI.find(pointerOfMemoryInstruction) != INSetOfI.end()) {
             //errs() << "YAY: skip a guard for the instruction: " << *inst << "\n";
             redundantGuard++;                  
-            return ;
+            return;
         }
 
         /*
-        * We have to guard the pointer.
-        *
-        * Check if we can hoist the guard outside the loop.
-        */
+         * We have to guard the pointer.
+         *
+         * Check if we can hoist the guard outside the loop.
+         */
         //errs() << "XAN: we have to guard the memory instruction: " << *inst << "\n" ;
         auto added = false;
         auto nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, inst);
-        if (nestedLoop == nullptr){
+        if (nestedLoop == nullptr) {
             /*
              * We have to guard just before the memory instruction.
+             * The instruction doesn't belong to a loop so no further optimizations are available.
              */
-            InjectionLocations[inst] = {inst, pointerOfMemoryInstruction};
+            InjectionLocations[inst] = 
+                GuardInfo(
+                    inst,
+                    pointerOfMemoryInstruction, 
+                    isWrite
+                );
             nonOptimizedGuard++;
             //errs() << "XAN:   The instruction doesn't belong to a loop so no further optimizations are available\n";
-            return ;
+            return;
         }
+        /*
+         * @inst belongs to a loop, so we can try to hoist the guard.
+         */
         //errs() << "XAN:   It belongs to the loop " << *nestedLoop << "\n";
         auto nestedLoopLS = nestedLoop->getLoopStructure();
         Instruction* preheaderBBTerminator = nullptr;
-        while (nestedLoop != NULL){
-        auto invariantManager = nestedLoop->getInvariantManager();
-        if (  false
-            || invariantManager->isLoopInvariant(pointerOfMemoryInstruction)
-            ){
-            //errs() << "YAY:   we found an invariant address to check:" << *inst << "\n";
-            auto preheaderBB = nestedLoopLS->getPreHeader();
-            preheaderBBTerminator = preheaderBB->getTerminator();
-            nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, preheaderBB);
-            added = true;
+        while (nestedLoop != NULL) {
+            auto invariantManager = nestedLoop->getInvariantManager();
+            if (  false
+                || invariantManager->isLoopInvariant(pointerOfMemoryInstruction)
+                ) {
+                //errs() << "YAY:   we found an invariant address to check:" << *inst << "\n";
+                auto preheaderBB = nestedLoopLS->getPreHeader();
+                preheaderBBTerminator = preheaderBB->getTerminator();
+                nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, preheaderBB);
+                added = true;
 
-        } else {
-            break;
-        }
+            } else {
+                break;
+            }
         }
         if(added){
             /*
-                * We can hoist the guard outside the loop.
-                */
+             * We can hoist the guard outside the loop.
+             */
             loopInvariantGuard++;
-            InjectionLocations[inst] = {preheaderBBTerminator, pointerOfMemoryInstruction};
-            return ;
+            InjectionLocations[inst] = 
+                GuardInfo(
+                    preheaderBBTerminator,
+                    pointerOfMemoryInstruction, 
+                    isWrite
+                );
+            return;
         }
         //errs() << "XAN:   It cannot be hoisted. Check if it can be merged\n";
 
@@ -353,7 +366,12 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
 
                 scalarEvolutionGuard++;
 
-                InjectionLocations[inst] = {preheaderBBTerminator, startAddress};
+                InjectionLocations[inst] = 
+                    GuardInfo(
+                        preheaderBBTerminator,
+                        startAddress,
+                        isWrite
+                    );
                 return;
             }
         }
@@ -361,11 +379,17 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
         //errs() << "NOOO: the guard cannot be hoisted or merged: " << *inst << "\n" ;
 
         /*
-        * We have to guard just before the memory instruction.
-        */
-        InjectionLocations[inst] = {inst, pointerOfMemoryInstruction};
+         * The guard cannot be hoisted or merged.
+         * We have to guard just before the memory instruction.
+         */
+        InjectionLocations[inst] = 
+            GuardInfo(
+                inst,
+                pointerOfMemoryInstruction, 
+                isWrite
+            );
         nonOptimizedGuard++;
-        return ;
+        return;
     };
 
     return findPointToInsertGuard;
@@ -385,8 +409,8 @@ bool Injector::_allocaOutsideFirstBBChecker() {
                 ){
 
                 /*
-                * We found a stack allocation not in the first basic block.
-                */
+                 * We found a stack allocation not in the first basic block.
+                 */
                 //errs() << "NOOOO: Found an alloca outside the first BB = " << I << "\n";
                 AllocaOutsideEntry = true;
             }

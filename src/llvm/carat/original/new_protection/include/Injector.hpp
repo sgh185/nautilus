@@ -129,7 +129,7 @@ private:
 
     void _doTheInject(void);
 
-    std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> _findPointToInsertGuard(void);
+    std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> _findPointToInsertGuard(void);
 
     bool _allocaOutsideFirstBBChecker();
 

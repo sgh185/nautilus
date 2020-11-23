@@ -66,7 +66,7 @@ struct CAT : public ModulePass
         Function *ProtectionsMethod = 
             (Dummy) ? 
             (BuildDummyProtectionsMethod(M)) :
-            (M.getFunction("the_correct_protections_method_TODO")) ; /* FIX */
+            (M.getFunction("nk_carat_guard_address")) ; /* FIX */
 
 
         /*
