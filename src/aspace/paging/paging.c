@@ -1193,6 +1193,7 @@ static int paging_sanity(char *_buf, void* _priv) {
 #define LEN_1GB (0x40000000UL)
 #define LEN_4GB (0x100000000UL)
 
+    int test_failed = 0;
     nk_vc_printf("Running Paging sanity Check!\n");
     // set CR4.PCIDE (PCID enabled)
     // write_cr4(read_cr4() | (1 << 17));
@@ -1201,7 +1202,8 @@ static int paging_sanity(char *_buf, void* _priv) {
 
     if (nk_aspace_query("paging",&c)) {
         nk_vc_printf("failed to find paging implementation\n");
-        goto test_success;
+        test_failed = 1;
+        goto no_paging_exit;
     }
     
     // testing pcid
@@ -1236,12 +1238,15 @@ static int paging_sanity(char *_buf, void* _priv) {
     free(aspace_arr);
     */
     // create a new address space for this shell thread
+
+    nk_aspace_t * old_aspace = get_cur_thread()->aspace;
     nk_aspace_t *mas = nk_aspace_create("paging", "paging_sanity",&c);
     
 
     if (!mas) {
         nk_vc_printf("failed to create new address space\n");
-        goto test_success;
+        test_failed = 1;
+        goto no_paging_exit;
     }
 
     
@@ -1267,7 +1272,8 @@ static int paging_sanity(char *_buf, void* _priv) {
      **/
     if (nk_aspace_add_region(mas,&r)) {
         nk_vc_printf("failed to add initial eager region to address space\n");
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     }
 
     /**
@@ -1282,7 +1288,8 @@ static int paging_sanity(char *_buf, void* _priv) {
 
     if (nk_aspace_add_region(mas,&r1)) {
         nk_vc_printf("failed to add initial eager region to address space\n");
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     }
 
 
@@ -1302,7 +1309,8 @@ static int paging_sanity(char *_buf, void* _priv) {
      **/
     if (nk_aspace_add_region(mas,&r2)) {
         nk_vc_printf("failed to add secondary lazy region to address space\n");
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     }
 
 
@@ -1325,7 +1333,8 @@ static int paging_sanity(char *_buf, void* _priv) {
     //     reg_it.va_start = r2.va_start + offset;
     //     if (nk_aspace_add_region(mas,&reg_it)) {
     //         nk_vc_printf("failed to add overlapped region to address space\n");
-    //         goto test_fail;
+    //         test_failed = 1;
+    //         goto clean_up;
     //     }
     // }
 
@@ -1340,7 +1349,8 @@ static int paging_sanity(char *_buf, void* _priv) {
 
     // if (!nk_aspace_add_region(mas,&reg_overlap)) {
     //     nk_vc_printf("Failed to Detect overlapped region to address space" REGION_FORMAT "!\n", REGION(&reg_overlap));
-    //     goto test_fail;
+        // test_failed = 1;
+        // goto clean_up;
     // }
 
     // /**
@@ -1351,16 +1361,15 @@ static int paging_sanity(char *_buf, void* _priv) {
 
     // if (!nk_aspace_add_region(mas,&reg_overlap)) {
     //     nk_vc_printf("Failed to Detect overlapped region to address space" REGION_FORMAT "!\n", REGION(&reg_overlap));
-    //     goto test_fail;
+    //     test_failed = 1;
+    //      goto clean_up;
     // }
-
-
-
 
 
     if (nk_aspace_move_thread(mas)) {
         nk_vc_printf("failed to move shell thread to new address space\n");
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     }
 
     /**
@@ -1379,7 +1388,8 @@ static int paging_sanity(char *_buf, void* _priv) {
     if (memcmp(r.va_start , r2.va_start , LEN_4KB)) {
 	    nk_vc_printf("Weird, low-mapped and high-mapped differ...\n");
         nk_vc_printf("Weird, low-mapped = %lx and high-mapped = %lx\n", r.va_start, r2.va_start);
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     } 	
 
     nk_vc_printf("Survived memory comparison of one eager and one lazy copy\n");
@@ -1389,7 +1399,8 @@ static int paging_sanity(char *_buf, void* _priv) {
      * */
     if (memcmp(r.va_start, r1.va_start, LEN_4MB)) {
         nk_vc_printf("Weird, two early added region differ...\n");
-        goto test_fail;
+        test_failed = 1;
+        goto clean_up;
     } 	
 
     nk_vc_printf("Survived memory comparison of two eager mapped copies\n");
@@ -1595,13 +1606,35 @@ static int paging_sanity(char *_buf, void* _priv) {
     }
 #endif
 
-test_success:
-    nk_vc_printf("Paging check sanity test Passed!\n");
+clean_up:
+
+    if(nk_aspace_move_thread(old_aspace) ) {
+        nk_vc_printf("Failed move thread from %p to %p\n", mas, old_aspace);
+        test_failed = 1;
+    }
+
+    nk_vc_printf("Succeeded: Move thread back to old_aspace at %p\n", old_aspace);
+
+    if(nk_aspace_destroy(mas)){
+        nk_vc_printf("Something wrong during destorying the new aspace\n");
+        test_failed = 1;
+    } else {
+        nk_vc_printf("Destory succeeded\n");
+    }
+
+    if(test_failed){
+        nk_vc_printf("Paging check sanity test Failed!\n");
+    } else {
+        nk_vc_printf("Paging check sanity test Passed!\n");
+    }
+
     return 0;
-test_fail:
-    nk_vc_printf("Paging check sanity test failed!\n");
+
+no_paging_exit:
+    nk_vc_printf("Paging NOT created or Failed to create paging!\n");
     return 0;
 }
+
 
 static struct shell_cmd_impl paging_sanity_check = {
     .cmd      = "paging-sanity",
