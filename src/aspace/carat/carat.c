@@ -726,7 +726,7 @@ test_fail:
 
 static struct shell_cmd_impl carat_protect_sanity = {
     .cmd      = "carat-protect-sanity",
-    .help_str = "NAS parallel benchmark IS with paging",
+    .help_str = "Sanity check for CARAT protection",
     .handler  = CARAT_Protection_sanity,
 };
 

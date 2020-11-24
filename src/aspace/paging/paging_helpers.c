@@ -548,7 +548,7 @@ int paging_helper_drill_2MB(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_acc
 }
 
 int paging_helper_drill_1GB(ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type){
-    // DEBUG("Drilling 1GB page 0x%p -> 0x%p access=0x%08x\n", vaddr, paddr, *(uint32_t*)(&access_type));
+    DEBUG("Drilling 1GB page 0x%p -> 0x%p access=0x%08x\n", vaddr, paddr, *(uint32_t*)(&access_type));
     
     // DEBUG("Drilling 4KB page %016lx -> %016lx access=%08x\n", vaddr, paddr, *(uint32_t*)(&access_type));
     ph_pml4e_t *pml4 = (ph_pml4e_t *)PAGE_NUM_TO_ADDR_4KB(cr3.pml4_base);
