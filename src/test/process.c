@@ -22,6 +22,7 @@ handle_proctest1 (char * buf, void * priv)
     nk_vc_printf("handle_proctest1: Failed to create new process\n");
     return -1;
   }
+  //if (nk_process_run(process1, get_cur_thread()->current_cpu)) {
   if (nk_process_run(process1, 0)) {
     nk_vc_printf("handle_proctest1: Failed to run process\n");
     return -1;

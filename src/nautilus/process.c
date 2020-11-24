@@ -109,15 +109,20 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len) {
 
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
+  PROCESS_INFO("Got to process wrapper\n");
   char *args = NULL;
+  int argc = p->argc;
   if (p->argv) {
     args = *(p->argv);
   }
   struct nk_exec *exe = p->exe;
   // might require more setup
-  nk_thread_group_join(p->t_group);
+  //nk_thread_group_join(p->t_group);
+  PROCESS_INFO("Joined thread group\n");
   nk_aspace_move_thread(p->aspace);
-  nk_start_exec(exe, (void *)args, 0); 
+  PROCESS_INFO("Swapped to aspace\n");
+  nk_start_exec_crt(exe, argc, (void *)args); 
+  PROCESS_INFO("Got past start exec crt\n");
 }
 
 int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace) {
@@ -159,28 +164,44 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   }
   */
 
-  // map executable in address space
-  p->exe = nk_load_exec(exe_name);
-  nk_aspace_region_t r_exe;
-  //r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
-  r_exe.va_start = p->exe->blob;
-  r_exe.pa_start = p->exe->blob;
-  r_exe.len_bytes = p->exe->blob_size;
-  r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
+  // add heap to addr space
+  nk_aspace_region_t r_kernel;
+  r_kernel.va_start = 0;
+  r_kernel.pa_start = 0;
+  r_kernel.len_bytes = 0x10000000UL; 
+  r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
-  if (nk_aspace_add_region(addr_space, &r_exe)) {
-    PROCESS_ERROR("failed to add initial process aspace exe region\n");
-    nk_unload_exec(p->exe);
-    free(p);
+  if (nk_aspace_add_region(addr_space, &r_kernel)) {
+    PROCESS_ERROR("failed to add initial process aspace heap region\n");
     nk_aspace_destroy(addr_space);
     //free(p_addr_start);
     return -1;
   }
-  if (new_aspace) {
-    *new_aspace = addr_space;
-  } 
-  return 0;
+  
+  // map executable in address space
+  p->exe = nk_load_exec(exe_name);
+  if ((uint64_t)p->exe > 0x10000000UL) {
+    nk_aspace_region_t r_exe;
+    //r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
+    r_exe.va_start = p->exe->blob;
+    r_exe.pa_start = p->exe->blob;
+    r_exe.len_bytes = p->exe->blob_size;
+    r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
 
+    if (nk_aspace_add_region(addr_space, &r_exe)) {
+      PROCESS_ERROR("failed to add initial process aspace exe region\n");
+      nk_unload_exec(p->exe);
+      free(p);
+      nk_aspace_destroy(addr_space);
+      //free(p_addr_start);
+      return -1;
+    }
+    if (new_aspace) {
+      *new_aspace = addr_space;
+    }
+  }
+  return 0;
+ 
 }
 
 int add_args_to_aspace(nk_aspace_t *addr_space, char **argv, uint64_t argc, uint64_t argv_len, char **envp, uint64_t envc, uint64_t envp_len) {
