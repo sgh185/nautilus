@@ -535,13 +535,17 @@ nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv)
     __asm__(
         "pushq $0\n" /* NULL after envp (unimplemented) */
         "pushq $0\n" /* NULL after argv */
+        "test %1, %1\n"
+        "je nk_loader_crt_loop_done\n"
         "mov %1, %%rax\n"
         "dec %%rax\n"
-        "loop:\n"
+        "\n"
+        "nk_loader_crt_loop:\n"
         "pushq (%2, %%rax, 8)\n" /* Push members of argv */
         "dec %%rax\n"
         "cmpq $0, %%rax\n"
         "jge loop\n"
+        "nk_loader_crt_loop_done\n"
         "pushq %1\n" /* argc */
         "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist */
         "jmpq *%0\n" 
