@@ -7,7 +7,7 @@
 NAUTILUS_DIR = ../..
 
 
-TARGET = hello.exe
+TARGET = fbench.exe
 
 USER_OBJ = hello.o
 
@@ -27,7 +27,7 @@ LD = ld
 #          -fno-common \
 #          -Wstrict-overflow=5
 
-CLAGS = -O2
+CLAGS = -O2 -mno-red-zone -I../../include
 
 # For C++ add
 #         -fno-rtti \
@@ -41,7 +41,7 @@ CLAGS = -O2
 #
 #
 
-CC = gcc -g3 -static-pie #-static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
+CC = gcc -g3 -static-pie -mno-red-zone -I../../include #-static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
 # CC = /home/aaron/tmp/gcc/install/usr/local/bin/gcc -g3 -static -static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
 # CC = musl-gcc -g3 -static -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
 
@@ -60,21 +60,7 @@ glue.o : glue.c
 	$(CC) $(CFLAGS) -c glue.c
 
 $(TARGET) : $(TARGET:.exe=.o) framework.o framework_low_level.o glue.o framework.lds
-	ld -static -pie --no-dynamic-linker \
--T framework.lds -dp -z max-page-size=0x1000 \
--z relro \
--z now \
-/usr/lib/x86_64-linux-gnu/rcrt1.o \
-/usr/lib/x86_64-linux-gnu/crti.o \
-/usr/lib/gcc/x86_64-linux-gnu/9/crtbeginS.o \
--L/usr/lib/gcc/x86_64-linux-gnu/9 \
--L/usr/lib/x86_64-linux-gnu \
--L/usr/lib \
-$(TARGET:.exe=.o) glue.o framework_low_level.o framework.o \
--lm --start-group -lgcc  -lc -lrt --end-group \
-/usr/lib/gcc/x86_64-linux-gnu/9/crtendS.o \
-/usr/lib/x86_64-linux-gnu/crtn.o  \
--o $(TARGET)
+	./nld $(TARGET:.exe=.o) -o $(TARGET)
 
 
 clean: 

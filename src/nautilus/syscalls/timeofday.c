@@ -3,8 +3,11 @@
 /// for consistency
 
 #include <nautilus/nautilus.h>
+#include <dev/apic.h>
 
 #include <errno.h>
+
+#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_timeofday: " fmt, ##args)
 
 #define NSEC_PER_SEC (uint64_t)1000000000
 #define NSEC_PER_USEC (uint64_t)1000U
@@ -17,8 +20,8 @@ static uint64_t time_offset = 0;
 
 /// TODO: move this struct definition somewhere useful and standard
 struct timeval {
-  int tv_sec;  // seconds
-  int tv_usec; // microseconds
+  uint64_t tv_sec;  // seconds
+  uint64_t tv_usec; // microseconds
 };
 
 /// TODO: include from wherever this is defined correctly
@@ -31,9 +34,12 @@ struct timespec {
 /// @return The cycle count
 uint64_t get_cycles() { return rdtsc(); }
 
-/// TODO: make this based on the arch instead of being fake
 /// @return Elapsed seconds since the cycle count was reset
-uint64_t cycles2ns(uint64_t cycles) { return cycles; }
+uint64_t cycles2ns(uint64_t cycles) {
+  struct sys_info* sys = per_cpu_get(system);
+  struct apic_dev* apic = sys->cpus[my_cpu_id()]->apic;
+  return apic_cycles_to_realtime(apic, cycles);
+}
 
 /// @return The time in nanoseconds
 uint64_t get_time() { return cycles2ns(get_cycles()) + time_offset; }
@@ -50,6 +56,9 @@ int sys_gettimeofday(int timeval_ptr, int timezone_ptr) {
 
     tv->tv_sec = now / NSEC_PER_SEC;
     tv->tv_usec = (now % NSEC_PER_SEC) / NSEC_PER_USEC;
+
+    DEBUG("Setting user time of day struct time to %d sec, %d usec\n",
+          tv->tv_sec, tv->tv_usec);
   }
   /// TODO: add errno support?
   return 0;
