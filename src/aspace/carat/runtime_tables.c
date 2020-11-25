@@ -473,10 +473,36 @@ void _carat_process_escape_window()
  * do nothing
  */
 void nk_carat_guard_address(void *memory_address, int is_write) {
-	// TODO: implement this
-	int is_legal_access = 1;
 
-	if(!is_legal_access) {
+	/*
+ 	 * Get the permissions of the address for the current thread.
+	 */
+	nk_aspace_protection_t* permissions = get_permissions(get_cur_thread()->aspace, memory_address);
+
+	if (!permissions) {
+		panic("Could not find region associated with the guarded address.\n");
+	}
+
+	/*
+ 	 * If @is_write == 0: we are trying to read the address
+	 * If @is_write == 1: we are trying to write the address
+	 * 
+	 * Note: this is making the assunption that if we have write access 
+	 * we also have read access for performance
+	 * 
+	 * Given this assumption, there are two ways for this to be a legal access:
+	 * 1. If the memory is writable, either a write or a read is allowed
+	 * 2. If the memory is readable, only a read is allowed
+	 * 
+ 	 */ 
+
+	int is_memory_writable = NK_ASPACE_GET_WRITE(permissions->flags);
+	int is_memeory_readable = NK_ASPACE_GET_READ(permissions->flags);
+	int is_legal_access = is_memory_writable // cond. 1
+						  || is_memeory_readable && !is_write; // cond. 2
+
+
+	if (!is_legal_access) {
 		panic("Tried to make an illegal memory access! \n");
 	}
 
