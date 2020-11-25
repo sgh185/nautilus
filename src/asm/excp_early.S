@@ -241,6 +241,8 @@ errloop:
 .align 8
 GLOBAL(early_excp_common)
 
+    SAVE_GPRS()
+	
 #ifdef NAUT_CONFIG_FPU_SAVE
     /* Save the FPRs */
     movq %gs:0x0, %rax
@@ -248,7 +250,6 @@ GLOBAL(early_excp_common)
     leaq (%rax, %rbx, 1), %rbx
     fxsave (%rbx)
 #endif
-    SAVE_GPRS()
 
     // Exceptions may occur before gsbase is set, for example breakpoints
     // or bugs in early code - so we need to guard
