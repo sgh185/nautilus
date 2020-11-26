@@ -151,9 +151,7 @@ memcmp (const void * s1_, const void * s2_, size_t n)
     const char * s2 = s2_;
 
     while (n > 0) {
-        nk_vc_printf("Before comparison: s1 = %p, s2 = %p\n",s1, s2);
         int cmp = (*s1 - *s2);
-        nk_vc_printf("After comparison: cmp = %d, s1 = %p, s2 = %p\n", cmp, s1, s2);
         if (cmp != 0) {
             return cmp;
         }
