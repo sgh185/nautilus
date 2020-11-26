@@ -1,10 +1,12 @@
 # Sources
 set(Srcs 
-  Profiler.cpp
+  CatPass.cpp
+  src/DFA.cpp
+  src/Injector.cpp
 )
 
 # Compilation flags
-set_source_files_properties(${Srcs} PROPERTIES COMPILE_FLAGS " -std=c++14 -fPIC")
+set_source_files_properties(${Srcs} PROPERTIES COMPILE_FLAGS " -std=c++17 -fPIC")
 
 # Name of the LLVM pass
 set(PassName "protection")

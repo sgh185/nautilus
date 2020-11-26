@@ -38,6 +38,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -47,6 +48,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstVisitor.h"
 
 #include "Noelle.hpp"
 
