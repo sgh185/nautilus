@@ -109,48 +109,43 @@ void count_and_len(char **arr, uint64_t *count, uint64_t *len) {
  */
 char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack_addr) {
   if (arr) {
-    //char **ptr_arr = (char **)malloc(sizeof(char *) * count + 1);
-    //char *stack_arr = (char *)malloc(sizeof(char) * len);
-    
     // make room for array of characters on stack
     char *stack_arr;
     *stack_addr -= (sizeof(char) * len);
     stack_arr = *stack_addr;
 
-    PROCESS_INFO("Made room on stack for %lu characters.\n", len);
-    PROCESS_INFO("Stack addr is now %p\n", *stack_addr);
+    PROCESS_DEBUG("Made room on stack for %lu characters.\n", len);
+    PROCESS_DEBUG("Stack addr is now %p\n", *stack_addr);
 
     // align stack to 8 bytes
     *stack_addr = (void*)(((uint64_t)*stack_addr) & ~0x7UL);
-    PROCESS_INFO("Aligned stack to 8 bytes. Stack addr is now %p\n", *stack_addr);
+    PROCESS_DEBUG("Aligned stack to 8 bytes. Stack addr is now %p\n", *stack_addr);
     
-    // make room for array of ptrs to C strings on stack
+    // make room for array of C string pointers on stack
     char **ptr_arr;
     *stack_addr -= sizeof(char *) * (count + 1);
     ptr_arr = *stack_addr;
   
-    PROCESS_INFO("Made room on stack for %lu pointers.\n", count+1);
-    PROCESS_INFO("Stack addr is now %p\n", *stack_addr);
+    PROCESS_DEBUG("Made room on stack for %lu pointers.\n", count+1);
+    PROCESS_DEBUG("Stack addr is now %p\n", *stack_addr);
     
     // align stack to 8 bytes (shouldn't need alignment, but just in case)
     *stack_addr =  (void*)(((uint64_t)*stack_addr) & ~0x7UL);
-    PROCESS_INFO("Aligned stack to 8 bytes. Stack addr is now %p\n", *stack_addr);
+    PROCESS_DEBUG("Aligned stack to 8 bytes. Stack addr is now %p\n", *stack_addr);
 
-
-    PROCESS_INFO("arg pointer array: %p\n", *ptr_arr);
+    // actually copy characters and pointers to stack
     uint64_t i, stack_idx, new_str_len;
     new_str_len = 0;
     for (i = stack_idx = 0; i < count; i++) {
-      PROCESS_INFO("copying %s to the stack at addr %p\n", arr[i], &(stack_arr[stack_idx]));
+      PROCESS_DEBUG("copying %s to the stack at addr %p\n", arr[i], &(stack_arr[stack_idx]));
       new_str_len = strlen(arr[i]) + 1;
-      //char *new_str = (char *)malloc(sizeof(char) * new_str_len);
       ptr_arr[i] = &(stack_arr[stack_idx]);
       strcpy(&(stack_arr[stack_idx]), arr[i]);
       stack_arr[new_str_len] = 0;
       stack_idx += new_str_len + 1;
     }
     ptr_arr[i] = 0;
-    PROCESS_INFO("arg pointer array after adding args: %p\n", *ptr_arr);
+    PROCESS_DEBUG("arg pointer array after adding args: %p\n", *ptr_arr);
     return ptr_arr;
   }
   return *stack_addr;
@@ -159,51 +154,56 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
 
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
-  PROCESS_INFO("Got to process wrapper\n");
-  char **args = NULL;
+  PROCESS_DEBUG("Entering process wrapper.\n");
+
+  // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
-  if (p->argc) {
-    args = (p->argv_virt);
-  }
+  char **args = p->argv_virt;
   struct nk_exec *exe = p->exe;
-  // might require more setup
+
+  // TODO MAC: Find out why joining the thread group doesn't work
   //nk_thread_group_join(p->t_group);
-  PROCESS_INFO("Aspace addr: %p, Process addr %p\n", p->aspace, p);
+  
+  // Move thread into process address space
+  PROCESS_DEBUG("Moving thread into process aspace. Aspace addr: %p, Process addr %p\n", p->aspace, p);
   nk_aspace_move_thread(p->aspace);
-  PROCESS_INFO("Swapped to aspace\n");
+  PROCESS_DEBUG("Sucessfully swapped to process aspace\n");
+
+  // Start execution of process executable.
+  PROCESS_DEBUG("Starting executable at addr %p with %lu args\n", exe, argc);
   nk_start_exec_crt(exe, argc, (void *)args); 
   PROCESS_INFO("Got past start exec crt\n");
 }
 
 int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace, void **stack) {
+  // Check if the desired aspace implementation exists
   nk_aspace_characteristics_t c;
   if (nk_aspace_query(aspace_type, &c)) {
     PROCESS_ERROR("failed to find %s aspace implementation\n", aspace_type);
     return -1;
   } 
 
+  // create aspace instance of type aspace_type
   nk_aspace_t *addr_space = nk_aspace_create(aspace_type, exe_name, &c);
   if (!addr_space) {
     PROCESS_ERROR("failed to create address space\n");
     return -1;
   }  
 
-  // TODO MAC: Figure out if it's necessary to create stack
-
-  // allocate stack
-  void *p_addr_start = malloc(PHEAP_1MB);
+  // allocate stack for process
+  void *p_addr_start = malloc(PSTACK_SIZE);
   if (!p_addr_start) {
     nk_aspace_destroy(addr_space);
     PROCESS_ERROR("failed to allocate process stack\n");
     return -1;
   }
-  memset(p_addr_start, 0, PHEAP_1MB);
+  memset(p_addr_start, 0, PSTACK_SIZE);
   
-  // add stack to addr space
+  // add stack to address space
   nk_aspace_region_t r_stack;
-  r_stack.va_start = (void*)0xffff800000000000UL;
+  r_stack.va_start = (void *)PSTACK_START;
   r_stack.pa_start = p_addr_start;
-  r_stack.len_bytes = (uint64_t)PHEAP_1GB; 
+  r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
   r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
   if (nk_aspace_add_region(addr_space, &r_stack)) {
@@ -213,17 +213,16 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }
 
-  // add kernel to addr space
+  // add kernel to address space
   nk_aspace_region_t r_kernel;
-  r_kernel.va_start = 0;
-  r_kernel.pa_start = 0;
-  r_kernel.len_bytes = 0x100000000UL; 
+  r_kernel.va_start = (void *)KERNEL_ADDRESS_START;
+  r_kernel.pa_start = (void *)KERNEL_ADDRESS_START;
+  r_kernel.len_bytes = KERNEL_MEMORY_SIZE; 
   r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
   if (nk_aspace_add_region(addr_space, &r_kernel)) {
-    PROCESS_ERROR("failed to add initial process aspace heap region\n");
+    PROCESS_ERROR("failed to add initial process aspace stack region\n");
     nk_aspace_destroy(addr_space);
-    //free(p_addr_start);
     return -1;
   }
   
@@ -231,10 +230,10 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   p->exe = nk_load_exec(exe_name);
 
   // map executable in address space if it's not within first 4GB of memory
-  if (((uint64_t)p->exe > 0x100000000UL) || ((uint64_t)p->exe + p->exe->blob_size > 0x100000000UL)) {
-    PROCESS_INFO("MAPPING EXECUTABLE TO ASPACE\n");
+  // TODO MAC: This *WILL* break if part of the executable is mapped and part of it isn't
+  if (((uint64_t)p->exe > KERNEL_MEMORY_SIZE) || ((uint64_t)p->exe + p->exe->blob_size > KERNEL_MEMORY_SIZE)) {
+    PROCESS_DEBUG("WARNING: WE'RE MAPPING EXECUTABLE TO ASPACE. CHECK THIS IS DONE CORRECTLY.\n");
     nk_aspace_region_t r_exe;
-    //r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
     r_exe.va_start = p->exe->blob;
     r_exe.pa_start = p->exe->blob;
     r_exe.len_bytes = p->exe->blob_size;
@@ -245,7 +244,6 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
       nk_unload_exec(p->exe);
       free(p);
       nk_aspace_destroy(addr_space);
-      //free(p_addr_start);
       return -1;
     }
     
@@ -260,62 +258,6 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
  
 }
 
-int add_args_to_aspace(nk_aspace_t *addr_space, char **argv, uint64_t argc, uint64_t argv_len, char **envp, uint64_t envc, uint64_t envp_len) {
-  
-  // initialize region struct
-  nk_aspace_region_t r_args;
-  r_args.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EAGER;
-  
-  // add memory that holds ptrs to argv strings
-  if (argv && argc) {
-    r_args.va_start = (void *)argv;
-    r_args.pa_start = (void *)argv;
-    r_args.len_bytes = sizeof(char *) * (argc + 1); 
-
-    if (nk_aspace_add_region(addr_space, &r_args)) {
-      PROCESS_ERROR("failed to add argv aspace region\n");
-      nk_aspace_destroy(addr_space);
-      return -1;
-    }
-    
-    // add argv string memory
-    r_args.va_start = (void *)(*argv);
-    r_args.pa_start = (void *)(*argv);
-    r_args.len_bytes = sizeof(char) * (argv_len); 
-
-    if (nk_aspace_add_region(addr_space, &r_args)) {
-      PROCESS_ERROR("failed to add argv aspace region\n");
-      nk_aspace_destroy(addr_space);
-      return -1;
-    }
-  }
-
-  if (envp && envp) {
-    r_args.va_start = (void *)envp;
-    r_args.pa_start = (void *)envp;
-    r_args.len_bytes = sizeof(char *) * (envc + 1); 
-
-    if (nk_aspace_add_region(addr_space, &r_args)) {
-      PROCESS_ERROR("failed to add argv aspace region\n");
-      nk_aspace_destroy(addr_space);
-      return -1;
-    }
-    
-    // add argv string memory
-    r_args.va_start = (void *)(*envp);
-    r_args.pa_start = (void *)(*envp);
-    r_args.len_bytes = sizeof(char) * (envp_len); 
-
-    if (nk_aspace_add_region(addr_space, &r_args)) {
-      PROCESS_ERROR("failed to add argv aspace region\n");
-      nk_aspace_destroy(addr_space);
-      return -1;
-    }
-  }
-  return 0;
-
-
-}
 
 /* External Functions */
 // in the future, we'll create an allocator for the process as well
@@ -367,14 +309,8 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   void *stack_ptr = stack_addr;
   args = copy_argv_or_envp(argv, argc, argv_len, &stack_ptr);
   envs = copy_argv_or_envp(envp, envc, envp_len, &stack_ptr);  
-  //if (add_args_to_aspace(addr_space, args, argc, argv_len, envs, envc, envp_len)) {
-    //PROCESS_ERROR("failed to add args to address space\n");
-    //return -1;
-  //}
-  PROCESS_INFO("Added args to address space\n"); 
 
   // ensure that lock has been initialized to 0
-  // CALL spinlock init instead
   spinlock_init(&(p->lock));
   
   // acquire locks and get new pid
@@ -396,7 +332,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
   p->argc = argc;
-  p->argv_virt = (char**)(0xffff800000000000UL + PHEAP_1MB - ((uint64_t)stack_addr - (uint64_t)args));
+  p->argv_virt = (char**)(PSTACK_START + PSTACK_SIZE - ((uint64_t)stack_addr - (uint64_t)args));
   p->argv = args;
   p->envc = envc;
   p->envp = envs;

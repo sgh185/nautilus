@@ -48,13 +48,18 @@ extern "C" {
 #define PSTACK_1MB     0x100000
 #define PSTACK_2MB     0x200000
 
-#define PHEAP_4KB 0x00001000
-#define PHEAP_1MB 0x00100000
-#define PHEAP_1GB 0x40000000
+#define PHEAP_4KB 0x00001000UL
+#define PHEAP_1MB 0x00100000UL
+#define PHEAP_1GB 0x40000000UL
 
 #define MAX_PROCESS_NAME 32
 #define MAX_PID 32767 // 4Kb in bits
 #define MAX_PROCESS_COUNT 16384 // half of MAX_PID for now
+
+#define KERNEL_ADDRESS_START 0
+#define KERNEL_MEMORY_SIZE 0x100000000UL
+#define PSTACK_START 0xffff800000000000UL
+#define PSTACK_SIZE PHEAP_1MB
 
 typedef struct PID_MAP {
     uint8_t val : 1;
