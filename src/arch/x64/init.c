@@ -294,7 +294,7 @@ extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_in
 
 char* script[] = {
     "attach ata0-0-0 ext2 rootfs",
-    "syscalltest",
+    "proctest1",
     NULL,
 };
 
