@@ -396,9 +396,9 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
   p->argc = argc;
-  p->argv = argv;
+  p->argv = args;
   p->envc = envc;
-  p->envp = envp;
+  p->envp = envs;
 
   // create thread group (empty for now)
   nk_thread_group_create(p->name);
