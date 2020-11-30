@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# This script needs to be extended to automatically
+# find the paths to the crt objects
+
+if [ $# -eq 0 ]
+  then
+    echo "No arguments supplied"
+fi
+
+REALPATH=$(realpath $0)
+DIRNAME=$(dirname $REALPATH)
+
+ld -static -pie --no-dynamic-linker \
+-T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 \
+-z relro \
+-z now \
+/usr/lib/x86_64-linux-gnu/rcrt1.o \
+/usr/lib/x86_64-linux-gnu/crti.o \
+/usr/lib/gcc/x86_64-linux-gnu/9/crtbeginS.o \
+-L/usr/lib/gcc/x86_64-linux-gnu/9 \
+-L/usr/lib/x86_64-linux-gnu \
+-L/usr/lib \
+"$@" \
+$DIRNAME/glue.o $DIRNAME/framework_low_level.o $DIRNAME/framework.o \
+-lm --start-group -lgcc  -lc -lrt --end-group \
+/usr/lib/gcc/x86_64-linux-gnu/9/crtendS.o \
+/usr/lib/x86_64-linux-gnu/crtn.o
