@@ -93,6 +93,7 @@ typedef struct nk_process {
   struct nk_exec *exe;
   uint64_t argc;
   char **argv;
+  char **argv_virt;
   uint64_t envc;
   char **envp;
   

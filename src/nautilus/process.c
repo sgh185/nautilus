@@ -160,10 +160,10 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_INFO("Got to process wrapper\n");
-  char *args = NULL;
+  char **args = NULL;
   int argc = p->argc;
-  if (p->argv) {
-    args = *(p->argv);
+  if (p->argc) {
+    args = (p->argv_virt);
   }
   struct nk_exec *exe = p->exe;
   // might require more setup
@@ -204,7 +204,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   r_stack.va_start = (void*)0xffff800000000000UL;
   r_stack.pa_start = p_addr_start;
   r_stack.len_bytes = (uint64_t)PHEAP_1GB; 
-  r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
   if (nk_aspace_add_region(addr_space, &r_stack)) {
     PROCESS_ERROR("failed to add initial process aspace stack region\n");
@@ -231,7 +231,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   p->exe = nk_load_exec(exe_name);
 
   // map executable in address space if it's not within first 4GB of memory
-  if ((uint64_t)p->exe > 0x100000000UL) {
+  if (((uint64_t)p->exe > 0x100000000UL) || ((uint64_t)p->exe + p->exe->blob_size > 0x100000000UL)) {
     PROCESS_INFO("MAPPING EXECUTABLE TO ASPACE\n");
     nk_aspace_region_t r_exe;
     //r_exe.va_start = (void*)(PHEAP_1GB + PHEAP_4KB);
@@ -396,6 +396,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
   p->argc = argc;
+  p->argv_virt = (char**)(0xffff800000000000UL + PHEAP_1MB - ((uint64_t)stack_addr - (uint64_t)args));
   p->argv = args;
   p->envc = envc;
   p->envp = envs;
