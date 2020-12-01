@@ -24,7 +24,7 @@
 #include <nautilus/naut_string.h>
 #include <nautilus/naut_types.h>
 #include <nautilus/mm.h>
-
+#include <nautilus/nautilus.h>
 unsigned char _ctype[] = {
 _C,_C,_C,_C,_C,_C,_C,_C,			/* 0-7 */
 _C,_C|_S,_C|_S,_C|_S,_C|_S,_C|_S,_C,_C,		/* 8-15 */
@@ -151,9 +151,7 @@ memcmp (const void * s1_, const void * s2_, size_t n)
     const char * s2 = s2_;
 
     while (n > 0) {
-
         int cmp = (*s1 - *s2);
-
         if (cmp != 0) {
             return cmp;
         }

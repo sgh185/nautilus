@@ -34,6 +34,7 @@
 
 #include "../common/npb-C.h"
 #include <nautilus/shell.h>
+#include "../paging_benchmark.h"
 
 /* global variables */
 #include "header.h"
@@ -79,6 +80,18 @@ static struct shell_cmd_impl nas_bt_impl = {
     .handler  = program_BT,
 };
 nk_register_shell_cmd(nas_bt_impl);
+
+int program_BT_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_BT);
+}
+
+static struct shell_cmd_impl nas_bt_paging_impl = {
+    .cmd      = "nas-bt-paging",
+    .help_str = "NAS parallel benchmark BT with paging",
+    .handler  = program_BT_paging,
+};
+nk_register_shell_cmd(nas_bt_paging_impl);
+
 /*--------------------------------------------------------------------
       program BT
 c-------------------------------------------------------------------*/
@@ -186,6 +199,8 @@ c-------------------------------------------------------------------*/
 		  tmax, mflops, "          floating point", 
 		  verified, NPBVERSION,COMPILETIME, CS1, CS2, CS3, CS4, CS5, 
 		  CS6, "(none)");
+
+  return 0;
 }
 
 /*--------------------------------------------------------------------

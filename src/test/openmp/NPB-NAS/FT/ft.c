@@ -33,6 +33,7 @@
 
 #include "../common/npb-C.h"
 #include "../math/nas_math.h"
+#include "../paging_benchmark.h"
 /* global variables */
 #include "global.h"
 
@@ -83,6 +84,17 @@ static struct shell_cmd_impl nas_ft_impl = {
     .handler  = program_FT,
 };
 nk_register_shell_cmd(nas_ft_impl);
+
+int program_FT_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_FT);
+}
+
+static struct shell_cmd_impl nas_ft_paging_impl = {
+    .cmd      = "nas-ft-paging",
+    .help_str = "NAS parallel benchmark FT with paging",
+    .handler  = program_FT_paging,
+};
+nk_register_shell_cmd(nas_ft_paging_impl);
 
 int program_FT(char * _buf, void *_priv) {
 
@@ -229,6 +241,8 @@ c-------------------------------------------------------------------*/
 		    NPBVERSION, COMPILETIME,
 		    CS1, CS2, CS3, CS4, CS5, CS6, CS7);
     if (TIMERS_ENABLED == TRUE) print_timers();
+
+	return 0;
 }
 
 /*--------------------------------------------------------------------

@@ -183,7 +183,9 @@ void AllocationHandler::_getAllGlobals()
     for (auto &Global : M->getGlobalList())
     {
         // Cannot target LLVM-specific globals
-        if (Global.getSection() == "llvm.metadata") { continue; }
+        if (Global.getSection() == "llvm.metadata"
+            || (Global.isDiscardableIfUnused())) 
+            { continue; }
 
         uint64_t totalSizeInBytes;
 
