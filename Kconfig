@@ -1382,6 +1382,13 @@ menu "Allocators"
 	  help
 	     Turn on debugging prints for the cs213 allocator
 
+        config TEST_ALLOC_CS213
+	  bool "Test the CS213 Allocator"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Allocator test program
+
   config ALLOC_DUMB
 	  bool "Dumb allocator"
 	  depends on ALLOCS

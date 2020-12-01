@@ -170,9 +170,13 @@ static void *extend_heap(void *state, size_t words)
 
   /* Allocate an even number of words to maintain alignment */
   size = (words % 2) ? (words+1) * WSIZE : words * WSIZE; //line:vm:mm:beginextend
-  if ((long)(bp = mem_sbrk(size)) == -1)
-    return NULL;                                        //line:vm:mm:endextend
+ /* if ((long)(bp = mem_sbrk(size)) == -1)
+    return NULL; */  //line:vm:mm:endextend
 
+  bp=kmem_sys_malloc_specific(size, my_cpu_id(), 1);
+  if((long)bp == -1){
+  return -1;
+  }
   /* Initialize free block header/footer and the epilogue header */
   PUT(HDRP(bp), PACK(size, 0));         /* Free block header */   //line:vm:mm:freeblockhdr
   PUT(FTRP(bp), PACK(size, 0));         /* Free block footer */   //line:vm:mm:freeblockftr
@@ -267,9 +271,14 @@ static void printblock(void* state, void *bp)
 
 static int mm_init(void *state){
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
+  as->heap_listp = kmem_sys_malloc_specific(4*WSIZE,my_cpu_id(),1);
+  if(as->heap_listp==(void*)-1){
+  	return -1;
+  }
   /* Create the initial empty heap */
-  if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
+  /*if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
     return -1;
+    */
   PUT(as->heap_listp, 0);                          /* Alignment padding */
   PUT(as->heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
   PUT(as->heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
