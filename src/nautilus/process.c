@@ -155,6 +155,11 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_DEBUG("Entering process wrapper.\n");
+  
+  // current thread belongs to a process now
+  // TODO MAC: May need to acquire lock
+  nk_thread_t *me = get_cur_thread();
+  me->process = p;
 
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
@@ -163,7 +168,13 @@ void __nk_process_wrapper(void *i, void **o) {
 
   // TODO MAC: Find out why joining the thread group doesn't work
   //nk_thread_group_join(p->t_group);
-  
+ 
+  // Associate allocator with process thread
+  if (nk_alloc_set_associated(p->allocator)) {
+    PROCESS_ERROR("Failed to associate process with allocator\n");
+    nk_thread_exit(-1);
+  } 
+ 
   // Move thread into process address space
   PROCESS_DEBUG("Moving thread into process aspace. Aspace addr: %p, Process addr %p\n", p->aspace, p);
   nk_aspace_move_thread(p->aspace);
@@ -252,7 +263,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     *new_aspace = addr_space;
   }
   if (stack) {
-    *stack = p_addr_start + PHEAP_1MB;
+    *stack = p_addr_start + PSTACK_SIZE;
   }
   return 0;
  
@@ -297,7 +308,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   }
   PROCESS_INFO("Created address space\n"); 
 
-  // count argv and envp, allocate them on heap
+  // count argv and envp, allocate them on stack
   PROCESS_INFO("stack address (highest stack addr): %p\n", stack_addr);
   uint64_t argc, argv_len, envc, envp_len;
   argc = argv_len = envc = envp_len = 0;
@@ -309,6 +320,9 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   void *stack_ptr = stack_addr;
   args = copy_argv_or_envp(argv, argc, argv_len, &stack_ptr);
   envs = copy_argv_or_envp(envp, envc, envp_len, &stack_ptr);  
+
+  // create a new allocator
+  nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
 
   // ensure that lock has been initialized to 0
   spinlock_init(&(p->lock));
@@ -328,7 +342,8 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
 
   // set address space ptr and rename it
   p->aspace = addr_space;
-  nk_aspace_rename(p->aspace, p->name); 
+  nk_aspace_rename(p->aspace, p->name);
+  p->heap = 0; 
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
   p->argc = argc;
@@ -377,6 +392,11 @@ int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_ty
   return 0;
 }
 
+// TODO MAC: There's a chance the process pointer isn't mapped in the current aspace
+nk_process_t *nk_process_current() {
+  nk_thread_t *t = get_cur_thread();
+  return t->process;
+}
 
 // add this right after loader init
 int nk_process_init() {

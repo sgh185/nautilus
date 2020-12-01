@@ -39,6 +39,7 @@ extern "C" {
 #include <nautilus/aspace.h>
 #include <nautilus/group.h>
 #include <nautilus/loader.h>
+#include <nautilus/alloc.h>
 //#include <nautilus/cachepart.h>
 //#include <nautilus/scheduler.h>
 
@@ -91,6 +92,12 @@ typedef struct nk_process {
 
   // what aspace the process is using
   nk_aspace_t *aspace;
+
+  // end of heap
+  void *heap;
+
+  // Memory allocator
+  nk_alloc_t *allocator;
 
   // Current process status - might add later 
 
@@ -178,6 +185,9 @@ int nk_process_start(char *exe_name,
                      nk_process_t **p,
                      int target_cpu);
 
+
+nk_process_t *nk_process_current();
+
 /*
 int nk_process_exec();
 
@@ -185,7 +195,6 @@ int nk_process_destroy();
 
 int nk_process_find_by_name();
 
-int nk_process_current();
 
 int nk_process_fork();
 */
