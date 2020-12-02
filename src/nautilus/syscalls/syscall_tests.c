@@ -198,20 +198,26 @@ static int handle_exec_crt(char* buf, void* priv) {
     argp++;
     argv[argc] = argp;
   }
-  // nk_vc_printf("I think these are the args:\n");
-  // for (int i = 0; i < argc; i++) {
-  //   if (argv[i] == 0) {
-  //     break;
-  //   }
-  //   nk_vc_printf("\t%s\n", argv[i]);
+
+  // struct nk_exec* e = nk_load_exec(argv[1]);
+  // if (e) {
+  //   nk_start_exec_crt(e, argc - 1,
+  //                     argv + 1); /* Programs will expect argv[0] to be the
+  //                                   program name, so must modify this */
+  //   nk_unload_exec(e);
   // }
-  struct nk_exec* e = nk_load_exec(argv[1]);
-  if (e) {
-    nk_start_exec_crt(e, argc - 1,
-                      argv + 1); /* Programs will expect argv[0] to be the
-                                    program name, so must modify this */
-    nk_unload_exec(e);
+
+  nk_process_t *process;
+  if (nk_process_create(argv[1], argv + 1, NULL, "paging", &process)) {
+    nk_vc_printf("Failed to create new process\n");
+    return -1;
   }
+  if (nk_process_run(process, 0)) {
+    nk_vc_printf("Failed to run process\n");
+    return -1;
+  }
+  nk_vc_printf("Started %s in the background.\n", argv[1]);
+  return 0;
 }
 
 static struct shell_cmd_impl exec_crt_impl = {

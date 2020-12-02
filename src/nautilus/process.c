@@ -343,7 +343,8 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   // set address space ptr and rename it
   p->aspace = addr_space;
   nk_aspace_rename(p->aspace, p->name);
-  p->heap = 0; 
+  p->heap_begin = 0; 
+  p->heap_end = 0; 
 
   // for now, set arg vars to NULL. Eventually we want to put them into addr space
   p->argc = argc;
