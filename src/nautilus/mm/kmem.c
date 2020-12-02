@@ -776,7 +776,7 @@ void * kmem_realloc_specific(void * ptr, size_t size, int cpu)
 #ifdef NAUT_CONFIG_ALLOCS
     nk_alloc_t *alloc = nk_alloc_get_associated();
     if (alloc) {
-	return nk_alloc_realloc(alloc,size,NK_ALLOC_DEFAULT_ALIGNMENT,cpu,0);
+	return nk_alloc_realloc_extended(alloc,ptr,size,NK_ALLOC_DEFAULT_ALIGNMENT,cpu,0);
     }
 #endif
     return kmem_sys_realloc_specific(ptr,size,cpu);

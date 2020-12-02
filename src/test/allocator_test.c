@@ -37,15 +37,17 @@ int run_alloc_test(){
     //Alloc
     for(int i = 0; i < NUMPOINTERS; i++){
         ptrs[i] = (int*) malloc(sizeof(int));
-        **(ptrs+i)= i;  
-        DEBUG("Allocated pointer at %p with value %d", ptrs[i],**(ptrs+i));
+        ptrs[i][0]= i;  
+        DEBUG("Allocated pointer at %p with value %d", ptrs[i],ptrs[i][0]);
     }
     DEBUG("Running reallocs");
     //Realloc
     for (int i = 0; i < NUMPOINTERS; i++)
     {
-        ptrs[i] = (int*) realloc(ptrs[i],sizeof(int)*8);
-        DEBUG("REallocated pointer to %p with value %d, %d, %d, %d, %d, %d, %d, %d, %d", ptrs[i],(ptrs+i)[0][0],(ptrs+i)[0][1],(ptrs+i)[0][2], (ptrs+i)[0][3], (ptrs+i)[0][4], (ptrs+i)[0][5], (ptrs+i)[0][6], (ptrs+i)[0][7], (ptrs+i)[0][8]);
+    	    DEBUG("ptrs[i] before realloc: %p", ptrs[i]);
+	    ptrs[i] = (int*) realloc(ptrs[i],sizeof(int)*8);
+        //DEBUG("REallocated pointer to %p with value %d, %d, %d, %d, %d, %d, %d, %d, %d", ptrs[i],(ptrs+i)[0][0],(ptrs+i)[0][1],(ptrs+i)[0][2], (ptrs+i)[0][3], (ptrs+i)[0][4], (ptrs+i)[0][5], (ptrs+i)[0][6], (ptrs+i)[0][7], (ptrs+i)[0][8]);
+     DEBUG("REallocated pointer at %p with value %d", ptrs[i],ptrs[i][0]);
     }
     DEBUG("Freeing");
     //Free
