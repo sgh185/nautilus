@@ -477,7 +477,7 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	/*
  	 * Get the permissions of the address for the current thread.
 	 */
-	nk_aspace_protection_t* permissions = get_permissions(get_cur_thread()->aspace, memory_address);
+	nk_aspace_protection_t* permissions = nk_aspace_get_permission(get_cur_thread()->aspace, memory_address);
 
 	if (!permissions) {
 		panic("Could not find region associated with the guarded address.\n");

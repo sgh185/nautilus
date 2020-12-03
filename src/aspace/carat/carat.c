@@ -312,7 +312,6 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
 /**
  * Question: overalapping region is not legal in CARAT, right?
  * */
-
 static int protection_check(void * state, nk_aspace_region_t * region) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
@@ -376,6 +375,25 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     ASPACE_UNLOCK(carat);
     return -1;
 }
+
+static nk_aspace_protection_t* get_permission(void * state, addr_t address) {
+
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(carat);
+
+    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm,address);
+
+    if (region == NULL) {
+        ASPACE_UNLOCK(carat);
+        return NULL;
+    } 
+
+
+    ASPACE_UNLOCK(carat);
+    return &region->protect;
+}
+
 
 
 static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region) 
