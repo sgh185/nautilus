@@ -6,3 +6,6 @@ obj-$(NAUT_CONFIG_ASPACE_CARAT)  += carat/
 obj-$(NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE) += region_tracking/
 obj-$(NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE) += region_tracking/
 obj-$(NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST) += region_tracking/
+obj-$(NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE) += region_tracking/
+obj-$(NAUT_CONFIG_ASPACE_CARAT_REGION_SPLAY_TREE) += region_tracking/
+obj-$(NAUT_CONFIG_ASPACE_CARAT_REGION_LINKED_LIST) += region_tracking/

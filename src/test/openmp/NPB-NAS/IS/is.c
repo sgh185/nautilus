@@ -588,7 +588,6 @@ void rank( int iteration )
 
 
 static int program_IS(char *_buf, void* _priv);
-static int program_IS_paging(char *_buf, void* _priv);
 
 static struct shell_cmd_impl nas_is_impl = {
     .cmd      = "nas-is",
@@ -597,6 +596,11 @@ static struct shell_cmd_impl nas_is_impl = {
 };
 nk_register_shell_cmd(nas_is_impl);
 
+#ifdef NAUT_CONFIG_ASPACE_PAGING
+
+int program_IS_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_IS);
+}
 
 static struct shell_cmd_impl nas_is_paging_impl = {
     .cmd      = "nas-is-paging",
@@ -605,10 +609,9 @@ static struct shell_cmd_impl nas_is_paging_impl = {
 };
 nk_register_shell_cmd(nas_is_paging_impl);
 
+#endif
 
-int program_IS_paging(char * _buf, void *_priv){
-    return paging_wrapper(_buf, _priv, &program_IS);
-}
+
 
 // int program_IS_paging(char * _buf, void *_priv){
 
