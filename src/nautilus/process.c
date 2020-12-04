@@ -179,7 +179,7 @@ void __nk_process_wrapper(void *i, void **o) {
   // Associate allocator with process thread
   if (nk_alloc_set_associated(p->allocator)) {
     PROCESS_ERROR("Failed to associate process with allocator\n");
-    nk_thread_exit(-1);
+    nk_thread_exit((void *)-1);
   } 
  
   // Move thread into process address space
