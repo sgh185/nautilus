@@ -23,6 +23,6 @@ ld -static -pie --no-dynamic-linker \
 -L/usr/lib \
 "$@" \
 $DIRNAME/glue.o $DIRNAME/framework_low_level.o $DIRNAME/framework.o \
--lm --start-group -lgcc  -lc -lrt --end-group \
+-lm -lgomp -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
 /usr/lib/gcc/x86_64-linux-gnu/9/crtendS.o \
 /usr/lib/x86_64-linux-gnu/crtn.o
