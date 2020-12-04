@@ -98,7 +98,7 @@ typedef struct nk_process {
   // end of heap
   void *heap_end;
 
-  // bottom of heap ptr (for freeing)
+  // bottom of heap ptr
   void *heap_begin;
 
   // Memory allocator
