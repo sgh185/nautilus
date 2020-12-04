@@ -114,7 +114,7 @@ typedef struct nk_process {
   uint64_t envc;
   char **envp;
   
-  // process id, same for all threads in group
+  // process id
   unsigned long pid;
   
   // sync primitive, spinlock
@@ -177,12 +177,6 @@ int nk_process_create(char *exe_name,
                       char *aspace_type,
                       nk_process_t **proc_struct);
 
-int nk_process_name(nk_process_id_t proc, char *name);
-
-int nk_process_init();
-
-// create a new thread, pass in proc struct as arg, have thread func call exec start
-// thread created will have stack and heap -- can associate thread w/ allocator (and handle heap). The stack should be allocated using process' allocator. Might need thread_create variant that takes stack as arg
 int nk_process_run(nk_process_t *p, int target_cpu);
 
 // create and run a process
@@ -193,8 +187,12 @@ int nk_process_start(char *exe_name,
                      nk_process_t **p,
                      int target_cpu);
 
+int nk_process_name(nk_process_id_t proc, char *name);
 
 nk_process_t *nk_process_current();
+
+// called at boot time
+int nk_process_init();
 
 /*
 int nk_process_exec();
