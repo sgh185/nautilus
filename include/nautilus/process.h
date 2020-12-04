@@ -40,6 +40,7 @@ extern "C" {
 #include <nautilus/group.h>
 #include <nautilus/loader.h>
 #include <nautilus/alloc.h>
+#include <nautilus/vc.h>
 //#include <nautilus/cachepart.h>
 //#include <nautilus/scheduler.h>
 
@@ -96,6 +97,8 @@ typedef struct nk_process {
   // end of heap
   void *heap;
 
+  // bottom of heap ptr (for freeing)
+
   // Memory allocator
   nk_alloc_t *allocator;
 
@@ -130,6 +133,9 @@ typedef struct nk_process {
   //    file system
   //    fd table
   //    root/working directory
+
+  // Virtual Console
+  struct nk_virtual_console *vc;
 
   // syscall table struct ptr
   //    factored out

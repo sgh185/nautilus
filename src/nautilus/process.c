@@ -161,13 +161,20 @@ void __nk_process_wrapper(void *i, void **o) {
   nk_thread_t *me = get_cur_thread();
   me->process = p;
 
+  //set virtual console so we can print to shell
+  me->vc = p->vc;  
+
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
   char **args = p->argv_virt;
   struct nk_exec *exe = p->exe;
 
   // TODO MAC: Find out why joining the thread group doesn't work
-  //nk_thread_group_join(p->t_group);
+  if (nk_thread_group_join(p->t_group)) {
+    PROCESS_ERROR("Failed to join thread group\n");
+    return;
+  }
+  PROCESS_INFO("After thread group\n");
  
   // Associate allocator with process thread
   if (nk_alloc_set_associated(p->allocator)) {
@@ -353,7 +360,15 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   p->envp = envs;
 
   // create thread group (empty for now)
-  nk_thread_group_create(p->name);
+  p->t_group = nk_thread_group_create(p->name);
+  if (!(p->t_group)) {
+    PROCESS_ERROR("Failed to create thread group\n");
+    _UNLOCK_PROCESS(p);
+    return -1;
+  }
+
+  // Set virtual console
+  p->vc = curr_thread->vc;
 
   // release process lock
   _UNLOCK_PROCESS(p);
