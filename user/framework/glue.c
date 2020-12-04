@@ -7,6 +7,14 @@ void _Unwind_Resume() {
   return;
 }
 
+void _Unwind_GetCFA() {
+  return;
+}
+
+void _Unwind_ForcedUnwind() {
+  
+}
+
 double __unordtf2() {
   printf("Call to fake __unordtf2\n");
   return 0;

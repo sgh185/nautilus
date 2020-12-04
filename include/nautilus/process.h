@@ -93,8 +93,11 @@ typedef struct nk_process {
   // what aspace the process is using
   nk_aspace_t *aspace;
 
+  // beginning of heap
+  void *heap_begin;
+
   // end of heap
-  void *heap;
+  void *heap_end;
 
   // Memory allocator
   nk_alloc_t *allocator;
