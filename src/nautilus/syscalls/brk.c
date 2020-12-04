@@ -18,8 +18,6 @@
 /// @todo this currently causes a memory leak and doesn't use the allocator system, which is wrong
 uint64_t sys_brk(const uint64_t brk) {
 
-  nk_vc_printf("BRK arg is %p\n", brk);
-
   nk_process_t* current_process = nk_process_current();
   if (!current_process) {
     panic("Call to sys_brk out of the context of a process.\n");
@@ -51,6 +49,5 @@ uint64_t sys_brk(const uint64_t brk) {
     retval = current_process->heap_begin;
   }
   spin_unlock(&current_process->lock);
-  nk_vc_printf("BRK returning %p\n", retval);
   return (uint64_t)retval;
 }
