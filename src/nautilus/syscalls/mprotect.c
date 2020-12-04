@@ -7,6 +7,6 @@
 int sys_mprotect(int addr, int length, int prot) {
   /// TODO: everything
   
-  DEBUG("Unimplemented");
-  return 0;
+  DEBUG("Unimplemented\n");
+  return -1;
 }

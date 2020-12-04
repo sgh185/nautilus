@@ -7,6 +7,6 @@
 int sys_munmap(int addr, int length, int prot, int flags, int fd, int offset) {
   /// TODO: everything
   
-  DEBUG("Unimplemented");
-  return 0;
+  DEBUG("Unimplemented\n");
+  return -1;
 }

@@ -44,8 +44,8 @@ static int handle_syscall_tests(char* buf, void* priv) {
   //   printk("Please enter 7 chars to test read from stdin: ");
   //   EXPECT(read(0, read_buffer, 7) == 7);
   //   printk("\nYour input: ");
-  //   EXPECT(write(1, read_buffer, strlen(read_buffer)) == strlen(read_buffer));
-  //   printk("\n");
+  //   EXPECT(write(1, read_buffer, strlen(read_buffer)) ==
+  //   strlen(read_buffer)); printk("\n");
   // }
 
   // // Test open / read / write / close on files
@@ -92,8 +92,8 @@ static int handle_syscall_tests(char* buf, void* priv) {
   // {
   //   /// TODO: include from wherever this is defined correctly
   //   struct timeval {
-  //     int tv_sec;  /* seconds */
-  //     int tv_usec; /* microseconds */
+  //     uint64_t tv_sec;  /* seconds */
+  //     uint64_t tv_usec; /* microseconds */
   //   };
   //   struct timeval timev;
 
@@ -181,3 +181,53 @@ static struct shell_cmd_impl syscalltest_impl = {
 };
 
 nk_register_shell_cmd(syscalltest_impl);
+
+static int handle_exec_crt(char* buf, void* priv) {
+  int argc = 0;
+  char* argv[64] = {0};
+  char* argp = buf;
+  argv[0] = buf;
+  for (argc = 1; argc < 64; argc++) {
+    while (*argp != ' ' && *argp != 0) {
+      argp++;
+    }
+    if (*argp == 0) {
+      break;
+    }
+    *argp = 0;
+    argp++;
+    argv[argc] = argp;
+  }
+
+  // struct nk_exec* e = nk_load_exec(argv[1]);
+  // if (e) {
+  //   nk_start_exec_crt(e, argc - 1,
+  //                     argv + 1); /* Programs will expect argv[0] to be the
+  //                                   program name, so must modify this */
+  //   nk_unload_exec(e);
+  // }
+
+  nk_process_t *process;
+  if (nk_process_create(argv[1], argv + 1, NULL, "paging", &process)) {
+    nk_vc_printf("Failed to create new process\n");
+    return -1;
+  }
+  if (nk_process_run(process, 0)) {
+    nk_vc_printf("Failed to run process\n");
+    return -1;
+  }
+  nk_vc_printf("Started %s in the background.\n", argv[1]);
+  return 0;
+}
+
+static struct shell_cmd_impl exec_crt_impl = {
+
+    .cmd = "exec_crt",
+
+    .help_str = "execute a c runtime application",
+
+    .handler = handle_exec_crt,
+
+};
+
+nk_register_shell_cmd(exec_crt_impl);
