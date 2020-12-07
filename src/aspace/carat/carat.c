@@ -376,22 +376,23 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     return -1;
 }
 
-static nk_aspace_protection_t* get_permission(void * state, addr_t address) {
+static int get_permission(void * state, addr_t address, nk_aspace_protection_t * prot) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 
-    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm,address);
+    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, address);
 
     if (region == NULL) {
+        prot->flags = 0;
         ASPACE_UNLOCK(carat);
-        return NULL;
-    } 
+        return -1;
+    }
 
-
+    *prot = region->protect;
     ASPACE_UNLOCK(carat);
-    return &region->protect;
+    return 0;
 }
 
 
@@ -549,13 +550,13 @@ static struct nk_aspace *create(char *name, nk_aspace_characteristics_t *c)
     INIT_LIST_HEAD(&(carat->threads.thread_node));
 
     // initialize region dat structure
-#ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE
+#ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
     carat->mm = mm_rb_tree_create();
 
-#elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE
+#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_SPLAY_TREE
     carat->mm = mm_splay_tree_create();
 
-#elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST
+#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_LINKED_LIST
     carat->mm = mm_llist_create();
 
 #else
@@ -596,7 +597,24 @@ static nk_aspace_impl_t carat = {
 nk_aspace_register_impl(carat);
 
 static int CARAT_Protection_sanity(char *_buf, void* _priv) {
+#define LEN_1KB (0x400UL)
+#define LEN_4KB (0x1000UL)
+#define LEN_256KB (0x40000UL)
+#define LEN_512KB (0x80000UL)
 
+#define LEN_1MB (0x100000UL)
+#define LEN_4MB (0x400000UL)
+#define LEN_6MB (0x600000UL)
+#define LEN_16MB (0x1000000UL)
+
+#define LEN_1GB (0x40000000UL)
+#define LEN_4GB (0x100000000UL)
+
+#define ADDR_4GB ((void *) 0x100000000UL)
+#define ADDR_8GB ((void *) 0x200000000UL)
+#define ADDR_12GB ((void *) 0x300000000UL)
+#define ADDR_16GB ((void *) 0x400000000UL)
+#define ADDR_UPPER ((void *) 0xffff800000000000UL)
     nk_vc_printf("Start: CARAT Protection check sanity test.\n");
     
     // CARAT ASPACE + Protection Check test
@@ -730,6 +748,16 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
         nk_vc_printf("failed! protection check\n");
         goto test_fail;
     }
+
+    /**
+     *  Test case for get_permission
+     * */
+    // nk_aspace_protection_t prot;
+    // if (nk_aspace_protection_check(carat_aspace, , &prot) || prot.flags != carat_r0.protect.flags) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
+
 
     nk_vc_printf("Before Destroy\n");
     nk_aspace_destroy(carat_aspace);

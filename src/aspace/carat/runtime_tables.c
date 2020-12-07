@@ -477,9 +477,11 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	/*
  	 * Get the permissions of the address for the current thread.
 	 */
-	nk_aspace_protection_t* permissions = nk_aspace_get_permission(get_cur_thread()->aspace, memory_address);
 
-	if (!permissions) {
+	nk_aspace_protection_t protection;
+
+	int res = nk_aspace_get_permission(get_cur_thread()->aspace, memory_address, &protection);
+	if (res) {
 		panic("Could not find region associated with the guarded address.\n");
 	}
 
@@ -496,8 +498,8 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 * 
  	 */ 
 
-	int is_memory_writable = NK_ASPACE_GET_WRITE(permissions->flags);
-	int is_memeory_readable = NK_ASPACE_GET_READ(permissions->flags);
+	int is_memory_writable = NK_ASPACE_GET_WRITE(protection.flags);
+	int is_memeory_readable = NK_ASPACE_GET_READ(protection.flags);
 	int is_legal_access = is_memory_writable // cond. 1
 						  || is_memeory_readable && !is_write; // cond. 2
 
