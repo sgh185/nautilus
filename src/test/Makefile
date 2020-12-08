@@ -18,7 +18,7 @@ obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 
 #obj-$(NAUT_CONFIG_OPENMP_RT_TESTS)  += openmp/
 # KARAT TESTING
-obj-y += openmp/
+#obj-y += openmp/
 
 obj-$(NAUT_CONFIG_NDPC_RT_TESTS) += ndpc/
 obj-$(NAUT_CONFIG_NESL_RT_TESTS) += nesl/
@@ -49,3 +49,4 @@ obj-$(NAUT_CONFIG_LEGION_RT) += test_legion.o \
 obj-$(NAUT_CONFIG_ALLOC_TEST) += alloc
 
 obj-$(NAUT_CONFIG_TEST_ALLOC_CS213) += allocator_test.o
+obj-$(NAUT_CONFIG_TEST_TRACE_ALLOC_CS213) += allocator_test_trace.o
