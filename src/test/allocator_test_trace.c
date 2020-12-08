@@ -36,15 +36,15 @@ int run_alloc_test_trace(){
     int num_ops = allocator_tests_traces[TRACE_NUM][1];
     void* allocs[num_allocs];
     int allocs_completed = 0;
-    for(int i=2; i<num_ops;i+=3){
+    for(int i=2; i<(num_ops*3)+2;i+=3){
         int alloc_id = allocator_tests_traces[TRACE_NUM][i+1];
-        DEBUG("alloc_type: %d", allocator_tests_traces[TRACE_NUM][i]);
+        //DEBUG("alloc_type: %d", allocator_tests_traces[TRACE_NUM][i]);
         switch (allocator_tests_traces[TRACE_NUM][i])
         {
         case -1: //alloc case
             allocs[alloc_id] = malloc(allocator_tests_traces[TRACE_NUM][i+2]);
             DEBUG("ALLOCed id %d with size %d and location %p", alloc_id, allocator_tests_traces[TRACE_NUM][i+2], allocs[alloc_id]);
-            allocs_completed++;
+            //allocs_completed++;
             if(!allocs[alloc_id]){
                 DEBUG("Alloc failed - malloc returned null ptr");
                 return -1;
