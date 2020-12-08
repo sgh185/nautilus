@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +25,15 @@ void* func1(void) {
   }
 }
 
+int newfunc(void* x) {
+  printf("Hello, new thread here. arg is %p\n", x);
+  fflush(stdout);
+  exit(0);
+  return 0;
+}
+
+char stack[0x20000];
+
 int main(int argc, char** argv) {
   char write_msg[] = "Write using write\n";
   write(STDOUT_FILENO, write_msg, sizeof(write_msg));
@@ -32,4 +44,13 @@ int main(int argc, char** argv) {
   printf("Write using printf\n");
 
   func1();
+
+  printf("Addr is: %p\nStack is %p\n", newfunc, stack + 0x20000);
+  fflush(stdout);
+  write(STDOUT_FILENO, write_msg, sizeof(write_msg));
+  if (clone(newfunc, stack + 0x20000, CLONE_VM, 0xDEAFBEEF) == -1) {
+    printf("Error\n");
+  }
+  while (1)
+    ;
 }

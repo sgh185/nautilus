@@ -7,7 +7,7 @@
 NAUTILUS_DIR = ../..
 
 
-TARGET = fbench.exe
+TARGET = hello.exe
 
 USER_OBJ = hello.o
 

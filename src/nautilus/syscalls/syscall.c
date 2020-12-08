@@ -6,6 +6,7 @@
 #include <nautilus/syscall.h>
 #include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
+#include <nautilus/process.h>
 
 #define ERROR(fmt, args...) ERROR_PRINT("syscall: " fmt, ##args)
 #define DEBUG(fmt, args...) DEBUG_PRINT("syscall: " fmt, ##args)
@@ -361,7 +362,12 @@ int int80_handler(excp_entry_t* excp, excp_vec_t vector, void* state) {
 
 uint64_t nk_syscall_handler(struct nk_regs* r) {
   int syscall_nr = (int)r->rax;
+  nk_process_t* current_process = nk_process_current();
   INFO("Inside syscall_syscall handler for syscall %d\n", syscall_nr);
+  if (!current_process) {
+    panic("Syscall out of the context of a process.\n");
+  }
+  get_cur_thread()->sysret_addr = r->rcx; /* Used for special return in clone */
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);

@@ -26,4 +26,8 @@ obj-y += \
 	brk.o \
 	arch_prctl.o \
 	writev.o \
+	futex.o \
+	prlimit64.o \
+	set_tid_address.o \
+	clone.o \
 	syscall_stubs.o

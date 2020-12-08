@@ -192,6 +192,9 @@ struct nk_thread {
 
 #ifdef NAUT_CONFIG_PROCESSES
     nk_process_t *process;       /* Initialized if part of a process */
+    void* set_child_tid;
+    void* thread_start_addr;
+    void* sysret_addr; /* Address set on entry to a syscall */
 #endif
     nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 

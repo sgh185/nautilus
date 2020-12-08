@@ -261,13 +261,6 @@ uint64_t sys_getsockopt(uint64_t fd, uint64_t level, uint64_t optname,
   return -1;
 }
 
-uint64_t sys_clone(uint64_t fd, uint64_t level, uint64_t optname,
-                   uint64_t optval, uint64_t optlen) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (clone)\n");
-  return -1;
-}
-
 uint64_t sys_vfork() {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (vfork)\n");
@@ -1095,13 +1088,6 @@ uint64_t sys_time(uint64_t tloc) {
   return -1;
 }
 
-uint64_t sys_futex(uint64_t usaddr, uint64_t op, uint64_t val, uint64_t utime,
-                   uint64_t uaddr2, uint64_t val3) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (futex)\n");
-  return -1;
-}
-
 uint64_t sys_sched_setaffinity(uint64_t pid, uint64_t len,
                                uint64_t user_mask_ptr) {
   /// TODO: entire syscall
@@ -1193,12 +1179,6 @@ uint64_t sys_remap_file_pages(uint64_t start, uint64_t size, uint64_t protocol,
 uint64_t sys_getdents64(uint64_t fd, uint64_t dirent, uint64_t count) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (getdents64)\n");
-  return -1;
-}
-
-uint64_t sys_set_tid_address(uint64_t tldptr) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (set_tid_address)\n");
   return -1;
 }
 
@@ -1731,13 +1711,6 @@ uint64_t sys_fanotify_mark(uint64_t fanotify_fd, uint64_t flags, uint64_t mask,
                            uint64_t dfd, uint64_t pathname) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (fanotify_mark)\n");
-  return -1;
-}
-
-uint64_t sys_prlimit64(uint64_t pid, uint64_t resource, uint64_t new_rlim,
-                       uint64_t old_rlim) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (prlimit64)\n");
   return -1;
 }
 
