@@ -116,6 +116,7 @@ static struct shell_cmd_impl nas_cg_impl = {
 };
 nk_register_shell_cmd(nas_cg_impl);
 
+#ifdef NAUT_CONFIG_ASPACE_PAGING
 int program_CG_paging(char * _buf, void *_priv){
     return paging_wrapper(_buf, _priv, &program_CG);
 }
@@ -126,6 +127,7 @@ static struct shell_cmd_impl nas_cg_paging_impl = {
     .handler  = program_CG_paging,
 };
 nk_register_shell_cmd(nas_cg_paging_impl);
+#endif
 /*--------------------------------------------------------------------
       program CG
 c-------------------------------------------------------------------*/

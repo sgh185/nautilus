@@ -101,6 +101,8 @@ static struct shell_cmd_impl nas_lu_impl = {
 };
 nk_register_shell_cmd(nas_lu_impl);
 
+#ifdef NAUT_CONFIG_ASPACE_PAGING
+
 int program_LU_paging(char * _buf, void *_priv){
     return paging_wrapper(_buf, _priv, &program_LU);
 }
@@ -111,6 +113,8 @@ static struct shell_cmd_impl nas_lu_paging_impl = {
     .handler  = program_LU_paging,
 };
 nk_register_shell_cmd(nas_lu_paging_impl);
+
+#endif
 
 int program_LU(char * _buf, void *_priv) {
 

@@ -80,6 +80,7 @@ static struct shell_cmd_impl nas_ep_impl = {
 };
 nk_register_shell_cmd(nas_ep_impl);
 
+#ifdef NAUT_CONFIG_ASPACE_PAGING
 int program_EP_paging(char * _buf, void *_priv){
     return paging_wrapper(_buf, _priv, &program_EP);
 }
@@ -90,6 +91,7 @@ static struct shell_cmd_impl nas_ep_paging_impl = {
     .handler  = program_EP_paging,
 };
 nk_register_shell_cmd(nas_ep_paging_impl);
+#endif
 
 int program_EP(char *buf, void* priv) {
 
