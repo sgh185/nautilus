@@ -10,7 +10,7 @@ uint64_t sys_ftruncate(uint64_t fd, uint64_t len, uint64_t c, uint64_t d, uint64
 
 uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence, uint64_t d, uint64_t e, uint64_t f);
 
-uint64_t sys_open(uint64_t filename, uint64_t flags,uint64_t  mode, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_open(uint64_t filename, uint64_t flags,uint64_t  mode);
 
 uint64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t d, uint64_t e, uint64_t f);
 

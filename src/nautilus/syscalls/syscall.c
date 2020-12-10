@@ -13,7 +13,7 @@
 #define INFO(fmt, args...) INFO_PRINT("syscall: " fmt, ##args)
 #define MAX_SYSCALL 314
 
-typedef int (*syscall_t)(int, int, int, int, int, int);
+typedef uint64_t (*syscall_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 syscall_t syscall_table[MAX_SYSCALL];
 
 extern void syscall_entry(void);

@@ -14,20 +14,6 @@ uint64_t sys_poll(uint64_t ufds, uint64_t nfds, uint64_t timeout_msecs) {
   return -1;
 }
 
-uint64_t sys_rt_sigaction(uint64_t sig, uint64_t act, uint64_t oact,
-                          uint64_t sigsetsize) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (rt_sigaction)\n");
-  return -1;
-}
-
-uint64_t sys_rt_sigprocmask(uint64_t how, uint64_t nset, uint64_t oset,
-                            uint64_t sigsetsize) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (rt_sigprocmask)\n");
-  return -1;
-}
-
 uint64_t sys_rt_sigreturn() {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (rt_sigreturn)\n");
@@ -430,7 +416,10 @@ uint64_t sys_symlink(uint64_t oldname, uint64_t newname) {
 uint64_t sys_readlink(uint64_t path, uint64_t buf, uint64_t bufsiz) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (readlink)\n");
-  return -1;
+  DEBUG("%s\n%p\n%ld\n", path, buf, bufsiz);
+  const char* name = "/bt.S";
+  strcpy((char*)buf, name);
+  return strlen(name);
 }
 
 uint64_t sys_chmod(uint64_t filename, uint64_t mode) {
@@ -1418,13 +1407,6 @@ uint64_t sys_migrate_pages(uint64_t pid, uint64_t maxnode, uint64_t old_ndoes,
   return -1;
 }
 
-uint64_t sys_openat(uint64_t dfd, uint64_t filename, uint64_t flags,
-                    uint64_t mode) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (openat)\n");
-  return -1;
-}
-
 uint64_t sys_mkdirat(uint64_t dfd, uint64_t pathname, uint64_t mode) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (mkdirat)\n");
@@ -1520,12 +1502,6 @@ uint64_t sys_ppoll(uint64_t ufds, uint64_t nfds, uint64_t tsp, uint64_t sigmask,
 uint64_t sys_unshare(uint64_t unshare_flags) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (unshare)\n");
-  return -1;
-}
-
-uint64_t sys_set_robust_list(uint64_t header, uint64_t len) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (set_robust_list)\n");
   return -1;
 }
 

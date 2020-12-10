@@ -30,4 +30,7 @@ obj-y += \
 	prlimit64.o \
 	set_tid_address.o \
 	clone.o \
+	set_robust_list.o \
+	openat.o \
+	rt_sigaction.o \
 	syscall_stubs.o
