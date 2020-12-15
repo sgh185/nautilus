@@ -80,6 +80,7 @@ typedef struct nk_aspace_region {
     void       *pa_start;
     uint64_t    len_bytes;
     nk_aspace_protection_t  protect;
+    int         requested_permissions; // 0 == no permissions requested, 1 == read, 2 == write
 } nk_aspace_region_t;
 
 
@@ -102,7 +103,7 @@ typedef struct nk_aspace_interface {
     
     int    (*protection_check)(void * state, nk_aspace_region_t * region);
  
-    int (*get_permission)(void * state, addr_t address, nk_aspace_protection_t * prot);
+    int (*request_permission)(void * state, addr_t address, int is_write);
     // do the work needed to install the address space on the CPU
     // this is invoked on a context switch to a thread that is in a different
     // address space
@@ -169,7 +170,7 @@ int          nk_aspace_move_region(nk_aspace_t *aspace, nk_aspace_region_t *cur_
 
 int          nk_aspace_protection_check(nk_aspace_t *aspace, nk_aspace_region_t * region);  
 
-int          nk_aspace_get_permission(nk_aspace_t *aspace, addr_t address, nk_aspace_protection_t * prot);
+int          nk_aspace_request_permission(nk_aspace_t *aspace, addr_t address, int is_write);
 
 // call on BSP after percpu and kmem are available
 int          nk_aspace_init();

@@ -303,6 +303,51 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 
+    if (region == NULL) {
+        prot->flags = 0;
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    
+    int requested_permissions = region->requested_permissions;
+
+    /*
+     * requested_permissions will contain the highest level of access (write, read, or nothing) that a program expects from this region.
+     * If this attempted region change invalidates that expectation, the protection change is not allowed (panic)
+     */
+
+    if (requested_permissions) {
+        int is_write = requested_permissions - 1;
+        /*
+        * If @is_write == 0: we are trying to read the address
+        * If @is_write == 1: we are trying to write the address
+        * 
+        * Note: this is making the assunption that if we have write access 
+        * we also have read access for performance
+        * 
+        * Given this assumption, there are two ways for this to be a legal access:
+        * 1. If the memory is writable, either a write or a read is allowed
+        * 2. If the memory is readable, only a read is allowed
+        * 
+        */ 
+
+        int is_memory_writable = NK_ASPACE_GET_WRITE(prot->flags);
+        int is_memeory_readable = NK_ASPACE_GET_READ(prot->flags);
+        int is_legal_access = is_memory_writable // cond. 1
+                            || (is_memeory_readable && !is_write); // cond. 2
+
+
+        if (!is_legal_access) {
+            panic("Changing the permission of the region will invalidate existing usage of the region \n");
+        }
+    }
+
+    /*
+     * The protection change is valid
+     */
+    region->protect = *prot;
+
     // TODO: remove region with data structure
     ASPACE_UNLOCK(carat);
     return 0;
@@ -376,7 +421,7 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     return -1;
 }
 
-static int get_permission(void * state, addr_t address, nk_aspace_protection_t * prot) {
+static int request_permission(void * state, addr_t address, int is_write) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
@@ -385,13 +430,41 @@ static int get_permission(void * state, addr_t address, nk_aspace_protection_t *
     nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, address);
 
     if (region == NULL) {
-        prot->flags = 0;
         ASPACE_UNLOCK(carat);
         return -1;
     }
 
-    *prot = region->protect;
+    nk_aspace_protection_t prot = region->protect;
+    /*
+ 	 * If @is_write == 0: we are trying to read the address
+	 * If @is_write == 1: we are trying to write the address
+	 * 
+	 * Note: this is making the assunption that if we have write access 
+	 * we also have read access for performance
+	 * 
+	 * Given this assumption, there are two ways for this to be a legal access:
+	 * 1. If the memory is writable, either a write or a read is allowed
+	 * 2. If the memory is readable, only a read is allowed
+	 * 
+ 	 */ 
+
+	int is_memory_writable = NK_ASPACE_GET_WRITE(prot.flags);
+	int is_memeory_readable = NK_ASPACE_GET_READ(prot.flags);
+	int is_legal_access = is_memory_writable // cond. 1
+						  || (is_memeory_readable && !is_write); // cond. 2
+
+
+	if (!is_legal_access) {
+		return -1;
+	}
+
+    /* 
+	 * If the access is valid, we need to store the fact that the region has allowed this access *within* the region
+     * When a protection change happens for the region, it will confirm that the outstanding access is still valid.
+ 	 */ 
+    region->requested_permissions = is_write + 1;
     ASPACE_UNLOCK(carat);
+
     return 0;
 }
 
