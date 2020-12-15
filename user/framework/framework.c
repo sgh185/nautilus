@@ -2,7 +2,7 @@
 // to be filled in by the loader
 void * (**__nk_func_table)(); 
 
-extern int main(void *, void **);
+extern int main(int, char**);
 
 extern int _start();
 

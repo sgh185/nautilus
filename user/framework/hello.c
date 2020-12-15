@@ -14,7 +14,7 @@ static void func1_a(void) { printf("A implementation\n"); }
 
 static void func1_b(void) { printf("B implementation\n"); }
 
-static void func1_c(void) { printf("C implementation\n"); }
+//static void func1_c(void) { printf("C implementation\n"); }
 
 asm(".type func1, %gnu_indirect_function");
 void* func1(void) {
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
   printf("Addr is: %p\nStack is %p\n", newfunc, stack + 0x20000);
   fflush(stdout);
   write(STDOUT_FILENO, write_msg, sizeof(write_msg));
-  if (clone(newfunc, stack + 0x20000, CLONE_VM, 0xDEAFBEEF) == -1) {
+  if (clone(newfunc, stack + 0x20000, CLONE_VM, (void*)0xDEAFBEEFUL) == -1) {
     printf("Error\n");
   }
   while (1)

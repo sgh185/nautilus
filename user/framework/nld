@@ -11,18 +11,14 @@ fi
 REALPATH=$(realpath $0)
 DIRNAME=$(dirname $REALPATH)
 
-ld -static -pie --no-dynamic-linker \
--T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 \
--z relro \
--z now \
-/usr/lib/x86_64-linux-gnu/rcrt1.o \
-/usr/lib/x86_64-linux-gnu/crti.o \
-/usr/lib/gcc/x86_64-linux-gnu/9/crtbeginS.o \
--L/usr/lib/gcc/x86_64-linux-gnu/9 \
--L/usr/lib/x86_64-linux-gnu \
--L/usr/lib \
-"$@" \
-$DIRNAME/glue.o $DIRNAME/framework_low_level.o $DIRNAME/framework.o \
--lm -lgomp -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
-/usr/lib/gcc/x86_64-linux-gnu/9/crtendS.o \
-/usr/lib/x86_64-linux-gnu/crtn.o
+CRTGEN_DIR=/usr/lib64
+CRTBE_DIR=/usr/lib/gcc/x86_64-redhat-linux/8
+
+CMD="ld -static -pie --no-dynamic-linker -T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 -z relro -z now $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib $* -lm -lgomp -ldl --start-group -lgcc -lpthread -lc -lrt --end-group $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o"
+
+echo $CMD
+
+$CMD
+
+
+#$DIRNAME/glue.o $DIRNAME/framework_low_level.o $DIRNAME/framework.o \
