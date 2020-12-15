@@ -43,7 +43,8 @@ Injector::Injector(
     /*
      * Set new state
      */ 
-    this->programLoops = noelle.getProgramLoops();
+    auto programLoops = noelle.getProgramLoops();
+    this->instToLoop = noelle.getInnermostLoopsThatContains(*programLoops);
 
 
     /*
@@ -66,7 +67,7 @@ Injector::Injector(
 void Injector::Inject(void)
 {
     /*
-     * Do the dirty work
+     * Find all locations that guards need to be injected
      */
     _findInjectionLocations();
 
@@ -273,13 +274,37 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
         }
 
         /*
+        * Check if the pointer comes from a known allocation
+        */
+        if (isa<AllocaInst>(pointerOfMemoryInstruction)) {
+            //errs() << "YAY: skip a guard for the instruction: " << *inst << " because the pointer comes from a known place\n";
+            redundantGuard++;                  
+            return ;
+        }
+        if (auto callInst = dyn_cast<CallInst>(pointerOfMemoryInstruction)) {
+            auto callee = callInst->getCalledFunction();
+            if (callee != nullptr){
+                auto calleeName = callee->getName();
+                errs() << "AAA " << calleeName << "\n";
+                if (  false
+                    || calleeName.equals("malloc")
+                    || calleeName.equals("calloc")
+                ){
+                //errs() << "YAY: skip a guard for the instruction: " << *inst << " because the pointer comes from a known place\n";
+                redundantGuard++;                  
+                return ;
+                }
+            }
+        }
+
+        /*
          * We have to guard the pointer.
          *
          * Check if we can hoist the guard outside the loop.
          */
         //errs() << "XAN: we have to guard the memory instruction: " << *inst << "\n" ;
         auto added = false;
-        auto nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, inst);
+        auto nestedLoop = instToLoop[inst->getParent()];
         if (nestedLoop == nullptr) {
             /*
              * We have to guard just before the memory instruction.
@@ -309,7 +334,14 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
                 //errs() << "YAY:   we found an invariant address to check:" << *inst << "\n";
                 auto preheaderBB = nestedLoopLS->getPreHeader();
                 preheaderBBTerminator = preheaderBB->getTerminator();
-                nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, preheaderBB);
+                auto tempNestedLoop = instToLoop[preheaderBB];
+                assert(tempNestedLoop != nestedLoop);
+                nestedLoop = tempNestedLoop;
+                nestedLoopLS = 
+                    (nestedLoop != nullptr) ?
+                    nestedLoop->getLoopStructure() :
+                    nullptr;
+
                 added = true;
 
             } else {
@@ -336,7 +368,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
         *
         * Check if it is based on an induction variable.
         */
-        nestedLoop = noelle->getInnermostLoopThatContains(*programLoops, inst);
+        nestedLoop = instToLoop[inst->getParent()];
         assert(nestedLoop != nullptr);
         nestedLoopLS = nestedLoop->getLoopStructure();
         auto ivManager = nestedLoop->getInductionVariableManager();

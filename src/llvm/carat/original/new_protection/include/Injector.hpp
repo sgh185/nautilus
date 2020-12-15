@@ -97,7 +97,7 @@ private:
     /*
      * New analysis state
      */ 
-    std::vector<LoopDependenceInfo *> * programLoops;
+    std::unordered_map<BasicBlock *, LoopDependenceInfo *> instToLoop;
 
     Instruction *First;
 
