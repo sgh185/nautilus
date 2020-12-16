@@ -56,11 +56,6 @@ CFLAGS = -O2 -mno-red-zone -fPIC -Wall
 #
 #
 
-
-# CC = gcc -g3 -static-pie -mno-red-zone -I../../include #-static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
-# CC = /home/aaron/tmp/gcc/install/usr/local/bin/gcc -g3 -static -static-libgcc -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
-# CC = musl-gcc -g3 -static -fPIC -Wall -I$(NAUTILUS_DIR)/include -DNAUTILUS_EXE
-
 all: $(TARGET) $(BLOB_LL)
 
 framework_low_level.o: framework_low_level.S
