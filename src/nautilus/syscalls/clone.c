@@ -30,8 +30,8 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
         tls_val);
 
   if (clone_flags != 0x100) {
-    DEBUG("Flags unsupported\n");
-    return -1;
+    DEBUG("Flags unsupported, but going to try anyway\n");
+    // return -1;
   }
 
   nk_process_t* current_process = nk_process_current();

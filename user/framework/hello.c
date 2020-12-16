@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,9 +33,19 @@ int newfunc(void* x) {
   return 0;
 }
 
+volatile int thread_i = -5;
+int ptfunc(void* x) {
+  printf("Hello, new thread here (using pthread!). arg is %p\n", x);
+  fflush(stdout);
+  thread_i = x;
+  x = thread_i;
+  printf("My th_i = %d\n", thread_i);
+  return 0;
+}
+
 char stack[0x20000];
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
   char write_msg[] = "Write using write\n";
   write(STDOUT_FILENO, write_msg, sizeof(write_msg));
 
@@ -45,12 +56,29 @@ int main(int argc, char** argv) {
 
   func1();
 
+  if (envp[0]) {
+    printf("envp[0] = %s\n", envp[0]);
+  }
+
   printf("Addr is: %p\nStack is %p\n", newfunc, stack + 0x20000);
-  fflush(stdout);
-  write(STDOUT_FILENO, write_msg, sizeof(write_msg));
+  
   if (clone(newfunc, stack + 0x20000, CLONE_VM, (void*)0xDEAFBEEFUL) == -1) {
     printf("Error\n");
   }
+
+  pthread_t tid;
+  printf("Going to make a pthread\n");
+  for (int i = 0; i < 50; i++) {
+    if (pthread_create(&tid, NULL, ptfunc, (void*)i)) {
+      printf("Error making pthread\n");
+    }
+  }
+  // pthread_join(tid, NULL);
+  // printf("pthread joined\n");
+
+  fflush(stdout);
+  write(STDOUT_FILENO, write_msg, sizeof(write_msg));
+
   while (1)
     ;
 }

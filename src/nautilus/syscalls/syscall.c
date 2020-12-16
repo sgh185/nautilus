@@ -353,7 +353,7 @@ int int80_handler(excp_entry_t* excp, excp_vec_t vector, void* state) {
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    INFO("Syscall returned %d\n", r->rax);
+    INFO("Syscall returned %ld\n", r->rax);
   } else {
     INFO("System Call not Implemented!!\n");
   }
@@ -371,7 +371,7 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    INFO("Syscall returned %d\n", r->rax);
+    INFO("Syscall returned %ld\n", r->rax);
   } else {
     INFO("System Call not Implemented: %d!!\n", syscall_nr);
   }

@@ -4,8 +4,7 @@
 #define DEBUG(fmt, args...) DEBUG_PRINT("sys_mmap: " fmt, ##args)
 #define INFO(fmt, args...) INFO_PRINT("sys_mmap: " fmt, ##args)
 
-int sys_mmap(int addr, int length, int prot, int flags, int fd, int offset) {
-  /// TODO: everything
+uint64_t sys_mmap(uint64_t addr, uint64_t length, uint64_t prot, uint64_t flags, uint64_t fd, uint64_t offset) {
   
   DEBUG("Unimplemented\n");
   return -1;

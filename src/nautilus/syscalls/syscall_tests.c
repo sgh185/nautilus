@@ -159,7 +159,7 @@ static int handle_syscall_tests(char* buf, void* priv) {
   struct nk_exec* e = nk_load_exec("/hello.exe");
   if (e) {
     char* argv[] = {"/fbench", "1"};
-    EXPECT(nk_start_exec_crt(e, 2, &argv) == 42);
+    EXPECT(nk_start_exec_crt(e, 2, &argv, NULL) == 42);
     nk_unload_exec(e); // will also free this
   }
 
@@ -208,7 +208,8 @@ static int handle_exec_crt(char* buf, void* priv) {
   // }
 
   nk_process_t *process;
-  if (nk_process_create(argv[1], argv + 1, NULL, "paging", &process)) {
+  char* envp[] = {"OMP_NUM_THREADS=2", "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
+  if (nk_process_create(argv[1], argv + 1, envp, "paging", &process)) {
     nk_vc_printf("Failed to create new process\n");
     return -1;
   }

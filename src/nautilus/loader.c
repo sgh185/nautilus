@@ -508,7 +508,7 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
 }
 
 int 
-nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv)
+nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv, char** envp)
 {
     /// TODO: implement envp
     int (*start)(void*, int, char**, void*);
@@ -533,25 +533,35 @@ nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv)
     DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %d and %p\n", exec, exec->blob, start, argc, argv);
 
     __asm__(
-        "pushq $0\n" /* NULL after envp (unimplemented) */
+        "pushq $0\n" /* NULL after envp */
+        "mov $0, %%rax\n" /* rax is the iterator */
+        "nk_loader_crt_env_loop:\n"
+        "mov (%3, %%rax, 8), %%rcx\n" /* Read members of envp, rcx is the pointer */
+        "cmpq $0, %%rcx\n" /* If pointer is NULL, don't push and exit loop */
+        "je nk_loader_crt_env_loop_done\n"
+        "pushq %%rcx\n" /* Push env pointer to stack */
+        "inc %%rax\n"
+        "je nk_loader_crt_env_loop_done\n"
+        "nk_loader_crt_env_loop_done:\n"
         "pushq $0\n" /* NULL after argv */
         "test %1, %1\n"
-        "je nk_loader_crt_loop_done\n"
+        "je nk_loader_crt_arg_loop_done\n"
         "mov %1, %%rax\n"
         "dec %%rax\n"
         "\n"
-        "nk_loader_crt_loop:\n"
+        "nk_loader_crt_arg_loop:\n"
         "pushq (%2, %%rax, 8)\n" /* Push members of argv */
         "dec %%rax\n"
         "cmpq $0, %%rax\n"
-        "jge nk_loader_crt_loop\n"
-        "nk_loader_crt_loop_done:\n"
+        "jge nk_loader_crt_arg_loop\n"
+        "nk_loader_crt_arg_loop_done:\n"
         "pushq %1\n" /* argc */
-        "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist */
+        "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist.
+                              RDX is the only gpr read by _start (other than RSP, which is implicitly used) */
         "jmpq *%0\n" 
         :
-        : "r"(start), "r"((uint64_t)argc), "r"(argv)
-        : "rax", "rsp"
+        : "r"(start), "r"((uint64_t)argc), "r"(argv), "r"(envp)
+        : "rax", "rcx"
     );
 
     // TODO something other than panic here (such as clean up the process)

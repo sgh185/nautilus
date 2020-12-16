@@ -167,6 +167,7 @@ void __nk_process_wrapper(void *i, void **o) {
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
   char **args = p->argv_virt;
+  char **envp = p->envp;
   struct nk_exec *exe = p->exe;
 
   // TODO MAC: Find out why joining the thread group doesn't work
@@ -189,7 +190,7 @@ void __nk_process_wrapper(void *i, void **o) {
 
   // Start execution of process executable.
   PROCESS_DEBUG("Starting executable at addr %p with %lu args\n", exe, argc);
-  nk_start_exec_crt(exe, argc, (void *)args); 
+  nk_start_exec_crt(exe, argc, (void *)args, (void *)envp); 
   PROCESS_INFO("Got past start exec crt\n");
 }
 
