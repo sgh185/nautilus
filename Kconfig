@@ -1405,6 +1405,12 @@ menu "Allocators"
 	  default n
 	  help
 	     Allocator test program
+       config TEST_TRACE_ALLOC_CS213
+	  bool "Test the CS213 Allocator using a trace"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Allocator test program w/trace
 
   config ALLOC_DUMB
 	  bool "Dumb allocator"

@@ -474,37 +474,17 @@ void _carat_process_escape_window()
  */
 void nk_carat_guard_address(void *memory_address, int is_write) {
 
+	// TODO:
+	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
+	// How is the instrumentation supposed to work? Does the order matter (i.e. guard then escape, or vice versa)? 
+	// Should we merge the guard and escape together for loads/stores that belong in the escapes-to-instrument set and the guards-to-inject set?
+	
 	/*
- 	 * Get the permissions of the address for the current thread.
+ 	 * Check to see if the requested memory access is valid. 
+	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
-
-	nk_aspace_protection_t protection;
-
-	int res = nk_aspace_get_permission(get_cur_thread()->aspace, memory_address, &protection);
+	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
 	if (res) {
-		panic("Could not find region associated with the guarded address.\n");
-	}
-
-	/*
- 	 * If @is_write == 0: we are trying to read the address
-	 * If @is_write == 1: we are trying to write the address
-	 * 
-	 * Note: this is making the assunption that if we have write access 
-	 * we also have read access for performance
-	 * 
-	 * Given this assumption, there are two ways for this to be a legal access:
-	 * 1. If the memory is writable, either a write or a read is allowed
-	 * 2. If the memory is readable, only a read is allowed
-	 * 
- 	 */ 
-
-	int is_memory_writable = NK_ASPACE_GET_WRITE(protection.flags);
-	int is_memeory_readable = NK_ASPACE_GET_READ(protection.flags);
-	int is_legal_access = is_memory_writable // cond. 1
-						  || is_memeory_readable && !is_write; // cond. 2
-
-
-	if (!is_legal_access) {
 		panic("Tried to make an illegal memory access! \n");
 	}
 
