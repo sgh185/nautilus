@@ -307,6 +307,87 @@ int region_align_check(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     return 0;
 }
 
+//expand or contract the region
+//new_phys, if not zero, means the physical address of the additional part(for expansion)
+//alloc=1 means "allocate the physical memory for me"
+static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_size, void *new_phys, int alloc){
+
+    nk_aspace_paging_t *p = (nk_aspace_paging_t *) state;
+
+    char region_buf[REGION_STR_LEN];
+    region2str(region, region_buf);
+
+    ASPACE_LOCK_CONF;
+
+    ASPACE_LOCK(p);
+
+    nk_aspace_region_t *region_ptr = mm_contains(p->paging_mm_struct, region, 0xff);
+
+    //test if two region are the same (needed to be, other the region given doesn't exist in aspace)
+    if(region==NULL || region_ptr==NULL || !region_equal(region,region_ptr,0xff)){
+        DEBUG("The region given cannot be found in the aspace\n", region_buf, ASPACE_NAME(p));
+        return -1;
+    }
+
+    region_ptr->len_bytes=new_size;
+
+    //enlargign
+    if(new_size){
+        DEBUG("enlarging the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
+
+        //alignment check
+        int ret = 0;
+        ret = region_align_check(p, region_ptr);
+        if (ret < 0) {
+            ASPACE_UNLOCK(p);
+            return ret;
+        }
+
+        // sanity check to be sure it doesn't overlap an existing region...
+        nk_aspace_region_t * overlap_ptr = mm_check_overlap(p->paging_mm_struct, region_ptr);
+        if (overlap_ptr) {
+            DEBUG("region Overlapping:\n"
+                    "\t(va=%016lx pa=%016lx len=%lx, prot=%lx) \n"
+                    "\t(va=%016lx pa=%016lx len=%lx, prot=%lx) \n", 
+                region_ptr->va_start, region_ptr->pa_start, region_ptr->len_bytes, region_ptr->protect.flags,
+                overlap_ptr->va_start, overlap_ptr->pa_start, overlap_ptr->len_bytes, overlap_ptr->protect.flags
+            );
+            ASPACE_UNLOCK(p);
+            return -1;
+        }
+        
+        //drill if alloc is 1
+        if (alloc) { // ||NK_ASPACE_GET_EAGER(region->protect.flags)
+	
+            // when alloc is 1 means that we need to build all the corresponding
+            // page table entries right now, before we return
+
+            // DRILL THE PAGE TABLES HERE
+            ret = eager_drill_wrapper(p, region_ptr);
+            if (ret < 0) {
+                ASPACE_UNLOCK(p);
+                return ret;
+            }
+        }
+
+        else {
+            // lazy drilling 
+            // nothing to do
+            DEBUG("lazy drilling!\n");
+        }
+    }
+
+    //reducing
+    else{
+        //free for the abandon Physical addresses?
+        DEBUG("truncating the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
+    }    
+
+    ASPACE_UNLOCK(p);
+    
+    return 0;
+}
+
 
 int eager_drill_wrapper(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     /*
@@ -1083,7 +1164,17 @@ static struct nk_aspace * create(char *name, nk_aspace_characteristics_t *c)
     nk_aspace_paging_t *p;
     
     p = malloc(sizeof(*p));
-    
+   
+    nk_aspace_paging_t *test;
+    nk_aspace_paging_t *foo;
+
+    test = malloc(sizeof(*test));
+    foo = malloc(sizeof(*foo));
+
+    DEBUG("try to free dummy pointers");
+    free(test);
+    free(foo);
+
     if (!p) {
 	ERROR("cannot allocate paging aspace %s\n",name);
 	return 0;
