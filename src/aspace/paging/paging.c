@@ -310,7 +310,7 @@ int region_align_check(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
 //expand or contract the region
 //new_phys, if not zero, means the physical address of the additional part(for expansion)
 //alloc=1 means "allocate the physical memory for me"
-static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_size, void *new_phys, int alloc){
+static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_size){
 
     nk_aspace_paging_t *p = (nk_aspace_paging_t *) state;
 
@@ -329,14 +329,19 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
         return -1;
     }
 
+    uint64_t old_size = region_ptr->len_bytes;
     region_ptr->len_bytes=new_size;
 
     //enlargign
-    if(new_size){
+    if(new_size>region_ptr->len_bytes){
+
+        
+
         DEBUG("enlarging the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
 
         //alignment check
         int ret = 0;
+        
         ret = region_align_check(p, region_ptr);
         if (ret < 0) {
             ASPACE_UNLOCK(p);
@@ -356,14 +361,15 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
             return -1;
         }
         
-        //drill if alloc is 1
-        if (alloc) { // ||NK_ASPACE_GET_EAGER(region->protect.flags)
+        //drill if this is an eager region
+        if (NK_ASPACE_GET_EAGER(region->protect.flags)) {
 	
             // when alloc is 1 means that we need to build all the corresponding
             // page table entries right now, before we return
 
             // DRILL THE PAGE TABLES HERE
-            ret = eager_drill_wrapper(p, region_ptr);
+            DEBUG("eager region, drilling!\n");
+            ret = eager_drill_wrapper_specified(p, region_ptr,old_size);
             if (ret < 0) {
                 ASPACE_UNLOCK(p);
                 return ret;
@@ -388,6 +394,81 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
     return 0;
 }
 
+
+// this function is specifically designed for drill an enlarged region, so we will only drill the enlarged part only
+int eager_drill_wrapper_specified(nk_aspace_paging_t *p, nk_aspace_region_t *region, uint64_t previous_size) {
+    /*
+        Only to be called if region passed the following check:
+            1. alignment and granularity check 
+            2. region overlap or other region validnesss check (involved using p->paging_mm_struct)
+            3. region allocation must be eager
+    */
+
+    ph_pf_access_t access_type = access_from_region(region);
+
+    addr_t vaddr = (addr_t) region->va_start+previous_size;
+    addr_t paddr = (addr_t)region->pa_start+previous_size;
+    uint64_t remained = region->len_bytes-previous_size;
+    addr_t va_end = (addr_t) region->va_start + region->len_bytes;
+
+    uint64_t page_granularity = 0;
+    int ret = 0;
+    int (*paging_helper_drill) (ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
+
+    while (vaddr < va_end) {
+        if (
+            PAGE_1GB_ENABLED && 
+            vaddr % PAGE_SIZE_1GB == 0 && 
+            paddr % PAGE_SIZE_1GB == 0 && 
+            remained >= PAGE_SIZE_1GB
+        ) {
+            paging_helper_drill = &paging_helper_drill_1GB;
+            page_granularity = PAGE_SIZE_1GB;
+        } 
+        else if (
+            PAGE_2MB_ENABLED && 
+            vaddr % PAGE_SIZE_2MB == 0 && 
+            paddr % PAGE_SIZE_2MB == 0 && 
+            remained >= PAGE_SIZE_2MB 
+        ) {
+            paging_helper_drill = &paging_helper_drill_2MB;
+            page_granularity = PAGE_SIZE_2MB;
+        } 
+        else if (
+            vaddr % PAGE_SIZE_4KB == 0 && 
+            paddr % PAGE_SIZE_4KB == 0 && 
+            remained >= PAGE_SIZE_4KB 
+        ) {
+            // vaddr % PAGE_SIZE_4KB == 0
+            // must be the case as we require 4KB alignment
+            paging_helper_drill = &paging_helper_drill_4KB;
+            page_granularity = PAGE_SIZE_4KB;
+        } else {
+            char region_buf[REGION_STR_LEN];
+            region2str(region, region_buf);
+            ERROR("Region %s doesnot meet drill requirement at vaddr=0x%p and paddr=0x%p\n", region_buf, vaddr, paddr);
+            return -1;
+        }
+
+        ret = (*paging_helper_drill) (p->cr3, vaddr, paddr, access_type);
+
+        if (ret < 0) {
+            ERROR("Failed to drill at virtual address=%p"
+                    " physical adress %p"
+                    " and ret code of %d"
+                    " page_granularity = %lx\n",
+                    vaddr, paddr, ret, page_granularity
+            );
+            return ret;
+        }
+
+        vaddr += page_granularity;
+        paddr += page_granularity;
+        remained -= page_granularity;
+    }
+
+    return ret;
+}
 
 int eager_drill_wrapper(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     /*
