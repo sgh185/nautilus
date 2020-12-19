@@ -12,6 +12,7 @@
 
 #define DEBUG(fmt, args...) DEBUG_PRINT("syscall_brk: " fmt, ##args)
 
+// here because goto wouldn't build for me; please replace if you can -ARN
 #define ret                                                 \
   uint64_t retval;                                          \
   if (brk) {                                                \
@@ -28,9 +29,6 @@
 /// creating one if it doesn't exist. If param brk is non-zero, return the
 /// requested segment end if possible, or otherwise return the current program
 /// segment end.
-///
-/// @todo this currently causes a memory leak and doesn't use the allocator
-/// system, which is wrong
 uint64_t sys_brk(const uint64_t brk) {
 
   nk_process_t* current_process = nk_process_current();

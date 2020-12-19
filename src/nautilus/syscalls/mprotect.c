@@ -5,8 +5,7 @@
 #define INFO(fmt, args...) INFO_PRINT("sys_mprotect: " fmt, ##args)
 
 int sys_mprotect(int addr, int length, int prot) {
-  /// TODO: everything
-  
-  DEBUG("Unimplemented\n");
-  return -1;
+  // "Works" by mmap setting liberal permissions
+  DEBUG("This syscall does nothing\n");
+  return 0;
 }

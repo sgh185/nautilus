@@ -396,3 +396,7 @@ void nk_syscall_init() {
   register_int_handler(0x80, int80_handler, 0);
   syscall_setup();
 }
+
+void nk_syscall_init_ap() {
+  syscall_setup();
+}

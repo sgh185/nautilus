@@ -25,6 +25,8 @@ uint64_t nk_syscall_handler(struct nk_regs* r);
 
 void nk_syscall_init();
 
+void nk_syscall_init_ap();
+
 void init_syscall_table();
 
 #endif /* !__ASSEMBLER */

@@ -1,11 +1,15 @@
 #include <nautilus/nautilus.h>
+#include <nautilus/syscall_decl.h>
 #include <nautilus/thread.h>
 
 #define DEBUG(fmt, args...) DEBUG_PRINT("syscall_clone: " fmt, ##args)
 
+#define ARCH_SET_FS 0x1002
+
 struct clone_compat_args {
   void* rsp;
   void* sysret_addr;
+  void* tls;
 };
 
 /// Sends new thread back to the syscall return point, simulating a linux clone.
@@ -14,7 +18,12 @@ struct clone_compat_args {
 void _clone_compat_wrapper(struct clone_compat_args* args) {
   void* rsp = args->rsp;
   void* sysret_addr = args->sysret_addr;
+  sys_arch_prctl(ARCH_SET_FS, args->tls, NULL);
   free(args);
+  DEBUG("Sending clone thread to RIP=%p RSP=%p and glibc thread function %p\n",
+        sysret_addr, rsp, *(uint64_t*)rsp);
+  /* We do not restore the flags, but this is ok in the most common case (glibc
+   * clone), where the thread starts in a new function */
   asm("mov $0, %%rax\n"
       "mov %0, %%rsp\n"
       "jmp *%1\n"
@@ -43,6 +52,7 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
       sizeof(struct clone_compat_args)); /* Free is handled by new thread */
   args->rsp = newsp;
   args->sysret_addr = get_cur_thread()->sysret_addr;
+  args->tls = tls_val;
 
   nk_thread_t* thread;
 

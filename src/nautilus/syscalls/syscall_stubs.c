@@ -62,12 +62,6 @@ uint64_t sys_select(uint64_t n, uint64_t inp, uint64_t outp, uint64_t exp) {
   return -1;
 }
 
-uint64_t sys_sched_yield() {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (sched_yield)\n");
-  return -1;
-}
-
 uint64_t sys_mremap(uint64_t brk) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (mremap)\n");
@@ -83,12 +77,6 @@ uint64_t sys_msync(uint64_t start, uint64_t len, uint64_t flags) {
 uint64_t sys_mincore(uint64_t start, uint64_t len, uint64_t vec) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (mincore)\n");
-  return -1;
-}
-
-uint64_t sys_madvise(uint64_t start, uint64_t len_in, uint64_t behavior) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (madvise)\n");
   return -1;
 }
 
@@ -1074,20 +1062,6 @@ uint64_t sys_tkill(uint64_t pid, uint64_t sig) {
 uint64_t sys_time(uint64_t tloc) {
   /// TODO: entire syscall
   DEBUG("Call to stubbed syscall (time)\n");
-  return -1;
-}
-
-uint64_t sys_sched_setaffinity(uint64_t pid, uint64_t len,
-                               uint64_t user_mask_ptr) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (sched_setaffinity)\n");
-  return -1;
-}
-
-uint64_t sys_sched_getaffinity(uint64_t pid, uint64_t len,
-                               uint64_t user_mask_ptr) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (sched_getaffinity)\n");
   return -1;
 }
 

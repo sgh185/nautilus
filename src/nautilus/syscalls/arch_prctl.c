@@ -5,7 +5,6 @@
 
 /// This is an x86-specific implementation
 uint64_t sys_arch_prctl(uint64_t task, uint64_t option, uint64_t addrlen) {
-  DEBUG("Call to fake syscall (arch_prctl)\n");
   DEBUG("Task: %lx\n Option: %lx\n Addrlen %p\n", task, option, addrlen);
 
   // NOTE: the implementation here is based on reverse engineering of a specific

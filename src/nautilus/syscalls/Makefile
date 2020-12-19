@@ -33,4 +33,8 @@ obj-y += \
 	set_robust_list.o \
 	openat.o \
 	rt_sigaction.o \
+	madvise.o \
+	sched_yield.o \
+	sched_getaffinity.o \
+	sched_setaffinity.o \
 	syscall_stubs.o
