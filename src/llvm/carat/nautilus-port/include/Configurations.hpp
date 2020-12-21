@@ -55,41 +55,54 @@
 #include <set>
 #include <cassert>
 
-// Pass settings
+/*
+ * Pass settings
+ */ 
 #define DEBUG 0
 #define FALSE 0
 #define VERIFY 1
-
 #define HANDLE_GLOBALS 1
 
-// Debug
+
+/*
+ * Debugging
+ */ 
 #define DEBUG_INFO(str) do { if (DEBUG) { errs() << str; } } while (0)
 #define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
 #define VERIFY_DEBUG_INFO(str) do { if (VERIFY) { errs() << str; } } while (0)
 #define VERIFY_OBJ_INFO(obj) do { if (VERIFY) { obj->print(errs()); errs() << "\n"; } } while (0)
 
+
 using namespace llvm;
-using namespace std;
 
-// Function names to inject
-extern const string CARAT_MALLOC;
-extern const string CARAT_REALLOC;
-extern const string CARAT_CALLOC;
-extern const string CARAT_REMOVE_ALLOC;
-extern const string CARAT_STATS;
-extern const string CARAT_ESCAPE;
-extern const string LOWER_BOUND;
-extern const string UPPER_BOUND;
-extern const string TEXAS_INIT;
-extern const string ENTRY_SETUP;
-extern const string ANNOTATION;
-extern const string NOCARAT;
 
-// Important/necessary methods/method names to track
-extern unordered_map<string, Function *> NecessaryMethods;
-extern vector<string> ImportantMethodNames;
-extern unordered_map<string, int> TargetMethods;
+/*
+ * Function names to inject
+ */ 
+extern const std::string CARAT_MALLOC,
+                         CARAT_REALLOC,
+                         CARAT_CALLOC,
+                         CARAT_REMOVE_ALLOC,
+                         CARAT_STATS,
+                         CARAT_ESCAPE,
+                         LOWER_BOUND,
+                         UPPER_BOUND,
+                         TEXAS_INIT,
+                         ENTRY_SETUP,
+                         ANNOTATION,
+                         NOCARAT;
 
-// Extra utility methods --- FIX --- NEED TO REFACTOR
+
+/*
+ * Important/necessary methods/method names to track
+ */ 
+extern std::unordered_map<std::string, Function *> NecessaryMethods;
+extern std::vector<std::string> ImportantMethodNames;
+extern std::unordered_map<std::string, int> TargetMethods;
+
+
+/*
+ * Extra utility methods --- FIX --- NEED TO REFACTOR
+ */ 
 uint64_t findStructSize(Type *sType);
 uint64_t findArraySize(Type *aType);

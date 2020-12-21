@@ -32,19 +32,38 @@ using namespace llvm;
 
 class EscapesHandler
 {
+
 public:
+
+    /*
+     * Constructors
+     */ 
     EscapesHandler(Module *M);
 
-    // Injection methods
+
+    /*
+     * Drivers
+     */ 
     void Inject();
 
+
 private:
-    // Initial state
+
+    /*
+     * Passed state
+     */ 
     Module *M;
 
-    // Analyzed state
+
+    /*
+     * Analysis state
+     */ 
     std::vector<Instruction *> MemUses;
 
-    // Private methods
+
+    /*
+     * Analysis state
+     */ 
     void _getAllNecessaryInstructions();
+
 };

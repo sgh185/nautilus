@@ -40,17 +40,31 @@ using namespace llvm;
 
 namespace Utils
 {
-    // Init
+    /*
+     * Init
+     */ 
     void ExitOnInit();
 
-    // Injection
-    IRBuilder<> GetBuilder(Function *F, Instruction *InsertionPoint);
-    IRBuilder<> GetBuilder(Function *F, BasicBlock *InsertionPoint);
 
-    // NO_CARAT handling
-    void GatherAnnotatedFunctions(GlobalVariable *GV, vector<Function *> &AF);
+    /*
+     * Injection helpers
+     */ 
+    IRBuilder<> GetBuilder(
+        Function *F, 
+        Instruction *InsertionPoint
+    );
+
+    IRBuilder<> GetBuilder(
+        Function *F, 
+        BasicBlock *InsertionPoint
+    );
+
+
+    /*
+     * Attribute handling
+     */ 
+    void GatherAnnotatedFunctions(
+        GlobalVariable *GV, 
+        std::vector<Function *> &AF
+    );
 } 
-
-namespace Debug
-{
-}

@@ -33,26 +33,48 @@ using namespace llvm;
 class AllocationHandler
 {
 public:
+
+    /*
+     * Constructors
+     */ 
     AllocationHandler(Module *M);
 
-    // Injection methods
-    void Inject(); // Injection driver
+
+    /*
+     * Drivers
+     */ 
+    void Inject();
+
+
+    /*
+     * Instrumentation methods
+     */ 
     void AddAllocationTableCallToInit();
     void InjectMallocCalls();
     void InjectFreeCalls();
 
+
 private:
-    // Initial state
+    
+    /*
+     * Passed state
+     */ 
     Module *M;
     Function *Init;
     
-    // Analyzed state
+
+    /*
+     * Analysis state
+     */ 
     std::unordered_map<GlobalValue *, uint64_t> Globals;
     std::vector<Instruction *> Mallocs;
     std::vector<Instruction *> Frees;
     std::vector<Instruction *> Allocas;
 
-    // Private methods
+
+    /*
+     * Private methods
+     */ 
     void _getAllNecessaryInstructions();
     void _getAllGlobals();
 };

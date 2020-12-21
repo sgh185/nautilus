@@ -36,39 +36,55 @@ using namespace llvm;
 class ProtectionsHandler
 {
 public:
+
+    /*
+     * Constructors
+     */ 
     ProtectionsHandler(Module *M);
 
-    // Injection methods
+
+    /*
+     * Drivers
+     */ 
     void Inject();
 
+
 private:
-    // Initial state
+
+    /*
+     * Passed state
+     */ 
     Module *M;
     Function *Panic;
     GlobalVariable *PanicString;
     GlobalVariable *LowerBound;
     GlobalVariable *UpperBound;
 
-    // Analyzed state
+
+    /*
+     * Analysis state
+     */ 
     std::unordered_map<Instruction *, std::pair<Instruction *, Value *>> MemoryInstructions;
     std::unordered_map<Function *, BasicBlock *> EscapeBlocks;
-    std::unordered_map<Function *, pair<LoadInst *, LoadInst *> *> BoundsLoadInsts;
+    std::unordered_map<Function *, std::pair<LoadInst *, LoadInst *> *> BoundsLoadInsts;
 
-    // Statistics
+
+    /*
+     * Statistics
+     */ 
     uint64_t NumRedundantGuards=0;
     uint64_t NumNonOptimizedGuards=0;
     uint64_t NumLoopInvariantGuards=0;
     uint64_t NumScalarEvolutionGuards=0;
     uint64_t NumCallGuardOptimized=0;
 
-    // Analysis driver
+
+    /*
+     * Private methods
+     */     
     void _getAllNecessaryInstructions();
 
-    // Data-flow analysis
-
-    
-
-    // Injection methods
     BasicBlock *_buildEscapeBlock(Function *F);
-    pair<LoadInst *, LoadInst *> *_buildBoundsLoadInsts(Function *F);
+    
+    std::pair<LoadInst *, LoadInst *> *_buildBoundsLoadInsts(Function *F);
 };
