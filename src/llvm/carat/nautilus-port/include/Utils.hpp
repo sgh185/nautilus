@@ -45,6 +45,11 @@ namespace Utils
      */ 
     void ExitOnInit();
 
+    Function *GetFunction(
+        Module *M,
+        const std::string Name
+    );
+
 
     /*
      * Injection helpers
@@ -59,14 +64,13 @@ namespace Utils
         BasicBlock *InsertionPoint
     );
 
+    bool IsInstrumentable(Function *F);
+
 
     /*
      * Attribute handling
      */ 
-    void GatherAnnotatedFunctions(
-        GlobalVariable *GV, 
-        std::vector<Function *> &AF
-    );
+    void FetchAnnotatedFunctions(GlobalVariable *GV);
 
 
     /*

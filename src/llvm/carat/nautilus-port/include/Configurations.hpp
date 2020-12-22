@@ -72,6 +72,7 @@
 #define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
 #define VERIFY_DEBUG_INFO(str) do { if (VERIFY) { errs() << str; } } while (0)
 #define VERIFY_OBJ_INFO(obj) do { if (VERIFY) { obj->print(errs()); errs() << "\n"; } } while (0)
+#define DEBUG_ERRS if (DEBUG) errs()
 
 
 using namespace llvm;
@@ -79,25 +80,53 @@ using namespace std;
 
 
 /*
- * Function names to inject
+ * Enumerator for kernel allocation methods
  */ 
-extern const std::string CARAT_MALLOC,
-                         CARAT_REALLOC,
-                         CARAT_CALLOC,
-                         CARAT_REMOVE_ALLOC,
-                         CARAT_STATS,
-                         CARAT_ESCAPE,
-                         LOWER_BOUND,
-                         UPPER_BOUND,
-                         CARAT_INIT,
-                         ENTRY_SETUP,
-                         ANNOTATION,
-                         NOCARAT;
+enum KernelAllocID
+{
+    Malloc=0,
+    Free
+};
+
+
+/*
+ * Constants
+ */
+extern
+const std::string CARAT_MALLOC,
+                  CARAT_REALLOC,
+                  CARAT_CALLOC,
+                  CARAT_REMOVE_ALLOC,
+                  CARAT_STATS,
+                  CARAT_ESCAPE,
+                  CARAT_INIT,
+                  ENTRY_SETUP,
+                  KERNEL_MALLOC,
+                  KERNEL_FREE,
+                  ANNOTATION,
+                  NOCARAT;
 
 
 /*
  * Important/necessary methods/method names to track
  */ 
-extern std::unordered_map<std::string, Function *> NecessaryMethods;
-extern std::vector<std::string> ImportantMethodNames;
-extern std::unordered_map<std::string, int> TargetMethods;
+extern
+std::unordered_set<std::string> CARATNames;
+
+extern
+std::unordered_map<std::string, Function *> CARATNamesToMethods;
+
+extern
+std::unordered_set<Function *> CARATMethods;
+
+extern
+std::unordered_map<KernelAllocID, std::string> IDsToKernelAllocMethods;
+
+extern
+std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
+
+extern
+std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
+
+extern
+std::unordered_set<Function *> AnnotatedFunctions;

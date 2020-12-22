@@ -47,6 +47,21 @@ void Utils::ExitOnInit()
     }
 }
 
+Function *Utils::GetFunction(
+    Module *M,
+    const std::string Name
+)
+{
+    /*
+     * Fetch function with @Name from @M --- sanity
+     * check that the function exists
+     */ 
+    Function *F = M->getFunction(Name);
+    assert(!!F && "GetFunction: Can't fetch!");
+    return F;
+}
+
+
 
 /*
  * GetBuilder
@@ -55,7 +70,10 @@ void Utils::ExitOnInit()
  * the correct debug location --- necessary for injections 
  * into the Nautilus bitcode
  */
-IRBuilder<> Utils::GetBuilder(Function *F, Instruction *InsertionPoint)
+IRBuilder<> Utils::GetBuilder(
+    Function *F, 
+    Instruction *InsertionPoint
+)
 {
     IRBuilder<> Builder{InsertionPoint};
     Instruction *FirstInstWithDBG = nullptr;
@@ -69,13 +87,15 @@ IRBuilder<> Utils::GetBuilder(Function *F, Instruction *InsertionPoint)
         }
     }
 
-    if (FirstInstWithDBG != nullptr)
-        Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+    if (FirstInstWithDBG) Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
 
     return Builder;
 }
 
-IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
+IRBuilder<> Utils::GetBuilder(
+    Function *F, 
+    BasicBlock *InsertionPoint
+)
 {
     IRBuilder<> Builder{InsertionPoint};
     Instruction *FirstInstWithDBG = nullptr;
@@ -89,69 +109,92 @@ IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
         }
     }
 
-    if (FirstInstWithDBG != nullptr)
-        Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
+    if (FirstInstWithDBG) Builder.SetCurrentDebugLocation(FirstInstWithDBG->getDebugLoc());
 
     return Builder;
 }
 
 
-/*
- * GatherAnnotatedFunctions
- * 
- * A user can mark a function in Nautilus with a function attribute to
- * prevent injections into the function. For example, it would be unwise
- * to inject calls to nk_time_hook_fire into nk_time_hook_fire itself. Users
- * should use the annotate attribute with the string "nohook" in order 
- * to prevent injections.
- * 
- * This method parses the global annotations array in the resulting bitcode
- * and collects all functions that have been annotated with the "nohook"
- * attribute. These functions will not have injections.
- */
-void Utils::GatherAnnotatedFunctions(GlobalVariable *GV, 
-                                     vector<Function *> &AF)
+bool Utils::IsInstrumentable(Function &F)
 {
-    // First operand is the global annotations array --- get and parse
-    // NOTE --- the fields have to be accessed through VALUE->getOperand(0),
-    // which appears to be a layer of indirection for these values
+    /*
+     * Skip instrumention in functions upholding any of the 
+     * following conditions:
+     * 1) A "malloc" or "free" (KernelAllocMethodsToIDs)
+     * 2) Any CARAT method (CARATMethods)
+     * 3) Annotated (AnnotatedFunctions)
+     * 3) LLVM intrinsics
+     * 4) Other empty functions (pure assembly stubs, etc.)
+     */ 
+    if (false
+        || (KernelAllocMethodsToIDs.find(&F) != KernelAllocMethodsToIDs.end()) 
+        || (CARATMethods.find(&F) != CARATMethods.end()) 
+        || (AnnotatedFunctions.find(&F) != AnnotatedFunctions.end()) 
+        || (F.isIntrinsic()) 
+        || (F.empty())
+        return false;
+
+    return true;
+}
+
+
+
+void Utils::FetchAnnotatedFunctions(GlobalVariable *GV)
+{
+    /*
+     * TOP --- Parse the global annotations array from @GV and 
+     * stash all functions that are annotated as "nocarat"
+     */
+
+    /*
+     * Fetch the global annotations array 
+     */ 
     auto *AnnotatedArr = cast<ConstantArray>(GV->getOperand(0));
 
-    for (auto OP = AnnotatedArr->operands().begin(); OP != AnnotatedArr->operands().end(); OP++)
-    {
-        // Each element in the annotations array is a ConstantStruct --- its
-        // fields can be accessed through the first operand (indirection). There are two
-        // fields --- Function *, GlobalVariable * (function ptr, annotation)
 
+    /*
+     * Iterate through each annotation in the 
+     */ 
+    for (auto OP = AnnotatedArr->operands().begin(); 
+         OP != AnnotatedArr->operands().end(); 
+         OP++)
+    {
+        /*
+         * Each element in the annotations array is a 
+         * ConstantStruct --- its fields can be accessed
+         * through the first operand. There are two fields
+         * (Function *, GlobalVariable * (annotation))
+         */ 
         auto *AnnotatedStruct = cast<ConstantStruct>(OP);
-        auto *FunctionAsStructOp = AnnotatedStruct->getOperand(0)->getOperand(0);         // first field
-        auto *GlobalAnnotationAsStructOp = AnnotatedStruct->getOperand(1)->getOperand(0); // second field
+        auto *FunctionAsStructOp = AnnotatedStruct->getOperand(0)->getOperand(0);         /* First field */
+        auto *GlobalAnnotationAsStructOp = AnnotatedStruct->getOperand(1)->getOperand(0); /* Second field */
 
-        // Set the function and global, respectively. Both have to exist to
-        // be considered.
-        Function *AnnotatedF = dyn_cast<Function>(FunctionAsStructOp);
+        /*
+         * Fetch the function and the annotation global --- sanity check
+         */ 
+        Function *AnnotatedFunction = dyn_cast<Function>(FunctionAsStructOp);
         GlobalVariable *AnnotatedGV = dyn_cast<GlobalVariable>(GlobalAnnotationAsStructOp);
+        if (!AnnotatedFunction || !AnnotatedGV) continue;
 
-        if (AnnotatedF == nullptr || AnnotatedGV == nullptr)
-            continue;
 
-        // Check the annotation --- if it matches the ANNOTATION global in the
-        // pass --- push back to apply (X) transform as necessary later
+        /*
+         * Check the annotation --- if it matches "nocarat",
+         * then stash the annotated function
+         */
         ConstantDataArray *ConstStrArr = dyn_cast<ConstantDataArray>(AnnotatedGV->getOperand(0));
-        if (ConstStrArr == nullptr)
-            continue;
+        if (false
+            || !ConstStrArr
+            || (ConstStrArr->getAsCString() != NOCARAT)) continue;
 
-        if (ConstStrArr->getAsCString() != NOCARAT)
-            continue;
-
-        AF.push_back(AnnotatedF);
+        AnnotatedFunctions.insert(AnnotatedFunction);
     }
 
-    // Debug::PrintFNames(AF);
-    for (auto F : AF)
-    {
-        errs() << "Annotated: " + F->getName() << "\n";
-    }
+
+    /*
+     * Debugging
+     */ 
+    for (auto F : AnnotatedFunctions) errs() << "Annotated: " + F->getName() << "\n";
+
 
     return;
 }

@@ -31,28 +31,24 @@
 /*
  * Function names to inject/directly handle
  */ 
-const string CARAT_MALLOC = "nk_carat_instrument_malloc",
-             CARAT_REALLOC = "nk_carat_instrument_realloc",
-             CARAT_CALLOC = "nk_carat_instrument_calloc",
-             CARAT_REMOVE_ALLOC = "nk_carat_instrument_free",
-             CARAT_STATS = "nk_carat_report_statistics",
-             CARAT_ESCAPE = "nk_carat_instrument_escapes",
-             PANIC_STRING = "LLVM_panic_string",
-             LOWER_BOUND = "lower_bound",
-             UPPER_BOUND = "upper_bound",
-             CARAT_INIT = "nk_carat_init",
-             ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
-             ANNOTATION = "llvm.global.annotations",
-             NOCARAT = "nocarat";
+const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
+                  CARAT_REALLOC = "nk_carat_instrument_realloc",
+                  CARAT_CALLOC = "nk_carat_instrument_calloc",
+                  CARAT_REMOVE_ALLOC = "nk_carat_instrument_free",
+                  CARAT_STATS = "nk_carat_report_statistics",
+                  CARAT_ESCAPE = "nk_carat_instrument_escapes",
+                  CARAT_INIT = "nk_carat_init",
+                  ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
+                  KERNEL_MALLOC = "_kmem_malloc",
+                  KERNEL_FREE = "kmem_free",
+                  ANNOTATION = "llvm.global.annotations",
+                  NOCARAT = "nocarat";
 
 
 /*
  * Important/necessary methods/method names to track
  */ 
-std::unordered_map<std::string, Function *> NecessaryMethods = 
-    unordered_map<string, Function *>();
-
-std::vector<std::string> ImportantMethodNames = {
+std::unordered_set<std::string> CARATNames = {
     CARAT_MALLOC, 
     CARAT_REALLOC, 
     CARAT_CALLOC,
@@ -63,7 +59,17 @@ std::vector<std::string> ImportantMethodNames = {
     ENTRY_SETUP
 };
 
-std::unordered_map<string, int> TargetMethods = {
-    { "_kmem_malloc",  2 },
-    { "kmem_free", 1 }
+std::unordered_map<std::string, Function *> CARATNamesToMethods;
+
+std::unordered_set<Function *> CARATMethods;
+
+std::unordered_set<std::string> IDsToKernelAllocMethods = {
+    { KernelAllocID::Malloc, KERNEL_MALLOC } ,
+    { KernelAllocID::Free, KERNEL_FREE }
 };
+
+std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
+
+std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
+
+std::unordered_set<Function *> AnnotatedFunctions;
