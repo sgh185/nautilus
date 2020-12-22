@@ -131,7 +131,7 @@ bool Utils::IsInstrumentable(Function &F)
         || (CARATMethods.find(&F) != CARATMethods.end()) 
         || (AnnotatedFunctions.find(&F) != AnnotatedFunctions.end()) 
         || (F.isIntrinsic()) 
-        || (F.empty())
+        || (F.empty()))
         return false;
 
     return true;
@@ -315,4 +315,33 @@ uint64_t Utils::CalculateObjectSize(
      * Unlikely return
      */ 
     return -1;
+}
+
+
+bool Utils::Verify(Module &M)
+{
+    /*
+     * Check pass settings
+     */  
+    if (!VERIFY) return true;
+
+
+    /*
+     * Run LLVM verifier on each function of @M
+     */ 
+    bool Failed = false;
+    for (auto &F : M)
+    {
+        if (verifyFunction(F, &(errs())))
+        {
+            DEBUG_ERRS << "Failed verification: " << 
+                       << F.getName() << "\n"
+                       << F << "\n";
+
+            Failed |= true;
+        }
+    }
+
+
+    return !Failed;
 }

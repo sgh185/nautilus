@@ -82,6 +82,12 @@ namespace Utils
         Type *ObjectType,
         DataLayout *Layout
     );
+
+
+    /*
+     * Verification helper
+     */ 
+    bool Verify(Module &M);
 } 
 
 namespace Debug
