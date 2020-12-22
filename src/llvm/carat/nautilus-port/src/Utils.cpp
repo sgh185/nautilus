@@ -37,9 +37,7 @@ using namespace Debug;
  * Register pass, execute doInitialization method but do not perform
  * any analysis or transformation --- exit in runOnModule --- mostly
  * for testing scenarios
- * 
  */
-
 void Utils::ExitOnInit()
 {
     if (FALSE)
@@ -56,9 +54,7 @@ void Utils::ExitOnInit()
  * Generates a specific IRBuilder instance that is fitted with 
  * the correct debug location --- necessary for injections 
  * into the Nautilus bitcode
- * 
  */
-
 IRBuilder<> Utils::GetBuilder(Function *F, Instruction *InsertionPoint)
 {
     IRBuilder<> Builder{InsertionPoint};
@@ -99,6 +95,7 @@ IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
     return Builder;
 }
 
+
 /*
  * GatherAnnotatedFunctions
  * 
@@ -111,9 +108,7 @@ IRBuilder<> Utils::GetBuilder(Function *F, BasicBlock *InsertionPoint)
  * This method parses the global annotations array in the resulting bitcode
  * and collects all functions that have been annotated with the "nohook"
  * attribute. These functions will not have injections.
- * 
  */
-
 void Utils::GatherAnnotatedFunctions(GlobalVariable *GV, 
                                      vector<Function *> &AF)
 {
@@ -159,4 +154,122 @@ void Utils::GatherAnnotatedFunctions(GlobalVariable *GV,
     }
 
     return;
+}
+
+
+uint64_t Utils::GetPrimitiveSizeInBytes(Type *ObjectType)
+{
+    /*
+     * TOP --- Cautiously convert the size of @ObjectType to bytes
+     */ 
+
+    /*
+     * Setup
+     */ 
+    const uint64_t MinSize = 1;
+
+
+    /*
+     * Fetch the size in bytes, check for non-zero values
+     */ 
+    uint64_t PrimitiveSize = ObjectType->getPrimitiveSizeInBits();
+    assert(PrimitiveSize && "Utils::GetPrimitiveSizeInBytes: Primitive size is 0!");
+
+    
+    /*
+     * Convert to bytes
+     */ 
+    PrimitiveSize /= 8;
+
+
+    /*
+     * Return at least 1 byte
+     */ 
+    return (std::max(PrimitiveSize, MinSize));
+}
+
+
+uint64_t Utils::CalculateObjectSize(
+    Type *ObjectType,
+    DataLayout *Layout
+)
+{
+    /*
+     * TOP --- Switch based on the TypeID of @ObjectType,
+     * calculate the object size in *bytes* directly or 
+     * recursively
+     */ 
+
+    /*
+     * Fetch TypeID
+     */ 
+    Type::TypeID TID = ObjectType->getTypeID();
+
+
+    /*
+     * Calculate the size based on "TID"
+     */  
+    switch (TID)
+    {
+        /*
+         * Fetch the struct layout from @Layout, and return
+         * the size directly in bytes
+         */ 
+        case Type::StructTyID:
+        {
+            StructType *StructTy = cast<StructType>(ObjectType);
+            return (Layout->getStructLayout(StructTy)->getSizeInBytes());
+        }
+
+
+        /*
+         * Recursively calculate the total size of the array
+         */ 
+        case Type::ArrayTyID:
+        {
+            ArrayType *ArrayTy = cast<ArrayType>(ObjectType);
+            Type *ElementTy = ArrayTy->getElementType();
+            return (ArrayTy->getNumElements() * CalculateObjectSize(ElementTy, Layout));
+        }
+
+
+        /*
+         * Directly calculate primitive type's size
+         */ 
+        case Type::HalfTyID: 
+        case Type::FloatTyID: 
+        case Type::DoubleTyID: 
+        case Type::X86_FP80TyID: 
+        case Type::FP128TyID: 
+        case Type::PPC_FP128TyID: 
+        case Type::X86_MMXTyID: 
+        case Type::IntegerTyID:
+        case Type::VectorTyID:
+            return Utils::GetPrimitiveSizeInBytes(ObjectType);
+
+        
+        /*
+         * Directly return the pointer size from @Layout
+         */ 
+        case Type::PointerTyID:
+            return Layout->getPointerSize();
+
+
+        /*
+         * Otherwise, abort
+         */ 
+        default:
+        {
+            errs() << "CalculateObjectSize: Cannot calculate object size for "
+                   << *ObjectType << "...\n";
+            abort();            
+        }
+
+    }
+
+    
+    /*
+     * Unlikely return
+     */ 
+    return -1;
 }

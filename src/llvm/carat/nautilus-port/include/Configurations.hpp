@@ -48,6 +48,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/IR/DataLayout.h"
 
 #include <string>
 #include <vector>
@@ -74,6 +75,7 @@
 
 
 using namespace llvm;
+using namespace std;
 
 
 /*
@@ -87,7 +89,7 @@ extern const std::string CARAT_MALLOC,
                          CARAT_ESCAPE,
                          LOWER_BOUND,
                          UPPER_BOUND,
-                         TEXAS_INIT,
+                         CARAT_INIT,
                          ENTRY_SETUP,
                          ANNOTATION,
                          NOCARAT;
@@ -99,10 +101,3 @@ extern const std::string CARAT_MALLOC,
 extern std::unordered_map<std::string, Function *> NecessaryMethods;
 extern std::vector<std::string> ImportantMethodNames;
 extern std::unordered_map<std::string, int> TargetMethods;
-
-
-/*
- * Extra utility methods --- FIX --- NEED TO REFACTOR
- */ 
-uint64_t findStructSize(Type *sType);
-uint64_t findArraySize(Type *aType);

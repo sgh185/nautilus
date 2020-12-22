@@ -67,4 +67,19 @@ namespace Utils
         GlobalVariable *GV, 
         std::vector<Function *> &AF
     );
+
+
+    /*
+     * Allocation size handling
+     */ 
+    uint64_t GetPrimitiveSizeInBytes(Type *ObjectType);
+    
+    uint64_t CalculateObjectSize(
+        Type *ObjectType,
+        DataLayout *Layout
+    );
 } 
+
+namespace Debug
+{
+}
