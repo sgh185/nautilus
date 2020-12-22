@@ -35,7 +35,7 @@ AllocationHandler::AllocationHandler(Module *M)
 
     // Set state
     this->M = M;
-    this->Init = M->getFunction(TEXAS_INIT);
+    this->Init = M->getFunction(CARAT_INIT);
     if (this->Init == nullptr) { abort(); }
 
     // Set up data structures
@@ -174,45 +174,70 @@ void AllocationHandler::_getAllNecessaryInstructions()
     return;
 }
 
-// NEEDS MAJOR REFACTORING
+
 void AllocationHandler::_getAllGlobals()
 {
-    // This will go through the current global variables and make sure
-    // we are covering all heap allocations
-    
+    /*
+     * TOP --- Iterate through all global variables, calculate
+     * size, mark for instrumentation if possible
+     */ 
+
+    /*
+     * Build llvm::DataLayout object to determine info useful
+     * to calculate struct sizes, pointer widths, etc.
+     */ 
+    DataLayout TheLayout = DataLayout(M);
+
+
+    /*
+     * Iterate through globals list
+     */ 
     for (auto &Global : M->getGlobalList())
     {
-        // Cannot target LLVM-specific globals
-        if (Global.getSection() == "llvm.metadata"
-            || (Global.isDiscardableIfUnused())) 
+        /*
+         * Ignore LLVM-specific metadata globals
+         */ 
+        if (false
+            || (Global.getSection() == "llvm.metadata")
+            || (Global.isDiscardableIfUnused())) /* FIX */
             { continue; }
 
-        uint64_t totalSizeInBytes;
 
-        // Each global variable can be either a struct, array, or a primitive.
-        // We will figure that out to calculate the total size of the global.
-        if (Global.getType()->isPointerTy())
-        {
-            // errs() << "Working with global: " << Global << "That is a pointer of type: " << *(Global.getValueType()) << "\n";
-            Type *iterType = Global.getValueType();
-            if (iterType->isArrayTy())
-            {
-                totalSizeInBytes = findArraySize(iterType);
-            }
-            // Now get element size per
-            else if (iterType->isStructTy())
-            {
-                totalSizeInBytes = findStructSize(iterType);
-            }
-            // We are worried about bytes not bits
-            else
-            {
-                totalSizeInBytes = iterType->getPrimitiveSizeInBits() / 8;
-            }
-            DEBUG_INFO("The size of the element is: " + to_string(totalSizeInBytes) + "\n");
-            Globals[&(cast<GlobalValue>(Global))] = totalSizeInBytes;
-        }
+        /*
+         * Sanity check each global --- must be of a  
+         * pointer type (invariant)
+         */  
+        assert(Global.getType()->isPointerTy() &&
+               "_getAllGlobals: Found a non-pointer typed global!");
+
+
+        /*
+         * Fetch type of global variable
+         */ 
+        Type *GlobalTy = Global.getValueType();
+
+
+        /*
+         * Calculate the size of the global variable
+         */ 
+        uint64_t GlobalSize = Utils::CalculateObjectSize(GlobalTy, &TheLayout);
+
+
+        /*
+         * Store the [global : size] mapping
+         */ 
+        Globals[&Global] = GlobalSize;
+
+
+        /*
+         * Debugging
+         */ 
+        DEBUG_ERRS << "Global: " << Global << "\n"
+                   << "Type: " << *GlobalTy << "\n" 
+                   << "TypeID: " << GlobalTy->getTypeID() << "\n"
+                   << "Size: " << GlobalSize << "\n\n";
     }
+
 
     return;
 }
@@ -224,7 +249,7 @@ void AllocationHandler::AddAllocationTableCallToInit()
     Instruction *InsertionPoint = Init->back().getTerminator();
     if (!(isa<ReturnInst>(InsertionPoint))) // Sanity check + hack
     {
-        errs() << "KARAT: Broken assumption --- back block terminator of texas_init is not return\n";
+        errs() << "KARAT: Broken assumption --- back block terminator of nk_carat_init is not return\n";
         abort();
     }
 
