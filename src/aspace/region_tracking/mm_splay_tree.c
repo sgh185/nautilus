@@ -37,9 +37,9 @@
 #define DEBUG_PRINT(fmt, args...) 
 #endif
 
-#define ERROR_SP(fmt, args...) ERROR_PRINT("aspace-paging-splay-tree: " fmt, ##args)
-#define DEBUG_SP(fmt, args...) DEBUG_PRINT("aspace-paging-splay-tree: " fmt, ##args)
-#define INFO_SP(fmt, args...)   INFO_PRINT("aspace-paging-splay-tree: " fmt, ##args)
+#define ERROR_SP(fmt, args...) ERROR_PRINT("aspace-splay-tree: " fmt, ##args)
+#define DEBUG_SP(fmt, args...) DEBUG_PRINT("aspace-splay-tree: " fmt, ##args)
+#define INFO_SP(fmt, args...)   INFO_PRINT("aspace-splay-tree: " fmt, ##args)
 #define MALLOC_SP(n) ({void *__p = malloc(n); if (!__p) { ERROR_SP("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 /* Rotate the edge joining the left child N with its parent P.  PP is the

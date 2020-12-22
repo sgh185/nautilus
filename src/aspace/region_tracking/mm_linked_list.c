@@ -7,9 +7,9 @@
 #endif
 
 
-#define ERROR_LLIST(fmt, args...) ERROR_PRINT("aspace-paging-llist: " fmt, ##args)
-#define DEBUG_LLIST(fmt, args...) DEBUG_PRINT("aspace-paging-llist: " fmt, ##args)
-#define INFO_LLIST(fmt, args...)   INFO_PRINT("aspace-paging-llist: " fmt, ##args)
+#define ERROR_LLIST(fmt, args...) ERROR_PRINT("aspace-llist: " fmt, ##args)
+#define DEBUG_LLIST(fmt, args...) DEBUG_PRINT("aspace-llist: " fmt, ##args)
+#define INFO_LLIST(fmt, args...)   INFO_PRINT("aspace-llist: " fmt, ##args)
 
 int mm_llist_insert(mm_struct_t * self, nk_aspace_region_t * region) {
     mm_llist_t * llist = (mm_llist_t * ) self;
