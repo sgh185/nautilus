@@ -12,7 +12,7 @@ SYM_NAME:=nautilus.syms
 # LLVM IR sources
 BC_NAME:=nautilus.bc
 LL_NAME:=nautilus.ll
-LOOP_LL_NAME:=nautilus_loop_simplify.ll
+LL_SIMPLIFY_NAME:=nautilus_simplify.ll
 OPT_LL_NAME:=nautilus_opt.ll
 STRIP_LL_NAME:=nautilus_strip.ll
 
@@ -801,12 +801,17 @@ bitcode: $(BIN_NAME)
 	llvm-dis $(BC_NAME) -o $(LL_NAME)
 
 # KARAT
-# Build --- scripts/pass_build.sh carat/nautilus-port KARAT.cpp --- FIX
 karat: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
 	# Run select loop simplification passes
-	opt -loop-simplify -lcssa -S $(LL_NAME) -o $(LOOP_LL_NAME)
-	# Run compiler-timing pass	
-	opt -load $< -karat -S $(LOOP_LL_NAME) -o $(OPT_LL_NAME) &> karat.out 
+	opt -loop-simplify -lcssa -S $(LL_NAME) -o $(LL_SIMPLIFY_NAME)
+	# Run KARAT pass	
+	opt -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) &> karat.out 
+
+karat_noelle: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
+	# Run Noelle normalization passes 
+	noelle-norm -S $(LL_NAME) -o $(LL_SIMPLIFY_NAME)
+	# Run KARAT pass with Noelle
+	noelle-load -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) &> karat.out 
 
 final: $(OPT_LL_NAME)
 	# Recompile (with full opt levels) new object files, binaries
