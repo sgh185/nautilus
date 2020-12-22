@@ -27,6 +27,7 @@
  */
 
 #include "./include/Escapes.hpp"
+#include "Noelle.hpp"
 
 namespace
 {
@@ -151,8 +152,31 @@ struct CAT : public ModulePass
 #endif
 
 
+#if 1
+        /*  
+         * Fetch Noelle --- DEMONSTRATION
+         */
+        Noelle &NoelleAnalysis = getAnalysis<Noelle>();
+
+  
+        /*  
+         * Fetch the dependence graph of the entry function.
+         */
+        Function *MainFromNoelle = NoelleAnalysis.getEntryFunction();
+        PDG *FDG = NoelleAnalysis.getFunctionDependenceGraph(MainFromNoelle);
+#endif
+
+
         return false;
     }
+
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override
+    {   
+        AU.addRequired<Noelle>();
+        return;
+    } 
+
 };
     
     

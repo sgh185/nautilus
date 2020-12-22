@@ -8,7 +8,7 @@ set(CATPassSrc
 )
 
 # Compilation flags
-set_source_files_properties(${CATPassSrc} PROPERTIES COMPILE_FLAGS " -std=c++14 -fPIC")
+set_source_files_properties(${CATPassSrc} PROPERTIES COMPILE_FLAGS " -std=c++17 -fPIC")
 
 # Name of the LLVM pass
 set(CATPassName "KARAT")
@@ -25,7 +25,10 @@ include(AddLLVM)
 
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${LLVM_INCLUDE_DIRS} 
+    ~/carat/src/noelle/install/include
+    ~/carat/src/noelle/install/include/svf
+  )
 
 # Declare the LLVM pass to compile
 add_llvm_library(${CATPassName} MODULE ${CATPassSrc})
