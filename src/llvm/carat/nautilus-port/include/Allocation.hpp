@@ -49,9 +49,9 @@ public:
     /*
      * Instrumentation methods
      */ 
-    void AddAllocationTableCallToInit();
-    void InjectMallocCalls();
-    void InjectFreeCalls();
+    void InstrumentGlobals();
+    void InstrumentMallocs();
+    void InstrumentFrees();
 
 
 private:
@@ -66,10 +66,9 @@ private:
     /*
      * Analysis state
      */ 
-    std::unordered_map<GlobalValue *, uint64_t> Globals;
-    std::vector<Instruction *> Mallocs;
-    std::vector<Instruction *> Frees;
-    std::vector<Instruction *> Allocas;
+    std::unordered_map<GlobalValue *, uint64_t> Globals; /* [global : size] */
+    std::unordered_set<Instruction *> Mallocs;
+    std::unordered_set<Instruction *> Frees;
 
 
     /*

@@ -28,149 +28,146 @@
 
 #include "../include/Allocation.hpp"
 
+
+/*
+ * ---------- Constructors ----------
+ */ 
 AllocationHandler::AllocationHandler(Module *M)
 {
-    DEBUG_INFO("--- Allocation Constructor ---\n");
-    VERIFY_DEBUG_INFO("--- Allocation Constructor ---\n");
+    DEBUG_ERRS << "--- Allocation Constructor ---\n";
 
-    // Set state
+
+    /*
+     * Set state
+     */ 
     this->M = M;
     this->Init = M->getFunction(CARAT_INIT);
-    if (this->Init == nullptr) { abort(); }
+    assert(!!(this->Init) 
+           && "AllocationHandler::AllocationHandler: Couldn't find nk_carat_init!");
 
-    // Set up data structures
-    this->Globals = std::unordered_map<GlobalValue *, uint64_t>();
-    this->Mallocs = std::vector<Instruction *>();
-    this->Frees = std::vector<Instruction *>();
-    this->Allocas = std::vector<Instruction *>();
 
+    /*
+     * Perform initial processing
+     */ 
     this->_getAllNecessaryInstructions();
     this->_getAllGlobals();
 }
 
+
+/*
+ * ---------- Drivers ----------
+ */ 
 void AllocationHandler::Inject()
 {
+    /*
+     * TOP --- Instrument all globals, memory allocations
+     * (malloc) and memory deallocations (frees)
+     */ 
 
-#if HANDLE_GLOBALS
-    AddAllocationTableCallToInit();
-#endif
+    /*
+     * Instrument globals
+     */ 
+    if (HANDLE_GLOBALS) InstrumentGlobals();
 
-    InjectMallocCalls();
-    InjectFreeCalls();
+
+    /*
+     * Instrument allocations
+     */ 
+    InstrumentMallocs();
+    InstrumentFrees();
+
+
+    /*
+     * Verify transformations
+     */ 
+    Utils::Verify(*M);
+
 
     return;
 }
 
+
+/*
+ * ---------- Private methods ----------
+ */ 
 void AllocationHandler::_getAllNecessaryInstructions()
 {
-    // This triple nested loop will just go through all the 
-    // instructions and sort all the allocations into their 
-    // respective types.
+    /*
+     * Instrument "malloc"s and "free"s per function
+     */ 
     for (auto &F : *M)
     {
-        if ((TargetMethods.find(F.getName()) != TargetMethods.end()) 
-            || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
-            || (F.isIntrinsic()) 
-            || (!(F.getInstructionCount())))
-            { continue; }
+        /*
+         * Skip if non-instrumentable
+         */ 
+        if (!(Utils::IsInstrumentable(F))) { continue; }
 
-        DEBUG_INFO("Entering function " + F.getName() + "\n");
 
-        // This will stop us from iterating through printf and malloc and stuff.
+        /*
+         * Debugging
+         */ 
+        DEBUG_ERRS << "Entering function " << F.getName() << "\n";
+
+
+        /*
+         * Iterate
+         */ 
         for (auto &B : F)
         {
             for (auto &I : B)
             {
-                DEBUG_INFO("Working on following instruction: ");
-                OBJ_INFO((&I));
+                /*
+                 * Analyze all call instructions --- if a call is 
+                 * found to have a "malloc" or "free" callee, mark
+                 * the instruction for instrumentation
+                 */ 
+                
+                /*
+                 * Ignore all other instructions
+                 */ 
+                if (!isa<CallInst>(&I)) { continue; }
 
-                if (isa<AllocaInst>(I))
+
+                /*
+                 * Fetch the call instruction
+                 */ 
+                CallInst *NextCall = cast<CallInst>(&I);
+
+
+                /*
+                 * Fetch the callee
+                 */ 
+                Function *Callee = NextCall->getCalledFunction();
+
+
+                /*
+                 * If the callee isn't a "malloc" or "free",
+                 * ignore the call instruction
+                 */ 
+                if (KernelAllocMethods.find(Callee) == KernelAllocMethods.end()) { continue; }
+
+
+                /*
+                 * Fetch the kernel alloc method ID, switch
+                 * based on the ID to mark each call for 
+                 * instrumentation
+                 */ 
+                KernelAllocID KAID = KernelAllocMethods[Callee];
+                switch (KAID)
                 {
-                    Allocas.push_back(&I);
-                }
-
-                // First we will check to see if the given instruction is a free instruction or a malloc.
-                // This requires that we first check to see if the instruction is a call instruction.
-                // Then we check to see if the call is not present (implying it is a library call).
-                // If it is present, next; otherwise, we check if it is free(). Next we see if it 
-                // is an allocation within a database of allocations (malloc, calloc, realloc, jemalloc ...)
-                if (isa<CallInst>(I) || isa<InvokeInst>(I))
-                {
-                    Function *fp = nullptr;
-
-                    // Make sure it is a library call
-                    if (isa<CallInst>(I))
+                    case KernelAllocID::Malloc: Mallocs.insert(NextCall);
+                    case KernelAllocID::Free: Frees.insert(NextCall);
+                    default:
                     {
-                        CallInst *CI = &(cast<CallInst>(I));
-                        fp = CI->getCalledFunction();
-                    }
-                    else
-                    {
-                        InvokeInst *II = &(cast<InvokeInst>(I));
-                        fp = II->getCalledFunction();
-                    }
-
-                    //Continue if fails
-                    if (fp != nullptr)
-                    {
-                        // name is fp->getName();
-                        StringRef funcName = fp->getName();
-
-                        DEBUG_INFO(funcName + "\n");
-                        
-                        int32_t val = (TargetMethods.find(funcName) != TargetMethods.end()) ?
-                                      TargetMethods[funcName] :
-                                      0;
-
-                        switch (val)
-                        {
-                        case 0: // Did not find the function, error
-                        {
-                            /*
-
-                            if (FunctionsToAvoid.find(funcName) == FunctionsToAvoid.end())
-                            {
-                                errs() << "The following function call is external to the program and not accounted for in our map " << funcName << "\n";
-                                FunctionsToAvoid.insert(funcName);
-                            }
-                            
-                            */
-
-                            DEBUG_INFO("The following function call is external to the program and not accounted for in our map "
-                                        + funcName + "\n");
-
-                            // Maybe it would be nice to add a prompt asking if the function is an allocation, free, or meaningless for our program instead of just dying
-                            // Also should the program maybe save the functions in a saved file (like a json/protobuf) so it can share knowledge between runs.
-                            // If we go the prompt route then we should change the below statements to simply if statements.
-
-                            break;
-                        }
-                        case 2: // Function is an allocation instruction
-                        {
-                            Mallocs.push_back(&I);
-                            break;
-                        }
-                        case 1: //Function is a deallocation instuction
-                        {
-                            Frees.push_back(&I);
-                            break;
-                        }
-                        case -1:
-                        {
-                            DEBUG_INFO("The following function call is external to the program, but the signature of the allocation is not supported (...yet)" + funcName + "\n");
-                            break;
-                        }
-                        default: // Terrible
-                        {
-                            break;
-                        }
-                        }
+                        errs() << "AllocationHandler::_getAllNecessaryInstructions: Failed to fetch KernelAllocID!";
+                        abort();
                     }
                 }
             }
         }
     }
 
+    
     return;
 }
 
@@ -242,158 +239,241 @@ void AllocationHandler::_getAllGlobals()
     return;
 }
 
-// For globals into init
-void AllocationHandler::AddAllocationTableCallToInit()
+
+void AllocationHandler::InstrumentGlobals()
 {
-    // Set up for IRBuilder, malloc injection
+    /*
+     * TOP --- Instrument each global variable --- inject
+     * instrumentation into "nk_carat_init"
+     */ 
+
+    /*
+     * Fetch insertion point as the terminator of "nk_carat_init"
+     */
     Instruction *InsertionPoint = Init->back().getTerminator();
-    if (!(isa<ReturnInst>(InsertionPoint))) // Sanity check + hack
-    {
-        errs() << "KARAT: Broken assumption --- back block terminator of nk_carat_init is not return\n";
-        abort();
-    }
+    assert(isa<ReturnInst>(InsertionPoint)
+           && "InstrumentGlobals: Back block terminator of 'nk_carat_init' is not return!");
 
-    IRBuilder<> InitBuilder = Utils::GetBuilder(Init, InsertionPoint);
 
-    Type *VoidPointerType = InitBuilder.getInt8PtrTy(); // For pointer injection
-    Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
+    /*
+     * Set up IRBuilder
+     */  
+    IRBuilder<> InitBuilder = 
+        Utils::GetBuilder(
+            Init, 
+            InsertionPoint
+        );
 
+
+    /*
+     * Set up for injections
+     */ 
+    Type *VoidPointerType = InitBuilder.getInt8PtrTy();
+    Function *CARATMalloc = CARATNamesToMethods[CARAT_MALLOC];
+
+
+    /*
+     * Iterate through all globals to be intrumented
+     */
     for (auto const &[GV, Length] : Globals)
     {
-        if (Length == 0) { 
-            errs() << "Skipping global: ";
-            errs() << *GV << "\n";
+        /*
+         * If there is a global with length=0, skip --- FIX
+         */ 
+        if (Length == 0) 
+        { 
+            errs() << "Skipping global: "
+                   << *GV << "\n";
+
             continue; 
         }
 
-        // Set up arguments for call instruction to malloc
-        std::vector<Value *> CallArgs;
 
-        // Build void pointer cast for global
-        Value *PointerCast = InitBuilder.CreatePointerCast(GV, VoidPointerType);
+        /*
+         * Build void pointer cast for current global --- necessary
+         * to process in the CARAT kernel runtime
+         */ 
+        Value *PointerCast = 
+            InitBuilder.CreatePointerCast(
+                GV, VoidPointerType
+            );
 
-        // Add to arguments vector
-        CallArgs.push_back(PointerCast);
-        CallArgs.push_back(InitBuilder.getInt64(Length));
 
-        // Convert to LLVM data structure
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
+        /*
+         * Set up call parameters
+         */ 
+        ArrayRef<Value *> CallArgs = {
+            PointerCast,
+            InitBuilder.getInt64(Length)
+        };
 
-        // Build call instruction
-        CallInst *MallocInjection = InitBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
+
+        /*
+         * Inject
+         */ 
+        CallInst *Instrumentation = 
+            InitBuilder.CreateCall(
+                CARATMalloc, 
+                CallArgs
+            );
     }
+
 
     return;
 }
 
-void AllocationHandler::InjectMallocCalls()
+
+void AllocationHandler::InstrumentMallocs()
 {
+    /*
+     * Set up for injection
+     */ 
     Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
-    LLVMContext &TheContext = CARATMalloc->getContext();
 
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-    Type *Int64Type = Type::getInt64Ty(TheContext);      // For pointer injection
+    IRBuilder<> TypeBuilder{M->getContext()};
+    Type *VoidPointerType = TypeBuilder.getInt8PtrTy(),
+         *Int64Type = TypeBuilder.getInt64Ty();
 
-    for (auto MI : Mallocs)
+
+    /*
+     * Instrument all collected "malloc"ss
+     */ 
+    for (auto NextMalloc : Mallocs)
     {
-        errs() << "MI: " << *MI << "\n";
+        /*
+         * Debugging
+         */ 
+        errs() << "NextMalloc: " << *NextMalloc << "\n";
         
-        Instruction *InsertionPoint = MI->getNextNode();
-        if (InsertionPoint == nullptr)
-        {
-            errs() << "Not able to instrument: ";
-            MI->print(errs());
-            errs() << "\n";
+    
+        /*
+         * Set up insertion point
+         */ 
+        Instruction *InsertionPoint = NextMalloc->getNextNode();
+        assert(!!InsertionPoint 
+               && "InstrumentMallocs: Can't find an insertion point!");
 
-            continue;
-        }
 
-        // Set up injections and call instruction arguments
-        IRBuilder<> MIBuilder = Utils::GetBuilder(MI->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
+        /*
+         * Set up IRBuilder
+         */ 
+        IRBuilder<> Builder = 
+            Utils::GetBuilder(
+                NextMalloc->getFunction(), 
+                InsertionPoint
+            );
 
-        // Cast inst as value to grab returned value
-        Value *MallocReturnCast = MIBuilder.CreatePointerCast(MI, VoidPointerType);
 
-        // Cast inst for size argument to original malloc call (MI)
-        Value *MallocSizeArgCast = MIBuilder.CreateZExtOrBitCast(MI->getOperand(0), Int64Type);
+        /*
+         * Cast return value from "malloc" to void pointer
+         */
+        Value *MallocReturnCast = 
+          Builder.CreatePointerCast(
+                NextMalloc, 
+                VoidPointerType
+            );
 
-        // Add CARAT malloc call instruction arguments
-        CallArgs.push_back(MallocReturnCast);
-        CallArgs.push_back(MallocSizeArgCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
 
-        // Build the call instruction to CARAT malloc
-        CallInst *AddToAllocationTable = MIBuilder.CreateCall(CARATMalloc, LLVMCallArgs);
+        /*
+         * Cast size parameter to "malloc" into i64
+         */
+        Value *MallocSizeArgCast = 
+            Builder.CreateZExtOrBitCast(
+                NextMalloc->getOperand(0), 
+                Int64Type
+            );
 
-#if VERIFY
-        if (verifyFunction(*(MI->getFunction()), &(errs())))
-        {
-            VERIFY_DEBUG_INFO("\n");
-            VERIFY_DEBUG_INFO(MI->getFunction()->getName() + "\n");
-            VERIFY_OBJ_INFO((MI->getFunction()));
-            VERIFY_DEBUG_INFO("\n\n\n");
 
-            break;
-        }
-#endif
+        /*
+         * Set up call parameters
+         */ 
+        ArrayRef<Value *> CallArgs = {
+            MallocReturnCast,
+            MallocSizeArgCast
+        };
 
+
+        /*
+         * Inject
+         */ 
+        CallInst *InstrumentMalloc = 
+            Builder.CreateCall(
+                CARATMalloc, 
+                CallArgs
+            );
     }
+
 
     return;
 }
 
 
-void AllocationHandler::InjectFreeCalls()
+void AllocationHandler::InstrumentFrees()
 {
+    /*
+     * Set up for injection
+     */ 
     Function *CARATFree = NecessaryMethods[CARAT_REMOVE_ALLOC];
-    LLVMContext &TheContext = CARATFree->getContext();
 
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
+    IRBuilder<> TypeBuilder{M->getContext()};
+    Type *VoidPointerType = TypeBuilder.getInt8PtrTy();
 
-    for (auto FI : Frees)
+
+    /*
+     * Iterate
+     */ 
+    for (auto NextFree : Frees)
     {
-        errs() << "FI: " << *FI << "\n";
+        /*
+         * Debugging
+         */ 
+        errs() << "NextFree: " << *NextFree << "\n";
 
-        Instruction *InsertionPoint = FI->getNextNode();
-        if (InsertionPoint == nullptr)
-        {
-            errs() << "Not able to instrument: ";
-            FI->print(errs());
-            errs() << "\n";
 
-            continue;
-        }
+        /*
+         * Set up insertion point
+         */ 
+        Instruction *InsertionPoint = NextFree->getNextNode();
+        assert(!!InsertionPoint 
+               && "InstrumentFrees: Can't find an insertion point!");
 
-        // Set up injections and call instruction arguments
-        IRBuilder<> FIBuilder = Utils::GetBuilder(FI->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
+
+        /*
+         * Set up IRBuilder
+         */ 
+        IRBuilder<> Builder = 
+            Utils::GetBuilder(
+                NextFree->getFunction(), 
+                InsertionPoint
+            );
+
 
         // Cast inst as value passed to free
-        Value *FreePassedPtrCast = FIBuilder.CreatePointerCast(FI->getOperand(0), VoidPointerType);
+        Value *ParameterToFree = 
+            Builder.CreatePointerCast(
+                NextFree->getOperand(0), 
+                VoidPointerType
+            );
 
-        // Add CARAT Free call instruction arguments
-        CallArgs.push_back(FreePassedPtrCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
 
-        // Build the call instruction to CARAT Free
-        CallInst *AddToAllocationTable = FIBuilder.CreateCall(CARATFree, LLVMCallArgs);
+        /*
+         * Set up call parameters
+         */ 
+        ArrayRef<Value *> CallArgs = {
+            ParameterToFree
+        };
 
-#if VERIFY
-        if (verifyFunction(*(FI->getFunction()), &(errs())))
-        {
-            VERIFY_DEBUG_INFO("\n");
-            VERIFY_DEBUG_INFO(FI->getFunction()->getName() + "\n");
-            VERIFY_OBJ_INFO((FI->getFunction()));
-            VERIFY_DEBUG_INFO("\n\n\n");
 
-            break;
-        }
-#endif
-    
+        /*
+         * Inject
+         */ 
+        CallInst *InstrumentFree = 
+            Builder.CreateCall(
+                CARATFree, 
+                CallArgs
+            );
     }
+
 
     return;
 }
