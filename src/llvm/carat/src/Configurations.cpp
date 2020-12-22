@@ -38,6 +38,7 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_STATS = "nk_carat_report_statistics",
                   CARAT_ESCAPE = "nk_carat_instrument_escapes",
                   CARAT_INIT = "nk_carat_init",
+                  CARAT_GLOBALS_TARGET = "_nk_carat_globals_compiler_target",
                   ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
                   KERNEL_MALLOC = "_kmem_sys_malloc",
                   KERNEL_FREE = "kmem_sys_free",
@@ -56,6 +57,7 @@ std::unordered_set<std::string> CARATNames = {
     CARAT_STATS,
     CARAT_ESCAPE,
     CARAT_INIT,
+    CARAT_GLOBALS_TARGET,
     ENTRY_SETUP
 };
 

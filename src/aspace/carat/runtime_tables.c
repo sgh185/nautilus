@@ -507,6 +507,17 @@ uint64_t _carat_get_rsp()
 	__asm__ __volatile__("movq %%rsp, %0" : "=a"(rsp) : : "memory");
 	return rsp;
 }
+    
+
+/*
+ * Wrapper for the compiler to target and inject
+ * allocation tracking for globals --- HACK
+ */ 
+__attribute__((noinline, optnone, annotate("nocarat")))
+void _nk_carat_globals_compiler_target(void)
+{
+    return;
+}
 
 
 /*
@@ -557,7 +568,13 @@ void nk_carat_init()
 	 */ 
 	CARAT_READY_ON;
 
-	// Global allocation tracking calls are injected at this point
+	
+    /*
+     * Invoke wrapper housing compiler-injected global allocation tracking
+     */
+    _nk_carat_globals_compiler_target();
+
+    
 	return;
 }
 

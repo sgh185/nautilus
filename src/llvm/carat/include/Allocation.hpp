@@ -60,7 +60,7 @@ private:
      * Passed state
      */ 
     Module *M;
-    Function *Init;
+    Function *Target;
     
 
     /*

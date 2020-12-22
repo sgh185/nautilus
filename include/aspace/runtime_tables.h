@@ -268,6 +268,12 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  */
 
 /*
+ * Compiler target for globals allocation tracking
+ */ 
+void _nk_carat_globals_compiler_target(void);
+
+
+/*
  * Main driver for CARAT initialization
  */ 
 void nk_carat_init();

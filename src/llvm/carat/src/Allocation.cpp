@@ -41,8 +41,8 @@ AllocationHandler::AllocationHandler(Module *M)
      * Set state
      */ 
     this->M = M;
-    this->Init = M->getFunction(CARAT_INIT);
-    assert(!!(this->Init) 
+    this->Target = M->getFunction(CARAT_GLOBALS_TARGET);
+    assert(!!(this->Target) 
            && "AllocationHandler::AllocationHandler: Couldn't find nk_carat_init!");
 
 
@@ -260,7 +260,7 @@ void AllocationHandler::InstrumentGlobals()
     /*
      * Fetch insertion point as the terminator of "nk_carat_init"
      */
-    Instruction *InsertionPoint = Init->back().getTerminator();
+    Instruction *InsertionPoint = Target->back().getTerminator();
     assert(isa<ReturnInst>(InsertionPoint)
            && "InstrumentGlobals: Back block terminator of 'nk_carat_init' is not return!");
 
@@ -268,9 +268,9 @@ void AllocationHandler::InstrumentGlobals()
     /*
      * Set up IRBuilder
      */  
-    IRBuilder<> InitBuilder = 
+    IRBuilder<> TargetBuilder = 
         Utils::GetBuilder(
-            Init, 
+            Target, 
             InsertionPoint
         );
 
@@ -278,7 +278,7 @@ void AllocationHandler::InstrumentGlobals()
     /*
      * Set up for injections
      */ 
-    Type *VoidPointerType = InitBuilder.getInt8PtrTy();
+    Type *VoidPointerType = TargetBuilder.getInt8PtrTy();
     Function *CARATMalloc = CARATNamesToMethods[CARAT_MALLOC];
 
 
@@ -304,7 +304,7 @@ void AllocationHandler::InstrumentGlobals()
          * to process in the CARAT kernel runtime
          */ 
         Value *PointerCast = 
-            InitBuilder.CreatePointerCast(
+            TargetBuilder.CreatePointerCast(
                 GV, VoidPointerType
             );
 
@@ -314,7 +314,7 @@ void AllocationHandler::InstrumentGlobals()
          */ 
         ArrayRef<Value *> CallArgs = {
             PointerCast,
-            InitBuilder.getInt64(Length)
+            TargetBuilder.getInt64(Length)
         };
 
 
@@ -322,7 +322,7 @@ void AllocationHandler::InstrumentGlobals()
          * Inject
          */ 
         CallInst *Instrumentation = 
-            InitBuilder.CreateCall(
+            TargetBuilder.CreateCall(
                 CARATMalloc, 
                 CallArgs
             );
