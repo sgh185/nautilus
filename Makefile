@@ -807,7 +807,10 @@ karat: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
 	# Run KARAT pass	
 	opt -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) &> karat.out 
 
-karat_noelle: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
+download:  
+	./scripts/noelle_download.sh "/project/parallelizing_compiler/repositories/noelle" 
+
+karat_noelle: ~/CAT/lib/KARAT.so noelle $(LL_NAME) $(BIN_NAME)
 	# Run Noelle normalization passes 
 	noelle-norm -S $(LL_NAME) -o $(LL_SIMPLIFY_NAME)
 	# Run KARAT pass with Noelle
