@@ -9,6 +9,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define NAUTILUS_EXE
+#include <nautilus/nautilus_exe.h>
+
 static volatile int GLOB = 1;
 
 static void func1_a(void) { printf("A implementation\n"); }
@@ -46,6 +49,9 @@ int ptfunc(void* x) {
 char stack[0x20000];
 
 int main(int argc, char** argv, char** envp) {
+
+  nk_vc_printf("Hello from vc_printf %d\n", 1);
+
   char write_msg[] = "Write using write\n";
   write(STDOUT_FILENO, write_msg, sizeof(write_msg));
 
