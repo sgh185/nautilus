@@ -7,3 +7,4 @@ tags
 *.syms
 *.bc
 *.ll
+./src/llvm/toolchain
