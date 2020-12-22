@@ -151,6 +151,7 @@ int mm_struct_init(mm_struct_t * self);
 #define LEN_CHECK 4
 #define PROTECT_CHECK 8
 
+static uint8_t all_eq_flag = VA_CHECK | PA_CHECK | LEN_CHECK | PROTECT_CHECK;
 /*
     return 1 if two input regions are equal in terms of check_flags
     {VA_CHECK|PA_CHECK|LEN_CHECK|PROTECT_CHECK} controls which attribute of input regions are going to be checked

@@ -6,16 +6,17 @@
 #define DEBUG_PRINT(fmt, args...) 
 #endif
 
-#define ERROR_RB(fmt, args...) ERROR_PRINT("aspace-paging-rbtree: " fmt, ##args)
-#define DEBUG_RB(fmt, args...) DEBUG_PRINT("aspace-paging-rbtree: " fmt, ##args)
-#define INFO_RB(fmt, args...)   INFO_PRINT("aspace-paging-rbtree: " fmt, ##args)
+#define ERROR_RB(fmt, args...) ERROR_PRINT("aspace-rbtree: " fmt, ##args)
+#define DEBUG_RB(fmt, args...) DEBUG_PRINT("aspace-rbtree: " fmt, ##args)
+#define INFO_RB(fmt, args...)   INFO_PRINT("aspace-rbtree: " fmt, ##args)
 #define MALLOC_RB(n) ({void *__p = malloc(n); if (!__p) { ERROR_RB("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
 
 #define NUM2COLOR(n) (((n) == BLACK) ? 'B' : 'R')
 #define NODE_STR_LEN 128
 #define NODE_STR_DETAIL_LEN (NODE_STR_LEN * 4)
 
-
+#define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+#define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
 
 /*
          |                    |   
@@ -687,6 +688,40 @@ mm_rb_node_t * rb_tree_LUB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
     return upper_bound;
 }
 
+
+/**
+ *  return NIL when node is the largest
+ * */
+mm_rb_node_t * rb_tree_next_smallest(mm_rb_tree_t * tree, mm_rb_node_t * node) {
+    mm_rb_node_t * right_min = rb_tree_minimum(tree, node->right);
+    if (right_min != tree->NIL) return right_min;
+    
+    /**
+     *  If @node is a leaf,
+     *      find the first upstream which is the left child of its parent 
+     * */
+
+    while (node != node->parent->left && node != tree->root) {
+        node = node->parent;
+    }   
+    return node->parent;
+}
+
+mm_rb_node_t * rb_tree_prev_largest(mm_rb_tree_t * tree, mm_rb_node_t * node) {
+    mm_rb_node_t * left_max = rb_tree_maximum(tree, node->left);
+    if (left_max != tree->NIL) return left_max;
+    
+    /**
+     *  If @node is a leaf,
+     *      find the first upstream which is the right child of its parent 
+     * */
+
+    while (node != node->parent->right && node != tree->root) {
+        node = node->parent;
+    }   
+    return node->parent;
+}
+
 /*
     find greatest lower bound for key among the elements in tree
     return tree->NIL if key is larger than all elements in the tree
@@ -825,13 +860,42 @@ nk_aspace_region_t * rb_tree_update_region (
     if (target_node == tree->NIL) return NULL;
     
     // criterion not met
-    nk_aspace_region_t * curr_region_ptr = &target_node->region;
-    int eq = region_equal(curr_region_ptr, cur_region, eq_flag);
+    nk_aspace_region_t * target_region = &target_node->region;
+    
+    int eq = region_equal(target_region, cur_region, all_eq_flag);
     if (!eq) return NULL;
 
-    region_update(curr_region_ptr, new_region, eq_flag);
+    // region_update(target_region, new_region, eq_flag);
 
-    return curr_region_ptr;
+    if (!(eq_flag & PA_CHECK)) {
+        target_region->pa_start = new_region->pa_start;
+    }
+
+    if (!(eq_flag & LEN_CHECK)) {
+        if (new_region->len_bytes > target_region->len_bytes) {
+            /**
+             *  We have to take care here if new region has longer length
+             *  Expanding current region might lead to overlapping
+             * */
+            mm_rb_node_t * next_node = rb_tree_next_smallest(tree, target_node);
+            int new_region_overlap = overlap_helper(new_region, &next_node->region);
+            
+            if (new_region_overlap){
+                /**
+                 *  If new region overlaps with existed region, the update the is not valid, and we have to undo the deletion
+                 * */
+                return NULL;
+            } 
+        } 
+
+        target_region->len_bytes = new_region->len_bytes;  
+    }
+
+    if (!(eq_flag & PROTECT_CHECK)) {
+        target_region->protect = new_region->protect;
+    }
+
+    return target_region;
 }
 
 int rb_tree_remove(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags) {
@@ -920,7 +984,8 @@ mm_rb_node_t * create_rb_NIL() {
 
     nil->color = BLACK;
     nil->parent = nil->left = nil->right = NULL;
-    nk_aspace_region_t reg_default;
+    nk_aspace_region_t reg_default = {0};
+
     nil->region = reg_default;
     return nil;
 }

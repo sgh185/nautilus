@@ -241,7 +241,8 @@ int paging_helper_walk(ph_cr3e_t cr3, addr_t vaddr, ph_pf_access_t access_type, 
         if (pdpe->present && perm_ok(pdpe,access_type)) {
             if(pdpe->is_leaf) {
                 // 1GB huge page
-                *entry = &pdpe->val;
+                // *entry = &pdpe->val;
+                *entry = (uint64_t *) pdpe;
                 return 3;
             }
 
@@ -251,7 +252,12 @@ int paging_helper_walk(ph_cr3e_t cr3, addr_t vaddr, ph_pf_access_t access_type, 
             if (pde->present && perm_ok(pde,access_type)) {
                 if (pde->is_leaf) {
                     // 2MB large page
-                    *entry = &pde->val;
+                    // *entry = &pde->val;
+                    /**
+                     *  Change the line above to suppress warming:
+                     *       warning: taking address of packed member 'val' of class or structure 'ph_pdpe' may result in an unaligned pointer value
+                     * */
+                    *entry = (uint64_t *) pde;
                     return 2;
                 }
 
@@ -260,26 +266,31 @@ int paging_helper_walk(ph_cr3e_t cr3, addr_t vaddr, ph_pf_access_t access_type, 
                 if (pte->present && perm_ok(pte,access_type)) {
                     // success 
                     // normal 4KB page
-                    *entry = &pte->val;
+                    // *entry = &pte->val;
+                    *entry = (uint64_t *) pte;
                     return 1;
                 } else {
                     // failed at 4th level
-                    *entry = &pte->val;
+                    // *entry = &pte->val;
+                    *entry = (uint64_t *) pte;
                     return -1;
                 }
             } else {
             // failed at 3rd level
-                *entry = &pde->val;
+                // *entry = &pde->val;
+                *entry = (uint64_t *) pde;
                 return -2;
             }
         } else {
             // failed at 2nd level
-            *entry = &pdpe->val;
+            // *entry = &pdpe->val;
+            *entry = (uint64_t *) pdpe;
             return -3;
         }			      
     } else {
     // failed at first level
-        *entry = &pml4e->val;
+        // *entry = &pml4e->val;
+        *entry = (uint64_t *) pml4e;
         return -4;
     }
 }
