@@ -58,7 +58,7 @@ private:
     /*
      * Analysis state
      */ 
-    std::vector<Instruction *> MemUses;
+    std::unordered_set<Instruction *> MemUses;
 
 
     /*

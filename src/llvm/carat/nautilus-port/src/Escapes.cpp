@@ -28,84 +28,156 @@
 
 #include "../include/Escapes.hpp"
 
+
+/*
+ * ----------- Constructors ----------- 
+ */ 
 EscapesHandler::EscapesHandler(Module *M)
 {
-    DEBUG_INFO("--- Protections Constructor ---\n");
+    DEBUG_ERRS << "--- Protections Constructor ---\n";
 
-    // Set state
+    /*
+     * Set state
+     */ 
     this->M = M;
 
-    // Set up data structures
-    this->MemUses = std::vector<Instruction *>();
 
+    /*
+     * Perform initial processing
+     */
     this->_getAllNecessaryInstructions();
 }
 
-void EscapesHandler::_getAllNecessaryInstructions()
-{
-    for (auto &F : *M)
-    {
-        if ((TargetMethods.find(F.getName()) != TargetMethods.end()) 
-            || (NecessaryMethods.find(F.getName()) != NecessaryMethods.end()) 
-            || (F.isIntrinsic()) 
-            || (!(F.getInstructionCount())))
-            { continue; }
 
-        for (auto &B : F)
-        {
-            for (auto &I : B)
-            {
-                if (isa<StoreInst>(&I))
-                {
-                    StoreInst *SI = static_cast<StoreInst *>(&I);
-                    if (SI->getValueOperand()->getType()->isPointerTy()) 
-                        MemUses.push_back(SI);                                
-                }
-            }
-        }
+/*
+ * ----------- Drivers ----------- 
+ */ 
+void EscapesHandler::Inject()
+{
+    /*
+     * Set up for injection
+     */ 
+    Function *CARATEscape = CARATNamesToMethods[CARAT_ESCAPE];
+
+    IRBuilder<> TypeBuilder{M->getContext()};
+    Type *VoidPointerType = TypeBuilder.getInt8PtrTy();
+
+
+    /*
+     * Iterate
+     */ 
+    for (auto NextMemUse : MemUses)
+    {
+        /*
+         * Debugging
+         */ 
+        errs() << "NextMemUse: " << *NextMemUse << "\n";
+        
+    
+        /*
+         * Set up insertion point
+         */ 
+        Instruction *InsertionPoint = NextMemUse->getNextNode();
+        assert(!!InsertionPoint 
+               && "EscapesHandler::Inject: Can't find an insertion point!");
+
+
+        /*
+         * Set up IRBuilder
+         */ 
+        IRBuilder<> Builder = 
+            Utils::GetBuilder(
+                NextMemUse->getFunction(), 
+                InsertionPoint
+            );
+
+
+        /*
+         * Fetch the underlying store
+         */ 
+        StoreInst *NextStore = cast<StoreInst>(NextMemUse);
+
+
+        /*
+         * Cast the pointer operand of the store to a 'void *'
+         * NOTE --- the pointer operand is the location at
+         * which the value will be stored
+         */ 
+        Value *PointerOperand = NextStore->getPointerOperand();
+        Value *PointerOperandCast = 
+            Builder.CreatePointerCast(
+                PointerOperand, 
+                VoidPointerType
+            );
+
+
+        /*
+         * Set up call parameters
+         */ 
+        ArrayRef<Value *> CallArgs = {
+            PointerOperandCast
+        };
+
+
+        /*
+         * Inject
+         */ 
+        CallInst *InstrumentEscape = 
+            Builder.CreateCall(
+                CARATEscape, 
+                CallArgs
+            );
     }
 
     return;
 }
 
-void EscapesHandler::Inject()
+
+/*
+ * ----------- Private methods ----------- 
+ */ 
+void EscapesHandler::_getAllNecessaryInstructions()
 {
-    Function *CARATEscape = NecessaryMethods[CARAT_ESCAPE];
-    LLVMContext &TheContext = CARATEscape->getContext();
+    /*
+     * TOP --- iterate over all functions --- find all 
+     * store instructions to mark for instrumentations
+     */ 
 
-    // Set up types necessary for injections
-    Type *VoidPointerType = Type::getInt8PtrTy(TheContext, 0); // For pointer injection
-
-    for (auto MU : MemUses)
+    /*
+     * Iterate
+     */ 
+    for (auto &F : *M)
     {
-        Instruction *InsertionPoint = MU->getNextNode();
-        if (InsertionPoint == nullptr)
+        /*
+         * Skip if non-instrumentable
+         */ 
+        if (!(Utils::IsInstrumentable(F))) { continue; }
+
+
+        /*
+         * Iterate --- search for stores
+         */ 
+        for (auto &B : F)
         {
-            errs() << "Not able to instrument: ";
-            MU->print(errs());
-            errs() << "\n";
+            for (auto &I : B)
+            {
+                /*
+                 * Skip all other instructions
+                 */
+                if (!(isa<StoreInst>(&I))) { continue; }
 
-            continue;
+
+                /*
+                 * Have a store --- check to see if the value
+                 * operand (i.e. the value being store) is a
+                 * pointer --- if so, we've caught an escape
+                 * --- stash the store instruction in question
+                 */ 
+                StoreInst *NextStore = cast<StoreInst>(&I);
+                if (NextStore->getValueOperand()->getType()->isPointerTy())
+                    MemUses.insert(NextStore);  
+            }
         }
-
-        // Set up injections and call instruction arguments
-        IRBuilder<> MUBuilder = Utils::GetBuilder(MU->getFunction(), InsertionPoint);
-        std::vector<Value *> CallArgs;
-
-        // Get pointer operand from store instruction --- this is the
-        // only parameter (casted) to the AddToEscapeTable method
-        StoreInst *SMU = static_cast<StoreInst *>(MU);
-        Value *PointerOperand = SMU->getPointerOperand();
-
-        // Pointer operand casted to void pointer
-        Value *PointerOperandCast = MUBuilder.CreatePointerCast(PointerOperand, VoidPointerType);
-
-        // Add all necessary arguments, convert to LLVM data structure
-        CallArgs.push_back(PointerOperandCast);
-        ArrayRef<Value *> LLVMCallArgs = ArrayRef<Value *>(CallArgs);
-
-        // Build the call instruction to CARAT escape
-        CallInst *AddToEscapeTable = MUBuilder.CreateCall(CARATEscape, LLVMCallArgs);
     }
 
     return;
