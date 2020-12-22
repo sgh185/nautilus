@@ -43,7 +43,7 @@ namespace Utils
     /*
      * Init
      */ 
-    void ExitOnInit();
+    void ExitOnInit(void);
 
     Function *GetMethod(
         Module *M,
@@ -85,9 +85,11 @@ namespace Utils
 
 
     /*
-     * Verification helper
+     * Verification helpers
      */ 
     bool Verify(Module &M);
+
+    void VetKernelAllocMethods(void);
 } 
 
 namespace Debug

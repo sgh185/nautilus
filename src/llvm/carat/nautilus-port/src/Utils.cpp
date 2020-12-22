@@ -38,7 +38,7 @@ using namespace Debug;
  * any analysis or transformation --- exit in runOnModule --- mostly
  * for testing scenarios
  */
-void Utils::ExitOnInit()
+void Utils::ExitOnInit(void)
 {
     if (FALSE)
     {
@@ -345,4 +345,42 @@ bool Utils::Verify(Module &M)
 
 
     return !Failed;
+}
+
+
+void Utils::VetKernelAllocMethods(void)
+{
+    /*
+     * TOP --- For each kernel alloc call --- perform
+     * some simple checks --- check if uses of each 
+     * method are limited to call instructions
+     */ 
+
+    /*
+     * Iterate over kernel alloc methods
+     */ 
+    for (auto const &[Method, ID] : KernelAllocMethodsToIDs)
+    {
+        errs() << "Vetting " << Method->getName() << " ...\n";
+
+        /* 
+         * Iterate over the users over each method
+         */ 
+        for (auto *User : Method->users())
+        {
+            /*
+             * Verify that the user is a call instruction --- if
+             * verification fails, print a warning
+             */ 
+            CallInst *CallUser = dyn_cast<CallInst>(User);
+            if (!CallUser)
+            {
+                errs() << "WARNING: Suspicious user: "
+                       << *User << "\n";
+            }
+        }
+    }
+
+
+    return;
 }

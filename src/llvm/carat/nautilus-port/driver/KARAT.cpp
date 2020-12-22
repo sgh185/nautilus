@@ -106,16 +106,24 @@ struct CAT : public ModulePass
 
     bool runOnModule(Module &M) override
     {
+        if (DEBUG || true)
+        {
+            /*
+             * Output all intrinsics that exist in the module
+             */ 
+            errs() << "Now intrinsics!\n";
+            for (auto &F : M) if (F.isIntrinsic()) errs() << F.getName() << "\n";
 
-#if 1
 
-        /*
-         * Grab all intrinsics that exist in the module
-         */ 
-        errs() << "Now intrinsics!\n";
-        for (auto &F : M) if (F.isIntrinsic()) errs() << F.getName() << "\n";
+            /*
+             * Vet the kernel allocation methods --- check if kmem
+             * invocations are vanilla or not (i.e. invocations via
+             * indirect call, etc.)
+             */ 
+            Utils::VetKernelAllocMethods();
+        }
 
-#endif
+
         /*
          * Perform all CARAT instrumentation on the kernel
          */ 
