@@ -63,7 +63,7 @@ std::unordered_map<std::string, Function *> CARATNamesToMethods;
 
 std::unordered_set<Function *> CARATMethods;
 
-std::unordered_set<std::string> IDsToKernelAllocMethods = {
+std::unordered_map<KernelAllocID, std::string> IDsToKernelAllocMethods = {
     { KernelAllocID::Malloc, KERNEL_MALLOC } ,
     { KernelAllocID::Free, KERNEL_FREE }
 };

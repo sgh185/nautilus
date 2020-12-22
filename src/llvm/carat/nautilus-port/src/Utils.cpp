@@ -47,7 +47,7 @@ void Utils::ExitOnInit()
     }
 }
 
-Function *Utils::GetFunction(
+Function *Utils::GetMethod(
     Module *M,
     const std::string Name
 )
@@ -57,7 +57,7 @@ Function *Utils::GetFunction(
      * check that the function exists
      */ 
     Function *F = M->getFunction(Name);
-    assert(!!F && "GetFunction: Can't fetch!");
+    assert(!!F && "Utils::GetMethod: Can't fetch!");
     return F;
 }
 
@@ -334,7 +334,7 @@ bool Utils::Verify(Module &M)
     {
         if (verifyFunction(F, &(errs())))
         {
-            DEBUG_ERRS << "Failed verification: " << 
+            DEBUG_ERRS << "Failed verification: " 
                        << F.getName() << "\n"
                        << F << "\n";
 

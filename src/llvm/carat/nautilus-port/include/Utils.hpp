@@ -45,7 +45,7 @@ namespace Utils
      */ 
     void ExitOnInit();
 
-    Function *GetFunction(
+    Function *GetMethod(
         Module *M,
         const std::string Name
     );
@@ -64,7 +64,7 @@ namespace Utils
         BasicBlock *InsertionPoint
     );
 
-    bool IsInstrumentable(Function *F);
+    bool IsInstrumentable(Function &F);
 
 
     /*

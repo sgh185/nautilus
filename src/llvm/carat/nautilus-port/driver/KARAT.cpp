@@ -130,8 +130,8 @@ struct CAT : public ModulePass
         /*
          * Escapes tracking
          */ 
-        EscapesHandler *EH = new EscapesHandler(&M);
-        EH->Inject(); // Only memory uses
+        // EscapesHandler *EH = new EscapesHandler(&M);
+        // EH->Inject(); // Only memory uses
 
 
         /*

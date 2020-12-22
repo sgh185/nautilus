@@ -143,8 +143,10 @@ void AllocationHandler::_getAllNecessaryInstructions()
                 /*
                  * If the callee isn't a "malloc" or "free",
                  * ignore the call instruction
+                 * 
+                 * NOTE --- THIS IGNORES INDIRECT CALLS --- FIX
                  */ 
-                if (KernelAllocMethods.find(Callee) == KernelAllocMethods.end()) { continue; }
+                if (KernelAllocMethodsToIDs.find(Callee) == KernelAllocMethodsToIDs.end()) { continue; }
 
 
                 /*
@@ -152,7 +154,7 @@ void AllocationHandler::_getAllNecessaryInstructions()
                  * based on the ID to mark each call for 
                  * instrumentation
                  */ 
-                KernelAllocID KAID = KernelAllocMethods[Callee];
+                KernelAllocID KAID = KernelAllocMethodsToIDs[Callee];
                 switch (KAID)
                 {
                     case KernelAllocID::Malloc: Mallocs.insert(NextCall);
@@ -328,7 +330,7 @@ void AllocationHandler::InstrumentMallocs()
     /*
      * Set up for injection
      */ 
-    Function *CARATMalloc = NecessaryMethods[CARAT_MALLOC];
+    Function *CARATMalloc = CARATNamesToMethods[CARAT_MALLOC];
 
     IRBuilder<> TypeBuilder{M->getContext()};
     Type *VoidPointerType = TypeBuilder.getInt8PtrTy(),
@@ -413,7 +415,7 @@ void AllocationHandler::InstrumentFrees()
     /*
      * Set up for injection
      */ 
-    Function *CARATFree = NecessaryMethods[CARAT_REMOVE_ALLOC];
+    Function *CARATFree = CARATNamesToMethods[CARAT_REMOVE_ALLOC];
 
     IRBuilder<> TypeBuilder{M->getContext()};
     Type *VoidPointerType = TypeBuilder.getInt8PtrTy();
