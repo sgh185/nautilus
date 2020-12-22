@@ -164,6 +164,14 @@ struct CAT : public ModulePass
          */
         Function *MainFromNoelle = NoelleAnalysis.getEntryFunction();
         PDG *FDG = NoelleAnalysis.getFunctionDependenceGraph(MainFromNoelle);
+
+
+        /* 
+         * Output PDG statistics
+         */ 
+        errs() << "getNumberOfInstructionsIncluded: " << FDG->getNumberOfInstructionsIncluded() << "\n"
+               << "getNumberOfDependencesBetweenInstructions: " << FDG->getNumberOfDependencesBetweenInstructions() << "\n";
+
 #endif
 
 
