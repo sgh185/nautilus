@@ -39,8 +39,8 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_ESCAPE = "nk_carat_instrument_escapes",
                   CARAT_INIT = "nk_carat_init",
                   ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
-                  KERNEL_MALLOC = "_kmem_malloc",
-                  KERNEL_FREE = "kmem_free",
+                  KERNEL_MALLOC = "kmem_sys_malloc",
+                  KERNEL_FREE = "kmem_sys_free",
                   ANNOTATION = "llvm.global.annotations",
                   NOCARAT = "nocarat";
 

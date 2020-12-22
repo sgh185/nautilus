@@ -57,6 +57,7 @@ Function *Utils::GetMethod(
      * check that the function exists
      */ 
     Function *F = M->getFunction(Name);
+    errs() << "Fetching " << Name << " ... \n";
     assert(!!F && "Utils::GetMethod: Can't fetch!");
     return F;
 }

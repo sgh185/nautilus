@@ -157,11 +157,19 @@ void AllocationHandler::_getAllNecessaryInstructions()
                 KernelAllocID KAID = KernelAllocMethodsToIDs[Callee];
                 switch (KAID)
                 {
-                    case KernelAllocID::Malloc: Mallocs.insert(NextCall);
-                    case KernelAllocID::Free: Frees.insert(NextCall);
+                    case KernelAllocID::Malloc: 
+                    {
+                        Mallocs.insert(NextCall); 
+                        break;
+                    }
+                    case KernelAllocID::Free: 
+                    {
+                        Frees.insert(NextCall);
+                        break;
+                    }
                     default:
                     {
-                        errs() << "AllocationHandler::_getAllNecessaryInstructions: Failed to fetch KernelAllocID!";
+                        errs() << "AllocationHandler::_getAllNecessaryInstructions: Failed to fetch KernelAllocID!\n";
                         abort();
                     }
                 }
