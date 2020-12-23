@@ -43,9 +43,9 @@
 #define DEBUG_PRINT(fmt, args...)
 #endif
 
-#define ALLOC_ERROR(fmt, args...) ERROR_PRINT("alloc-cs213: " fmt, ##args)
-#define ALLOC_DEBUG(fmt, args...) DEBUG_PRINT("alloc-cs213: " fmt, ##args)
-#define ALLOC_INFO(fmt, args...)   INFO_PRINT("alloc-cs213: " fmt, ##args)
+#define ALLOC_ERROR(fmt, args...) ERROR_PRINT("alloc-cs213: " fmt"\n", ##args)
+#define ALLOC_DEBUG(fmt, args...) DEBUG_PRINT("alloc-cs213: " fmt"\n", ##args)
+#define ALLOC_INFO(fmt, args...)   INFO_PRINT("alloc-cs213: " fmt"\n", ##args)
 
 
 /*
@@ -57,7 +57,7 @@
 /* Basic constants and macros */
 #define WSIZE       4       /* Word and header/footer size (bytes) */ //line:vm:mm:beginconst
 #define DSIZE       8       /* Double word size (bytes) */
-#define CHUNKSIZE  (1<<12)  /* Extend heap by this amount (bytes) */  //line:vm:mm:endconst
+#define CHUNKSIZE  (1<<24)  /* Extend heap by this amount (bytes) */  //line:vm:mm:endconst
 
 #define MAX(x, y) ((x) > (y)? (x) : (y))
 
@@ -170,16 +170,22 @@ static void *extend_heap(void *state, size_t words)
 
   /* Allocate an even number of words to maintain alignment */
   size = (words % 2) ? (words+1) * WSIZE : words * WSIZE; //line:vm:mm:beginextend
-  if ((long)(bp = mem_sbrk(size)) == -1)
-    return NULL;                                        //line:vm:mm:endextend
+ /* if ((long)(bp = mem_sbrk(size)) == -1)
+    return NULL; */  //line:vm:mm:endextend
 
+  bp=kmem_sys_malloc_specific(size, my_cpu_id(), 1);
+  if(!bp){
+  return bp;
+  }
   /* Initialize free block header/footer and the epilogue header */
   PUT(HDRP(bp), PACK(size, 0));         /* Free block header */   //line:vm:mm:freeblockhdr
   PUT(FTRP(bp), PACK(size, 0));         /* Free block footer */   //line:vm:mm:freeblockftr
   PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* New epilogue header */ //line:vm:mm:newepihdr
 
   /* Coalesce if the previous block was free */
-  return coalesce(state, bp);                                          //line:vm:mm:returnblock
+//  return coalesce(state, bp);                                          //line:vm:mm:returnblock
+    as->heap_listp = bp;
+    return bp;
 }
 /* $end mmextendheap */
 
@@ -267,9 +273,14 @@ static void printblock(void* state, void *bp)
 
 static int mm_init(void *state){
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
+  as->heap_listp = kmem_sys_malloc_specific(4*WSIZE,my_cpu_id(),1);
+  if(!as->heap_listp){
+  	return -1;
+  }
   /* Create the initial empty heap */
-  if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
+  /*if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
     return -1;
+    */
   PUT(as->heap_listp, 0);                          /* Alignment padding */
   PUT(as->heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
   PUT(as->heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
@@ -315,6 +326,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
   /* Search the free list for a fit */
   if ((bp = find_fit(state, asize)) != NULL) {  //line:vm:mm:findfitcall
     place(state, bp, asize);                  //line:vm:mm:findfitplace
+    ALLOC_DEBUG("Allocated pointer %p with size %d and asize %d",bp, size, asize);
     return bp;
   }
 
@@ -323,6 +335,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
   if ((bp = extend_heap(state, extendsize/WSIZE)) == NULL)
     return NULL;                                  //line:vm:mm:growheap2
   place(state, bp, asize);                                 //line:vm:mm:growheap3
+  ALLOC_DEBUG("We extended the heap -- Allocated pointer %p with size %d and asize %d",bp, size, asize); 
   return bp;
 
 }
@@ -342,7 +355,7 @@ static void impl_free(void *state, void *ptr)
     mm_init(state);
   }
   /* $begin mmfree */
-
+  ALLOC_DEBUG("Freed pointer at %p with size %d",ptr, size);
   PUT(HDRP(ptr), PACK(size, 0));
   PUT(FTRP(ptr), PACK(size, 0));
   coalesce(state, ptr);
@@ -352,6 +365,7 @@ static void impl_free(void *state, void *ptr)
 static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
+  ALLOC_DEBUG("state: %p, ptr: %p, size: %lx, align: %lx, cpu: %d, flags: %lx",state, ptr, size, align, cpu, flags );
   size_t oldsize;
   void *newptr;
 
@@ -375,6 +389,7 @@ static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, in
 
   /* Copy the old data. */
   oldsize = GET_SIZE(HDRP(ptr));
+  ALLOC_DEBUG("Realloced pointer %p with oldsize: %d", ptr, oldsize);
   if(size < oldsize) oldsize = size;
   memcpy(newptr, ptr, oldsize);
 

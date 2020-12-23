@@ -37,6 +37,8 @@
 #include "globals.h"
 #include "../math/nas_math.h"
 
+#include "../paging_benchmark.h"
+
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
 /* parameters */
@@ -83,6 +85,21 @@ static struct shell_cmd_impl nas_mg_impl = {
     .handler  = program_MG,
 };
 nk_register_shell_cmd(nas_mg_impl);
+
+#ifdef NAUT_CONFIG_ASPACE_PAGING
+
+int program_MG_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_MG);
+}
+
+static struct shell_cmd_impl nas_mg_paging_impl = {
+    .cmd      = "nas-mg-paging",
+    .help_str = "NAS parallel benchmark MG with paging",
+    .handler  = program_MG_paging,
+};
+nk_register_shell_cmd(nas_mg_paging_impl);
+
+#endif
 
 int program_MG(char * _buf, void *_priv) {
 
@@ -338,6 +355,8 @@ c---------------------------------------------------------------------*/
 		    nit, nthreads, t, mflops, "          floating point", 
 		    verified, NPBVERSION, COMPILETIME,
 		    CS1, CS2, CS3, CS4, CS5, CS6, CS7);
+	
+	return 0;
 }
 
 /*--------------------------------------------------------------------

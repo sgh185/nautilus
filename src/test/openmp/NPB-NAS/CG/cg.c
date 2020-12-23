@@ -46,6 +46,7 @@ c---------------------------------------------------------------------
 
 #include "../common/npb-C.h"
 #include "npbparams.h"
+#include "../paging_benchmark.h"
 
 #include <nautilus/nautilus.h>
 #include <nautilus/shell.h>
@@ -114,6 +115,19 @@ static struct shell_cmd_impl nas_cg_impl = {
     .handler  = program_CG,
 };
 nk_register_shell_cmd(nas_cg_impl);
+
+#ifdef NAUT_CONFIG_ASPACE_PAGING
+int program_CG_paging(char * _buf, void *_priv){
+    return paging_wrapper(_buf, _priv, &program_CG);
+}
+
+static struct shell_cmd_impl nas_cg_paging_impl = {
+    .cmd      = "nas-cg-paging",
+    .help_str = "NAS parallel benchmark CG with paging",
+    .handler  = program_CG_paging,
+};
+nk_register_shell_cmd(nas_cg_paging_impl);
+#endif
 /*--------------------------------------------------------------------
       program CG
 c-------------------------------------------------------------------*/
@@ -356,6 +370,8 @@ c-------------------------------------------------------------------*/
 		    mflops, "          floating point", 
 		    verified, NPBVERSION, COMPILETIME,
 		    CS1, CS2, CS3, CS4, CS5, CS6, CS7);
+
+    return 0;
 }
 
 /*--------------------------------------------------------------------

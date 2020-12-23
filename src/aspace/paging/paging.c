@@ -48,21 +48,21 @@
 #include "paging_helpers.h"
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_RB_TREE
-    #include "mm_rb_tree.h"
+    #include <aspace/region_tracking/mm_rb_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_SPLAY_TREE
-    #include "mm_splay_tree.h"
+    #include <aspace/region_tracking/mm_splay_tree.h>
 
 #elif defined NAUT_CONFIG_ASPACE_PAGING_REGION_LINKED_LIST
-    #include "mm_linked_list.h"
+    #include <aspace/region_tracking/mm_linked_list.h>
 
 #else
-    #include "node_struct.h"
+    #include <aspace/region_tracking/node_struct.h>
     
 #endif
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_REGION_STRUCT_TEST
-    #include "struct_test.h"
+    #include <aspace/region_tracking/node_test.h>
 #endif
 
 #ifdef NAUT_CONFIG_ASPACE_PAGING_PCID
@@ -99,6 +99,17 @@
 #define ASPACE_NAME(a) ((a)?(a)->aspace->name : "default")
 #define THREAD_NAME(t) ((!(t)) ? "(none)" : (t)->is_idle ? "(idle)" : (t)->name[0] ? (t)->name : "(noname)")
 #define THRESH PAGE_SIZE_2MB
+
+// #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
+// #define REGION_FORMAT ""
+// #define REGION(r)
+// #else
+// #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+// #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
+// #endif
+
+#define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+#define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
 
 #define PAGE_SIZE_512GB 0x8000000000UL
 
@@ -174,9 +185,10 @@ static  int destroy(void *state)
     //
     // WRITEME!!    actually do the work
     // 
-    // DEBUG("p->paging_mm_struct at %p vptr at %p\n", p->paging_mm_struct, p->paging_mm_struct->vptr);
+    DEBUG("p->paging_mm_struct at %p vptr at %p\n", p->paging_mm_struct, p->paging_mm_struct->vptr);
     mm_destory(p->paging_mm_struct);
 
+    DEBUG("destroying allocated pages\n");
     paging_helper_free(p->cr3, 0);
     
 #ifdef NAUT_CONFIG_ASPACE_PAGING_PCID
@@ -296,6 +308,118 @@ int region_align_check(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     return 0;
 }
 
+/**
+ *  Undrill region except first @saved_size bytes
+ * */
+
+int undrill_wrapper_with_offset(nk_aspace_paging_t *p, nk_aspace_region_t *region, uint64_t saved_size){
+    ph_pf_access_t access_type = access_from_region(region);
+    uint64_t offset = saved_size;
+    
+    while (offset < region->len_bytes){
+        uint64_t *entry;
+        addr_t virtaddr = (addr_t) region->va_start + (addr_t) offset;
+        int ret = paging_helper_walk(p->cr3, virtaddr, access_type, &entry);
+        
+        DEBUG("Invalidating %lx with ret = %d\n", virtaddr, ret);
+        if (ret == 1 || ret == -1) {
+            ((ph_pte_t *) entry)->present = 0;
+            offset = offset + PAGE_SIZE_4KB;
+        } 
+        else if (ret == 2 || ret == -2) {
+            ((ph_pde_t *) entry)->present = 0;
+            offset = offset + PAGE_SIZE_2MB - offset % PAGE_SIZE_2MB ;
+        } 
+        else if (ret == 3 || ret == -3 ) {
+            ((ph_pdpe_t *) entry)->present = 0;
+            offset = offset + PAGE_SIZE_1GB - offset % PAGE_SIZE_1GB;
+        } 
+        else if (ret == -4) {
+            ((ph_pml4e_t *) entry)->present = 0;
+            offset = offset + PAGE_SIZE_512GB - offset % PAGE_SIZE_512GB;
+        } 
+        else {
+            panic("unexpected return from page walking = %d\n", ret);
+        }
+    }
+
+    return 0;
+}
+
+// this function is specifically designed for drill an enlarged region, so we will only drill the enlarged part only
+int eager_drill_wrapper_with_offset(nk_aspace_paging_t *p, nk_aspace_region_t *region, uint64_t previous_size) {
+    /*
+        Only to be called if region passed the following check:
+            1. alignment and granularity check 
+            2. region overlap or other region validnesss check (involved using p->paging_mm_struct)
+            3. region allocation must be eager
+    */
+
+    ph_pf_access_t access_type = access_from_region(region);
+
+    addr_t vaddr = (addr_t) region->va_start+previous_size;
+    addr_t paddr = (addr_t)region->pa_start+previous_size;
+    uint64_t remained = region->len_bytes-previous_size;
+    addr_t va_end = (addr_t) region->va_start + region->len_bytes;
+
+    uint64_t page_granularity = 0;
+    int ret = 0;
+    int (*paging_helper_drill) (ph_cr3e_t cr3, addr_t vaddr, addr_t paddr, ph_pf_access_t access_type);
+
+    while (vaddr < va_end) {
+        if (
+            PAGE_1GB_ENABLED && 
+            vaddr % PAGE_SIZE_1GB == 0 && 
+            paddr % PAGE_SIZE_1GB == 0 && 
+            remained >= PAGE_SIZE_1GB
+        ) {
+            paging_helper_drill = &paging_helper_drill_1GB;
+            page_granularity = PAGE_SIZE_1GB;
+        } 
+        else if (
+            PAGE_2MB_ENABLED && 
+            vaddr % PAGE_SIZE_2MB == 0 && 
+            paddr % PAGE_SIZE_2MB == 0 && 
+            remained >= PAGE_SIZE_2MB 
+        ) {
+            paging_helper_drill = &paging_helper_drill_2MB;
+            page_granularity = PAGE_SIZE_2MB;
+        } 
+        else if (
+            vaddr % PAGE_SIZE_4KB == 0 && 
+            paddr % PAGE_SIZE_4KB == 0 && 
+            remained >= PAGE_SIZE_4KB 
+        ) {
+            // vaddr % PAGE_SIZE_4KB == 0
+            // must be the case as we require 4KB alignment
+            paging_helper_drill = &paging_helper_drill_4KB;
+            page_granularity = PAGE_SIZE_4KB;
+        } else {
+            char region_buf[REGION_STR_LEN];
+            region2str(region, region_buf);
+            ERROR("Region %s doesnot meet drill requirement at vaddr=0x%p and paddr=0x%p\n", region_buf, vaddr, paddr);
+            return -1;
+        }
+
+        ret = (*paging_helper_drill) (p->cr3, vaddr, paddr, access_type);
+
+        if (ret < 0) {
+            ERROR("Failed to drill at virtual address=%p"
+                    " physical adress %p"
+                    " and ret code of %d"
+                    " page_granularity = %lx\n",
+                    vaddr, paddr, ret, page_granularity
+            );
+            return ret;
+        }
+
+        vaddr += page_granularity;
+        paddr += page_granularity;
+        remained -= page_granularity;
+    }
+
+    return ret;
+}
 
 int eager_drill_wrapper(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     /*
@@ -427,7 +551,7 @@ static int add_region(void *state, nk_aspace_region_t *region)
     else {
         // lazy drilling 
         // nothing to do
-        nk_vc_printf("lazy drilling!\n");
+        DEBUG("lazy drilling!\n");
     }
 
     // DEBUG("before mm_insert\n");
@@ -449,9 +573,9 @@ static int remove_region(void *state, nk_aspace_region_t *region)
 {
     nk_aspace_paging_t *p = (nk_aspace_paging_t *)state;
 
-    DEBUG("removing region (va=%016lx pa=%016lx len=%lx) "
+    DEBUG("removing region"REGION_FORMAT
             "from address space %s\n", 
-            region->va_start, region->pa_start, region->len_bytes,
+            REGION(region),
             ASPACE_NAME(p)
     );
 
@@ -464,9 +588,7 @@ static int remove_region(void *state, nk_aspace_region_t *region)
     // first, find the region in your data structure
     // it had better exist and be identical.
     if (NK_ASPACE_GET_PIN(region->protect.flags)) {
-        char buf[REGION_STR_LEN];
-        region2str(region, buf);
-        ERROR("Cannot remove pinned region%s\n", buf);
+        ERROR("Cannot remove pinned region"REGION_FORMAT"\n", REGION(region));
         ASPACE_UNLOCK(p);
         return -1;
     }
@@ -475,46 +597,43 @@ static int remove_region(void *state, nk_aspace_region_t *region)
     int remove_failed = mm_remove(p->paging_mm_struct, region, check_flag);
 
     if (remove_failed) {
-        DEBUG("region to remove \
-            (va=%016lx pa=%016lx len=%lx, prot=%lx) not FOUND\n", 
-            region->va_start, 
-            region->pa_start, 
-            region->len_bytes,
-            region->protect.flags
+        DEBUG("region to remove"REGION_FORMAT" not FOUND\n", 
+            REGION(region)
         );
         ASPACE_UNLOCK(p);
         return -1;
     }    
 
     // next, remove all corresponding page table entries that exist
-    ph_pf_access_t access_type = access_from_region(region);
-    uint64_t offset = 0;
+    // ph_pf_access_t access_type = access_from_region(region);
+    // uint64_t offset = 0;
     
-    while (offset < region->len_bytes){
-        uint64_t *entry;
-        addr_t virtaddr = (addr_t) region->va_start + (addr_t) offset;
-        int ret = paging_helper_walk(p->cr3, virtaddr, access_type, &entry);
-        if (ret == 1 || ret == -1) {
-            ((ph_pte_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_4KB;
-        } 
-        else if (ret == 2 || ret == -2) {
-            ((ph_pde_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_2MB;
-        } 
-        else if (ret == 3 || ret == -3 ) {
-            ((ph_pdpe_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_1GB;
-        } 
-        else if (ret == -4) {
-            ((ph_pml4e_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_512GB;
-        } 
-        else {
-            panic("unexpected return from page walking = %d\n", ret);
-        }
-    }
-    
+    // while (offset < region->len_bytes){
+    //     uint64_t *entry;
+    //     addr_t virtaddr = (addr_t) region->va_start + (addr_t) offset;
+    //     int ret = paging_helper_walk(p->cr3, virtaddr, access_type, &entry);
+    //     if (ret == 1 || ret == -1) {
+    //         ((ph_pte_t *) entry)->present = 0;
+    //         offset = offset + PAGE_SIZE_4KB;
+    //     } 
+    //     else if (ret == 2 || ret == -2) {
+    //         ((ph_pde_t *) entry)->present = 0;
+    //         offset = offset + PAGE_SIZE_2MB;
+    //     } 
+    //     else if (ret == 3 || ret == -3 ) {
+    //         ((ph_pdpe_t *) entry)->present = 0;
+    //         offset = offset + PAGE_SIZE_1GB;
+    //     } 
+    //     else if (ret == -4) {
+    //         ((ph_pml4e_t *) entry)->present = 0;
+    //         offset = offset + PAGE_SIZE_512GB;
+    //     } 
+    //     else {
+    //         panic("unexpected return from page walking = %d\n", ret);
+    //     }
+    // }
+    undrill_wrapper_with_offset(p, region, 0);
+
     clear_cache(p, region, THRESH);
 
     ASPACE_UNLOCK(p);
@@ -783,6 +902,92 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
     return 0;
 }
 
+//expand or contract the region
+//new_phys, if not zero, means the physical address of the additional part(for expansion)
+//alloc=1 means "allocate the physical memory for me"
+static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_size){
+
+    if (region == NULL){
+        ERROR("input region == NULL\n");
+        return -1;
+    }
+
+    if (new_size == 0){
+        ERROR("new_size == 0\n");
+        return -1;
+    }
+
+    if (region->len_bytes == new_size) {
+        // size equal nothing to do
+        return 0;
+    }
+
+    nk_aspace_paging_t *p = (nk_aspace_paging_t *) state;
+
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(p);
+
+    uint64_t old_size = region->len_bytes;
+    nk_aspace_region_t new_region = *region;
+    new_region.len_bytes = new_size;
+
+    int align_check = region_align_check(p, &new_region);
+    if (align_check < 0) {
+        ASPACE_UNLOCK(p);
+        return align_check;
+    }
+
+
+
+    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
+    nk_aspace_region_t * target_region = mm_update_region(p->paging_mm_struct, region, &new_region, check_flag);
+
+    if (target_region == NULL){
+        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+        ASPACE_UNLOCK(p);
+        return -1;
+    }
+
+
+
+    //enlarging
+    if(old_size < new_size){
+
+        DEBUG("enlarging the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
+        
+        //drill if this is an eager region
+        if (NK_ASPACE_GET_EAGER(target_region->protect.flags)) {
+
+            // DRILL THE PAGE TABLES HERE
+            DEBUG("eager region, drilling!\n");
+            int ret = eager_drill_wrapper_with_offset(p, target_region, old_size);
+
+            if (ret < 0) {
+                ERROR("eager drilling of expanded region fails!\n");
+                ASPACE_UNLOCK(p);
+                return ret;
+            }
+        
+        } else {
+            // lazy drilling 
+            // nothing to do
+            DEBUG("lazy drilling!\n");
+        }
+    }
+    else{
+        DEBUG("Shrinking the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
+        //free for the abandon Physical addresses?
+        // DEBUG("truncating the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
+        undrill_wrapper_with_offset(p, region, new_size);
+    }
+
+    uint64_t diff = old_size > new_size ? old_size - new_size : new_size - old_size;
+    clear_cache(p, region, THRESH);
+
+    ASPACE_UNLOCK(p);
+    
+    return 0;
+}
 
 // called by the address space abstraction when it is switching away from
 // the noted address space.   This is part of the thread context switch.
@@ -882,7 +1087,7 @@ static int exception(void *state, excp_entry_t *exp, excp_vec_t vec)
         ASPACE_UNLOCK(p);
         return -1;
     }
-    // DEBUG("region found at%p\n", region);
+
     // Now find the region corresponding to this address
     // Is the problem that the page table entry is not present?
     // if so, drill the entry and then return from the function
@@ -1041,6 +1246,7 @@ static nk_aspace_interface_t paging_interface = {
     .remove_region = remove_region,
     .protect_region = protect_region,
     .move_region = move_region,
+    .trunc_region = trunc_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
@@ -1072,7 +1278,17 @@ static struct nk_aspace * create(char *name, nk_aspace_characteristics_t *c)
     nk_aspace_paging_t *p;
     
     p = malloc(sizeof(*p));
-    
+   
+    nk_aspace_paging_t *test;
+    nk_aspace_paging_t *foo;
+
+    test = malloc(sizeof(*test));
+    foo = malloc(sizeof(*foo));
+
+    DEBUG("try to free dummy pointers");
+    free(test);
+    free(foo);
+
     if (!p) {
 	ERROR("cannot allocate paging aspace %s\n",name);
 	return 0;
@@ -1172,3 +1388,735 @@ static nk_aspace_impl_t paging = {
 // this does linker magic to populate a table of address space
 // implementations by including this implementation
 nk_aspace_register_impl(paging);
+
+static int paging_sanity(char *_buf, void* _priv) {
+
+#define LEN_1KB (0x400UL)
+#define LEN_4KB (0x1000UL)
+#define LEN_256KB (0x40000UL)
+#define LEN_512KB (0x80000UL)
+
+#define LEN_1MB (0x100000UL)
+#define LEN_4MB (0x400000UL)
+#define LEN_6MB (0x600000UL)
+#define LEN_8MB (0x800000UL)
+#define LEN_16MB (0x1000000UL)
+
+#define LEN_1GB (0x40000000UL)
+#define LEN_4GB (0x100000000UL)
+
+#define ADDR_4GB ((void *) 0x100000000UL)
+#define ADDR_8GB ((void *) 0x200000000UL)
+#define ADDR_12GB ((void *) 0x300000000UL)
+#define ADDR_16GB ((void *) 0x400000000UL)
+#define ADDR_UPPER ((void *) 0xffff800000000000UL)
+
+    int test_failed = 0;
+    nk_vc_printf("Running Paging sanity Check!\n");
+    // set CR4.PCIDE (PCID enabled)
+    // write_cr4(read_cr4() | (1 << 17));
+    // nk_vc_printf("cr4=%lx\n", read_cr4());
+    nk_aspace_characteristics_t c;
+
+    if (nk_aspace_query("paging",&c)) {
+        nk_vc_printf("failed to find paging implementation\n");
+        test_failed = 1;
+        goto no_paging_exit;
+    }
+    
+    // create a new address space for this shell thread
+
+    nk_aspace_t * old_aspace = get_cur_thread()->aspace;
+    nk_aspace_t *mas = nk_aspace_create("paging", "paging_sanity",&c);
+    
+
+    if (!mas) {
+        nk_vc_printf("failed to create new address space\n");
+        test_failed = 1;
+        goto no_paging_exit;
+    }
+
+    
+
+    nk_aspace_region_t r, r1, r2;
+    /**
+     * create a 1-1 region mapping all of physical memory
+     * so that the kernel can work when that thread is active
+     **/
+    r.va_start = 0;
+    r.pa_start = 0;
+    r.len_bytes = LEN_4GB;  // first 4 GB are mapped
+    
+    /**
+     * set protections for kernel
+     * use EAGER to tell paging implementation that it needs to build all these PTs right now
+     **/ 
+    r.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    /**
+     * now add the region
+     * this should build the page tables immediately
+     **/
+    if (nk_aspace_add_region(mas,&r)) {
+        nk_vc_printf("failed to add initial eager region to address space\n");
+        test_failed = 1;
+        goto clean_up;
+    }
+
+    /**
+     *  Add another region 
+     *  Expect success, VA is not overlapping
+     **/
+    r1.va_start = ADDR_4GB;
+    r1.pa_start = 0;
+    r1.len_bytes = LEN_4GB;  // first 4 GB are mapped
+    
+    r1.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(mas,&r1)) {
+        nk_vc_printf("failed to add initial eager region to address space\n");
+        test_failed = 1;
+        goto clean_up;
+    }
+
+
+    /**
+     *  now we will remap the kernel starting at the following address
+     *  this is the start of the "canonical upper half", which is
+     *  where pre-meltown/spectre kernels used to place themselves
+     **/
+    r2.va_start = ADDR_UPPER;
+    r2.pa_start = 0;
+    r2.len_bytes = LEN_4GB;  // first 4 GB are mapped
+    r2.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN;
+
+    /**
+     *  This one is lazily implemented
+     *  Expect success, VA is not overlapping
+     **/
+    if (nk_aspace_add_region(mas,&r2)) {
+        nk_vc_printf("failed to add secondary lazy region to address space\n");
+        test_failed = 1;
+        goto clean_up;
+    }
+
+
+
+    /**
+     *  Test overlapping detection
+     *  This targets to test the overlap check works  
+     *  We add series of region {(VA = r2.va_start + r2.len_bytes + 512K * 2i, PA = 0, len_bytes = 512K) | 512K * 2i < 16M}
+     *  In human language, we add region starting from r2.va_start + r2.len_bytes.
+     *      Each region has length of 512K, and each of them is also gapped by 512K.
+     *      We add the regions until the start of the region is 16M beyond r2.va_start + r2.len_bytes.
+     *      All of the regions are mapped to PA = 0
+     **/
+
+    /**
+     *   Every 8 slots represent 512K, xxx means allocated, --- means not allocated
+     *   xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------
+     *  |               |                                               |
+     *  End of r2       1MB after r2                                    4MB after r2
+     * */
+
+    nk_aspace_region_t reg_it, reg_overlap;
+    reg_it.pa_start = 0;
+    reg_it.len_bytes = LEN_512KB;  // 512K
+    reg_it.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN;
+    uint64_t offset = 0;
+
+    for (offset = 0; offset < LEN_16MB; offset += 2 * reg_it.len_bytes) {
+        reg_it.va_start = r2.va_start + r2.len_bytes + offset;
+        if (nk_aspace_add_region(mas,&reg_it)) {
+            nk_vc_printf("failed to add overlapped region to address space\n");
+            test_failed = 1;
+            goto clean_up;
+        }
+    }
+
+
+    /**
+     *  Try to add a region that overlaps with one of the region just added
+     * 
+     *   Every 8 slots represent 512K, xxx means allocated, --- means not allocated
+     *   xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------
+     *  |                   |                                           |
+     *  End of r2       Try insert here                                4MB after r2
+     *                       xxxx
+     * */
+    reg_overlap.va_start = r2.va_start + r2.len_bytes + 5 * reg_it.len_bytes/2;
+    reg_overlap.pa_start = 0;
+    reg_overlap.len_bytes = LEN_256KB;  // 256K
+    reg_overlap.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN;
+
+    if (!nk_aspace_add_region(mas,&reg_overlap)) {
+        nk_vc_printf("Failed to Detect overlapped region to address space" REGION_FORMAT "!\n", REGION(&reg_overlap));
+        test_failed = 1;
+        goto clean_up;
+    }
+
+    /**
+     *  Try to add another region with overlapping
+     * 
+     *    Every 8 slots represent 512K, xxx means allocated, --- means not allocated
+     *   xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------xxxxxxxx--------
+     *          |                                                       |
+     *         Try insert here                                          4MB after r2
+     *           xxxxxxxxxxxx
+     **/
+    reg_overlap.va_start = r2.va_start + r2.len_bytes + reg_it.len_bytes;
+    reg_overlap.len_bytes = LEN_512KB + LEN_256KB;  
+
+    if (!nk_aspace_add_region(mas,&reg_overlap)) {
+        nk_vc_printf("Failed to Detect overlapped region to address space" REGION_FORMAT "!\n", REGION(&reg_overlap));
+        test_failed = 1;
+         goto clean_up;
+    }
+
+    nk_vc_printf("    Survived Region overlapping test\n");
+
+
+
+
+    if (nk_aspace_move_thread(mas)) {
+        nk_vc_printf("failed to move shell thread to new address space\n");
+        test_failed = 1;
+        goto clean_up;
+    }
+
+    /**
+     *  set CR0.WP (write protect)
+     *  For purpose of testing write protection
+     * */
+    write_cr0(read_cr0() | (1<<16));
+
+    nk_vc_printf("    Survived: moving thread into paging space at %p\n", mas);
+    
+    
+    
+    
+
+    /**
+     *  start reading the kernel from address 0xffff80000.....+ 1 MB
+     *  Compare eagerly drilled region and lazily drilled region for 4MB
+     *   also, this will fault in pages as we go, expect page fault handled by paging
+     * */
+    if (memcmp(r.va_start , r2.va_start , LEN_4MB)) {
+	    nk_vc_printf("Weird, low-mapped and high-mapped differ...\n");
+        nk_vc_printf("Weird, low-mapped = %lx and high-mapped = %lx\n", r.va_start, r2.va_start);
+        test_failed = 1;
+        goto clean_up;
+    } 	
+
+    nk_vc_printf("    Survived: memory comparison of one eager and one lazy copy\n");
+
+    /**
+     *  Compare two eagerly drilled region for first 4MB
+     * */
+    if (memcmp(r.va_start, r1.va_start, LEN_4MB)) {
+        nk_vc_printf("Weird, two early added region differ...\n");
+        test_failed = 1;
+        goto clean_up;
+    } 	
+
+    nk_vc_printf("    Survived: memory comparison of two eager mapped copies\n");
+
+
+    
+    
+    /**
+     *  try to access region not defined, should panic, if uncommented the block below
+     * */
+    // if (memcmp(r.va_start, r2.va_start + 2 * r2.len_bytes , LEN_1KB)) {
+    //     test_failed = 1;
+    //     nk_vc_printf("should fail\n");
+    //     goto clean_up;
+    // }
+
+
+
+
+
+
+    /**
+     *  test case for move region 
+     *  initially, r3 (8G -> 8G), r4 = (12G -> 8G), r5  = (12G -> 0)
+     *  call move_region(apsace, r4, r5)
+     *      should expect 12G address points to 0
+     * */
+
+    nk_aspace_region_t r3, r4, r5;
+
+    r3.va_start = ADDR_8GB;
+    r3.pa_start = ADDR_8GB;
+    r3.len_bytes = LEN_4GB; 
+    r3.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(mas,&r3)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region r3"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r3.va_start, r3.pa_start, r3.len_bytes, r3.protect.flags    
+        );
+        goto clean_up;
+    }
+
+    
+
+    r4.va_start = ADDR_12GB;
+    r4.pa_start = ADDR_8GB;
+    r4.len_bytes = LEN_4GB;
+    r4.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(mas,&r4)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region r4"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r4.va_start, r4.pa_start, r4.len_bytes, r4.protect.flags    
+        );
+        goto clean_up;
+    }
+
+
+    /**
+     *  Initially, r3 and r4 should share samne content
+     *  VA = 8G points to PA = 8G, but VA = 12G points to PA = 8G
+     * */
+    if (memcmp(r3.va_start, r4.va_start, LEN_1MB)) {
+	    nk_vc_printf("Weird, r3 and r4  differ...\n");
+    }
+
+    
+    // nk_vc_printf("    Survived: memory comparison of r3 and r4\n");
+
+
+    r5.va_start = (void*) r4.va_start;
+    r5.pa_start = (void*) 0;
+    r5.len_bytes = r4.len_bytes;
+    r5.protect.flags = r4.protect.flags;
+
+    nk_aspace_move_region(mas, &r4, &r5);
+
+    /**
+     *  After the move, VA = 12G points to PA = 0
+     **/
+    if (memcmp((void*) r.va_start , (void*) r4.va_start, LEN_1MB)) {
+        test_failed = 1;
+	    nk_vc_printf("Weird, r and r5  differ...\n");
+        goto clean_up;
+    }
+    
+    // nk_vc_printf("    Survived: memory comparison of r and r5\n");
+    
+
+    /**
+     *  Right now, r3 and r4 should be different
+     *  VA = 8G points to PA = 8G, but VA = 12G points to PA = 0
+     **/
+    if (!memcmp(r3.va_start, r4.va_start, LEN_1MB)) {
+        test_failed = 1;
+	    nk_vc_printf("Weird, r3 and r4 should differ\n");
+        goto clean_up;
+    }
+
+    nk_vc_printf("    Survived: move region test\n");
+
+
+
+
+
+
+    /**
+     *  test case for remove region
+     *      Before removal of r5. Add another region with SAME VA definition should fail.
+     *      After  removal of r5. Add another region with SAME VA should suceed.
+     * */
+    nk_aspace_region_t r5_copy = r5;
+
+    if (!nk_aspace_add_region(mas, &r5_copy)) {
+        test_failed = 1;
+        nk_vc_printf("Failed to detect exact copy region overlapping"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r5_copy.va_start, r5_copy.pa_start, r5_copy.len_bytes, r5_copy.protect.flags    
+        );
+        goto clean_up;
+    }
+     
+
+    /**
+     *  reference r5 should be successful
+     * */
+    if (memcmp((void*) r5.va_start , (void*) r5.va_start, LEN_1MB)) {
+	    nk_vc_printf("Reference r5 at %16lx FAIL\n", r5.va_start);
+    }
+
+    if (nk_aspace_remove_region(mas,&r5)) {
+        test_failed = 1;
+        nk_vc_printf("failed to remove eager region r5"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r5.va_start, r5.pa_start, r5.len_bytes, r5.protect.flags    
+        );
+        goto clean_up;
+    }
+
+    // should fail
+    // if (memcmp((void*) r5.va_start , (void*) r5.va_start, LEN_1MB)) {
+    //     nk_vc_printf("Reference r5 at %16lx FAIL\n", r5.va_start);
+    // }
+
+    /**
+     *  Add region should be successful here
+     * */
+    if (nk_aspace_add_region(mas, &r5_copy)) {
+        test_failed = 1;
+        nk_vc_printf("Failed to add copy region"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r5_copy.va_start, r5_copy.pa_start, r5_copy.len_bytes, r5_copy.protect.flags    
+        );
+        goto clean_up;
+    }
+
+    /**
+     *  reference r5_copy should be successful
+     * */
+    if (memcmp((void*) r5_copy.va_start , (void*) r5_copy.va_start, LEN_1MB)) {
+        nk_vc_printf("Reference r5_copy at %16lx FAIL\n", r5_copy.va_start);
+    }
+    
+    nk_vc_printf("    Survived: removal region test\n");
+
+
+
+
+
+    /**
+     *  Test case for protection region
+     *      1. we test that a pinned region cannot be moved/removed
+     *      2. we test that a we can write to a region after updating its write access
+     * */
+
+    nk_aspace_region_t reg;
+    reg.va_start = ADDR_16GB; 
+    reg.pa_start = reg.va_start;
+    reg.len_bytes = LEN_6MB;  
+    reg.protect.flags = NK_ASPACE_READ  | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN ;
+    //  reg.protect.flags =  NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(mas, &reg)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region reg"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    reg.va_start, reg.pa_start, reg.len_bytes, reg.protect.flags    
+        );
+	    goto clean_up;
+    }
+    
+    /**
+     *  Try to remove pinned region, should fail
+     * */
+    if (!nk_aspace_remove_region(mas,&reg)) {
+        test_failed = 1;
+        nk_vc_printf("ERROR: remove pinned region!\n");
+        goto clean_up;
+    } 
+
+
+    /**
+     *  Try to move pinned region, should fail
+     *      Dummy move though, a region move to itself.
+     * */
+    if (!nk_aspace_move_region(mas,&reg, &reg)) {
+        test_failed = 1;
+        nk_vc_printf("ERROR: move pinned region!\n");
+        goto clean_up;
+    } 
+    
+    
+    /**
+     *  Expect to fail if uncomment the following line
+     **/
+    // memcpy((void*)(reg.va_start),(void*)0x0, LEN_1KB);
+
+    /**
+     *  Update region's protection with write access
+     * */
+    nk_aspace_protection_t prot;
+    prot.flags = NK_ASPACE_READ  | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    nk_aspace_protect_region(mas, &reg, &prot);
+    reg.protect = prot;
+
+    memcpy((void*)(reg.va_start), (void*)0x0, LEN_1KB);
+
+
+    nk_vc_printf("    Survived: Protection test\n");
+    
+
+
+
+
+    /**
+     *  Test remove region again, for 2MB page particularly
+     *      create r6 with everything same as reg except VA. The VA of r6 is 6MB beyond the VA of reg
+     *      With 2MB page enabled, reg and r6 should share the same PDPE entry, 
+     *      but on different PTE entries that sit next to each other
+     * */
+    nk_aspace_region_t r6;
+    r6.va_start = reg.va_start + reg.len_bytes;
+    r6.pa_start = reg.va_start;
+    r6.len_bytes = reg.len_bytes;
+    r6.protect.flags = prot.flags;
+
+    if (nk_aspace_add_region(mas, &r6)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region r6"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "to address space\n",
+                    r6.va_start, r6.pa_start, r6.len_bytes, r6.protect.flags    
+        );
+	    goto clean_up;
+    }
+
+    /**
+     *  Compare reg to r6, should succeed with no pressure
+     * */
+    if (memcmp((void*) reg.va_start , (void*) r6.va_start, LEN_1MB)) {
+        test_failed = 1;
+	    nk_vc_printf("Weird, reg and r6  differ...\n");
+        goto clean_up;
+    }
+    
+    /**
+     *  Remove r6, should suceed
+     * */
+    if (nk_aspace_remove_region(mas,&r6)) {
+        test_failed = 1;
+        nk_vc_printf("failed to remove region r6"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "in address space\n",
+                    r6.va_start, r6.pa_start, r6.len_bytes, r6.protect.flags    
+        );
+        goto clean_up;
+    }
+
+    /**
+     *  Remove r6, should suceed
+     * */
+    if (nk_aspace_remove_region(mas,&reg)) {
+        test_failed = 1;
+        nk_vc_printf("Error: failed to remove eager region reg"
+                    "(va=%016lx pa=%016lx len=%lx, prot=%lx)" 
+                    "in address space\n",
+                    reg.va_start, reg.pa_start, reg.len_bytes, reg.protect.flags    
+        );
+        goto clean_up;
+    }
+    
+    nk_vc_printf("    Survived: remove region test2\n");
+
+    /**
+     *  Test trunc region
+     *      target_region(16GB -> 0, len = 4MB) 
+     *      target_region(16GB + 8MB -> 8MB, len = 4MB) 
+     * */
+    nk_aspace_region_t target_region, next_region;
+    target_region.va_start = ADDR_16GB;
+    target_region.pa_start = 0;
+    target_region.len_bytes = LEN_4MB;
+    target_region.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN ;
+
+    next_region.va_start = target_region.va_start + LEN_8MB;
+    next_region.pa_start = 0 ;
+    next_region.len_bytes = LEN_4MB;
+    next_region.protect.flags = target_region.protect.flags | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(mas, &target_region)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region target_region"
+                    REGION_FORMAT
+                    "to address space\n",
+                    REGION(&target_region)   
+        );
+	    goto clean_up;
+    }
+
+    if (nk_aspace_add_region(mas, &next_region)) {
+        test_failed = 1;
+        nk_vc_printf("failed to add eager region next_region"
+                    REGION_FORMAT
+                    "to address space\n",
+                    REGION(&target_region)  
+        );
+	    goto clean_up;
+    }
+
+    // // should panic
+    // if (memcmp((void*) target_region.va_start , (void*) 0, LEN_6MB)) {
+    //     test_failed = 1;
+    //     nk_vc_printf("content of target_region at %p different from %p \n", target_region.va_start, (void*) 0);
+    //     goto clean_up;
+    // } 
+
+    /**
+     *  Test expanding lazy region
+     * */
+    if (nk_aspace_trunc_region(mas, &target_region, LEN_6MB)) {
+        test_failed = 1;
+        nk_vc_printf("failed to extend region target_region"
+                    REGION_FORMAT
+                    "to address space\n",
+                    REGION(&target_region)  
+        );
+	    goto clean_up;
+    }
+    
+    /**
+     *  trunc nk_aspace_trunc_region doesn't change the value of region passed into it.
+     * */
+    target_region.len_bytes = LEN_6MB;
+
+    if (memcmp((void*) target_region.va_start , (void*) 0, LEN_6MB)) {
+        test_failed = 1;
+        nk_vc_printf("content of target_region at %p different from %p \n", target_region.va_start, (void*) 0);
+        goto clean_up;
+    } 
+
+    /**
+     *  Expected to fail as the expanded region will overlap with next_region
+     * */
+    if (!nk_aspace_trunc_region(mas, &target_region, LEN_16MB)) {
+        test_failed = 1;
+        nk_vc_printf("Extend region target_region"
+                    REGION_FORMAT
+                    "which should have overalapping\n",
+                    REGION(&target_region)  
+        );
+	    goto clean_up;
+    }
+    
+
+    if (memcmp((void*) target_region.va_start , (void*) 0, LEN_6MB)) {
+        test_failed = 1;
+        nk_vc_printf("content of target_region at %p different from %p \n", target_region.va_start, (void*) 0);
+        goto clean_up;
+    }
+
+
+    /**
+     *  Test expanding earger region
+     * */
+    if (nk_aspace_trunc_region(mas, &next_region, LEN_16MB)) {
+        test_failed = 1;
+        nk_vc_printf("failed to extend region next_region"
+                    REGION_FORMAT
+                    "to address space\n",
+                    REGION(&next_region)  
+        );
+	    goto clean_up;
+    }
+
+    next_region.len_bytes = LEN_16MB;
+
+    if (memcmp((void*) next_region.va_start , (void*) 0, LEN_16MB)) {
+        test_failed = 1;
+        nk_vc_printf("content of next_region at %p different from %p \n", next_region.va_start, (void*) 0);
+        goto clean_up;
+    }
+
+
+    /**
+     *  Test shrinking lazy region
+     * */
+    if (nk_aspace_trunc_region(mas, &target_region, LEN_1MB)) {
+        test_failed = 1;
+        nk_vc_printf("failed to extend region target_region"
+                    REGION_FORMAT
+                    "to address space\n",
+                    REGION(&target_region)  
+        );
+	    goto clean_up;
+    }
+
+    if (memcmp((void*) target_region.va_start , (void*) 0, LEN_4MB)) {
+        test_failed = 1;
+        nk_vc_printf("content of target_region at %p different from %p \n", target_region.va_start, (void*) 0);
+        goto clean_up;
+    }
+
+
+    nk_vc_printf("    Survived: trunc region test\n");
+clean_up:
+
+    if(nk_aspace_move_thread(old_aspace) ) {
+        nk_vc_printf("Failed move thread from %p to %p\n", mas, old_aspace);
+        test_failed = 1;
+    }
+
+    nk_vc_printf("    Survived: Move thread back to old_aspace at %p\n", old_aspace);
+
+    if(nk_aspace_destroy(mas)){
+        nk_vc_printf("Something wrong during destorying the new aspace\n");
+        test_failed = 1;
+    } else {
+        nk_vc_printf("Destory succeeded\n");
+    }
+
+    if(test_failed){
+        nk_vc_printf("Paging check sanity test Failed!\n");
+    } else {
+        nk_vc_printf("Paging check sanity test Passed!\n");
+    }
+
+    return 0;
+
+no_paging_exit:
+    nk_vc_printf("Paging NOT created or Failed to create paging!\n");
+    return 0;
+}
+
+
+static struct shell_cmd_impl paging_sanity_check = {
+    .cmd      = "paging-sanity",
+    .help_str = "Sanity Check for Paging",
+    .handler  = paging_sanity,
+};
+
+nk_register_shell_cmd(paging_sanity_check);
+
+
+// testing pcid
+    /*
+    const int CREAT_LEN = 0x100;
+    int step = 0x9;
+    nk_aspace_region_t pcid_region = {
+        .va_start = 0,
+        .pa_start = 0,
+        .len_bytes = 0x100000000UL,
+        .protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER
+    };
+    nk_aspace_t **aspace_arr = (nk_aspace_t **) malloc(sizeof(nk_aspace_t *) * CREAT_LEN);
+    for (int i = 0; i < CREAT_LEN; i++) {
+        
+        aspace_arr[i] = nk_aspace_create("paging",op->name,&c);
+        nk_aspace_add_region(aspace_arr[i], &pcid_region);
+        // if (i % 0x10 == 0)  nk_aspace_destroy(aspace_arr);
+    }
+    for (int i = 0; i < CREAT_LEN; i+=step) {
+        nk_aspace_destroy(aspace_arr[i]);
+    }
+    for (int i = 0; i < CREAT_LEN; i+=step) {
+        
+        aspace_arr[i] = nk_aspace_create("paging",op->name,&c);
+        nk_aspace_add_region(aspace_arr[i], &pcid_region);
+        // if (i % 0x10 == 0)  nk_aspace_destroy(aspace_arr);
+    }
+    for (int i = 0; i < CREAT_LEN; i++) {
+        nk_aspace_destroy(aspace_arr[i]);
+    }
+    free(aspace_arr);
+    */

@@ -46,3 +46,4 @@ obj-y += \
 #IS
 #obj-y += IS/
 
+obj-$(NAUT_CONFIG_ASPACE_PAGING) += paging_benchmark.o

@@ -473,10 +473,18 @@ void _carat_process_escape_window()
  * do nothing
  */
 void nk_carat_guard_address(void *memory_address, int is_write) {
-	// TODO: implement this
-	int is_legal_access = 1;
 
-	if(!is_legal_access) {
+	// TODO:
+	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
+	// How is the instrumentation supposed to work? Does the order matter (i.e. guard then escape, or vice versa)? 
+	// Should we merge the guard and escape together for loads/stores that belong in the escapes-to-instrument set and the guards-to-inject set?
+	
+	/*
+ 	 * Check to see if the requested memory access is valid. 
+	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
+	 */
+	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
+	if (res) {
 		panic("Tried to make an illegal memory access! \n");
 	}
 
@@ -498,6 +506,17 @@ uint64_t _carat_get_rsp()
 	uint64_t rsp;
 	__asm__ __volatile__("movq %%rsp, %0" : "=a"(rsp) : : "memory");
 	return rsp;
+}
+    
+
+/*
+ * Wrapper for the compiler to target and inject
+ * allocation tracking for globals --- HACK
+ */ 
+__attribute__((noinline, optnone, annotate("nocarat")))
+void _nk_carat_globals_compiler_target(void)
+{
+    return;
 }
 
 
@@ -549,7 +568,13 @@ void nk_carat_init()
 	 */ 
 	CARAT_READY_ON;
 
-	// Global allocation tracking calls are injected at this point
+	
+    /*
+     * Invoke wrapper housing compiler-injected global allocation tracking
+     */
+    _nk_carat_globals_compiler_target();
+
+    
 	return;
 }
 

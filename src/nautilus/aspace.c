@@ -150,7 +150,10 @@ nk_aspace_t *nk_aspace_create(char *impl_name, char *name, nk_aspace_characteris
 
 int  nk_aspace_destroy(nk_aspace_t *aspace)
 {
-    BOILERPLATE_LEAVE(aspace,destroy)
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace,destroy)
+    } 
+    return 0;
 }
     
 int nk_aspace_rename(nk_aspace_t *aspace, char *name) {
@@ -243,12 +246,13 @@ int nk_aspace_move_thread(nk_aspace_t *aspace)
     
     // old address space is losing thread
     if (t->aspace) { 
-	BOILERPLATE_DO(t->aspace,remove_thread);
+	    BOILERPLATE_DO(t->aspace,remove_thread);
     }
 
-    // new address space is gaining it
-    BOILERPLATE_DO(aspace,add_thread);
-
+    if(aspace){
+        // new address space is gaining it
+        BOILERPLATE_DO(aspace,add_thread);
+    }
     
     DEBUG("Doing switch to %p\n",aspace);
 
@@ -267,26 +271,61 @@ int nk_aspace_move_thread(nk_aspace_t *aspace)
 
 int  nk_aspace_add_region(nk_aspace_t *aspace, nk_aspace_region_t *region)
 {
-    BOILERPLATE_LEAVE(aspace,add_region,region);
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace,add_region,region);
+    }
+    return 0;
 }
 
 int  nk_aspace_remove_region(nk_aspace_t *aspace, nk_aspace_region_t *region)
 {
-    BOILERPLATE_LEAVE(aspace,remove_region,region);
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace,remove_region,region);
+    }
+    return 0;
 }
 
 int  nk_aspace_protect_region(nk_aspace_t *aspace, nk_aspace_region_t *region, nk_aspace_protection_t *prot)
-{
-    BOILERPLATE_LEAVE(aspace,protect_region,region,prot);
+{   
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace,protect_region,region,prot);
+    }
+    return 0;
 }
 
 
 int  nk_aspace_move_region(nk_aspace_t *aspace, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region)
-{
-    BOILERPLATE_LEAVE(aspace,move_region,cur_region,new_region);
+{   
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace,move_region,cur_region,new_region);
+    } 
+    return 0;
 }
 
+int  nk_aspace_trunc_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size) {
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace, trunc_region, region, new_size);
+    } 
+    return 0;
+}
 
+int  nk_aspace_protection_check(nk_aspace_t *aspace, nk_aspace_region_t * region) 
+{   
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace, protection_check, region);
+    }
+    return 0;
+    
+}
+
+int  nk_aspace_request_permission(nk_aspace_t *aspace, addr_t address, int is_write)
+{
+    if (aspace) {
+        BOILERPLATE_LEAVE(aspace, request_permission, address, is_write);
+    }
+    return 0;
+
+}
 
 int nk_aspace_exception(excp_entry_t *entry, excp_vec_t vec, void *priv_data)
 {

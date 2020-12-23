@@ -1269,7 +1269,7 @@ menu "Address Spaces"
 	
 	  choice
       	  	depends on ASPACE_PAGING
-          	prompt "Region data structure"
+          	prompt "Paging Region data structure"
           	default ASPACE_PAGING_REGION_RB_TREE
 
           	config ASPACE_PAGING_REGION_RB_TREE
@@ -1349,6 +1349,23 @@ menu "Address Spaces"
 	  help
 	     Turn on debugging prints for the CARAT address space abstraction
 
+	choice
+            depends on ASPACE_CARAT
+            prompt "CARAT Region data structure"
+            default ASPACE_CARAT_REGION_RB_TREE
+
+            config ASPACE_CARAT_REGION_RB_TREE
+               bool "Red Black Tree"
+
+            config ASPACE_CARAT_REGION_SPLAY_TREE
+               bool "Splay Tree"
+
+            config ASPACE_CARAT_REGION_LINKED_LIST
+               bool "Linked List"
+
+            config ASPACE_CARAT_REGION_SKIP_LIST
+               bool "Skip List"
+       endchoice
 endmenu
 
 menu "Allocators"
@@ -1394,6 +1411,19 @@ menu "Allocators"
 	  default n
 	  help
 	     Turn on debugging prints for the cs213 allocator
+
+        config TEST_ALLOC_CS213
+	  bool "Test the CS213 Allocator"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Allocator test program
+       config TEST_TRACE_ALLOC_CS213
+	  bool "Test the CS213 Allocator using a trace"
+	  depends on ALLOC_CS213
+	  default n
+	  help
+	     Allocator test program w/trace
 
   config ALLOC_DUMB
 	  bool "Dumb allocator"

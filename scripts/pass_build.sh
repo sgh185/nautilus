@@ -1,7 +1,7 @@
 #! /usr/bin/sh
 
 # For peroni
-TC=../../toolchain
+TC=../toolchain
 source /project/extra/llvm/9.0.0/enable
 nwd=$(pwd)
 
