@@ -292,12 +292,6 @@ static int launch_vmm_environment()
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
 
-char* script[] = {
-    "attach ata0-0-0 ext2 rootfs",
-    "exec_crt /bt.S",
-    NULL,
-};
-
 void
 init (unsigned long mbd,
       unsigned long magic)
@@ -585,11 +579,13 @@ init (unsigned long mbd,
     nk_watchdog_init(NAUT_CONFIG_WATCHDOG_DEFAULT_TIME_MS * 1000000UL);
 #endif
 
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
     // Initialize system call interface
     nk_syscall_init();
     init_syscall_table();
-    
-    nk_launch_shell("root-shell",0,script,0);
+#endif
+
+    nk_launch_shell("root-shell",0,0,0);
 
     runtime_init();
 

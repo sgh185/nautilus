@@ -55,6 +55,7 @@ extern "C" {
 #define PHEAP_1GB 0x40000000UL
 
 #define MAX_PROCESS_NAME 32
+#define MAX_PROCESS_PATH 32
 #define MAX_PID 32767 // 4Kb in bits
 #define MAX_PROCESS_COUNT 16384 // half of MAX_PID for now
 
@@ -125,6 +126,9 @@ typedef struct nk_process {
 
   // Process Name
   char name[MAX_PROCESS_NAME];
+
+  // Process path on disk
+  char path[MAX_PROCESS_PATH];
 
   // process list
   struct list_head process_node;

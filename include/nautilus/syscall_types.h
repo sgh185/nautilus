@@ -3,7 +3,6 @@
 
 #define NAUT_HOSTNAME_LEN 64
 
-/// TODO: tie these into the build system?
 /// Note that the C runtime expects linux-like versioning and will abort if it
 /// finds a value which is far from expected.
 static const char uname_sysname[] = "Linux";
@@ -14,16 +13,9 @@ static const char uname_machine[] = "";
 
 extern char syscall_hostname[NAUT_HOSTNAME_LEN];
 
-/// The size of the struct fields are intended to be determined by the OS, so
-/// this can't be included from the build system's headers
+/// glibc expects the struct fields to have this length,
+/// even though the manpages suggest that the size can be chosen by the OS
 #define GLIBC_UTSNAME_LENGTH 65
-// struct utsname {
-//   char sysname[sizeof(uname_sysname)];
-//   char nodename[NAUT_HOSTNAME_LEN];
-//   char release[sizeof(uname_release)];
-//   char version[sizeof(uname_version)];
-//   char machine[sizeof(uname_machine)];
-// };
 
 struct utsname {
   char sysname[GLIBC_UTSNAME_LENGTH];
@@ -32,11 +24,3 @@ struct utsname {
   char version[GLIBC_UTSNAME_LENGTH];
   char machine[GLIBC_UTSNAME_LENGTH];
 };
-
-// struct utsname {
-//   char* sysname;
-//   char* nodename;
-//   char* release;
-//   char* version;
-//   char* machine;
-// };

@@ -261,6 +261,13 @@ config PROCESSES
     help
       Enable processes
 
+config LINUX_SYSCALLS
+    bool "Enable support for Linux syscall emulation"
+    depends on PROCESSES
+    default y
+    help
+      Enable Linux syscall interface
+
 config VIRTUAL_CONSOLE_DISPLAY_NAME
    bool "Display name of current virtual console"
    default y

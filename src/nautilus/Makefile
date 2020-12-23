@@ -42,7 +42,6 @@ obj-y += \
 	pmc.o \
 	setjmp.o \
 	mm/ \
-	syscalls/ \
 	dev.o \
 	chardev.o \
 	blkdev.o \
@@ -85,3 +84,4 @@ obj-$(NAUT_CONFIG_PARTITION_SUPPORT) += partition.o
 
 obj-$(NAUT_CONFIG_PROCESSES) += process.o
 
+obj-$(NAUT_CONFIG_LINUX_SYSCALLS) += syscalls/

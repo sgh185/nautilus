@@ -36,7 +36,6 @@ extern "C" {
 
 // Always included so we get the necessary type
 #include <nautilus/cachepart.h>
-//#include <nautilus/aspace.h>
 
 #ifdef NAUT_CONFIG_PROCESSES
 #include <nautilus/process.h>
@@ -195,6 +194,7 @@ struct nk_thread {
     void* set_child_tid;
     void* thread_start_addr;
     void* sysret_addr; /* Address set on entry to a syscall */
+    uint64_t fake_affinity; /* Simulated affinity of the thread */
 #endif
     nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 

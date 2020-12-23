@@ -410,7 +410,9 @@ smp_ap_finish (struct cpu * core)
     }
 #endif
 
-    nk_syscall_init_ap(); // TODO make conditional on compile
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+    nk_syscall_init_ap();
+#endif
 
     SMP_DEBUG("Core %u ready - enabling interrupts\n", core->id);
 
