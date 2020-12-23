@@ -258,7 +258,11 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	 * Add the mapping [@##key : newEntry] to the allocation_map BUT do
      * not panic if the entry already exists in the allocation_map
 	 */ \
-	CARAT_ALLOCATION_MAP_INSERT(key, new_entry)
+	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
+        DS("dup: "); \
+        DHQ(((uint64_t) key)); \
+        DS("\n"); \
+    }
 
 
 /*
