@@ -66,7 +66,9 @@ private:
     /*
      * Analysis state
      */ 
-    std::unordered_map<GlobalValue *, uint64_t> Globals; /* [global : size] */
+    uint64_t NextGlobalID=0;
+    std::unordered_map<GlobalValue *, 
+                       std::pair<uint64_t, uint64_t>> Globals; /* [global : {size, ID}] */
     std::unordered_set<Instruction *> Mallocs;
     std::unordered_set<Instruction *> Frees;
 
@@ -76,4 +78,5 @@ private:
      */ 
     void _getAllNecessaryInstructions();
     void _getAllGlobals();
+    bool _isGlobalInstrumentable(GlobalValue &Global);
 };
