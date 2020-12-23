@@ -244,6 +244,24 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 
 
 /*
+ * Macro expansion utility --- creating allocation_entry objects
+ * and adding them to the allocation map
+ */ 
+#define CREATE_ENTRY_AND_ADD_SILENT(key, size) \
+	/*
+	 * Create a new allocation_entry object for the new_address to be added
+	 */ \
+	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
+    \
+    \
+	/*
+	 * Add the mapping [@##key : newEntry] to the allocation_map BUT do
+     * not panic if the entry already exists in the allocation_map
+	 */ \
+	CARAT_ALLOCATION_MAP_INSERT(key, new_entry)
+
+
+/*
  * Macro expansion utility --- for deleting allocation_entry objects
  */ 
 #define REMOVE_ENTRY(key, str) \
@@ -321,6 +339,12 @@ void nk_carat_report_statistics();
 /*
  * =================== Allocations Handling Methods ===================  
  */ 
+
+/*
+ * Instrumentation for "malloc" --- adding
+ */
+void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_t global_ID);
+
 
 /*
  * Instrumentation for "malloc" --- adding

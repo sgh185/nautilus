@@ -198,6 +198,55 @@ void nk_carat_report_statistics()
 /*
  * =================== Allocations Handling Methods ===================
  */ 
+
+NO_CARAT_NO_INLINE
+void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_t global_ID)
+{
+    /*
+     * TOP --- Wrapper for globals instrumentation --- useful
+     * for debugging and differentiating between each global
+     */ 
+
+    /*
+     * Debugging
+     */ 
+    DS("gID: ");
+    DHQ(global_ID);
+    DS("\n");
+
+
+	/*
+	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY
+
+
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF;
+
+
+	/*
+	 * Create an entry and add the mapping to the allocation_map
+	 */ 
+	CREATE_ENTRY_AND_ADD_SILENT (
+		address, 
+		allocation_size
+	);
+
+
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON;
+
+
+    return;
+}
+
+
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 {
@@ -215,7 +264,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 
 
 	/*
-	 * Create an entry and add the mapping to the allocationMap
+	 * Create an entry and add the mapping to the allocation_map
 	 */ 
 	CREATE_ENTRY_AND_ADD (
 		address, 
@@ -281,7 +330,7 @@ void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t 
 
 
 	/*
-	 * Create an entry and add the mapping to the allocationMap
+	 * Create an entry and add the mapping to the allocation_map
 	 */ 
 	CREATE_ENTRY_AND_ADD (
 		new_address, 
