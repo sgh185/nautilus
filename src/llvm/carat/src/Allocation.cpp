@@ -206,7 +206,8 @@ void AllocationHandler::_getAllGlobals()
          */ 
         if (false
             || (Global.getSection() == "llvm.metadata")
-            || (Global.isDiscardableIfUnused())) /* FIX */
+            || (Global.getName() == "global_carat_context") /* Not tracking global context */
+            || (Global.getName() == "_data_end") /* FIX --- edge case */
             { continue; }
 
 
