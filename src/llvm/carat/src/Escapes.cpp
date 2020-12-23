@@ -55,6 +55,12 @@ EscapesHandler::EscapesHandler(Module *M)
 void EscapesHandler::Inject()
 {
     /*
+     * Check pass settings
+     */ 
+    if (NoEscapes) return;
+
+
+    /*
      * Set up for injection
      */ 
     Function *CARATEscape = CARATNamesToMethods[CARAT_ESCAPE];

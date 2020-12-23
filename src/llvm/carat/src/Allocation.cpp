@@ -67,14 +67,14 @@ void AllocationHandler::Inject()
     /*
      * Instrument globals
      */ 
-    if (HANDLE_GLOBALS) InstrumentGlobals();
+    if (!NoGlobals) InstrumentGlobals();
 
 
     /*
      * Instrument allocations
      */ 
-    InstrumentMallocs();
-    InstrumentFrees();
+    if (!NoMallocs) InstrumentMallocs();
+    if (!NoFrees) InstrumentFrees();
 
 
     /*

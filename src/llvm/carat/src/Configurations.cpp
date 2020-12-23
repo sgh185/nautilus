@@ -35,11 +35,9 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_REALLOC = "nk_carat_instrument_realloc",
                   CARAT_CALLOC = "nk_carat_instrument_calloc",
                   CARAT_REMOVE_ALLOC = "nk_carat_instrument_free",
-                  CARAT_STATS = "nk_carat_report_statistics",
                   CARAT_ESCAPE = "nk_carat_instrument_escapes",
                   CARAT_INIT = "nk_carat_init",
                   CARAT_GLOBALS_TARGET = "_nk_carat_globals_compiler_target",
-                  ENTRY_SETUP = "_carat_create_allocation_entry", // TODO: remove
                   KERNEL_MALLOC = "_kmem_sys_malloc",
                   KERNEL_FREE = "kmem_sys_free",
                   ANNOTATION = "llvm.global.annotations",
@@ -54,11 +52,9 @@ std::unordered_set<std::string> CARATNames = {
     CARAT_REALLOC, 
     CARAT_CALLOC,
     CARAT_REMOVE_ALLOC, 
-    CARAT_STATS,
     CARAT_ESCAPE,
     CARAT_INIT,
-    CARAT_GLOBALS_TARGET,
-    ENTRY_SETUP
+    CARAT_GLOBALS_TARGET
 };
 
 std::unordered_map<std::string, Function *> CARATNamesToMethods;
@@ -75,3 +71,55 @@ std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
 std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
 
 std::unordered_set<Function *> AnnotatedFunctions;
+
+
+/*
+ * Command line options for pass
+ */ 
+cl::opt<bool> NoGlobals(
+    "fno-globals",
+    cl::init(false),
+    cl::desc("No instrumentation of global variables")
+);
+
+cl::opt<bool> NoMallocs(
+    "fno-mallocs",
+    cl::init(false),
+    cl::desc("No instrumentation of 'mallocs'")
+);
+
+cl::opt<bool> NoFrees(
+    "fno-frees",
+    cl::init(false),
+    cl::desc("No instrumentation of 'frees'")
+);
+
+cl::opt<bool> NoEscapes(
+    "fno-escapes",
+    cl::init(false),
+    cl::desc("No instrumentation of escapes")
+);
+
+cl::opt<bool> NoProtections(
+    "fno-protections",
+    cl::init(false),
+    cl::desc("No protection check instrumentation")
+);
+
+cl::opt<bool> NoVerify(
+    "fno-verify",
+    cl::init(false),
+    cl::desc("No verification of runtime methods or transformations")
+);
+
+cl::opt<bool> InitExit(
+    "init-exit",
+    cl::init(false),
+    cl::desc("Exit compilation upon initialization --- for debugging")
+);
+
+cl::opt<bool> Debug(
+    "debug",
+    cl::init(false),
+    cl::desc("Turn on debugging outputs/prints")
+);

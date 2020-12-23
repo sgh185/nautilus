@@ -807,7 +807,8 @@ karat: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
 	# Run KARAT pass	
 	opt -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) &> karat.out 
 
-download:  
+ifdef NAUT_CONFIG_USE_NOELLE
+noelle_download:  
 	./scripts/noelle_download.sh "/project/parallelizing_compiler/repositories/noelle" 
 
 karat_noelle: ~/CAT/lib/KARAT.so noelle $(LL_NAME) $(BIN_NAME)
@@ -815,6 +816,7 @@ karat_noelle: ~/CAT/lib/KARAT.so noelle $(LL_NAME) $(BIN_NAME)
 	noelle-norm -S $(LL_NAME) -o $(LL_SIMPLIFY_NAME)
 	# Run KARAT pass with Noelle
 	noelle-load -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) &> karat.out 
+endif
 
 final: $(OPT_LL_NAME)
 	# Recompile (with full opt levels) new object files, binaries
