@@ -153,6 +153,12 @@ extern carat_context global_carat_context;
 
 
 /*
+ * Non-canonical address used for protections checks
+ */ 
+extern void *non_canonical;
+
+
+/*
  * Conditions check 
  */ 
 #define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }

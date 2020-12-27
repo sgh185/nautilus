@@ -70,6 +70,12 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 }
 
 
+/*
+ * Setup for protections --- non-canonical address used for 
+ * protections check 
+ */ 
+void *non_canonical = ((void *) 0x22DEADBEEF22);
+
 
 /*
  * =================== Utility Analysis Methods ===================
