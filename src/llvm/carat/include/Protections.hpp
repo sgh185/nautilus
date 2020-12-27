@@ -26,12 +26,9 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "Profiler.hpp"
+#include "Utils.hpp"
 
 using namespace llvm;
-
-#define STORE_GUARD 0
-#define LOAD_GUARD 0
 
 class ProtectionsHandler
 {
@@ -40,51 +37,24 @@ public:
     /*
      * Constructors
      */ 
-    ProtectionsHandler(Module *M);
+    ProtectionsHandler(
+        Module *M,
+        Noelle *N
+    );
 
 
     /*
      * Drivers
      */ 
-    void Inject();
+    void Protect(void);
 
 
 private:
-
+    
     /*
      * Passed state
      */ 
     Module *M;
-    Function *Panic;
-    GlobalVariable *PanicString;
-    GlobalVariable *LowerBound;
-    GlobalVariable *UpperBound;
-
-
-    /*
-     * Analysis state
-     */ 
-    std::unordered_map<Instruction *, std::pair<Instruction *, Value *>> MemoryInstructions;
-    std::unordered_map<Function *, BasicBlock *> EscapeBlocks;
-    std::unordered_map<Function *, std::pair<LoadInst *, LoadInst *> *> BoundsLoadInsts;
-
-
-    /*
-     * Statistics
-     */ 
-    uint64_t NumRedundantGuards=0;
-    uint64_t NumNonOptimizedGuards=0;
-    uint64_t NumLoopInvariantGuards=0;
-    uint64_t NumScalarEvolutionGuards=0;
-    uint64_t NumCallGuardOptimized=0;
-
-
-    /*
-     * Private methods
-     */     
-    void _getAllNecessaryInstructions();
-
-    BasicBlock *_buildEscapeBlock(Function *F);
+    Noelle *N;
     
-    std::pair<LoadInst *, LoadInst *> *_buildBoundsLoadInsts(Function *F);
 };
