@@ -319,7 +319,7 @@ int  nk_aspace_protection_check(nk_aspace_t *aspace, nk_aspace_region_t * region
     
 }
 
-int  nk_aspace_request_permission(nk_aspace_t *aspace, addr_t address, int is_write)
+int  nk_aspace_request_permission(nk_aspace_t *aspace, void * address, int is_write)
 {
     if (aspace) {
         BOILERPLATE_LEAVE(aspace, request_permission, address, is_write);

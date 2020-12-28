@@ -423,13 +423,13 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     return -1;
 }
 
-static int request_permission(void * state, addr_t address, int is_write) {
+static int request_permission(void * state, void * address, int is_write) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 
-    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, address);
+    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
 
     if (region == NULL) {
         ASPACE_UNLOCK(carat);
@@ -914,7 +914,6 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
     nk_vc_printf("Before Destroy\n");
     nk_aspace_destroy(carat_aspace);
 
-test_success:
     nk_vc_printf("CARAT Protection check sanity test Passed!\n");
     return 0;
 test_fail:
