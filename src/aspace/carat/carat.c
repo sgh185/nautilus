@@ -468,6 +468,15 @@ static int request_permission(void * state, addr_t address, int is_write) {
     return 0;
 }
 
+static void* defragment_region(void *state, nk_aspace_region_t *cur_region){
+    nk_aspace_t *carat = (nk_aspace_carat_t *)state;
+
+    if(!cur_region){
+        DEBUG("region passed in is invalid\n");
+    }
+    nk_aspace_region_t* new_region =  (nk_aspace_region_t*) malloc(sizeof(nk_aspace_region_t));
+    return new_region;
+}
 
 
 static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region) 
@@ -553,6 +562,7 @@ static int exception(void *state, excp_entry_t *exp, excp_vec_t vec)
     ASPACE_UNLOCK(carat);
     return 0;
 }
+
 
 static int print(void *state, int detailed) 
 {
