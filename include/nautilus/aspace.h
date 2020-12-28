@@ -101,6 +101,7 @@ typedef struct nk_aspace_interface {
     int    (*protect_region)(void *state, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
     int    (*move_region)(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region);
     int    (*trunc_region)(void *state, nk_aspace_region_t *region, uint64_t new_size);
+    int    (*defragment_region)(void *state, nk_aspace_region_t *cur_region);
 
     int    (*protection_check)(void * state, nk_aspace_region_t * region);
  
