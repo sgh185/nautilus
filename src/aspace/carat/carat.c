@@ -77,13 +77,15 @@
 #define ASPACE_NAME(a) ((a)?(a)->aspace->name : "default")
 #define THREAD_NAME(t) ((!(t)) ? "(none)" : (t)->is_idle ? "(idle)" : (t)->name[0] ? (t)->name : "(noname)")
 
-#ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
-#define REGION_FORMAT ""
-#define REGION(r)
-#else
+// #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
+// #define REGION_FORMAT ""
+// #define REGION(r)
+// #else
+// #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+// #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
+// #endif
 #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
 #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
-#endif
 
 
 // ok if r1.permision <= r2.permission
@@ -132,7 +134,7 @@ typedef struct nk_aspace_carat {
  * validness = va_addr == pa_addr
  * */
 int CARAT_INVALID(nk_aspace_region_t *region) {
-    return region->va_start != region->pa_start;
+    return region != NULL && region->va_start != region->pa_start;
 }
 
 static int destroy(void *state) {
@@ -468,14 +470,80 @@ static int request_permission(void * state, addr_t address, int is_write) {
     return 0;
 }
 
-static void* defragment_region(void *state, nk_aspace_region_t *cur_region){
-    nk_aspace_t *carat = (nk_aspace_carat_t *)state;
+static int defragment_region(
+    void *state, 
+    nk_aspace_region_t *cur_region, 
+    void ** new_region_start, 
+    void ** free_space_start
+){
+    /**
+     *  Defragmentation illustration
+     *  xxx means allocated chunks in the region
+     *  -- means unallocated chunks in the region
+     * 
+     *      xxxx--xxxx--xx----xx 
+     *  =>
+     *      xxxxxxxxxxxx--------
+     *      ^               ^
+     * new_region_start   free_space_start
+     * */
 
-    if(!cur_region){
-        DEBUG("region passed in is invalid\n");
+    if (CARAT_INVALID(cur_region)) {
+        return -1;
     }
-    nk_aspace_region_t* new_region =  (nk_aspace_region_t*) malloc(sizeof(nk_aspace_region_t));
-    return new_region;
+
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(carat);
+    
+    
+    nk_aspace_region_t * reg = mm_contains(carat->mm, cur_region, all_eq_flag );
+    
+    if (!reg) {
+        ERROR("Region"REGION_FORMAT" not existed\n", REGION(reg));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    // nk_aspace_region_t* new_region =  (nk_aspace_region_t*) malloc(sizeof(nk_aspace_region_t));
+    nk_aspace_region_t new_region;
+    /**
+     *  new_region_chunk is the real "drilled" region with length specified by cur_region
+     *  We are not super sure if this is the expected/appropriate way to add new region in CARAT.
+     *  
+     *  Note: we are using the malloc macro defined in mm.h here,
+     *      but it's really kmem_malloc which is sperate from Alex's allocator. 
+     * */
+    void * new_region_chunk = malloc(cur_region->len_bytes);
+    
+    new_region = *cur_region;
+    new_region.va_start = new_region_chunk;
+    new_region.pa_start = new_region_chunk;
+    
+    /**
+     *  Called nk_carat_move_region to actually do the work of defragmentation
+     *  @Drew, Feel free to change the line below if you change the signature of your function
+     * */
+    int res = nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes);
+
+    /**
+     *  As we need to know the start of free space in the new region, 
+     *      we believe a new function signature like below might be preferred
+     *      int nk_carat_defrag_region(void *region_start, void *new_region_start, uint64_t region_length, void ** free_space_start)
+     *      where your write to the void ** free_space_start to let us know where the free space started
+     * */
+    
+    if (res) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+    
+    mm_remove(carat->mm, cur_region, all_eq_flag );
+    mm_insert(carat->mm,  &new_region);
+
+    *new_region_start = new_region.pa_start;
+    ASPACE_UNLOCK(carat);
+    return 0;
 }
 
 
@@ -591,6 +659,7 @@ static nk_aspace_interface_t carat_interface = {
     .protect_region = protect_region,
     .protection_check = protection_check,
     .move_region = move_region,
+    .defragment_region = defragment_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
