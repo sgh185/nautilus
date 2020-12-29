@@ -328,15 +328,17 @@ int undrill_wrapper_with_offset(nk_aspace_paging_t *p, nk_aspace_region_t *regio
         } 
         else if (ret == 2 || ret == -2) {
             ((ph_pde_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_2MB - offset % PAGE_SIZE_2MB ;
+            ((ph_pde_t *) entry)->is_leaf = 0;
+            offset = offset + PAGE_SIZE_2MB - virtaddr % PAGE_SIZE_2MB ;
         } 
         else if (ret == 3 || ret == -3 ) {
             ((ph_pdpe_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_1GB - offset % PAGE_SIZE_1GB;
+            ((ph_pdpe_t *) entry)->is_leaf = 0;
+            offset = offset + PAGE_SIZE_1GB - virtaddr % PAGE_SIZE_1GB;
         } 
         else if (ret == -4) {
             ((ph_pml4e_t *) entry)->present = 0;
-            offset = offset + PAGE_SIZE_512GB - offset % PAGE_SIZE_512GB;
+            offset = offset + PAGE_SIZE_512GB - virtaddr % PAGE_SIZE_512GB;
         } 
         else {
             panic("unexpected return from page walking = %d\n", ret);
@@ -395,9 +397,7 @@ int eager_drill_wrapper_with_offset(nk_aspace_paging_t *p, nk_aspace_region_t *r
             paging_helper_drill = &paging_helper_drill_4KB;
             page_granularity = PAGE_SIZE_4KB;
         } else {
-            char region_buf[REGION_STR_LEN];
-            region2str(region, region_buf);
-            ERROR("Region %s doesnot meet drill requirement at vaddr=0x%p and paddr=0x%p\n", region_buf, vaddr, paddr);
+            ERROR("Region"REGION_FORMAT"doesnot meet drill requirement at vaddr=0x%p and paddr=0x%p\n", REGION(region), vaddr, paddr);
             return -1;
         }
 
@@ -979,6 +979,7 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
         //free for the abandon Physical addresses?
         // DEBUG("truncating the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
         undrill_wrapper_with_offset(p, region, new_size);
+        
     }
 
     uint64_t diff = old_size > new_size ? old_size - new_size : new_size - old_size;
@@ -1393,10 +1394,12 @@ static int paging_sanity(char *_buf, void* _priv) {
 
 #define LEN_1KB (0x400UL)
 #define LEN_4KB (0x1000UL)
+#define LEN_16KB (0x10000UL)
 #define LEN_256KB (0x40000UL)
 #define LEN_512KB (0x80000UL)
 
 #define LEN_1MB (0x100000UL)
+#define LEN_2MB (0x200000UL)
 #define LEN_4MB (0x400000UL)
 #define LEN_6MB (0x600000UL)
 #define LEN_8MB (0x800000UL)
@@ -2032,7 +2035,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test shrinking lazy region
      * */
-    if (nk_aspace_trunc_region(mas, &target_region, LEN_1MB)) {
+    if (nk_aspace_trunc_region(mas, &target_region, LEN_2MB + LEN_16KB)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT
@@ -2042,7 +2045,7 @@ static int paging_sanity(char *_buf, void* _priv) {
 	    goto clean_up;
     }
 
-    if (memcmp((void*) target_region.va_start , (void*) 0, LEN_4MB)) {
+    if (memcmp((void*) target_region.va_start , (void*) 0, LEN_2MB + LEN_16KB)) {
         test_failed = 1;
         nk_vc_printf("content of target_region at %p different from %p \n", target_region.va_start, (void*) 0);
         goto clean_up;
@@ -2050,6 +2053,8 @@ static int paging_sanity(char *_buf, void* _priv) {
 
 
     nk_vc_printf("    Survived: trunc region test\n");
+
+
 clean_up:
 
     if(nk_aspace_move_thread(old_aspace) ) {
