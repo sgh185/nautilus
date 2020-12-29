@@ -7,16 +7,17 @@
  * Copyright (c) 2002, R. Bryant and D. O'Hallaron, All rights reserved.
  * May not be used, modified, or copied without permission.
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <assert.h>
-#include <float.h>
-#include <time.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <unistd.h>
+//#include <errno.h>
+//#include <string.h>
+//#include <assert.h>
+//#include <float.h>
+//#include <time.h>
 
-#include "mm.h"
+#include <nautilus/nautilus.h>
+
 #include "memlib.h"
 #include "fsecs.h"
 #include "config.h"

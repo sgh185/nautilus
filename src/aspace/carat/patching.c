@@ -330,8 +330,9 @@ out_bad:
 }
 
 NO_CARAT
-void * nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length) 
+int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length, void **free_start) 
 {
+  CARAT_PRINT("CARAT: move_region (%p,%lu) -> %p\n", region_start, region_length, new_region_start);
     /*
     * Pauses all execution so we can perform a series of move
     */
@@ -370,11 +371,13 @@ void * nk_carat_move_region(void *region_start, void *new_region_start, uint64_t
     /*
     * Return the pointer to the end of the allocations in the new region
     */ 
-    return current_destination;
+    *free_start = current_destination;
+
+    return 0;
 
 out_bad:
-    panic("nk_carat_move_region: failed to move");
-    return 0;
+    CARAT_PRINT("nk_carat_move_region: failed to move");
+    return -1;
 }
 
 

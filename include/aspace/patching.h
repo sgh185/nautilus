@@ -74,7 +74,7 @@ void nk_carat_move_allocations(void **allocations_to_move, void **allocation_tar
  * Driver for defragmenting a region using allocation moves
  */
 
-void * nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length);
+int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length, void **free_start);
 
 /*
  * Upon a move --- "carat_patch_escapes" will iterate through all escapes

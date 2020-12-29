@@ -303,9 +303,9 @@ int  nk_aspace_trunc_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uin
     return 0;
 }
 
-int  nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, void ** new_region_start, void ** free_space_start) {
+int  nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, void ** free_space_start) {
     if (aspace) {
-        BOILERPLATE_LEAVE(aspace, defragment_region, region, new_region_start, free_space_start);
+      BOILERPLATE_LEAVE(aspace, defragment_region, region, new_size, free_space_start);
     } 
     return 0;
 }

@@ -46,7 +46,7 @@ obj-$(NAUT_CONFIG_LEGION_RT) += test_legion.o \
 								# index_tasks.o \
 								# tasks_and_futures.o	\
 
-obj-$(NAUT_CONFIG_ALLOC_TEST) += alloc
+obj-$(NAUT_CONFIG_ALLOC_TEST) += alloc/
 
 obj-$(NAUT_CONFIG_TEST_ALLOC_CS213) += allocator_test.o
 obj-$(NAUT_CONFIG_TEST_TRACE_ALLOC_CS213) += allocator_test_trace.o

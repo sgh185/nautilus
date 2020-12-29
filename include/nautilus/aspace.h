@@ -100,8 +100,11 @@ typedef struct nk_aspace_interface {
     
     int    (*protect_region)(void *state, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
     int    (*move_region)(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region);
+    // region is both an input and and output
     int    (*trunc_region)(void *state, nk_aspace_region_t *region, uint64_t new_size);
-    int    (*defragment_region)(void *state, nk_aspace_region_t *cur_region, void ** new_region_start, void ** free_space_start);
+    // region is both an input and an output
+    // *free_space_start tells us where the free space beings in the region
+    int    (*defragment_region)(void *state, nk_aspace_region_t *region, uint64_t new_size, void **free_space_start);
 
     int    (*protection_check)(void * state, nk_aspace_region_t * region);
  
@@ -176,10 +179,9 @@ int          nk_aspace_trunc_region(nk_aspace_t *aspace, nk_aspace_region_t *reg
      *      xxxxxxxxxxxx--------
      *      ^               ^
      * new_region_start   free_space_start
-     *  return 0 when everything is fine. Otherwise -1
+     *  return 0 when everything is fineOA. Otherwise -1
      * */
-int          nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, void ** new_region_start, void ** free_space_start);
-
+int          nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t newlen, void **free_space_start);
 // change protections for a region
 int          nk_aspace_protect_region(nk_aspace_t *aspace, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
 

@@ -472,8 +472,8 @@ static int request_permission(void * state, void * address, int is_write) {
 
 static int defragment_region(
     void *state, 
-    nk_aspace_region_t *cur_region, 
-    void ** new_region_start, 
+    nk_aspace_region_t *cur_region, // also output
+    uint64_t new_size,
     void ** free_space_start
 ){
     /**
@@ -487,6 +487,9 @@ static int defragment_region(
      *      ^               ^
      * new_region_start   free_space_start
      * */
+
+  DEBUG("defragmentation initialized - (%p,%lu) -> %lu\n",
+        cur_region->va_start, cur_region->len_bytes, new_size);
 
     if (CARAT_INVALID(cur_region)) {
         return -1;
@@ -505,6 +508,12 @@ static int defragment_region(
         return -1;
     }
 
+    if (new_size < cur_region->len_bytes)  {
+      ASPACE_UNLOCK(carat);
+      ERROR("Cannot currently shrink regions\n");
+      return -1;
+    }
+
     // nk_aspace_region_t* new_region =  (nk_aspace_region_t*) malloc(sizeof(nk_aspace_region_t));
     nk_aspace_region_t new_region;
     /**
@@ -514,30 +523,40 @@ static int defragment_region(
      *  Note: we are using the malloc macro defined in mm.h here,
      *      but it's really kmem_malloc which is sperate from Alex's allocator. 
      * */
-    void * new_region_chunk = malloc(cur_region->len_bytes);
+    void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+
+    if (!new_region_chunk) {
+      ASPACE_UNLOCK(carat);
+      ERROR("cannot allocate new region of size %lu - system defragmentation needed\n",new_size);
+      // Do system defrag here, then try again
+      return -1;
+    }
+
+    DEBUG("new memory allocated at %p\n",new_region_chunk);
     
     new_region = *cur_region;
     new_region.va_start = new_region_chunk;
     new_region.pa_start = new_region_chunk;
-    
+
     /**
      *  Called nk_carat_move_region to actually do the work of defragmentation
      * */
-    void * free_start = nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes);
-    
-    if (free_start == NULL ) {
-        ASPACE_UNLOCK(carat);
-        return -1;
+    if (nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
+      ASPACE_UNLOCK(carat);
+      ERROR("failed to move region...\n");
+      return -1;
     }
 
-    *free_space_start = free_start;
-    
-    
-    
+    DEBUG("carat move completed\n");
+
     mm_remove(carat->mm, cur_region, all_eq_flag );
     mm_insert(carat->mm,  &new_region);
 
-    *new_region_start = new_region.pa_start;
+
+    DEBUG("region data structure updated\n");
+    
+    *cur_region = new_region;
+    
     ASPACE_UNLOCK(carat);
     return 0;
 }
@@ -567,8 +586,9 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         return -1;
     }
 
+    void *free_space_start; // don't care
     // call CARAT runtime
-    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes);
+    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
     if (res) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -635,11 +655,12 @@ static int print(void *state, int detailed)
     
 
     // basic info
-    nk_vc_printf("%s: paging address space [granularity 0x%lx alignment 0x%lx]\n",
+    nk_vc_printf("%s: carat address space [granularity 0x%lx alignment 0x%lx]\n",
          ASPACE_NAME(carat), carat->chars.granularity, carat->chars.alignment);
 
     if (detailed) {
         // print region set data structure here
+      nk_vc_printf("printing detailed\n");
         mm_show(carat->mm);
         // perhaps print out all the page tables here...
     }

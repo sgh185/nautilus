@@ -50,7 +50,7 @@ typedef struct nk_alloc_impl {
 
 typedef uint64_t nk_alloc_flags_t;
 // flags
-#define NK_ALLOC_ZERO  1   // zero data
+#define NK_ALLOC_ZERO            1   // zero data
 //...
 
 
@@ -63,7 +63,8 @@ typedef struct nk_alloc_interface {
     void * (*allocp)(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags);
     void * (*reallocp)(void *state, void *ptr, size_t size, size_t align, int cpu, nk_alloc_flags_t flags);
     void   (*freep)(void *state, void *ptr);
-    
+
+
     // print out info about the allocator
     int    (*print)(void *state, int detailed);
     
