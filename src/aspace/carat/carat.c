@@ -522,21 +522,17 @@ static int defragment_region(
     
     /**
      *  Called nk_carat_move_region to actually do the work of defragmentation
-     *  @Drew, Feel free to change the line below if you change the signature of your function
      * */
-    int res = nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes);
-
-    /**
-     *  As we need to know the start of free space in the new region, 
-     *      we believe a new function signature like below might be preferred
-     *      int nk_carat_defrag_region(void *region_start, void *new_region_start, uint64_t region_length, void ** free_space_start)
-     *      where your write to the void ** free_space_start to let us know where the free space started
-     * */
+    void * free_start = nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes);
     
-    if (res) {
+    if (free_start == NULL ) {
         ASPACE_UNLOCK(carat);
         return -1;
     }
+
+    *free_space_start = free_start;
+    
+    
     
     mm_remove(carat->mm, cur_region, all_eq_flag );
     mm_insert(carat->mm,  &new_region);
