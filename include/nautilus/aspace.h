@@ -101,10 +101,11 @@ typedef struct nk_aspace_interface {
     int    (*protect_region)(void *state, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
     int    (*move_region)(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region);
     int    (*trunc_region)(void *state, nk_aspace_region_t *region, uint64_t new_size);
+    int    (*defragment_region)(void *state, nk_aspace_region_t *cur_region, void ** new_region_start, void ** free_space_start);
 
     int    (*protection_check)(void * state, nk_aspace_region_t * region);
  
-    int (*request_permission)(void * state, addr_t address, int is_write);
+    int (*request_permission)(void * state, void * address, int is_write);
     // do the work needed to install the address space on the CPU
     // this is invoked on a context switch to a thread that is in a different
     // address space
@@ -164,6 +165,7 @@ int          nk_aspace_move_thread(nk_aspace_t *aspace);
 int          nk_aspace_add_region(nk_aspace_t *aspace, nk_aspace_region_t *region);
 int          nk_aspace_remove_region(nk_aspace_t *aspace, nk_aspace_region_t *region);
 int          nk_aspace_trunc_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size);
+int          nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, void ** new_region_start, void ** free_space_start);
 // change protections for a region
 int          nk_aspace_protect_region(nk_aspace_t *aspace, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
 
@@ -171,7 +173,7 @@ int          nk_aspace_move_region(nk_aspace_t *aspace, nk_aspace_region_t *cur_
 
 int          nk_aspace_protection_check(nk_aspace_t *aspace, nk_aspace_region_t * region);  
 
-int          nk_aspace_request_permission(nk_aspace_t *aspace, addr_t address, int is_write);
+int          nk_aspace_request_permission(nk_aspace_t *aspace, void * address, int is_write);
 
 // call on BSP after percpu and kmem are available
 int          nk_aspace_init();

@@ -162,9 +162,9 @@ typedef union ph_pdpe {  // mostly the same as pml4e, comments show diffs
 	uint_t cache_disable  : 1;
 	uint_t accessed       : 1;
 	uint_t reserved       : 1;
-	uint_t is_leaf		  : 1;
+	uint_t is_leaf		  : 1;	 // bit 7 set makes this a huge page
 	uint_t zero           : 1;  // must be zero
-	                            // bit 7 set makes this a huge page
+	                           
 	uint_t avail1         : 3;   
 	uint64_t pd_base      : 40; // pointer to PDT (bits 12..51, bits 0..11 are zero)
 	uint_t avail2         : 11;
@@ -183,9 +183,9 @@ typedef union ph_pde {  // mostly the same as pdpe, comments show diffs
 	uint_t cache_disable   : 1;
 	uint_t accessed        : 1;
 	uint_t reserved        : 1;
-	uint_t is_leaf		  : 1;
+	uint_t is_leaf		  : 1;	// bit 7 makes this a large page
 	uint_t zero           : 1;  // must be zero
-	                             // bit 7 makes this a large page
+	                             
 	                             // bit 8 makes this a global page
 	uint_t avail1          : 3;
 	uint64_t pt_base       : 40; // pointer to PT (bits 12..51, bits 0..11 are zero)
