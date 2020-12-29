@@ -66,11 +66,15 @@ struct move_context {
 void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
 
 /*
- * Driver for performing a move of multiple allocations that are tracked
- */
-// void nk_carat_move_allocations(void *allocations_to_move, void *allocation_targets, uint64_t length);
+ * Driver for performing multiple moves of allocations that are already tracked
+ */ 
+void nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves);
 
-int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length);
+/*
+ * Driver for defragmenting a region using allocation moves
+ */
+
+void * nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length);
 
 /*
  * Upon a move --- "carat_patch_escapes" will iterate through all escapes

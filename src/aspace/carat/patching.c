@@ -215,21 +215,8 @@ void _carat_cleanup() {
     //TODO: if we implement batch freeing, process frees here
 }
 
-NO_CARAT
-void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
-{
-    // TODO: handle batched escapes BEFORE you do any sort of move
-    // make a function called carat_cleanup or something
-    /*
-    * Pauses all execution so we can perform a move
-    * TODO: hoist this to caller so that caller can perform multiple moves at once
-    */
-	if (!(nk_sched_stop_world())) {
-        CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
-        goto out_bad;
-    }
-
-    CARAT_READY_OFF;
+NO_CARAT 
+void _move_allocation(void *allocation_to_move, void *allocation_target) {
 
     _carat_cleanup();
 
@@ -277,6 +264,28 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
     */
     memmove(allocation_target, allocation_to_move, entry->size);
 
+    return;
+
+out_bad:
+    panic("_move_allocation: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
+    return;
+
+}
+
+NO_CARAT
+void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
+{
+    /*
+    * Pauses all execution so we can perform a move
+    */
+	if (!(nk_sched_stop_world())) {
+        CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
+        goto out_bad;
+    }
+
+    CARAT_READY_OFF;
+
+    _move_allocation(allocation_to_move, allocation_target);
 
     CARAT_READY_ON;
     nk_sched_start_world();
@@ -292,17 +301,79 @@ out_bad:
 }
 
 NO_CARAT
-void nk_carat_move_allocations(void *allocation_to_move, void *allocation_target) 
+void nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves) 
 {
+    /*
+    * Pauses all execution so we can perform a series of move
+    */
+	if (!(nk_sched_stop_world())) {
+        CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
+        goto out_bad;
+    }
+
+    CARAT_READY_OFF;
+
+    for(int i = 0; i < num_moves; i++) {
+        _move_allocation(allocations_to_move[i], allocation_targets[i]);
+    }
+    
+    CARAT_READY_ON;
+    nk_sched_start_world();
+
+    CARAT_PRINT("CARAT: Moves succeeded.\n");
+    
+    return;
+
+out_bad:
+    panic("nk_carat_move_allocations: failed to move");
+    return;
 }
 
-// 0 if success, 1 if fail
 NO_CARAT
-int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length) 
+void * nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length) 
 {
-    // find each allocation in the original region
-    // move it to the new region + offset
-    // 
+    /*
+    * Pauses all execution so we can perform a series of move
+    */
+	if (!(nk_sched_stop_world())) {
+        CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
+        goto out_bad;
+    }
+
+    CARAT_READY_OFF;
+
+    /*
+    * Iterate through the allocation map, searching for allocations within the region
+    */ 
+    void *current_destination = new_region_start;
+    CARAT_ALLOCATION_MAP_ITERATE
+    {        
+        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        void *the_address = CARAT_ALLOCATION_MAP_CURRENT_ADDRESS;
+
+        /*
+         * If the current allocation is within the old region, 
+         * move it to the next availible spot in the new region  
+         */ 
+        if (the_address >= region_start  
+            && the_address < region_start + region_length) 
+        {
+            _move_allocation(the_address, current_destination);
+            current_destination += the_entry->size;
+        }
+    }
+
+    CARAT_READY_ON;
+    nk_sched_start_world();
+
+    CARAT_PRINT("CARAT: Region move succeeded.\n");
+    /*
+    * Return the pointer to the end of the allocations in the new region
+    */ 
+    return current_destination;
+
+out_bad:
+    panic("nk_carat_move_region: failed to move");
     return 0;
 }
 
