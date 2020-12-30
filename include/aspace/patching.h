@@ -63,12 +63,12 @@ struct move_context {
 /*
  * Driver for performing a move of an allocation that's already tracked
  */ 
-void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
+int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
 
 /*
  * Driver for performing multiple moves of allocations that are already tracked
  */ 
-void nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves);
+int nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves);
 
 /*
  * Driver for defragmenting a region using allocation moves

@@ -216,14 +216,14 @@ void _carat_cleanup() {
 }
 
 NO_CARAT 
-void _move_allocation(void *allocation_to_move, void *allocation_target) {
+int _move_allocation(void *allocation_to_move, void *allocation_target) {
 
     _carat_cleanup();
 
 
     /*
     * Find the entry for the @allocation_to_move addr in the 
-    * allocation_map --- if not found, panic
+    * allocation_map --- if not found, return -1
     */
     allocation_entry *entry = _carat_find_allocation_entry(allocation_to_move);
     if (!entry) {
@@ -264,16 +264,16 @@ void _move_allocation(void *allocation_to_move, void *allocation_target) {
     */
     memmove(allocation_target, allocation_to_move, entry->size);
 
-    return;
+    return 0;
 
 out_bad:
-    panic("_move_allocation: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
-    return;
+    CARAT_PRINT("_move_allocation failed: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
+    return -1;
 
 }
 
 NO_CARAT
-void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
+int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
 {
     /*
     * Pauses all execution so we can perform a move
@@ -285,23 +285,25 @@ void nk_carat_move_allocation(void *allocation_to_move, void *allocation_target)
 
     CARAT_READY_OFF;
 
-    _move_allocation(allocation_to_move, allocation_target);
+    if(_move_allocation(allocation_to_move, allocation_target)) {
+        goto out_bad;
+    }
 
     CARAT_READY_ON;
     nk_sched_start_world();
 
     CARAT_PRINT("CARAT: Move succeeded.\n");
     
-    return;
+    return 0;
 
 out_bad:
-    panic("nk_carat_move_allocation: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
-    return;
+    CARAT_PRINT("nk_carat_move_allocation: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
+    return -1;
 
 }
 
 NO_CARAT
-void nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves) 
+int nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves) 
 {
     /*
     * Pauses all execution so we can perform a series of move
@@ -314,7 +316,9 @@ void nk_carat_move_allocations(void **allocations_to_move, void **allocation_tar
     CARAT_READY_OFF;
 
     for(int i = 0; i < num_moves; i++) {
-        _move_allocation(allocations_to_move[i], allocation_targets[i]);
+        if(_move_allocation(allocations_to_move[i], allocation_targets[i])) {
+            goto out_bad;
+        }
     }
     
     CARAT_READY_ON;
@@ -322,11 +326,11 @@ void nk_carat_move_allocations(void **allocations_to_move, void **allocation_tar
 
     CARAT_PRINT("CARAT: Moves succeeded.\n");
     
-    return;
+    return 0;
 
 out_bad:
-    panic("nk_carat_move_allocations: failed to move");
-    return;
+    CARAT_PRINT("nk_carat_move_allocations: failed to move");
+    return -1;
 }
 
 NO_CARAT
@@ -359,7 +363,9 @@ int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t re
         if (the_address >= region_start  
             && the_address < region_start + region_length) 
         {
-            _move_allocation(the_address, current_destination);
+            if(_move_allocation(the_address, current_destination)) {
+                goto out_bad;
+            }
             current_destination += the_entry->size;
         }
     }
@@ -520,10 +526,12 @@ static int handle_carat_test(char *buf, void *priv)
            
 		   	/* 
             * Perform move from "old" to "new"
-            * nk_carat_move_allocation does all checks and panicks if any fail 
+            * nk_carat_move_allocation does all checks and returns -1 if any fail 
             */
             nk_vc_printf("%d ", i);
-            nk_carat_move_allocation(old, new);
+            if(nk_carat_move_allocation(old, new)) {
+                panic("carat_test: nk_carat_move_allocation failed!");
+            }
 
 
 
