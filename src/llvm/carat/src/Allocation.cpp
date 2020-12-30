@@ -67,14 +67,14 @@ void AllocationHandler::Inject()
     /*
      * Instrument globals
      */ 
-    if (HANDLE_GLOBALS) InstrumentGlobals();
+    if (!NoGlobals) InstrumentGlobals();
 
 
     /*
      * Instrument allocations
      */ 
-    InstrumentMallocs();
-    InstrumentFrees();
+    if (!NoMallocs) InstrumentMallocs();
+    if (!NoFrees) InstrumentFrees();
 
 
     /*
@@ -182,6 +182,65 @@ void AllocationHandler::_getAllNecessaryInstructions()
 }
 
 
+bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
+{
+    /*
+     * TOP --- a decision-tree-esque way of determining
+     * if a global value should be instrumentable or not
+     * 
+     * TRUE=Instrumentable
+     * FALSE=NotInstrumentable
+     */
+
+
+    /*
+     * Check the following:
+     * 1)
+     * Check linkage type --- if there is a private linkage,
+     * we cannot instrument (common in Nautilus)
+     * 
+     * Private objects are necessarily not lowered to the 
+     * symbol table at the end of compilation
+     *
+     * 2)  
+     * If @Global does not have an exact definition (i.e. a variable
+     * was declared as an 'extern' but its value was never resolved), 
+     * then we cannot instrument it because the symbol table will mark
+     * the symbol with size 0 and no classification (not O, F, etc.)
+     * 
+     * 3) 
+     * We cannot instrument the global carat context itself
+     */ 
+    if (false
+        || Global.hasPrivateLinkage()
+        || !(Global.hasExactDefinition())
+        || (Global.getName() == "global_carat_context")) return false;
+
+
+    /*
+     * Check the section that @Global will be assigned to. If 
+     * there is no discernable section at compile-time, we need
+     * to continue analyzing. However, if there IS an assigned
+     * section --- we can always instrument @Global as long as 
+     * the section isn't the middle-end metadata ("llvm.metadata")
+     */ 
+    if (Global.hasSection()) return (Global.getSection() != "llvm.metadata");
+
+
+    /*
+     * NOTE --- Many globals have internal linkage --- which can
+     * allow the compiler to resolve @Global and other globals
+     * with the same value (i.e. unnamed_addr values) as one 
+     * single global in the symbol table. Whether or not a global
+     * will be resolved in this way is impossible to know in the 
+     * middle-end. The runtime needs to handle these globals differently
+     */ 
+
+
+    return true;
+}
+
+
 void AllocationHandler::_getAllGlobals()
 {
     /*
@@ -202,12 +261,9 @@ void AllocationHandler::_getAllGlobals()
     for (auto &Global : M->getGlobalList())
     {
         /*
-         * Ignore LLVM-specific metadata globals
+         * Ignore globals that can't be instrumented
          */ 
-        if (false
-            || (Global.getSection() == "llvm.metadata")
-            || (Global.isDiscardableIfUnused())) /* FIX */
-            { continue; }
+        if (!_isGlobalInstrumentable(Global)) continue;
 
 
         /*
@@ -231,9 +287,11 @@ void AllocationHandler::_getAllGlobals()
 
 
         /*
-         * Store the [global : size] mapping
+         * Store the [global : {size, ID}] mapping,
+         * increment the next global variable ID
          */ 
-        Globals[&Global] = GlobalSize;
+        Globals[&Global] = { GlobalSize, NextGlobalID };
+        NextGlobalID++;
 
 
         /*
@@ -242,7 +300,24 @@ void AllocationHandler::_getAllGlobals()
         DEBUG_ERRS << "Global: " << Global << "\n"
                    << "Type: " << *GlobalTy << "\n" 
                    << "TypeID: " << GlobalTy->getTypeID() << "\n"
+                   << "GlobalID: " << NextGlobalID - 1 << "\n"
+                   << "Linkage: " << Global.getLinkage() << "\n"
+                   << "Visibility: " << Global.getVisibility() << "\n"
+                   << "hasExactDefinition()" << Global.hasExactDefinition() << "\n"
+                   << "Section: " << Global.getSection() << "\n"
                    << "Size: " << GlobalSize << "\n\n";
+        
+
+        /*
+         * Output a warning if the global is thread local 
+         * --- in the future, we want to track these variables 
+         * in a special way
+         */ 
+        if (Global.isThreadLocal())
+        {
+            errs() << "WARNING (ThreadLocal): " 
+                   << Global << "\n";
+        }
     }
 
 
@@ -279,14 +354,21 @@ void AllocationHandler::InstrumentGlobals()
      * Set up for injections
      */ 
     Type *VoidPointerType = TargetBuilder.getInt8PtrTy();
-    Function *CARATMalloc = CARATNamesToMethods[CARAT_MALLOC];
+    Function *CARATGlobalMalloc = CARATNamesToMethods[CARAT_GLOBAL_MALLOC];
 
 
     /*
      * Iterate through all globals to be intrumented
      */
-    for (auto const &[GV, Length] : Globals)
+    for (auto const &[GV, Info] : Globals)
     {
+        /*
+         * Deconstruct the "Info" pair
+         */  
+        uint64_t Length = Info.first,
+                 ID = Info.second;
+
+
         /*
          * If there is a global with length=0, skip --- FIX
          */ 
@@ -314,7 +396,8 @@ void AllocationHandler::InstrumentGlobals()
          */ 
         ArrayRef<Value *> CallArgs = {
             PointerCast,
-            TargetBuilder.getInt64(Length)
+            TargetBuilder.getInt64(Length),
+            TargetBuilder.getInt64(ID)
         };
 
 
@@ -323,7 +406,7 @@ void AllocationHandler::InstrumentGlobals()
          */ 
         CallInst *Instrumentation = 
             TargetBuilder.CreateCall(
-                CARATMalloc, 
+                CARATGlobalMalloc, 
                 CallArgs
             );
     }

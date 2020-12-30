@@ -27,7 +27,11 @@
  */
 
 #include "./include/Escapes.hpp"
+#include "autoconf.h"
+
+#if NAUT_CONFIG_USE_NOELLE
 #include "Noelle.hpp"
+#endif
 
 namespace
 {
@@ -107,7 +111,7 @@ struct CAT : public ModulePass
 
     bool runOnModule(Module &M) override
     {
-        if (DEBUG || true)
+        if (Debug || true)
         {
             /*
              * Output all intrinsics that exist in the module
@@ -151,14 +155,13 @@ struct CAT : public ModulePass
         PH->Inject();
 #endif
 
-
-#if 1
+#if NAUT_CONFIG_USE_NOELLE
         /*  
          * Fetch Noelle --- DEMONSTRATION
          */
         Noelle &NoelleAnalysis = getAnalysis<Noelle>();
 
-  
+
         /*  
          * Fetch the dependence graph of the entry function.
          */
@@ -171,7 +174,6 @@ struct CAT : public ModulePass
          */ 
         errs() << "getNumberOfInstructionsIncluded: " << FDG->getNumberOfInstructionsIncluded() << "\n"
                << "getNumberOfDependencesBetweenInstructions: " << FDG->getNumberOfDependencesBetweenInstructions() << "\n";
-
 #endif
 
 
@@ -181,7 +183,11 @@ struct CAT : public ModulePass
 
     void getAnalysisUsage(AnalysisUsage &AU) const override
     {   
+
+#if NAUT_CONFIG_USE_NOELLE
         AU.addRequired<Noelle>();
+#endif
+
         return;
     } 
 

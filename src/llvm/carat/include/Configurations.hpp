@@ -28,6 +28,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/BasicBlock.h"
@@ -57,27 +58,18 @@
 #include <set>
 #include <cassert>
 
-/*
- * Pass settings
- */ 
-#define DEBUG 0
-#define FALSE 0
-#define VERIFY 1
-#define HANDLE_GLOBALS 1
-
 
 /*
  * Debugging
  */ 
-#define DEBUG_INFO(str) do { if (DEBUG) { errs() << str; } } while (0)
-#define OBJ_INFO(obj) do { if (DEBUG) { obj->print(errs()); errs() << "\n"; } } while (0)
-#define VERIFY_DEBUG_INFO(str) do { if (VERIFY) { errs() << str; } } while (0)
-#define VERIFY_OBJ_INFO(obj) do { if (VERIFY) { obj->print(errs()); errs() << "\n"; } } while (0)
-#define DEBUG_ERRS if (DEBUG) errs()
+#define DEBUG_INFO(str) do { if (Debug) { errs() << str; } } while (0)
+#define OBJ_INFO(obj) do { if (Debug) { obj->print(errs()); errs() << "\n"; } } while (0)
+#define VERIFY_DEBUG_INFO(str) do { if (!NoVerify) { errs() << str; } } while (0)
+#define VERIFY_OBJ_INFO(obj) do { if (!NoVerify) { obj->print(errs()); errs() << "\n"; } } while (0)
+#define DEBUG_ERRS if (Debug) errs()
 
 
 using namespace llvm;
-using namespace std;
 
 
 /*
@@ -98,11 +90,10 @@ const std::string CARAT_MALLOC,
                   CARAT_REALLOC,
                   CARAT_CALLOC,
                   CARAT_REMOVE_ALLOC,
-                  CARAT_STATS,
                   CARAT_ESCAPE,
                   CARAT_INIT,
+                  CARAT_GLOBAL_MALLOC,
                   CARAT_GLOBALS_TARGET,
-                  ENTRY_SETUP,
                   KERNEL_MALLOC,
                   KERNEL_FREE,
                   ANNOTATION,
@@ -132,3 +123,25 @@ std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
 
 extern
 std::unordered_set<Function *> AnnotatedFunctions;
+
+
+/*
+ * Command line options for pass
+ */ 
+extern cl::opt<bool> NoGlobals;
+
+extern cl::opt<bool> NoMallocs;
+
+extern cl::opt<bool> NoFrees;
+
+extern cl::opt<bool> NoEscapes;
+
+extern cl::opt<bool> NoProtections;
+
+extern cl::opt<bool> NoVerify;
+
+extern cl::opt<bool> InitExit;
+
+extern cl::opt<bool> Debug;
+
+

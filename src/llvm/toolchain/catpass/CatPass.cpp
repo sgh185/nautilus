@@ -27,6 +27,11 @@
  */
 
 #include "./include/Escapes.hpp"
+#include "autoconf.h"
+
+#if NAUT_CONFIG_USE_NOELLE
+#include "Noelle.hpp"
+#endif
 
 namespace
 {
@@ -38,70 +43,156 @@ struct CAT : public ModulePass
 
     bool doInitialization(Module &M) override
     {
+        /*
+         * Debugging
+         */  
         Utils::ExitOnInit();
 
+        
         /*
-         * Find all functions with special "nohook" attributes and add
-         * NoInline attributes to those functions as well --- prevent indirect
-         * injections that may occur via inlining
+         * Fetch the "nocarat" annotation attribute --- necessary
+         * to find user-marked functions in kernel code
          */
         GlobalVariable *GV = M.getGlobalVariable(ANNOTATION);
-        if (GV == nullptr)
-        {
-            errs() << "Annotation not found\n";
-            return false;
-        }
+        assert(!!GV && "doInitialization: 'nocarat' attribute not found!");
+
+
+        /*
+         * Fetch the annotated functions
+         */
+        Utils::FetchAnnotatedFunctions(GV);
+
         
-        vector<Function *> AnnotatedFunctions;
-        Utils::GatherAnnotatedFunctions(GV, AnnotatedFunctions);
+        /*
+         * Mark all annotated functions as noinline --- we
+         * don't want marked functions to become instrumented
+         * indirectly via inlining
+         */ 
         for (auto AF : AnnotatedFunctions)
         {
-            if (AF == nullptr)
-                continue;
+            /*
+             * Sanity check the annotated function
+             */
+            assert(!!AF && "Annotated function is nullptr!");
             
+
+            /*
+             * Add attribute
+             */ 
             AF->addFnAttr(Attribute::NoInline);
-            ImportantMethodNames.push_back(AF->getName());
         }
+
+
+        /*
+         * Now fetch all CARAT methods, stash them
+         */
+        for (auto Name : CARATNames)
+        {
+            Function *CARATMethod = Utils::GetMethod(&M, Name);
+            CARATNamesToMethods[Name] = CARATMethod;
+            CARATMethods.insert(CARATMethod);
+        }
+
+
+        /*
+         * Now fetch all kernel allocation methods, stash them
+         */
+        for (auto const &[ID, Name] : IDsToKernelAllocMethods)
+        {
+            Function *KAMethod = Utils::GetMethod(&M, Name);
+            KernelAllocNamesToMethods[Name] = KAMethod;
+            KernelAllocMethodsToIDs[KAMethod] = ID;
+        }
+
 
         return false;
     }
+
 
     bool runOnModule(Module &M) override
     {
-        // --- SET UP ---
-
-        // Get methods necessary for injection --- if at least
-        // one method doesn't exist --- abort
-        for (auto InjectionName : ImportantMethodNames)
+        if (Debug || true)
         {
-            Function *F = M.getFunction(InjectionName);
-            if (F == nullptr)
-            {
-                errs() << "Aborting --- could not find "
-                       << InjectionName << "\n";
-                abort();
-            }
+            /*
+             * Output all intrinsics that exist in the module
+             */ 
+            errs() << "Now intrinsics!\n";
+            for (auto &F : M) if (F.isIntrinsic()) errs() << F.getName() << "\n";
 
-            NecessaryMethods[InjectionName] = F;
+
+            /*
+             * Vet the kernel allocation methods --- check if kmem
+             * invocations are vanilla or not (i.e. invocations via
+             * indirect call, etc.)
+             */ 
+            Utils::VetKernelAllocMethods();
         }
 
-        // --- END SET UP ---
 
-        // --- Allocation tracking ---
+        /*
+         * Perform all CARAT instrumentation on the kernel
+         */ 
+
+        /*
+         * Allocation tracking
+         */ 
         AllocationHandler *AH = new AllocationHandler(&M);
         AH->Inject();
 
-        // // --- Escapes tracking ---
+
+        /*
+         * Escapes tracking
+         */ 
         EscapesHandler *EH = new EscapesHandler(&M);
         EH->Inject(); // Only memory uses
 
-        // // --- Protection ---
-        // ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
-        // PH->Inject();
+
+        /*
+         * Protections
+         */ 
+#if 0
+        ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
+        PH->Inject();
+#endif
+
+#if NAUT_CONFIG_USE_NOELLE
+        /*  
+         * Fetch Noelle --- DEMONSTRATION
+         */
+        Noelle &NoelleAnalysis = getAnalysis<Noelle>();
+
+
+        /*  
+         * Fetch the dependence graph of the entry function.
+         */
+        Function *MainFromNoelle = NoelleAnalysis.getEntryFunction();
+        PDG *FDG = NoelleAnalysis.getFunctionDependenceGraph(MainFromNoelle);
+
+
+        /* 
+         * Output PDG statistics
+         */ 
+        errs() << "getNumberOfInstructionsIncluded: " << FDG->getNumberOfInstructionsIncluded() << "\n"
+               << "getNumberOfDependencesBetweenInstructions: " << FDG->getNumberOfDependencesBetweenInstructions() << "\n";
+#endif
+
 
         return false;
     }
+
+
+    void getAnalysisUsage(AnalysisUsage &AU) const override
+    {   
+
+#if NAUT_CONFIG_USE_NOELLE
+        AU.addRequired<Noelle>();
+#endif
+
+        return;
+    } 
+
 };
+    
     
 char CAT::ID = 0;
 static RegisterPass<CAT> X("karat", "KARAT");

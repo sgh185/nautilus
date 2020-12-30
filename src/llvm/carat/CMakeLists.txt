@@ -26,8 +26,9 @@ include(AddLLVM)
 message(STATUS "LLVM_DIR IS ${LLVM_CMAKE_DIR}.")
 
 include_directories(${LLVM_INCLUDE_DIRS} 
-    ~/carat/src/noelle/install/include
-    ~/carat/src/noelle/install/include/svf
+    ../../../../noelle/install/include
+    ../../../../noelle/install/include/svf
+    ../../../../include
   )
 
 # Declare the LLVM pass to compile

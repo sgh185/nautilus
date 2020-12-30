@@ -29,7 +29,6 @@
 #include "../include/Utils.hpp"
 
 using namespace Utils;
-using namespace Debug;
 
 /*
  * ExitOnInit
@@ -40,11 +39,13 @@ using namespace Debug;
  */
 void Utils::ExitOnInit(void)
 {
-    if (FALSE)
+    if (InitExit)
     {
         errs() << "Exiting KARAT Transforms ...\n";
         exit(0);
     }
+
+    return;
 }
 
 Function *Utils::GetMethod(
@@ -324,7 +325,7 @@ bool Utils::Verify(Module &M)
     /*
      * Check pass settings
      */  
-    if (!VERIFY) return true;
+    if (NoVerify) return true;
 
 
     /*
@@ -355,6 +356,12 @@ void Utils::VetKernelAllocMethods(void)
      * some simple checks --- check if uses of each 
      * method are limited to call instructions
      */ 
+
+    /*
+     * Check pass settings
+     */  
+    if (NoVerify) return;
+    
 
     /*
      * Iterate over kernel alloc methods

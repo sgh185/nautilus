@@ -292,6 +292,11 @@ static int launch_vmm_environment()
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
 
+char *script[] = { "meminfo",
+                   "allocator_test_trace dumb 0 2",
+                   "\0",
+                   0 };
+
 void
 init (unsigned long mbd,
       unsigned long magic)
@@ -584,8 +589,8 @@ init (unsigned long mbd,
     nk_syscall_init();
     init_syscall_table();
 #endif
-
-    nk_launch_shell("root-shell",0,0,0);
+    
+    nk_launch_shell("root-shell",0,script,0);
 
     runtime_init();
 

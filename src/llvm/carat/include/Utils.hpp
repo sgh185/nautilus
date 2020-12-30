@@ -91,7 +91,3 @@ namespace Utils
 
     void VetKernelAllocMethods(void);
 } 
-
-namespace Debug
-{
-}

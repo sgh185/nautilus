@@ -77,13 +77,15 @@
 #define ASPACE_NAME(a) ((a)?(a)->aspace->name : "default")
 #define THREAD_NAME(t) ((!(t)) ? "(none)" : (t)->is_idle ? "(idle)" : (t)->name[0] ? (t)->name : "(noname)")
 
-#ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
-#define REGION_FORMAT ""
-#define REGION(r)
-#else
+// #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
+// #define REGION_FORMAT ""
+// #define REGION(r)
+// #else
+// #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+// #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
+// #endif
 #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
 #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
-#endif
 
 
 // ok if r1.permision <= r2.permission
@@ -132,7 +134,7 @@ typedef struct nk_aspace_carat {
  * validness = va_addr == pa_addr
  * */
 int CARAT_INVALID(nk_aspace_region_t *region) {
-    return region->va_start != region->pa_start;
+    return region != NULL && region->va_start != region->pa_start;
 }
 
 static int destroy(void *state) {
@@ -421,13 +423,13 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     return -1;
 }
 
-static int request_permission(void * state, addr_t address, int is_write) {
+static int request_permission(void * state, void * address, int is_write) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 
-    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, address);
+    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
 
     if (region == NULL) {
         ASPACE_UNLOCK(carat);
@@ -468,6 +470,96 @@ static int request_permission(void * state, addr_t address, int is_write) {
     return 0;
 }
 
+static int defragment_region(
+    void *state, 
+    nk_aspace_region_t *cur_region, // also output
+    uint64_t new_size,
+    void ** free_space_start
+){
+    /**
+     *  Defragmentation illustration
+     *  xxx means allocated chunks in the region
+     *  -- means unallocated chunks in the region
+     * 
+     *      xxxx--xxxx--xx----xx 
+     *  =>
+     *      xxxxxxxxxxxx--------
+     *      ^               ^
+     * new_region_start   free_space_start
+     * */
+
+  DEBUG("defragmentation initialized - (%p,%lu) -> %lu\n",
+        cur_region->va_start, cur_region->len_bytes, new_size);
+
+    if (CARAT_INVALID(cur_region)) {
+        return -1;
+    }
+
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(carat);
+    
+    
+    nk_aspace_region_t * reg = mm_contains(carat->mm, cur_region, all_eq_flag );
+    
+    if (!reg) {
+        ERROR("Region"REGION_FORMAT" not existed\n", REGION(reg));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    if (new_size < cur_region->len_bytes)  {
+      ASPACE_UNLOCK(carat);
+      ERROR("Cannot currently shrink regions\n");
+      return -1;
+    }
+
+    // nk_aspace_region_t* new_region =  (nk_aspace_region_t*) malloc(sizeof(nk_aspace_region_t));
+    nk_aspace_region_t new_region;
+    /**
+     *  new_region_chunk is the real "drilled" region with length specified by cur_region
+     *  We are not super sure if this is the expected/appropriate way to add new region in CARAT.
+     *  
+     *  Note: we are using the malloc macro defined in mm.h here,
+     *      but it's really kmem_malloc which is sperate from Alex's allocator. 
+     * */
+    void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+
+    if (!new_region_chunk) {
+      ASPACE_UNLOCK(carat);
+      ERROR("cannot allocate new region of size %lu - system defragmentation needed\n",new_size);
+      // Do system defrag here, then try again
+      return -1;
+    }
+
+    DEBUG("new memory allocated at %p\n",new_region_chunk);
+    
+    new_region = *cur_region;
+    new_region.va_start = new_region_chunk;
+    new_region.pa_start = new_region_chunk;
+
+    /**
+     *  Called nk_carat_move_region to actually do the work of defragmentation
+     * */
+    if (nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
+      ASPACE_UNLOCK(carat);
+      ERROR("failed to move region...\n");
+      return -1;
+    }
+
+    DEBUG("carat move completed\n");
+
+    mm_remove(carat->mm, cur_region, all_eq_flag );
+    mm_insert(carat->mm,  &new_region);
+
+
+    DEBUG("region data structure updated\n");
+    
+    *cur_region = new_region;
+    
+    ASPACE_UNLOCK(carat);
+    return 0;
+}
 
 
 static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region) 
@@ -494,8 +586,9 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         return -1;
     }
 
+    void *free_space_start; // don't care
     // call CARAT runtime
-    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes);
+    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
     if (res) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -554,6 +647,7 @@ static int exception(void *state, excp_entry_t *exp, excp_vec_t vec)
     return 0;
 }
 
+
 static int print(void *state, int detailed) 
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
@@ -561,11 +655,12 @@ static int print(void *state, int detailed)
     
 
     // basic info
-    nk_vc_printf("%s: paging address space [granularity 0x%lx alignment 0x%lx]\n",
+    nk_vc_printf("%s: carat address space [granularity 0x%lx alignment 0x%lx]\n",
          ASPACE_NAME(carat), carat->chars.granularity, carat->chars.alignment);
 
     if (detailed) {
         // print region set data structure here
+      nk_vc_printf("printing detailed\n");
         mm_show(carat->mm);
         // perhaps print out all the page tables here...
     }
@@ -581,6 +676,7 @@ static nk_aspace_interface_t carat_interface = {
     .protect_region = protect_region,
     .protection_check = protection_check,
     .move_region = move_region,
+    .defragment_region = defragment_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
@@ -835,7 +931,6 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
     nk_vc_printf("Before Destroy\n");
     nk_aspace_destroy(carat_aspace);
 
-test_success:
     nk_vc_printf("CARAT Protection check sanity test Passed!\n");
     return 0;
 test_fail:
