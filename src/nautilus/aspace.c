@@ -156,6 +156,12 @@ int  nk_aspace_destroy(nk_aspace_t *aspace)
     return 0;
 }
     
+int nk_aspace_rename(nk_aspace_t *aspace, char *name) {
+  snprintf(aspace->name, NK_ASPACE_NAME_LEN, "%s",name);
+  aspace->name[NK_ASPACE_NAME_LEN-1] = 0;
+  return 0;  
+}
+
 nk_aspace_t *nk_aspace_find(char *name)
 {
     struct list_head *cur;

@@ -96,6 +96,13 @@ static int path_stat(struct nk_fs *fs, char *path, struct nk_fs_stat *st)
     }
 }
 
+static int directory_create(struct nk_fs *fs, char* path)
+{
+    if (fs && fs->interface && fs->interface->create_dir) {
+        return fs->interface->create_dir(fs->state, path);
+    }
+    return -1;
+}
 
 static int file_stat(struct nk_fs *fs, void *file, struct nk_fs_stat *st) 
 {
@@ -327,6 +334,28 @@ int nk_fs_truncate(char *path, off_t len)
 	}
     }
 }	
+
+int nk_fs_mkdir(char* path, int mode)
+{
+    STATE_LOCK_CONF;
+    struct nk_fs *fs;
+    char fs_name[strlen(path)+1];
+
+    DEBUG("create directory at path %s, mode=%d\n", path, mode);
+
+    path=decode_path(path,fs_name);
+
+    STATE_LOCK();
+    fs = __fs_find(fs_name);
+    STATE_UNLOCK();
+
+    if (!fs) { 
+	    ERROR("Cannot find filesystem named %s\n", fs_name);
+        return FS_BAD_FD;
+    }
+
+    return directory_create(fs, path);
+}
 
 nk_fs_fd_t nk_fs_creat(char *path, int mode) 
 {
@@ -578,6 +607,19 @@ handle_attach (char * buf, void * priv)
             return -1;
         } else {
             nk_vc_printf("Device %s attached as ext2 volume with name %s\n", devname,fsname);
+            return 0;
+        }
+#endif
+    } else if (!strcmp(type, "fat32")) {
+#ifndef NAUT_CONFIG_FAT32_FILESYSTEM_DRIVER 
+    nk_vc_printf("Not compiled with FAT32 support, cannot attach\n");
+        return -1;
+#else
+        if (nk_fs_fat32_attach(devname,fsname,0)) {
+            nk_vc_printf("Failed to attach %s as fat32 volume with name %s\n", devname,fsname);
+            return -1;
+        } else {
+            nk_vc_printf("Device %s attached as fat32 volume with name %s\n", devname,fsname);
             return 0;
         }
 #endif

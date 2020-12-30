@@ -36,7 +36,13 @@ extern "C" {
 
 // Always included so we get the necessary type
 #include <nautilus/cachepart.h>
+
+#ifdef NAUT_CONFIG_PROCESSES
+#include <nautilus/process.h>
+#else
 #include <nautilus/aspace.h>
+#endif
+
 #include <nautilus/alloc.h>
 
 typedef uint64_t nk_stack_size_t;
@@ -183,6 +189,13 @@ struct nk_thread {
     nk_aspace_t      *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
                                  /* Always included to reserve this "slot" for asm code */
 
+#ifdef NAUT_CONFIG_PROCESSES
+    nk_process_t *process;       /* Initialized if part of a process */
+    void* set_child_tid;
+    void* thread_start_addr;
+    void* sysret_addr; /* Address set on entry to a syscall */
+    uint64_t fake_affinity; /* Simulated affinity of the thread */
+#endif
     nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 
     nk_stack_size_t stack_size;

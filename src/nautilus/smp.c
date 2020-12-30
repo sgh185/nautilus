@@ -29,6 +29,7 @@
 #include <nautilus/gdt.h>
 #include <nautilus/cpu.h>
 #include <nautilus/naut_assert.h>
+#include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
 #include <nautilus/queue.h>
 #include <nautilus/idle.h>
@@ -407,6 +408,10 @@ smp_ap_finish (struct cpu * core)
     if (nk_cache_part_start_ap() != 0) {
         ERROR_PRINT("Could not start cache partitioning for core %u\n", core->id);
     }
+#endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+    nk_syscall_init_ap();
 #endif
 
     SMP_DEBUG("Core %u ready - enabling interrupts\n", core->id);

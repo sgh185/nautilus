@@ -29,17 +29,24 @@
 // exposed functon list goes here
 
 #define NK_VC_PRINTF 0
+#define NK_CARAT_INSTRUMENT_MALLOC 1
+#define NK_CARAT_INSTRUMENT_FREE 2
+#define NK_CARAT_INSTRUMENT_ESCAPE 3
+#define NK_CARAT_CHECK_PROTECTION 4
 
 
 #ifdef NAUTILUS_EXE
 // Being included from "user" space
 
 // Add a macro version for eaxh exposed function here
-#define nk_vc_printf(...) __nk_func_table[NK_VC_PRINTF](__VA_ARGS__)
-
+// #define nk_vc_printf(...) __nk_func_table[NK_VC_PRINTF](__VA_ARGS__)
 
 // defined in the framework code
 extern void * (**__nk_func_table)(); 
+
+void* nk_func_table_access(volatile int entry_no, void* arg1, void* arg2);
+
+#define nk_vc_printf(...) nk_func_table_access(NK_VC_PRINTF, __VA_ARGS__)
 
 #else
 

@@ -25,12 +25,20 @@
 #ifndef __LOADER
 #define __LOADER
 
+struct nk_exec {
+    void      *blob;          // where we loaded it
+    uint64_t   blob_size;     // extent in memory
+    uint64_t   entry_offset;  // where to start executing in it
+};
 
 // load executable from file, do not run
 struct nk_exec *nk_load_exec(char *path);
 // run executable's entry point - this is a blocking call on the current thread
 // user I/O is via the current VC
 int             nk_start_exec(struct nk_exec *exec, void *in, void **out);
+// run executable's entry point as with nk_start_exec, but perform setup for the c runtime.
+// This call transfers execution to the c runtime, which does not return
+int             nk_start_exec_crt(struct nk_exec *exec, int argc, char** argv, char** envp);
 // unload and free state
 int             nk_unload_exec(struct nk_exec *exec);
 

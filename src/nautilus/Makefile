@@ -82,3 +82,6 @@ obj-$(NAUT_CONFIG_ALLOCS) +=  alloc.o
 
 obj-$(NAUT_CONFIG_PARTITION_SUPPORT) += partition.o
 
+obj-$(NAUT_CONFIG_PROCESSES) += process.o
+
+obj-$(NAUT_CONFIG_LINUX_SYSCALLS) += syscalls/
