@@ -75,7 +75,7 @@
 #define PUT(p, val)  (*(uint64_t *)(p) = (val))    //line:vm:mm:put
 
 /* Read the size and allocated fields from address p */
-#define GET_SIZE(p)  (GET(p) & ~0x7f)                   //line:vm:mm:getsize
+#define GET_SIZE(p)  (GET(p) & ~(DSIZE - 1))                   //line:vm:mm:getsize
 #define GET_ALLOC(p) (GET(p) & 0x1)                    //line:vm:mm:getalloc
 
 /* Given block ptr bp, compute address of its header and footer */
@@ -103,7 +103,7 @@ struct nk_alloc_cs213 {
 } ;
 
 static void *extend_heap(void* state, size_t words);
-static void place(void* state, void *bp, size_t asize);
+static void place(void* state, void *bp, size_t asize, size_t align);
 static void *find_fit(void* state, size_t asize);
 static void *coalesce(void* state, void *bp);
 static void printblock(void* state, void *bp);
@@ -197,14 +197,14 @@ static void *extend_heap(void *state, size_t words)
 
 /* $begin mmplace */
 /* $begin mmplace-proto */
-static void place(void* state, void *bp, size_t asize)
+static void place(void* state, void *bp, size_t asize, size_t align)
   /* $end mmplace-proto */
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
 
   size_t csize = GET_SIZE(HDRP(bp));
 
-  if ((csize - asize) >= (2*DSIZE)) {
+  if ((csize - asize) >= (2*align)) {
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
     bp = NEXT_BLKP(bp);
@@ -287,7 +287,7 @@ static int mm_init(void *state){
   /*if ((as->heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) //line:vm:mm:begininit
     return -1;
     */
-  PUT(as->heap_listp, 0);                          /* Alignment padding */
+  PUT(as->heap_listp, 0);                          /* Alignment padding */ //Alex: I think we need to remove this -- we just create an empty block at the beginning, but we should be given an aligned block to start by the system alloc, no?
   PUT(as->heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
   PUT(as->heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
   PUT(as->heap_listp + (3*WSIZE), PACK(0, 1));     /* Epilogue header */
@@ -324,14 +324,14 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
     return NULL;
 
   /* Adjust block size to include overhead and alignment reqs. */
-  if (size <= align)                                          //line:vm:mm:sizeadjust1
-    asize = 2*align;                                        //line:vm:mm:sizeadjust2
+  if (size <= DSIZE)                                          //line:vm:mm:sizeadjust1
+    asize = 2*DSIZE;                                        //line:vm:mm:sizeadjust2
   else
     asize = align * ((size + (align) + (align-1)) / align); //line:vm:mm:sizeadjust3
 
   /* Search the free list for a fit */
   if ((bp = find_fit(state, asize)) != NULL) {  //line:vm:mm:findfitcall
-    place(state, bp, asize);                  //line:vm:mm:findfitplace
+    place(state, bp, asize, align);                  //line:vm:mm:findfitplace
     ALLOC_DEBUG("Allocated pointer %p with size %d and asize %d",bp, size, asize);
     return bp;
   }
@@ -340,7 +340,7 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
   extendsize = MAX(asize,CHUNKSIZE);                 //line:vm:mm:growheap1
   if ((bp = extend_heap(state, extendsize/WSIZE)) == NULL)
     return NULL;                                  //line:vm:mm:growheap2
-  place(state, bp, asize);                                 //line:vm:mm:growheap3
+  place(state, bp, asize, align);                                 //line:vm:mm:growheap3
   ALLOC_DEBUG("We extended the heap -- Allocated pointer %p with size %d and asize %d",bp, size, asize); 
   return bp;
 
