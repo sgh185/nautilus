@@ -11,6 +11,7 @@ obj-y += \
 	naut_string.o \
 	msr.o \
 	cpuid.o \
+	crypto.o \
 	mtrr.o \
 	fpu.o \
 	spinlock.o \
