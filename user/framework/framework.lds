@@ -6,6 +6,7 @@ ENTRY(_start)
 
 SECTIONS
 {
+    __naut_hash_begin = .;
     . = 0x0;  /* we will relocate in all cases */
 
     __ehdr_start = . - 0x1000;
@@ -75,7 +76,12 @@ SECTIONS
         *(.gnu.linkonce.b*)
     }
 
-    _bssEnd = .; 
+    _bssEnd = .;
+    __naut_hash_end = .;
+
+    .naut_secure : {
+        *(.naut_secure)
+    }
 
     __preinit_array_start = .;
     __preinit_array_end = .;

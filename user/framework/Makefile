@@ -19,10 +19,11 @@ BLOB_KOBJ = blob.kobj.o
 
 //CC = gcc
 
-CC = gclang
+CC = gcc
 FINALCC = clang
 LD = ld
 NLD = ./nld
+NSIGN = ./nsign
 EXTRACTBC = get-bc
 LLVMDIS   = llvm-dis
 
@@ -83,8 +84,11 @@ $(BLOB_KOBJ) : $(BLOB_KBC)
 $(BLOB_OBJ) : $(TARGET:.exe=.o) framework.o framework_low_level.o glue.o
 	$(LD) $^ -r -o $(BLOB_OBJ)
 
-$(TARGET) : $(BLOB_KOBJ)
-	$(NLD) $^ -o $(TARGET)
+$(TARGET:.exe=.unsigned) : $(BLOB_KOBJ)
+	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
+
+$(TARGET) : $(TARGET:.exe=.unsigned)
+	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 
 clean: 

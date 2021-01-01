@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+__attribute__((section(".naut_secure"))) unsigned char DIGEST[16];
+
 void* __gcc_personality_v0;
 
 void _Unwind_Resume() {
