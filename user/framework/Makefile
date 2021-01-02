@@ -14,17 +14,19 @@ USER_OBJ = hello.o
 BLOB_OBJ = blob.o
 BLOB_BC = blob.bc
 BLOB_LL = blob.ll
-BLOB_KBC = blob.kbc.bc
+BLOB_SIMPLIFY_LL = blob_simplify.ll
+BLOB_OPT_LL = blob_opt.ll
 BLOB_KOBJ = blob.kobj.o
 
 //CC = gcc
 
-CC = gcc
+CC = wllvm
+ME = opt
 FINALCC = clang
 LD = ld
 NLD = ./nld
 NSIGN = ./nsign
-EXTRACTBC = get-bc
+EXTRACTBC = extract-bc
 LLVMDIS   = llvm-dis
 
 KARAT_TRANS = cp
@@ -44,6 +46,7 @@ KARAT_TRANS = cp
 #          -Wstrict-overflow=5
 
 CFLAGS = -O2 -mno-red-zone -fPIC -Wall
+NORMFLAGS = -loop-simplify -lcssa
 
 # For C++ add
 #         -fno-rtti \
@@ -58,6 +61,9 @@ CFLAGS = -O2 -mno-red-zone -fPIC -Wall
 #
 
 all: $(TARGET) $(BLOB_LL)
+
+$(TARGET:.exe=.o):
+	$(CC) $(CFLAGS) -c $(TARGET:.exe=.c) -I../../include -o $(TARGET:.exe=.o)	
 
 framework_low_level.o: framework_low_level.S
 	$(CC) $(CFLAGS) -c framework_low_level.S
@@ -75,16 +81,21 @@ $(BLOB_BC) : $(BLOB_OBJ)
 $(BLOB_LL) : $(BLOB_BC)
 	$(LLVMDIS) $(BLOB_BC)
 
-$(BLOB_KBC) : $(BLOB_BC)
-	$(KARAT_TRANS) $(BLOB_BC) $(BLOB_KBC)
+$(BLOB_SIMPLIFY_LL): $(BLOB_LL)
+	# Run select loop simplification passes
+	$(ME) $(NORMFLAGS) -S $< -o $@
 
-$(BLOB_KOBJ) : $(BLOB_KBC)
-	$(FINALCC) $(CFLAGS) -c $(BLOB_KBC) -o $(BLOB_KOBJ)
+$(BLOB_OPT_LL): ~/CAT/lib/KARAT.so $(BLOB_SIMPLIFY_LL)
+	# Run KARAT pass	
+	$(ME) -load $< -karat -S $(BLOB_SIMPLIFY_LL) -o $@ &> karat.out 
 
-$(BLOB_OBJ) : $(TARGET:.exe=.o) framework.o framework_low_level.o glue.o
+$(BLOB_KOBJ) : $(BLOB_OPT_LL)
+	$(FINALCC) $(CFLAGS) -c $(BLOB_OPT_LL) -o $(BLOB_KOBJ)
+
+$(BLOB_OBJ) : $(TARGET:.exe=.o) framework.o glue.o
 	$(LD) $^ -r -o $(BLOB_OBJ)
 
-$(TARGET:.exe=.unsigned) : $(BLOB_KOBJ)
+$(TARGET:.exe=.unsigned) : $(BLOB_KOBJ) framework_low_level.o
 	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
 
 $(TARGET) : $(TARGET:.exe=.unsigned)
