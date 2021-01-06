@@ -1,3 +1,6 @@
+#ifndef __CRYPTO_H__
+#define __CRYPTO_H__
+
 #define MD5_DIGEST_LENGTH 16
 
 /// Attempts to follow the semantic of openssl's MD5 function, but this is not guaranteed.
@@ -8,3 +11,5 @@
 ///            (Not thread safe in this case)
 /// @returns Pointer to the digest buffer written to. Can be null if something goes wrong.
 unsigned char* MD5(const unsigned char* in, const unsigned long len, unsigned char* out);
+
+#endif

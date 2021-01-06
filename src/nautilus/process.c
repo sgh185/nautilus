@@ -28,6 +28,7 @@
 #include <nautilus/process.h>
 #include <nautilus/thread.h>
 #include <nautilus/printk.h>
+#include <nautilus/nautilus_exe.h>
 
 #ifndef NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
@@ -190,7 +191,11 @@ void __nk_process_wrapper(void *i, void **o) {
 
   // Start execution of process executable.
   PROCESS_DEBUG("Starting executable at addr %p with %lu args\n", exe, argc);
-  nk_start_exec_crt(exe, argc, (void *)args, (void *)envp); 
+  struct nk_crt_proc_args proc_args;
+  proc_args.argv = args;
+  proc_args.envp = envp;
+  proc_args.argc = argc;
+  nk_start_exec(exe, &proc_args, NULL);
   PROCESS_INFO("Got past start exec crt\n");
 }
 

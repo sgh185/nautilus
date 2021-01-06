@@ -1,13 +1,13 @@
 OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64",
               "elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
-ENTRY(_start)
+ENTRY(__nk_exec_entry)
 
 
 SECTIONS
 {
-    __naut_hash_begin = .;
     . = 0x0;  /* we will relocate in all cases */
+    __naut_sign_begin = .;
 
     __ehdr_start = . - 0x1000;
 
@@ -68,6 +68,12 @@ SECTIONS
         *(.tdata .tdata.* .gnu.linkonce.td.*)
     }
 
+    __naut_sign_end = .;
+    
+    .naut_secure : {
+        *(.naut_secure)
+    }
+
     _loadEnd = .; 
     
     .bss : ALIGN(0x1000) {
@@ -77,11 +83,6 @@ SECTIONS
     }
 
     _bssEnd = .;
-    __naut_hash_end = .;
-
-    .naut_secure : {
-        *(.naut_secure)
-    }
 
     __preinit_array_start = .;
     __preinit_array_end = .;

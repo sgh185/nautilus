@@ -275,6 +275,12 @@ config LINUX_SYSCALLS
     help
       Enable Linux syscall interface
 
+config LOADER_SIGNATURE
+    bool "Use signature verification of loaded user processes"
+    default y
+    help
+      Use signature verification when loading user processes
+
 config VIRTUAL_CONSOLE_DISPLAY_NAME
    bool "Display name of current virtual console"
    default y

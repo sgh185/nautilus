@@ -101,6 +101,9 @@ $(TARGET:.exe=.unsigned) : $(BLOB_KOBJ) framework_low_level.o
 $(TARGET) : $(TARGET:.exe=.unsigned)
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
+nokarat: $(BLOB_OBJ) framework_low_level.o
+	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
+	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 clean: 
 	rm -f $(TARGET) *.o *.bc *.ll 

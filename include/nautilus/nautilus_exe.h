@@ -26,13 +26,22 @@
 #ifndef __NAUTILUS_EXE
 #define __NAUTILUS_EXE
 
-// exposed functon list goes here
+struct nk_crt_proc_args {
+  char** argv;
+  char** envp;
+  int argc;
+};
 
 #define NK_VC_PRINTF 0
 #define NK_CARAT_INSTRUMENT_MALLOC 1
 #define NK_CARAT_INSTRUMENT_FREE 2
 #define NK_CARAT_INSTRUMENT_ESCAPE 3
 #define NK_CARAT_CHECK_PROTECTION 4
+#define NK_CARAT_INSTRUMENT_GLOBAL 5
+#define NK_CARAT_INSTRUMENT_CALLOC 6
+#define NK_CARAT_INSTRUMENT_REALLOC 7
+#define NK_CARAT_GLOBALS_COMPILER_TARGET 8
+#define NK_CARAT_INIT 9
 
 
 #ifdef NAUTILUS_EXE

@@ -48,18 +48,21 @@ multiboot_hdr:
 
     /* sections */
     .word 2, 0
-    .long 24
+    .long 36
     .long multiboot_hdr
     .long _loadStart
     .long _loadEnd
     .long _bssEnd
+    .long __naut_sign_begin
+    .long __naut_sign_end
+    .long __NAUT_SIGNATURE
 
     /* entry point */
     .word 3, 0
     .long 16
     // This will be an offset from the begining of the file
     // and the 64 bit version will be included in the MB64 header
-    .long _start
+    .long __nk_exec_entry
     .long 0
 
 
@@ -69,7 +72,7 @@ multiboot_hdr:
     .quad 0x3             /* HRT flags - reloc+exe - no meory prefs*/
     .quad 0               /* GPA Memory to initially map - ignored */
     .quad 0               /* GVA Offset - ignored */
-    .quad _start /* GVA Entry 0 the *offset* of our entry point */
+    .quad __nk_exec_entry /* GVA Entry 0 the *offset* of our entry point */
     .quad 0               /* Desired GPA of communication page - ignored */
     .byte 0               /* Desired interrupt vector for communication - ignored */
     .byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 /*padding */

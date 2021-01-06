@@ -76,6 +76,12 @@ typedef struct mb_addr {
     u_virt   load_addr;
     u_virt   load_end_addr;
     u_virt   bss_end_addr;
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+    // Maybe this should be in another mb tag?
+    u_virt   sign_begin;
+    u_virt   sign_end;
+    u_virt   signature_addr;
+#endif
 } __attribute__((packed)) mb_addr_t;
 
 #define MB_TAG_ENTRY 3
@@ -265,6 +271,11 @@ parse_multiboot_header (void *data, uint64_t size, mb_data_t *mb)
 		DEBUG("  load_addr       =  0x%x\n", mb_addr->load_addr);
 		DEBUG("  load_end_addr   =  0x%x\n", mb_addr->load_end_addr);
 		DEBUG("  bss_end_addr    =  0x%x\n", mb_addr->bss_end_addr);
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+        DEBUG("  sign_begin      =  0x%x\n", mb_addr->sign_begin);
+        DEBUG("  sign_end        =  0x%x\n", mb_addr->sign_end);
+        DEBUG("  signature_addr  =  0x%x\n", mb_addr->signature_addr);
+#endif
 	    }
 		break;
 
@@ -343,6 +354,24 @@ parse_multiboot_header (void *data, uint64_t size, mb_data_t *mb)
 
     return 0;
 }
+
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+#include <nautilus/crypto.h>
+// Return 0 if the signature is correct
+int verify_signature(const void *file_signature,
+                     const void *sign_begin,
+                     const void *sign_end) {
+    // For now, just check MD5 hash as proof of concept
+    char calculated_signature[MD5_DIGEST_LENGTH];
+    if (MD5(sign_begin, (unsigned long)(sign_end - sign_begin), (char*)&calculated_signature) == NULL) {
+        ERROR("MD5 function failed\n");
+        return -1;
+    }
+    DEBUG("Calculated signature = MD5 %lx%lx\n", *(uint64_t*)(&calculated_signature), *(uint64_t*)(&calculated_signature[8]));
+    DEBUG("Actual signature     = MD5 %lx%lx\n", *(uint64_t*)(file_signature), *(uint64_t*)(file_signature + 8));
+    return memcmp(file_signature, &calculated_signature, MD5_DIGEST_LENGTH);
+}
+#endif
 
 
 #define MB_LOAD (2*PAGE_SIZE_4KB)
@@ -450,6 +479,19 @@ struct nk_exec *nk_load_exec(char *path)
     
     DEBUG("Successfully loaded executable %s\n",path);
 
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+    uint64_t sign_begin_offset = m.addr->sign_begin;
+    uint64_t sign_end_offset = m.addr->sign_end;
+    uint64_t signature_offset = m.addr->signature_addr;
+    if (verify_signature(e->blob+signature_offset,
+                         e->blob+sign_begin_offset,
+                         e->blob+sign_end_offset)) {
+        DEBUG("Signature verification failed\n");
+        goto out_bad;
+    }
+    DEBUG("Signature verified\n");
+#endif
+
     memset(e->blob+MB_LOAD+(load_end-load_start),0,bss_end-load_end);
 
     DEBUG("Cleared BSS\n");
@@ -506,70 +548,6 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
     
     return rc;
 }
-
-int 
-nk_start_exec_crt (struct nk_exec *exec, int argc, char** argv, char** envp)
-{
-    /// TODO: implement envp
-    int (*start)(void*, int, char**, void*);
-
-    if (!exec) { 
-        ERROR("Exec of null\n");
-        return -1;
-    }
-
-    if (!exec->blob) { 
-        ERROR("Exec of null blob\n");
-        return -1;
-    }
-
-    if (exec->entry_offset > exec->blob_size) { 
-        ERROR("Exec attempt beyond end of blob\n");
-        return -1;
-    }
-
-    start = exec->blob + exec->entry_offset;
-
-    DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %d and %p\n", exec, exec->blob, start, argc, argv);
-
-    __asm__(
-        "pushq $0\n" /* NULL after envp */
-        "mov $0, %%rax\n" /* rax is the iterator */
-        "nk_loader_crt_env_loop:\n"
-        "mov (%3, %%rax, 8), %%rcx\n" /* Read members of envp, rcx is the pointer */
-        "cmpq $0, %%rcx\n" /* If pointer is NULL, don't push and exit loop */
-        "je nk_loader_crt_env_loop_done\n"
-        "pushq %%rcx\n" /* Push env pointer to stack */
-        "inc %%rax\n"
-        "je nk_loader_crt_env_loop_done\n"
-        "nk_loader_crt_env_loop_done:\n"
-        "pushq $0\n" /* NULL after argv */
-        "test %1, %1\n"
-        "je nk_loader_crt_arg_loop_done\n"
-        "mov %1, %%rax\n"
-        "dec %%rax\n"
-        "\n"
-        "nk_loader_crt_arg_loop:\n"
-        "pushq (%2, %%rax, 8)\n" /* Push members of argv */
-        "dec %%rax\n"
-        "cmpq $0, %%rax\n"
-        "jge nk_loader_crt_arg_loop\n"
-        "nk_loader_crt_arg_loop_done:\n"
-        "pushq %1\n" /* argc */
-        "movq $0, %%rdx\n" /* Shared library termination function, which doesn't exist.
-                              RDX is the only gpr read by _start (other than RSP, which is implicitly used) */
-        "jmpq *%0\n" 
-        :
-        : "r"(start), "r"((uint64_t)argc), "r"(argv), "r"(envp)
-        : "rax", "rcx"
-    );
-
-    // TODO something other than panic here (such as clean up the process)
-    panic("Returned from a C runtime exec\n");
-    
-    return 0;
-}
-
 
 int 
 nk_unload_exec (struct nk_exec *exec)
