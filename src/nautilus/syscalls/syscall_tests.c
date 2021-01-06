@@ -156,12 +156,12 @@ static int handle_syscall_tests(char* buf, void* priv) {
   //   EXPECT(strcmp(uname_data.nodename, newhostname) == 0);
   // }
 
-  struct nk_exec* e = nk_load_exec("/hello.exe");
-  if (e) {
-    char* argv[] = {"/fbench", "1"};
-    EXPECT(nk_start_exec_crt(e, 2, &argv, NULL) == 42);
-    nk_unload_exec(e); // will also free this
-  }
+  // struct nk_exec* e = nk_load_exec("/hello.exe");
+  // if (e) {
+  //   char* argv[] = {"/fbench", "1"};
+  //   EXPECT(nk_start_exec(e, 2, &argv, NULL) == 42);
+  //   nk_unload_exec(e); // will also free this
+  // }
 
   /// Test teardown
   printk("\nPassed %d of %d tests.\nNote that at this time, 3 tests are "
@@ -182,7 +182,7 @@ static struct shell_cmd_impl syscalltest_impl = {
 
 nk_register_shell_cmd(syscalltest_impl);
 
-static int handle_exec_crt(char* buf, void* priv) {
+static int handle_exec(char* buf, void* priv) {
   int argc = 0;
   char* argv[64] = {0};
   char* argp = buf;
@@ -201,7 +201,7 @@ static int handle_exec_crt(char* buf, void* priv) {
 
   // struct nk_exec* e = nk_load_exec(argv[1]);
   // if (e) {
-  //   nk_start_exec_crt(e, argc - 1,
+  //   nk_start_exec(e, argc - 1,
   //                     argv + 1); /* Programs will expect argv[0] to be the
   //                                   program name, so must modify this */
   //   nk_unload_exec(e);
@@ -221,14 +221,14 @@ static int handle_exec_crt(char* buf, void* priv) {
   return 0;
 }
 
-static struct shell_cmd_impl exec_crt_impl = {
+static struct shell_cmd_impl exec_impl = {
 
-    .cmd = "exec_crt",
+    .cmd = "exec",
 
-    .help_str = "execute a c runtime application",
+    .help_str = "execute a process",
 
-    .handler = handle_exec_crt,
+    .handler = handle_exec,
 
 };
 
-nk_register_shell_cmd(exec_crt_impl);
+nk_register_shell_cmd(exec_impl);

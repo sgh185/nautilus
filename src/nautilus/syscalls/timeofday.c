@@ -49,7 +49,7 @@ void set_time(uint64_t ns) { time_offset = ns - cycles2ns(get_cycles()); }
 
 /// @param timeval_ptr struct timeval to mutate
 /// @param timezone_ptr obsolete, not currently supported in Nautilus
-int sys_gettimeofday(int timeval_ptr, int timezone_ptr) {
+uint64_t sys_gettimeofday(uint64_t timeval_ptr, uint64_t timezone_ptr) {
   struct timeval* tv = (struct timeval*)timeval_ptr;
   if (tv != NULL) {
     uint64_t now = get_time(); /* nanoseconds */
@@ -66,7 +66,7 @@ int sys_gettimeofday(int timeval_ptr, int timezone_ptr) {
 
 /// @param timeval_ptr struct timeval to mutate
 /// @param timezone_ptr obsolete, not currently supported in Nautilus
-int sys_settimeofday(int timeval_ptr, int timezone_ptr) {
+uint64_t sys_settimeofday(uint64_t timeval_ptr, uint64_t timezone_ptr) {
   /// TODO: add input validation and (maybe?) errno support
   /// (in Linux, tv_usec should not be greater than 999,999)
   struct timeval* tv = (struct timeval*)timeval_ptr;
