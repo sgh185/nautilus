@@ -31,6 +31,7 @@ void init_syscall_table();
 
 #endif /* !__ASSEMBLER */
 
+// TODO: sub before saving
 #define SAVE_GPRS_SYSCALL() \
   movq % rax, -8(% rsp);    \
   movq % rbx, -16(% rsp);   \
@@ -65,6 +66,9 @@ void init_syscall_table();
   movq 96(% rsp), % rcx;          \
   movq 104(% rsp), % rbx;         \
   addq $120, % rsp;
+
+#define SYSCALL_STACK_ALIGN 32
+
 // 120 since last 8 is for RAX which we do not restore
 
 //#endif // _SYSCALL
