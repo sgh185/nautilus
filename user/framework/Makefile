@@ -60,7 +60,7 @@ NORMFLAGS = -loop-simplify -lcssa
 #
 #
 
-all: $(TARGET) $(BLOB_LL)
+all: $(TARGET) #$(BLOB_LL)
 
 $(TARGET:.exe=.o):
 	$(CC) $(CFLAGS) -c $(TARGET:.exe=.c) -I../../include -o $(TARGET:.exe=.o)	
@@ -74,35 +74,41 @@ framework.o : framework.c
 glue.o : glue.c
 	$(CC) $(CFLAGS) -c glue.c
 
-$(BLOB_BC) : $(BLOB_OBJ)
-	$(EXTRACTBC) $(BLOB_OBJ)
-	mv $(BLOB_OBJ).bc $(BLOB_BC)
+framework: glue.o framework_low_level.o framework.o
+	#nop
 
-$(BLOB_LL) : $(BLOB_BC)
-	$(LLVMDIS) $(BLOB_BC)
+# $(BLOB_BC) : $(BLOB_OBJ)
+# 	$(EXTRACTBC) $(BLOB_OBJ)
+# 	mv $(BLOB_OBJ).bc $(BLOB_BC)
 
-$(BLOB_SIMPLIFY_LL): $(BLOB_LL)
-	# Run select loop simplification passes
-	$(ME) $(NORMFLAGS) -S $< -o $@
+# $(BLOB_LL) : $(BLOB_BC)
+# 	$(LLVMDIS) $(BLOB_BC)
 
-$(BLOB_OPT_LL): ~/CAT/lib/KARAT.so $(BLOB_SIMPLIFY_LL)
-	# Run KARAT pass	
-	$(ME) -load $< -karat -S $(BLOB_SIMPLIFY_LL) -o $@ &> karat.out 
+# $(BLOB_SIMPLIFY_LL): $(BLOB_LL)
+# 	# Run select loop simplification passes
+# 	$(ME) $(NORMFLAGS) -S $< -o $@
 
-$(BLOB_KOBJ) : $(BLOB_OPT_LL)
-	$(FINALCC) $(CFLAGS) -c $(BLOB_OPT_LL) -o $(BLOB_KOBJ)
+# $(BLOB_OPT_LL): ~/CAT/lib/KARAT.so $(BLOB_SIMPLIFY_LL)
+# 	# Run KARAT pass	
+# 	$(ME) -load $< -karat -S $(BLOB_SIMPLIFY_LL) -o $@ &> karat.out 
 
-$(BLOB_OBJ) : $(TARGET:.exe=.o) framework.o glue.o
-	$(LD) $^ -r -o $(BLOB_OBJ)
+# $(BLOB_KOBJ) : $(BLOB_OPT_LL)
+# 	$(FINALCC) $(CFLAGS) -c $(BLOB_OPT_LL) -o $(BLOB_KOBJ)
 
-$(TARGET:.exe=.unsigned) : $(BLOB_KOBJ) framework_low_level.o
-	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
+# $(BLOB_OBJ) : $(TARGET:.exe=.o) framework.o glue.o
+# 	$(LD) $^ -r -o $(BLOB_OBJ)
+
+# $(TARGET:.exe=.unsigned) : $(BLOB_KOBJ) framework_low_level.o
+# 	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
+
+$(TARGET:.exe=.unsigned) : $(TARGET:.exe=.o) framework
+	$(NLD) $(TARGET:.exe=.o)  -o $(TARGET:.exe=.unsigned)
 
 $(TARGET) : $(TARGET:.exe=.unsigned)
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
-nokarat: $(BLOB_OBJ) framework_low_level.o
-	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
+nokarat: $(TARGET:.exe=.o) framework
+	$(NLD) -nokarat $(TARGET:.exe=.o) -o $(TARGET:.exe=.unsigned)
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 clean: 
