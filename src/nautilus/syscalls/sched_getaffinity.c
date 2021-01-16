@@ -13,15 +13,15 @@ uint64_t sys_sched_getaffinity(uint64_t pid, uint64_t len,
     return -1;
   }
   if (len == 1) {
-    *(uint8_t*)user_mask_ptr = 0x1;
+    *(uint8_t*)user_mask_ptr = 0x3;
     return len;
   } else if (len == 2) {
-    *(uint16_t*)user_mask_ptr = 0x0101;
+    *(uint16_t*)user_mask_ptr = 0x3;
     return len;
   } else if (len == 4) {
-    *(uint32_t*)user_mask_ptr = 0x0101;
+    *(uint32_t*)user_mask_ptr = 0x3;
     return len;
   }
-  *user_mask_ptr = 0x0101; /* Allow CPU 0/1 */
+  *user_mask_ptr = 0x3; /* Allow CPU 0/1 */
   return 8;           /* Size of the bitmask data structure */
 }

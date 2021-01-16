@@ -59,7 +59,7 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
   // Create the new thread that will handle clone.
   nk_thread_create(&_clone_compat_wrapper, args, NULL, 1, 0, &thread, CPU_ANY);
   // TODO: there seem to be other things missing here (such as the vc)
-  thread->process = get_cur_thread()->parent;
+  thread->process = get_cur_thread()->process;
   nk_thread_run(thread);
   // *(int*)child_tidptr = thread->tid;
 

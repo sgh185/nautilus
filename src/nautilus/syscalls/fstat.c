@@ -17,7 +17,7 @@ struct stat {
   uint64_t st_blocks;
 };
 
-int sys_fstat(uint64_t fd, uint64_t statbuf_) {
+uint64_t sys_fstat(uint64_t fd, uint64_t statbuf_) {
   uint64_t ret;
   struct stat* statbuf = (struct stat*)statbuf_;
   memset(statbuf, 0, sizeof(struct stat));
