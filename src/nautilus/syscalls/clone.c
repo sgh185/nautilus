@@ -20,6 +20,10 @@ void _clone_compat_wrapper(struct clone_compat_args* args) {
   void* sysret_addr = args->sysret_addr;
   sys_arch_prctl(ARCH_SET_FS, args->tls, NULL);
   free(args);
+  nk_thread_t* me = get_cur_thread();
+  me->fake_affinity = 0; // this should be wrapped into a process thread init function (shared with process initialization)
+  me->vc = me->process->vc;
+  
   DEBUG("Sending clone thread to RIP=%p RSP=%p and glibc thread function %p\n",
         sysret_addr, rsp, *(uint64_t*)rsp);
   /* We do not restore the flags, but this is ok in the most common case (glibc
@@ -55,11 +59,20 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
   args->tls = tls_val;
 
   nk_thread_t* thread;
-
+  nk_process_t* process = get_cur_thread()->process;
+  
   // Create the new thread that will handle clone.
-  nk_thread_create(&_clone_compat_wrapper, args, NULL, 1, 0, &thread, CPU_ANY);
-  // TODO: there seem to be other things missing here (such as the vc)
-  thread->process = get_cur_thread()->process;
+  {
+    uint32_t bound_cpu;
+    spin_lock(&process->lock);
+    process->last_cpu_thread = (process->last_cpu_thread + 1) % nk_get_num_cpus();
+    bound_cpu = process->last_cpu_thread;
+    spin_unlock(&process->lock);
+    nk_thread_create(&_clone_compat_wrapper, args, NULL, 1, 0, &thread, bound_cpu);
+    // TODO: there seem to be other things missing here (such as the vc)
+    thread->process = process;
+  }
+
   nk_thread_run(thread);
   // *(int*)child_tidptr = thread->tid;
 

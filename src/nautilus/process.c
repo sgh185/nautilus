@@ -163,7 +163,10 @@ void __nk_process_wrapper(void *i, void **o) {
   me->process = p;
 
   //set virtual console so we can print to shell
-  me->vc = p->vc;  
+  me->vc = p->vc; 
+
+  // to facilitate the fake affinity syscalls
+  me->fake_affinity = 0; // this should be wrapped into a process thread init function (shared with clone)
 
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
@@ -398,6 +401,7 @@ int nk_process_name(nk_process_id_t proc, char *name)
 
 int nk_process_run(nk_process_t *p, int target_cpu) {
   nk_thread_id_t tid;
+  p->last_cpu_thread = target_cpu;
   return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 0, &tid, target_cpu);
 }
 

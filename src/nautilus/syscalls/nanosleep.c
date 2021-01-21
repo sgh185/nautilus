@@ -12,7 +12,7 @@ struct timespec {
 };
 #define NSEC_PER_SEC (uint64_t)1000000000
 
-int sys_nanosleep(int req, int rem) { 
+uint64_t sys_nanosleep(int req, int rem) { 
   const struct timespec* req_sleep = (struct timespec*)req;
 
   if (!req_sleep) {

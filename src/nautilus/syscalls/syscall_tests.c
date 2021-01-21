@@ -208,7 +208,9 @@ static int handle_exec(char* buf, void* priv) {
   // }
 
   nk_process_t *process;
-  char* envp[] = {"OMP_NUM_THREADS=2", "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
+  char omp_threads[64] = {0};
+  sprintf(&omp_threads, "OMP_NUM_THREADS=%d", nk_get_num_cpus());
+  char* envp[] = {&omp_threads, "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
   if (nk_process_create(argv[1], argv + 1, envp, "paging", &process)) {
     nk_vc_printf("Failed to create new process\n");
     return -1;

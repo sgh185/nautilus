@@ -8,7 +8,7 @@
 
 #define DEBUG(fmt, args...) DEBUG_PRINT("syscall_read: " fmt, ##args)
 
-int sys_read(int fd, int buf, int len, int d, int e, int f) {
+uint64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t d, uint64_t e, uint64_t f) {
   int read_bytes;
   DEBUG("Called read with fd %d, buf %p, len %d", fd, buf, len);
   if (fd == STDIN_FILENO) {

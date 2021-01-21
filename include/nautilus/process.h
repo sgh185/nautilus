@@ -102,6 +102,9 @@ typedef struct nk_process {
   // end of heap
   void *heap_end;
 
+  // last CPU a thread is pinned to
+  uint64_t last_cpu_thread;
+
   // Memory allocator
   nk_alloc_t *allocator;
 
