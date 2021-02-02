@@ -18,6 +18,7 @@ struct futex {
 };
 
 static int futex_inited = 0;
+static spinlock_t futex_lock;
 
 static struct futex futex_pool[NUM_FUTEXES];
 
@@ -25,6 +26,7 @@ static int futex_init() {
   if (!futex_inited) {
     int i;
     char buf[80];
+    spinlock_init(&futex_lock);
     for (i = 0; i < NUM_FUTEXES; i++) {
       futex_pool[i].uaddr = 0;
       futex_pool[i].val = 0;
@@ -81,6 +83,7 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
   struct futex* f;
 
   futex_init();
+  spin_lock(&futex_lock);
 
   if (!(op & FUTEX_PRIVATE_FLAG)) {
     // This may break things ???
@@ -94,6 +97,7 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
   case FUTEX_WAIT:
     if (utime) {
       DEBUG("timeout unsupported\n");
+      spin_unlock(&futex_lock);
       return -1;
     }
     f = futex_find(uaddr);
@@ -102,12 +106,14 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
     }
     if (!f) {
       DEBUG("cannot find or allocate futex\n");
+      spin_unlock(&futex_lock);
       return -1;
     }
 
     DEBUG("Starting futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr,
                  val);
     f->val = val;
+    spin_unlock(&futex_lock);
     nk_wait_queue_sleep_extended(f->waitq, futex_check, f);
     DEBUG("Finished futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr,
                  val);
@@ -116,9 +122,12 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
 
     break;
 
-  case FUTEX_WAKE:
+  case FUTEX_WAKE: {
+    uint64_t awoken_threads = 0;
     f = futex_find(uaddr);
     if (!f) {
+      spin_unlock(&futex_lock);
+      DEBUG("Futex for uaddr=%p does not exist\n", uaddr);
       return 0; // no one to wake - probably race with a FUTEX_WAIT
     }
 
@@ -128,15 +137,18 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
     if (val != INT_MAX) {
       int i;
       for (i = 0; i < val; i++) {
-        nk_wait_queue_wake_one(f->waitq);
+        awoken_threads += nk_wait_queue_wake_one(f->waitq);
       }
     } else {
-      nk_wait_queue_wake_all(f->waitq);
+      awoken_threads += nk_wait_queue_wake_all(f->waitq);
     }
-    return 0;
+    spin_unlock(&futex_lock);
+    return awoken_threads;
     break;
+  }
   default:
     DEBUG("Unsupported FUTEX OP\n");
+    spin_unlock(&futex_lock);
     return -1;
   }
 }
