@@ -6,6 +6,33 @@
 
 #define ARCH_SET_FS 0x1002
 
+// These are copied directly from /usr/include/linux
+#define CSIGNAL		0x000000ff	/* signal mask to be sent at exit */
+#define CLONE_VM	0x00000100	/* set if VM shared between processes */
+#define CLONE_FS	0x00000200	/* set if fs info shared between processes */
+#define CLONE_FILES	0x00000400	/* set if open files shared between processes */
+#define CLONE_SIGHAND	0x00000800	/* set if signal handlers and blocked signals shared */
+#define CLONE_PIDFD	0x00001000	/* set if a pidfd should be placed in parent */
+#define CLONE_PTRACE	0x00002000	/* set if we want to let tracing continue on the child too */
+#define CLONE_VFORK	0x00004000	/* set if the parent wants the child to wake it up on mm_release */
+#define CLONE_PARENT	0x00008000	/* set if we want to have the same parent as the cloner */
+#define CLONE_THREAD	0x00010000	/* Same thread group? */
+#define CLONE_NEWNS	0x00020000	/* New mount namespace group */
+#define CLONE_SYSVSEM	0x00040000	/* share system V SEM_UNDO semantics */
+#define CLONE_SETTLS	0x00080000	/* create a new TLS for the child */
+#define CLONE_PARENT_SETTID	0x00100000	/* set the TID in the parent */
+#define CLONE_CHILD_CLEARTID	0x00200000	/* clear the TID in the child */
+#define CLONE_DETACHED		0x00400000	/* Unused, ignored */
+#define CLONE_UNTRACED		0x00800000	/* set if the tracing process can't force CLONE_PTRACE on this clone */
+#define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
+#define CLONE_NEWCGROUP		0x02000000	/* New cgroup namespace */
+#define CLONE_NEWUTS		0x04000000	/* New utsname namespace */
+#define CLONE_NEWIPC		0x08000000	/* New ipc namespace */
+#define CLONE_NEWUSER		0x10000000	/* New user namespace */
+#define CLONE_NEWPID		0x20000000	/* New pid namespace */
+#define CLONE_NEWNET		0x40000000	/* New network namespace */
+#define CLONE_IO		0x80000000	/* Clone io context */
+
 struct clone_compat_args {
   void* rsp;
   void* sysret_addr;
@@ -18,7 +45,11 @@ struct clone_compat_args {
 void _clone_compat_wrapper(struct clone_compat_args* args) {
   void* rsp = args->rsp;
   void* sysret_addr = args->sysret_addr;
-  sys_arch_prctl(ARCH_SET_FS, args->tls, NULL);
+
+  if (args->tls) {
+    sys_arch_prctl(ARCH_SET_FS, args->tls, NULL);
+  }
+
   free(args);
   nk_thread_t* me = get_cur_thread();
   me->fake_affinity = 0; // this should be wrapped into a process thread init function (shared with process initialization)
@@ -42,10 +73,6 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
   DEBUG("%p\n%p\n%p\n%p\n%p\n", clone_flags, newsp, parent_tidptr, child_tidptr,
         tls_val);
 
-  if (clone_flags != 0x100) {
-    DEBUG("Flags unsupported, but going to try anyway\n");
-    // return -1;
-  }
 
   nk_process_t* current_process = nk_process_current();
   if (!current_process) {
@@ -56,7 +83,9 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
       sizeof(struct clone_compat_args)); /* Free is handled by new thread */
   args->rsp = newsp;
   args->sysret_addr = get_cur_thread()->sysret_addr;
-  args->tls = tls_val;
+  args->tls = (clone_flags & CLONE_SETTLS)
+              ? tls_val
+              : 0;
 
   nk_thread_t* thread;
   nk_process_t* process = get_cur_thread()->process;
@@ -67,14 +96,23 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint64_t parent_tidptr,
     spin_lock(&process->lock);
     process->last_cpu_thread = (process->last_cpu_thread + 1) % nk_get_num_cpus();
     bound_cpu = process->last_cpu_thread;
+    bound_cpu = CPU_ANY; // TEMPORARY
     spin_unlock(&process->lock);
     nk_thread_create(&_clone_compat_wrapper, args, NULL, 1, 0, &thread, bound_cpu);
     // TODO: there seem to be other things missing here (such as the vc)
     thread->process = process;
   }
 
+  if (clone_flags & CLONE_CHILD_SETTID) {
+    thread->set_child_tid = child_tidptr; /* May not be needed */
+    *(uint64_t*)child_tidptr = thread->tid;
+  }
+
+  thread->clear_child_tid = (clone_flags & CLONE_CHILD_CLEARTID)
+                            ? (void*)child_tidptr
+                            : NULL;
+
   nk_thread_run(thread);
-  // *(int*)child_tidptr = thread->tid;
 
   return thread->tid;
 }

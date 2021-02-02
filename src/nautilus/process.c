@@ -165,8 +165,12 @@ void __nk_process_wrapper(void *i, void **o) {
   //set virtual console so we can print to shell
   me->vc = p->vc; 
 
-  // to facilitate the fake affinity syscalls
-  me->fake_affinity = 0; // this should be wrapped into a process thread init function (shared with clone)
+  
+  // this should be (carefully) wrapped into a process thread init function (shared with clone)
+  {
+    me->fake_affinity = 0;      // to facilitate the fake affinity syscalls
+    me->clear_child_tid = 0;    // to facilitate threading
+  }
 
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
