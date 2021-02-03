@@ -73,8 +73,44 @@ void AllocationHandler::Inject()
     /*
      * Instrument allocations
      */ 
-    if (!NoMallocs) InstrumentMallocs();
-    if (!NoFrees) InstrumentFrees();
+    if (!NoMallocs)
+    {
+        /*
+         * Instrument system mallocs
+         */ 
+        InstrumentMallocs(
+            AllocID::SysMalloc,
+            0 /* Size operand no */
+        );
+
+
+        /*
+         * Instrument aspace/allocator mallocs
+         */ 
+        InstrumentMallocs(
+            AllocID::ASpaceMalloc,
+            1 /* Size operand no */
+        );
+    } 
+    if (!NoFrees) 
+    {
+        /*
+         * Instrument system frees
+         */ 
+        InstrumentFrees(
+            AllocID::SysFree,
+            0 /* Pointer operand no */
+        );
+
+
+        /*
+         * Instrument aspace/allocator frees
+         */ 
+        InstrumentFrees(
+            AllocID::ASpaceFree,
+            1 /* Pointer operand no */
+        );
+    }
 
 
     /*
@@ -150,29 +186,9 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
 
                 /*
-                 * Fetch the kernel alloc method ID, switch
-                 * based on the ID to mark each call for 
-                 * instrumentation
+                 * Fetch the AllocID, mark each call for instrumentation
                  */ 
-                KernelAllocID KAID = KernelAllocMethodsToIDs[Callee];
-                switch (KAID)
-                {
-                    case KernelAllocID::Malloc: 
-                    {
-                        Mallocs.insert(NextCall); 
-                        break;
-                    }
-                    case KernelAllocID::Free: 
-                    {
-                        Frees.insert(NextCall);
-                        break;
-                    }
-                    default:
-                    {
-                        errs() << "AllocationHandler::_getAllNecessaryInstructions: Failed to fetch KernelAllocID!\n";
-                        abort();
-                    }
-                }
+                InstructionsToInstrument[KernelAllocMethodsToIDs[Callee]].insert(NextCall);
             }
         }
     }
@@ -210,11 +226,16 @@ bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
      * 
      * 3) 
      * We cannot instrument the global carat context itself
+     * 
+     * 4)
+     * We cannot instrument the global pointer (that points to
+     * a non-canonical address) used for protections checks
      */ 
     if (false
         || Global.hasPrivateLinkage()
         || !(Global.hasExactDefinition())
-        || (Global.getName() == "global_carat_context")) return false;
+        || (Global.getName() == "global_carat_context")
+        || (Global.getName() == "non_canonical")) return false;
 
 
     /*
@@ -416,7 +437,10 @@ void AllocationHandler::InstrumentGlobals()
 }
 
 
-void AllocationHandler::InstrumentMallocs()
+void AllocationHandler::InstrumentMallocs(
+    AllocID MallocTypeID,
+    unsigned SizeOperandNo
+)
 {
     /*
      * Set up for injection
@@ -431,7 +455,7 @@ void AllocationHandler::InstrumentMallocs()
     /*
      * Instrument all collected "malloc"ss
      */ 
-    for (auto NextMalloc : Mallocs)
+    for (auto NextMalloc : InstructionsToInstrument[MallocTypeID])
     {
         /*
          * Debugging
@@ -472,7 +496,7 @@ void AllocationHandler::InstrumentMallocs()
          */
         Value *MallocSizeArgCast = 
             Builder.CreateZExtOrBitCast(
-                NextMalloc->getOperand(0), 
+                NextMalloc->getOperand(SizeOperandNo), 
                 Int64Type
             );
 
@@ -501,7 +525,10 @@ void AllocationHandler::InstrumentMallocs()
 }
 
 
-void AllocationHandler::InstrumentFrees()
+void AllocationHandler::InstrumentFrees(
+    AllocID FreeTypeID,
+    unsigned PointerOperandNo
+)
 {
     /*
      * Set up for injection
@@ -515,7 +542,7 @@ void AllocationHandler::InstrumentFrees()
     /*
      * Iterate
      */ 
-    for (auto NextFree : Frees)
+    for (auto NextFree : InstructionsToInstrument[FreeTypeID])
     {
         /*
          * Debugging
@@ -541,10 +568,12 @@ void AllocationHandler::InstrumentFrees()
             );
 
 
-        // Cast inst as value passed to free
+        /*
+         * Cast inst as value passed to free
+         */ 
         Value *ParameterToFree = 
             Builder.CreatePointerCast(
-                NextFree->getOperand(0), 
+                NextFree->getOperand(PointerOperandNo), 
                 VoidPointerType
             );
 

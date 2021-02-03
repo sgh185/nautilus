@@ -75,10 +75,12 @@ using namespace llvm;
 /*
  * Enumerator for kernel allocation methods
  */ 
-enum KernelAllocID
+enum AllocID
 {
-    Malloc=0,
-    Free
+    SysMalloc=0,
+    ASpaceMalloc,
+    SysFree,
+    ASpaceFree,
 };
 
 
@@ -95,7 +97,9 @@ const std::string CARAT_MALLOC,
                   CARAT_GLOBAL_MALLOC,
                   CARAT_GLOBALS_TARGET,
                   KERNEL_MALLOC,
+                  ASPACE_MALLOC,
                   KERNEL_FREE,
+                  ASPACE_FREE,
                   ANNOTATION,
                   NOCARAT;
 
@@ -113,13 +117,13 @@ extern
 std::unordered_set<Function *> CARATMethods;
 
 extern
-std::unordered_map<KernelAllocID, std::string> IDsToKernelAllocMethods;
+std::unordered_map<AllocID, std::string> IDsToKernelAllocMethods;
 
 extern
 std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
 
 extern
-std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
+std::unordered_map<Function *, AllocID> KernelAllocMethodsToIDs;
 
 extern
 std::unordered_set<Function *> AnnotatedFunctions;

@@ -43,15 +43,23 @@ public:
     /*
      * Drivers
      */ 
-    void Inject();
+    void Inject(void);
 
 
     /*
      * Instrumentation methods
      */ 
-    void InstrumentGlobals();
-    void InstrumentMallocs();
-    void InstrumentFrees();
+    void InstrumentGlobals(void);
+
+    void InstrumentMallocs(
+        AllocID MallocTypeID,
+        unsigned SizeOperandNo
+    );
+
+    void InstrumentFrees(
+        AllocID FreeTypeID,
+        unsigned PointerOperandNo
+    );
 
 
 private:
@@ -69,8 +77,11 @@ private:
     uint64_t NextGlobalID=0;
     std::unordered_map<GlobalValue *, 
                        std::pair<uint64_t, uint64_t>> Globals; /* [global : {size, ID}] */
-    std::unordered_set<Instruction *> Mallocs;
-    std::unordered_set<Instruction *> Frees;
+    
+    std::unordered_map<
+        AllocID,
+        std::unordered_set<Instruction *>
+    > InstructionsToInstrument;
 
 
     /*

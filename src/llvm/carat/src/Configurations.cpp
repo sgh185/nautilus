@@ -40,7 +40,9 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_GLOBAL_MALLOC = "nk_carat_instrument_global",
                   CARAT_GLOBALS_TARGET = "_nk_carat_globals_compiler_target",
                   KERNEL_MALLOC = "_kmem_sys_malloc",
+                  ASPACE_MALLOC = "__impl_alloc",
                   KERNEL_FREE = "kmem_sys_free",
+                  ASPACE_FREE = "__impl_free",
                   ANNOTATION = "llvm.global.annotations",
                   NOCARAT = "nocarat";
 
@@ -63,14 +65,16 @@ std::unordered_map<std::string, Function *> CARATNamesToMethods;
 
 std::unordered_set<Function *> CARATMethods;
 
-std::unordered_map<KernelAllocID, std::string> IDsToKernelAllocMethods = {
-    { KernelAllocID::Malloc, KERNEL_MALLOC } ,
-    { KernelAllocID::Free, KERNEL_FREE }
+std::unordered_map<AllocID, std::string> IDsToKernelAllocMethods = {
+    { AllocID::SysMalloc, KERNEL_MALLOC } ,
+    { AllocID::ASpaceMalloc, ASPACE_MALLOC },
+    { AllocID::SysFree, KERNEL_FREE },
+    { AllocID::ASpaceFree, ASPACE_FREE }
 };
 
 std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
 
-std::unordered_map<Function *, KernelAllocID> KernelAllocMethodsToIDs;
+std::unordered_map<Function *, AllocID> KernelAllocMethodsToIDs;
 
 std::unordered_set<Function *> AnnotatedFunctions;
 
