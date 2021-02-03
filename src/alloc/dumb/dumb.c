@@ -101,36 +101,6 @@ static inline uint64_t next_pow2(uint64_t n)
 
 #define MAX(x,y) ((x)>(y) ? (x) : (y))
 
-
-/*
- * An indirection/wrapper to impl_alloc designed for
- * compiler instrumentation purposes
- */ 
-static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
-{
-    return __impl_alloc(
-        state,
-        size,
-        align,
-        cpu,
-        flags
-    );
-}
-
-
-/*
- * An indirection/wrapper to impl_free designed for
- * compiler instrumentation purposes
- */ 
-static void impl_free(void *state, void *ptr)
-{
-    return __impl_free(
-        state,
-        ptr 
-    );
-}
-
-
 __attribute__((noinline))
 static void * __impl_alloc(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
 {
@@ -250,6 +220,23 @@ static void * __impl_alloc(void *state, size_t size, size_t align, int cpu, nk_a
 
 }
 
+
+/*
+ * An indirection/wrapper to impl_alloc designed for
+ * compiler instrumentation purposes
+ */ 
+static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
+{
+    return __impl_alloc(
+        state,
+        size,
+        align,
+        cpu,
+        flags
+    );
+}
+
+
 static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
 {
   struct nk_alloc_dumb *as = (struct nk_alloc_dumb *) state;
@@ -280,6 +267,18 @@ static void __impl_free(void *state, void *ptr)
 
   DEBUG("%s: free %p ignored\n",as->alloc->name,ptr);
 
+}
+
+/*
+ * An indirection/wrapper to impl_free designed for
+ * compiler instrumentation purposes
+ */ 
+static void impl_free(void *state, void *ptr)
+{
+    __impl_free(
+        state,
+        ptr 
+    );
 }
 
 
