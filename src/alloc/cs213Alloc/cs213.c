@@ -300,7 +300,37 @@ static int mm_init(void *state){
 }
 
 
+/*
+ * An indirection/wrapper to impl_alloc designed for
+ * compiler instrumentation purposes
+ */ 
 static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
+{
+    return __impl_alloc(
+        state,
+        size,
+        align,
+        cpu,
+        flags
+    );
+}
+
+
+/*
+ * An indirection/wrapper to impl_free designed for
+ * compiler instrumentation purposes
+ */ 
+static void impl_free(void *state, void *ptr)
+{
+    return __impl_free(
+        state,
+        ptr 
+    );
+}
+
+
+__attribute__((noinline))
+static void * __impl_alloc(void *state, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
 {
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
 
@@ -340,7 +370,9 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
 
 }
 
-static void impl_free(void *state, void *ptr)
+
+__attribute__((noinline))
+static void __impl_free(void *state, void *ptr)
 {
 
   struct nk_alloc_cs213 *as = (struct nk_alloc_cs213 *)state;
