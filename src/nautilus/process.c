@@ -174,7 +174,6 @@ void __nk_process_wrapper(void *i, void **o) {
   char **envp = p->envp;
   struct nk_exec *exe = p->exe;
 
-  // TODO MAC: Find out why joining the thread group doesn't work
   if (nk_thread_group_join(p->t_group)) {
     PROCESS_ERROR("Failed to join thread group\n");
     return;
@@ -258,12 +257,29 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
 
   // map executable in address space if it's not within first 4GB of memory
   // TODO MAC: This *WILL* break if part of the executable is mapped and part of it isn't
-  if (((uint64_t)p->exe > KERNEL_MEMORY_SIZE) || ((uint64_t)p->exe + p->exe->blob_size > KERNEL_MEMORY_SIZE)) {
+  uint64_t exe_end_addr = (uint64_t)p->exe + p->exe->blob_size;
+  if (((uint64_t)p->exe > KERNEL_MEMORY_SIZE) || (exe_end_addr > KERNEL_MEMORY_SIZE)) {
     PROCESS_DEBUG("WARNING: WE'RE MAPPING EXECUTABLE TO ASPACE. CHECK THIS IS DONE CORRECTLY.\n");
     nk_aspace_region_t r_exe;
-    r_exe.va_start = p->exe->blob;
-    r_exe.pa_start = p->exe->blob;
-    r_exe.len_bytes = p->exe->blob_size;
+    if (exe_end_addr > KERNEL_MEMORY_SIZE) {
+      r_exe.va_start = (void *)KERNEL_MEMORY_SIZE;
+      r_exe.pa_start = (void *)KERNEL_MEMORY_SIZE;
+      uint64_t exe_overshoot = exe_end_addr - KERNEL_MEMORY_SIZE;
+      nk_aspace_characteristics_t aspace_chars;
+      if (nk_aspace_query(aspace_type, &aspace_chars)) {
+        // TODO MAC: Exit gracefully
+        nk_unload_exec(p->exe);
+        free(p);
+        nk_aspace_destroy(addr_space);
+        return -1;
+      }
+      
+      r_exe.len_bytes = exe_overshoot + (exe_overshoot % aspace_chars.granularity);
+    } else {
+      r_exe.va_start = p->exe->blob;
+      r_exe.pa_start = p->exe->blob;
+      r_exe.len_bytes = p->exe->blob_size;
+    }
     r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
 
     if (nk_aspace_add_region(addr_space, &r_exe)) {
@@ -422,6 +438,46 @@ int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_ty
 nk_process_t *nk_process_current() {
   nk_thread_t *t = get_cur_thread();
   return t->process;
+}
+
+int nk_process_destroy(nk_process_t *p) {
+  // destroy allocator, unmap executable, destroy thread_group,  destroy stack, destroy heap, and tear down aspace 
+  
+  // We must be careful if we're part of the current process
+  int destroying_curr_process = 0;
+  nk_thread_t *me = get_cur_thread();
+  if (me->process == nk_process_current()) {
+    // Prevent self from dying when sending exit signals
+    PROCESS_DEBUG("Not handling process destroy properly.\n"); 
+    destroying_curr_process = 1;
+  }
+
+  // Destroy process allocator
+  nk_alloc_t *alloc = p->allocator;
+  if (nk_alloc_destroy(alloc)) {
+    PROCESS_ERROR("Failed to destroy allocator for process %p (name: %s)\n", p, p->name);
+  } 
+  // TODO MAC: Send exit signal to all process threads
+  // Will break until we implement this
+ 
+  // delete thread group (may need to wait until all threads exit)
+  nk_thread_group_delete(p->t_group);
+
+  // tear down aspace
+  nk_aspace_destroy(p->aspace);
+
+  // unmap executable
+  nk_unload_exec(p->exe);
+
+  // free heap and exit (this might be wrong)
+  // The threads we create use different stacks than they start with (thread->stack != curr_stack)
+  // Calling thread exit may not free the appropriate stack
+  free(p->heap_begin);
+ 
+  if (destroying_curr_process) { 
+    nk_thread_exit((void *)0);
+  }
+  return 0;
 }
 
 // add this right after loader init
