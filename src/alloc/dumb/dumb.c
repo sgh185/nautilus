@@ -43,7 +43,8 @@
 #define DEBUG(fmt, args...) DEBUG_PRINT("alloc-dumb: " fmt, ##args)
 #define INFO(fmt, args...)   INFO_PRINT("alloc-dumb: " fmt, ##args)
 
-#define BASE_BLOCK_SIZE (16*1024*1024)
+//#define BASE_BLOCK_SIZE (16*1024*1024)
+#define BASE_BLOCK_SIZE (128*4096)
 
 // this is an expand-only allocator
 // whenever it allocates a new block to work on
@@ -105,63 +106,117 @@ static void * impl_alloc(void *state, size_t size, size_t align, int cpu, nk_all
   addr_t ret;
   struct nk_alloc_dumb *as = (struct nk_alloc_dumb *) state;
 
-  DEBUG("%s: alloc size %lu align %lu cpu %d flags=%lx\n",as->alloc->name,size,align,cpu,flags);
+  enum {Initial=0, Inplace, Expand, Leak} alloc_state = Initial;
+
+ retry:
+  
+  DEBUG("%s: alloc alloc_state %s size %lu align %lu cpu %d flags=%lx\n",
+        as->alloc->name,
+        alloc_state == Initial ? "initial" :
+        alloc_state == Inplace ? "inplace" :
+        alloc_state == Expand  ? "expand" :
+        alloc_state == Leak ? "leak" : "WTF?!",
+        size,align,cpu,flags);
 
   if ((round_up_align(as->block_cur,align) + size)<as->block_end) {
     // fits
     DEBUG("satisfied in current block\n");
     ret = round_up_align(as->block_cur,align);
     as->block_cur = ret + size;
-    return (void*)ret;
-  } 
-  //First let us try to defragment the block
-  as->block_cur = defragment_region(as->region);
-  if ((round_up_align(as->block_cur,align) + size)<as->block_end) {
-    // fits
-    DEBUG("satisfied in current block\n");
-    ret = round_up_align(as->block_cur,align);
-    as->block_cur = ret + size;
+
+    if (flags & NK_ALLOC_ZERO) {
+      memset((void*)ret,0,size);
+    }
+    
+    DEBUG("%s: returning %p\n",as->alloc->name,(void*)ret);
+    
     return (void*)ret;
   }
-  
-  //Defragment failed, time to make a new region
-  
-  uint64_t chunk_size = next_pow2(MAX(size * 2,BASE_BLOCK_SIZE));
 
-  DEBUG("allocating new block of size %lu\n",chunk_size);
+  alloc_state++; /// not good
 
-  // Create a new arena/region...
-  addr_t new = (addr_t) kmem_sys_malloc_specific(chunk_size,cpu,0);
+  switch (alloc_state) {
+  case Inplace:
+  case Expand: {
+    //First let us try to defragment the block with no size change
+    
+    nk_aspace_region_t oldreg = *as->region;
+    void *new_free;
+    void *block_cur;
+    // double size if expanding
+    uint64_t new = alloc_state == Inplace ? as->region->len_bytes : 2*(as->region->len_bytes);
 
-  if (!new) {
-    ERROR("Failed to allocate a new block\n");
+    nk_alloc_t *curalloc = nk_alloc_get_associated();
+
+    // switch to using the system allocator temporarily
+
+    nk_alloc_set_associated(0);
+
+    if (nk_aspace_defrag_region(get_cur_thread()->aspace,
+                                as->region,
+                                as->region->len_bytes,
+                                &block_cur)) {
+      nk_alloc_set_associated(curalloc);
+      ERROR("failed to defragment region via %s!\n", alloc_state == Inplace ? "in place" : "expanding");
+      return 0;
+    } else {
+      as->block_start = (addr_t) as->region->va_start;
+      as->block_end = (addr_t) as->region->va_start + as->region->len_bytes;
+      as->block_cur = (addr_t) block_cur;
+      // what if oldregion == new region?
+      kmem_sys_free(oldreg.va_start);
+      nk_alloc_set_associated(curalloc);
+      goto retry;
+    }
+    break;
+  }
+
+  case Leak: {
+    uint64_t chunk_size = next_pow2(MAX(size * 2,BASE_BLOCK_SIZE));
+
+    DEBUG("allocating new block of size %lu\n",chunk_size);
+    
+    // Create a new arena/region...
+    void *new = kmem_sys_malloc_specific(chunk_size,cpu,0);
+    
+    if (!new) {
+      ERROR("Failed to allocate a new block\n");
+      return 0;
+    }
+    
+    //This is why we should probably merge arenas and regions
+    as->region->va_start = new;
+    as->region->pa_start = new;
+    as->region->len_bytes = chunk_size;
+    as->region->requested_permissions = 0;
+    
+    nk_alloc_t *curalloc = nk_alloc_get_associated();
+
+    // switch to using the system allocator temporarily
+
+    nk_alloc_set_associated(0);
+
+    if (nk_aspace_add_region(get_cur_thread()->aspace, as->region)) {
+      ERROR("failed to add new region on leaking expansion\n");
+      nk_alloc_set_associated(curalloc);
+      return 0;
+    }
+
+    as->block_start= (addr_t) new;
+    as->block_end = as->block_start + chunk_size;
+    as->block_cur = as->block_start;
+
+    nk_alloc_set_associated(curalloc);
+    
+    goto retry;
+  }
+
+  default:
+    ERROR("allocator in unknown state %d\n",alloc_state);
     return 0;
   }
 
-  //This is why we should probably merge arenas and regions
-  as->region->va_start = new;
-  as->region->pa_start = new;
-  as->region->len_bytes = chunk_size;
-  as->region->requested_permissions = 0;
-  
-  get_cur_thread()->aspace->interface->add_region(get_cur_thread()->aspace->state, as->region); 
 
-  as->block_start= new;
-  as->block_cur = as->block_start;
-  as->block_end = as->block_start + chunk_size;
-  as->block_count++;
-  as->byte_count+=chunk_size;
-
-  return impl_alloc(state,size,align,cpu,flags);
-
-
-  if (flags & NK_ALLOC_ZERO) {
-    memset((void*)ret,0,size);
-  }
-
-  DEBUG("%s: returning %p\n",as->alloc->name,(void*)ret);
-
-  return (void*)ret;
 }
 
 static void * impl_realloc(void *state, void *ptr, size_t size, size_t align, int cpu, nk_alloc_flags_t flags)
@@ -229,18 +284,24 @@ static struct nk_alloc * create(char *name)
 
  
   uint64_t chunk_size = next_pow2(BASE_BLOCK_SIZE);
-  addr_t new = (addr_t) kmem_sys_malloc_specific(chunk_size,cpu,0);
+  void *new =  kmem_sys_malloc_specific(chunk_size,my_cpu_id(),1);
  
   as->region = kmem_sys_malloc_specific(sizeof(nk_aspace_region_t), my_cpu_id(), 1);
-  as->region->protect = 3; 
+  as->region->protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE ; 
   as->region->va_start = new;
   as->region->pa_start = new;
   as->region->len_bytes = chunk_size;
   as->region->requested_permissions = 0;
-  
-  get_cur_thread()->aspace->interface->add_region(get_cur_thread()->aspace->state, as->region); 
 
-  as->block_start= new;
+  if (nk_aspace_add_region(get_cur_thread()->aspace, as->region)){
+    ERROR("Failed to add region\n");
+    kmem_sys_free(as->region);
+    kmem_sys_free(new);
+    return 0;
+  }      
+  
+
+  as->block_start= (addr_t)new;
   as->block_cur = as->block_start;
   as->block_end = as->block_start + chunk_size;
   as->block_count++;

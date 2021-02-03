@@ -36,12 +36,6 @@
 #define DEBUG(fmt, args...) DEBUG_PRINT("loader: " fmt, ##args)
 #define INFO(fmt, args...) INFO_PRINT("loader: " fmt, ##args)
 
-struct nk_exec {
-    void      *blob;          // where we loaded it
-    uint64_t   blob_size;     // extent in memory
-    uint64_t   entry_offset;  // where to start executing in it
-};
-
 
 /******************************************************************
      Data contained in the ELF file we will attempt to load
@@ -82,6 +76,12 @@ typedef struct mb_addr {
     u_virt   load_addr;
     u_virt   load_end_addr;
     u_virt   bss_end_addr;
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+    // Maybe this should be in another mb tag?
+    u_virt   sign_begin;
+    u_virt   sign_end;
+    u_virt   signature_addr;
+#endif
 } __attribute__((packed)) mb_addr_t;
 
 #define MB_TAG_ENTRY 3
@@ -271,6 +271,11 @@ parse_multiboot_header (void *data, uint64_t size, mb_data_t *mb)
 		DEBUG("  load_addr       =  0x%x\n", mb_addr->load_addr);
 		DEBUG("  load_end_addr   =  0x%x\n", mb_addr->load_end_addr);
 		DEBUG("  bss_end_addr    =  0x%x\n", mb_addr->bss_end_addr);
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+        DEBUG("  sign_begin      =  0x%x\n", mb_addr->sign_begin);
+        DEBUG("  sign_end        =  0x%x\n", mb_addr->sign_end);
+        DEBUG("  signature_addr  =  0x%x\n", mb_addr->signature_addr);
+#endif
 	    }
 		break;
 
@@ -350,6 +355,24 @@ parse_multiboot_header (void *data, uint64_t size, mb_data_t *mb)
     return 0;
 }
 
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+#include <nautilus/crypto.h>
+// Return 0 if the signature is correct
+int verify_signature(const void *file_signature,
+                     const void *sign_begin,
+                     const void *sign_end) {
+    // For now, just check MD5 hash as proof of concept
+    char calculated_signature[MD5_DIGEST_LENGTH];
+    if (MD5(sign_begin, (unsigned long)(sign_end - sign_begin), (char*)&calculated_signature) == NULL) {
+        ERROR("MD5 function failed\n");
+        return -1;
+    }
+    DEBUG("Calculated signature = MD5 %lx%lx\n", *(uint64_t*)(&calculated_signature), *(uint64_t*)(&calculated_signature[8]));
+    DEBUG("Actual signature     = MD5 %lx%lx\n", *(uint64_t*)(file_signature), *(uint64_t*)(file_signature + 8));
+    return memcmp(file_signature, &calculated_signature, MD5_DIGEST_LENGTH);
+}
+#endif
+
 
 #define MB_LOAD (2*PAGE_SIZE_4KB)
 
@@ -416,6 +439,8 @@ struct nk_exec *nk_load_exec(char *path)
 
     blob_size = ALIGN_UP(bss_end - load_start + 1);
 
+    blob_size += MB_LOAD;
+
     DEBUG("Load continuing... start=0x%lx, end=0x%lx, bss_end=0x%lx, blob_size=0x%lx\n",
 	  load_start, load_end, bss_end, blob_size);
     
@@ -435,24 +460,39 @@ struct nk_exec *nk_load_exec(char *path)
         ERROR("Cannot allocate executable blob for %s\n",path);
         goto out_bad;
     }
+
+    memcpy(e->blob, page, MB_LOAD);
     
     e->blob_size = blob_size;
-    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB; 
+    e->entry_offset = m.entry->entry_addr - PAGE_SIZE_4KB + MB_LOAD; // Double check
     
     // now copy it to memory
     ssize_t n;
     
     
-    if ((n = nk_fs_read(fd,e->blob,e->blob_size))<0) {
+    if ((n = nk_fs_read(fd,e->blob+MB_LOAD,e->blob_size-MB_LOAD))<0) {
         ERROR("Unable to read blob from %s\n", path);
         goto out_bad;
     }
 
-    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size, n);
+    DEBUG("Tried to read 0x%lx byte blob, got 0x%lx bytes\n", e->blob_size-MB_LOAD, n);
     
     DEBUG("Successfully loaded executable %s\n",path);
 
-    memset(e->blob+(load_end-load_start),0,bss_end-load_end);
+#ifdef NAUT_CONFIG_LOADER_SIGNATURE
+    uint64_t sign_begin_offset = m.addr->sign_begin;
+    uint64_t sign_end_offset = m.addr->sign_end;
+    uint64_t signature_offset = m.addr->signature_addr;
+    if (verify_signature(e->blob+signature_offset,
+                         e->blob+sign_begin_offset,
+                         e->blob+sign_end_offset)) {
+        DEBUG("Signature verification failed\n");
+        goto out_bad;
+    }
+    DEBUG("Signature verified\n");
+#endif
+
+    memset(e->blob+MB_LOAD+(load_end-load_start),0,bss_end-load_end);
 
     DEBUG("Cleared BSS\n");
 
@@ -477,7 +517,6 @@ struct nk_exec *nk_load_exec(char *path)
 static void * (*__nk_func_table[])() = {
     [NK_VC_PRINTF] = (void * (*)()) nk_vc_printf,
 };
-
 
 int 
 nk_start_exec (struct nk_exec *exec, void *in, void **out)
@@ -509,7 +548,6 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
     
     return rc;
 }
-
 
 int 
 nk_unload_exec (struct nk_exec *exec)

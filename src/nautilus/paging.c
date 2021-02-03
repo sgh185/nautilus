@@ -380,7 +380,7 @@ nk_gpf_handler (excp_entry_t * excp,
 		excp_vec_t     vector,
 		void         * state)
 {
-    while(1){};
+
     cpu_id_t id = cpu_info_ready ? my_cpu_id() : 0xffffffff;
 
 #ifdef NAUT_CONFIG_ASPACES

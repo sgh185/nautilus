@@ -59,7 +59,7 @@
 /*
  * Printing
  */ 
-#define DO_CARAT_PRINT 0
+#define DO_CARAT_PRINT 1
 #if DO_CARAT_PRINT
 #define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
 #else

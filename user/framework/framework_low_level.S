@@ -48,11 +48,14 @@ multiboot_hdr:
 
     /* sections */
     .word 2, 0
-    .long 24
+    .long 36
     .long multiboot_hdr
     .long _loadStart
     .long _loadEnd
     .long _bssEnd
+    .long __naut_sign_begin
+    .long __naut_sign_end
+    .long __NAUT_SIGNATURE
 
     /* entry point */
     .word 3, 0

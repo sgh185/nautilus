@@ -7,6 +7,8 @@ obj-y += smpboot.o \
 
 obj-$(NAUT_CONFIG_FIBER_ENABLE) += fiber_lowlevel.o
 
+obj-$(NAUT_CONFIG_LINUX_SYSCALLS) += syscall_lowlevel.o
+
 ifdef NAUT_CONFIG_PALACIOS_EMBED_VM_IMG
 	obj-y += guest.o
 endif

@@ -156,6 +156,12 @@ int  nk_aspace_destroy(nk_aspace_t *aspace)
     return 0;
 }
     
+int nk_aspace_rename(nk_aspace_t *aspace, char *name) {
+  snprintf(aspace->name, NK_ASPACE_NAME_LEN, "%s",name);
+  aspace->name[NK_ASPACE_NAME_LEN-1] = 0;
+  return 0;  
+}
+
 nk_aspace_t *nk_aspace_find(char *name)
 {
     struct list_head *cur;
@@ -303,9 +309,9 @@ int  nk_aspace_trunc_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uin
     return 0;
 }
 
-int  nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, void ** new_region_start, void ** free_space_start) {
+int  nk_aspace_defrag_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, void ** free_space_start) {
     if (aspace) {
-        BOILERPLATE_LEAVE(aspace, defragment_region, region, new_region_start, free_space_start);
+      BOILERPLATE_LEAVE(aspace, defragment_region, region, new_size, free_space_start);
     } 
     return 0;
 }

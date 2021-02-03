@@ -55,6 +55,7 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
+#include <nautilus/syscall_kernel.h>
 #include <aspace/patching.h>
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
@@ -290,6 +291,11 @@ static int launch_vmm_environment()
 "+===============================================+  \n\n"
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
+
+char *script[] = { "meminfo",
+                   "allocator_test_trace dumb 0 2",
+                   "\0",
+                   0 };
 
 void
 init (unsigned long mbd,
@@ -577,8 +583,14 @@ init (unsigned long mbd,
 #ifdef NAUT_CONFIG_WATCHDOG
     nk_watchdog_init(NAUT_CONFIG_WATCHDOG_DEFAULT_TIME_MS * 1000000UL);
 #endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+    // Initialize system call interface
+    nk_syscall_init();
+    init_syscall_table();
+#endif
     
-    nk_launch_shell("root-shell",0,0,0);
+    nk_launch_shell("root-shell",0,script,0);
 
     runtime_init();
 

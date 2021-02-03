@@ -262,6 +262,25 @@ config PARTITION_SUPPORT
     help
       Enable disk/device partitioning
 
+config PROCESSES
+    bool "Enable support for process creation"
+    default n
+    help
+      Enable processes
+
+config LINUX_SYSCALLS
+    bool "Enable support for Linux syscall emulation"
+    depends on PROCESSES
+    default y
+    help
+      Enable Linux syscall interface
+
+config LOADER_SIGNATURE
+    bool "Use signature verification of loaded user processes"
+    default y
+    help
+      Use signature verification when loading user processes
+
 config VIRTUAL_CONSOLE_DISPLAY_NAME
    bool "Display name of current virtual console"
    default y
