@@ -56,7 +56,7 @@ obj-y += \
 	linker.o \
 	prog.o \
 	getopt.o \
-	cmdline.o
+	cmdline.o 
 
 obj-$(NAUT_CONFIG_PROFILE) += instrument.o
 obj-$(NAUT_CONFIG_XEON_PHI) += sfi.o
@@ -83,6 +83,7 @@ obj-$(NAUT_CONFIG_ALLOCS) +=  alloc.o
 
 obj-$(NAUT_CONFIG_PARTITION_SUPPORT) += partition.o
 
-obj-$(NAUT_CONFIG_PROCESSES) += process.o
+obj-$(NAUT_CONFIG_PROCESSES) += process.o \
+								signal.o
 
 obj-$(NAUT_CONFIG_LINUX_SYSCALLS) += syscalls/
