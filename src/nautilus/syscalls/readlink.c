@@ -1,15 +1,12 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/process.h>
 
+#define SYSCALL_NAME "sys_readlink"
+#include "syscall_impl_preamble.h"
+
 #ifndef MIN
 #define MIN(x, y) (x) > (y) ? (y) : (x)
 #endif
-
-#define SYSCALL_NAME "sys_readlink"
-
-#define ERROR(fmt, args...) ERROR_PRINT(SYSCALL_NAME ": " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT(SYSCALL_NAME": " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT(SYSCALL_NAME": " fmt, ##args)
 
 uint64_t sys_readlink(uint64_t path, uint64_t buf, uint64_t bufsiz) {
   DEBUG("Call to fake syscall (readlink)\n");

@@ -1,7 +1,8 @@
 #include <nautilus/nautilus.h>
 #include <sys/resource.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_prlimit64: " fmt, ##args)
+#define SYSCALL_NAME "sys_prlimit64"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_prlimit64(uint64_t pid, uint64_t resource, uint64_t new_rlim,
                        uint64_t _old_rlim) {

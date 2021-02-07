@@ -1,15 +1,16 @@
+#include <linux/futex.h>
 #include <nautilus/nautilus.h>
 #include <nautilus/waitqueue.h>
-#include <linux/futex.h>
+
+#define SYSCALL_NAME "sys_futex"
+#include "syscall_impl_preamble.h"
 
 #define NUM_FUTEXES 32
 
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1
 
-#define FUTEX_PRIVATE_FLAG	128
-
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_futex: " fmt, ##args)
+#define FUTEX_PRIVATE_FLAG 128
 
 struct futex {
   int* uaddr; // search key; == 0 implies not in use
@@ -76,7 +77,8 @@ static int futex_check(void* state) {
 }
 
 uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
-                   struct timespec* utime, uint32_t* uaddr2, uint32_t val3) {
+                   /*(struct timespec*)*/ void* utime, uint32_t* uaddr2,
+                   uint32_t val3) {
   // DEBUG("Called with args:\n0: %p\n1: %d\n2: %d\n3: %p\n4: %p\n5: %d\n",
   //             uaddr, op, val, utime, uaddr2, val3);
 
@@ -110,13 +112,11 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
       return -1;
     }
 
-    DEBUG("Starting futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr,
-                 val);
+    DEBUG("Starting futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr, val);
     f->val = val;
     spin_unlock(&futex_lock);
     nk_wait_queue_sleep_extended(f->waitq, futex_check, f);
-    DEBUG("Finished futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr,
-                 val);
+    DEBUG("Finished futex wait on %p %p %d %d\n", f, f->uaddr, *f->uaddr, val);
 
     return 0;
 
@@ -132,7 +132,7 @@ uint64_t sys_futex(uint32_t* uaddr, int op, uint32_t val,
     }
 
     DEBUG("Starting futex wake on %p %p %d (waking %d%s)\n", f, f->uaddr,
-                 *f->uaddr, val, val == INT_MAX ? " ALL" : "");
+          *f->uaddr, val, val == INT_MAX ? " ALL" : "");
 
     if (val != INT_MAX) {
       int i;

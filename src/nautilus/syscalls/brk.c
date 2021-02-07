@@ -2,27 +2,17 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/process.h>
 
-#define HEAP_BOT 0x100000000 /* Lowest virtual address for the process heap */
+#define SYSCALL_NAME "sys_brk"
+#include "syscall_impl_preamble.h"
+
+#define HEAP_BOT \
+  (void*)0x100000000UL /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
-  0x1400000 /* Heap is increased by a multiple of this amount */
+  0x1400000UL /* Heap is increased by a multiple of this amount */
 
 #ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
-
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_brk: " fmt, ##args)
-
-// here because goto wouldn't build for me; please replace if you can -ARN
-#define ret                                                 \
-  uint64_t retval;                                          \
-  if (brk) {                                                \
-    retval = MIN(brk, (uint64_t)current_process->heap_end); \
-  } else {                                                  \
-    retval = current_process->heap_begin;                   \
-  }                                                         \
-  spin_unlock(&current_process->lock);                      \
-  DEBUG("Going to return %p\n", retval);                    \
-  return (uint64_t)retval;
 
 /// @param brk The process's requested new max data segment address, or zero.
 /// @return If param brk is 0, returns the beginning of the data segment,
@@ -46,7 +36,7 @@ uint64_t sys_brk(const uint64_t brk) {
     if (!new_heap) {
       // Something terrible has happened. This may not be the correct response,
       // but the program will fail anyway.
-      ret
+      goto out;
     }
     nk_aspace_region_t heap_expand;
     heap_expand.va_start = (void*)HEAP_BOT;
@@ -58,18 +48,17 @@ uint64_t sys_brk(const uint64_t brk) {
     if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
       nk_vc_printf("Fail to allocate initial heap to aspace\n");
       free(new_heap);
-      ret
+      goto out;
     }
     current_process->heap_begin = HEAP_BOT;
     current_process->heap_end =
         current_process->heap_begin + HEAP_SIZE_INCREMENT;
-    // goto ret;
   } else {
     // Some memory has already been allocated
     if ((void*)brk > current_process->heap_end) {
       void* new_heap = malloc(HEAP_SIZE_INCREMENT);
       if (!new_heap) {
-        ret
+        goto out;
       }
       nk_aspace_region_t heap_expand;
       heap_expand.va_start = current_process->heap_end;
@@ -81,12 +70,20 @@ uint64_t sys_brk(const uint64_t brk) {
       if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
         nk_vc_printf("Fail to allocate more heap to aspace\n");
         free(new_heap);
-        ret
+        goto out;
       }
       current_process->heap_end += HEAP_SIZE_INCREMENT;
     }
-    // goto ret;
   }
 
-  ret
+out:; // empty statement required to allow following declaration
+  uint64_t retval;
+  if (brk) {
+    retval = MIN(brk, (uint64_t)current_process->heap_end);
+  } else {
+    retval = (uint64_t)current_process->heap_begin;
+  }
+  spin_unlock(&current_process->lock);
+  DEBUG("Going to return %p\n", retval);
+  return retval;
 }

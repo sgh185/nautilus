@@ -3,11 +3,14 @@
 #include <nautilus/naut_types.h>
 #include <nautilus/nautilus.h>
 
+#define SYSCALL_NAME "sys_write"
+#include "syscall_impl_preamble.h"
+
 /// TODO: move macros to a unistd replacement
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len) {
+uint64_t sys_write(uint32_t fd, const char* buf, size_t len) {
   unsigned long flags;
   uint64_t ret = -1;
 
@@ -20,11 +23,11 @@ uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len) {
     }
     ret = len;
   } else {
-    ret = (uint64_t)nk_fs_write((struct nk_fs_open_file_state*)fd, (void*)buf,
-                           (ssize_t)len);
+    DEBUG("Non-stdio fds are not yet supported\n");
+    return -1;
+    // ret = (uint64_t)nk_fs_write((struct nk_fs_open_file_state*)fd,
+    // (void*)buf,
+    //                        (ssize_t)len);
   }
-  // open file from descriptor. I have assumed the fd to be a pointer to
-  // nk_fs_open_file_state This write assumes a fs is mounted.
-  // struct file * const file = get_current_file(fd);
   return ret;
 }

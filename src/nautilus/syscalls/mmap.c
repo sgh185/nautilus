@@ -1,5 +1,8 @@
 #include <nautilus/nautilus.h>
 
+#define SYSCALL_NAME "sys_mmap"
+#include "syscall_impl_preamble.h"
+
 #define MAP_PRIVATE 0x2
 #define MAP_FIXED 0x10
 #define MAP_ANONYMOUS 0x20
@@ -8,10 +11,6 @@
 #define PROT_READ 0x1
 #define PROT_WRITE 0x2
 #define PROT_EXEC 0x4
-
-#define ERROR(fmt, args...) ERROR_PRINT("sys_mmap: " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT("sys_mmap: " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT("sys_mmap: " fmt, ##args)
 
 uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
                   uint64_t flags_, uint64_t fd_, uint64_t offset_) {
@@ -81,7 +80,7 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
   new_region.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
 
   // If the allocation is inside lower 4G, it is already mapped
-  if (allocation > 0x100000000UL) {
+  if (allocation > (void*)0x100000000UL) {
     if (nk_aspace_add_region(nk_process_current()->aspace, &new_region)) {
       DEBUG("Failed to add aspace region\n");
       free(allocation);
@@ -89,5 +88,5 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
     }
   }
 
-  return allocation;
+  return (uint64_t)allocation;
 }

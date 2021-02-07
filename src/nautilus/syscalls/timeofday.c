@@ -2,12 +2,13 @@
 /// elsewhere in Nautilus, and the syscalls should be split into their own files
 /// for consistency
 
-#include <nautilus/nautilus.h>
 #include <dev/apic.h>
+#include <nautilus/nautilus.h>
 
 #include <errno.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_timeofday: " fmt, ##args)
+#define SYSCALL_NAME "sys_timeofday"
+#include "syscall_impl_preamble.h"
 
 #define NSEC_PER_SEC (uint64_t)1000000000
 #define NSEC_PER_USEC (uint64_t)1000U
@@ -91,10 +92,10 @@ uint64_t sys_clock_gettime(uint64_t which_clock, uint64_t tp_) {
 
 uint64_t sys_clock_getres(uint64_t clk_id, uint64_t tp_) {
   DEBUG_PRINT("Got to getres begin\n");
-  if (tp_ == NULL) {
+  struct timespec* tp = (struct timespec*)tp_;
+  if (tp == NULL) {
     return 0;
   }
-  struct timespec* tp = (struct timespec*)tp_;
   DEBUG_PRINT("Got past getres pointer cast\n");
   tp->tv_sec = 0;
   DEBUG_PRINT("Got past getres set a value\n");

@@ -1,10 +1,11 @@
-#include <nautilus/nautilus.h>
 #include <nautilus/fs.h>
+#include <nautilus/nautilus.h>
 
-int
-sys_ftruncate(int fd, int len, int c, int d, int e, int f)
-{
-  int ret;
-	ret = nk_fs_ftruncate((struct nk_fs_open_file_state*)fd, (off_t)len);
-	return ret;
+#define SYSCALL_NAME "sys_ftruncate"
+#include "syscall_impl_preamble.h"
+
+uint64_t sys_ftruncate(uint64_t fd, uint64_t len) {
+  uint64_t ret;
+  ret = nk_fs_ftruncate((struct nk_fs_open_file_state*)fd, (off_t)len);
+  return ret;
 }

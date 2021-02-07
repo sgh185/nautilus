@@ -1,8 +1,13 @@
-#include <nautilus/nautilus.h>
 #include <nautilus/fs.h>
+#include <nautilus/nautilus.h>
 
-// #include <sys/types.h> /// This breaks build due to conflicting typedef on off_t
-typedef int mode_t; /// TODO move this to a better spot; including sys/types.h from linux breaks the build
+#define SYSCALL_NAME "sys_mkdir"
+#include "syscall_impl_preamble.h"
+
+// #include <sys/types.h> /// This breaks build due to conflicting typedef on
+// off_t
+typedef int mode_t; /// TODO move this to a better spot; including sys/types.h
+                    /// from linux breaks the build
 
 uint64_t sys_mkdir(uint64_t pathname_, uint64_t mode_) {
   char* pathname = (char*)pathname_;

@@ -1,6 +1,10 @@
+/*
+ * Intended to be included in Nautilus runtimes which want to use Linux syscalls.
+ * NOT intended for use in separate compilation.
+ */
+
 #include <nautilus/syscall_table.h>
 #include <nautilus/syscall_kernel.h>
-
 
 #define read(X, Y, Z) ({ SYSCALL(READ, X, Y, Z); })
 #define write(X, Y, Z) ({ SYSCALL(WRITE, X, Y, Z); })

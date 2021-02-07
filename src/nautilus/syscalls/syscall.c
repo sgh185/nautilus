@@ -2,23 +2,23 @@
 
 #include <nautilus/msr.h>
 #include <nautilus/nautilus.h>
+#include <nautilus/process.h>
 #include <nautilus/shell.h>
 #include <nautilus/syscall.h>
 #include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
-#include <nautilus/process.h>
 
-#define ERROR(fmt, args...) ERROR_PRINT("syscall: " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall: " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT("syscall: " fmt, ##args)
+#define SYSCALL_NAME "syscall"
+#include "syscall_impl_preamble.h"
+
 #define MAX_SYSCALL 314
 
-typedef uint64_t (*syscall_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
+typedef uint64_t (*syscall_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+                              uint64_t);
 syscall_t syscall_table[MAX_SYSCALL];
 
 extern void syscall_entry(void);
 void init_syscall_table() {
-
   int i;
 
   for (i = 0; i < MAX_SYSCALL; i++) {
@@ -348,33 +348,41 @@ void init_syscall_table() {
 int int80_handler(excp_entry_t* excp, excp_vec_t vector, void* state) {
 
   struct nk_regs* r = (struct nk_regs*)((char*)excp - 128);
-  int syscall_nr = (int)r->rax;
-  INFO("Inside syscall irq handler for syscall %d\n", syscall_nr);
-  if (syscall_table[syscall_nr] != 0) {
-    r->rax =
-        syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    INFO("Syscall returned %ld\n", r->rax);
-  } else {
-    INFO("System Call not Implemented!!\n");
-  }
-  return 0;
+  return nk_syscall_handler(r);
 }
 
 uint64_t nk_syscall_handler(struct nk_regs* r) {
+
+#ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
+  if (!irqs_enabled()) {
+    panic("Start syscall with interrupts off!");
+  }
+#endif
+
+  DEBUG("On entry to syscall, %%gsbase=%p\n", msr_read(0xC0000101));
+
   int syscall_nr = (int)r->rax;
   nk_process_t* current_process = nk_process_current();
-  INFO("Inside syscall_syscall handler for syscall %d\n", syscall_nr);
+  DEBUG("Inside syscall_syscall handler for syscall %d\n", syscall_nr);
   if (!current_process) {
     panic("Syscall out of the context of a process.\n");
   }
-  get_cur_thread()->sysret_addr = r->rcx; /* Used for special return in clone */
+  get_cur_thread()->sysret_addr =
+      (void*)r->rcx; /* Used for special return in clone */
   if (syscall_table[syscall_nr] != 0) {
     r->rax =
         syscall_table[syscall_nr](r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    INFO("Syscall returned %ld\n", r->rax);
+    DEBUG("Syscall returned %ld\n", r->rax);
   } else {
-    INFO("System Call not Implemented: %d!!\n", syscall_nr);
+    DEBUG("System Call not Implemented: %d!!\n", syscall_nr);
   }
+
+#ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
+  if (!irqs_enabled()) {
+    panic("Return from syscall with interrupts off!");
+  }
+#endif
+
   return r->rax;
 }
 
@@ -397,6 +405,4 @@ void nk_syscall_init() {
   syscall_setup();
 }
 
-void nk_syscall_init_ap() {
-  syscall_setup();
-}
+void nk_syscall_init_ap() { syscall_setup(); }

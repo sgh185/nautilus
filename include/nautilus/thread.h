@@ -191,8 +191,8 @@ struct nk_thread {
 
 #ifdef NAUT_CONFIG_PROCESSES
     nk_process_t *process;       /* Initialized if part of a process */
-    void* set_child_tid; /* May not be needed -ARN */
-    void* clear_child_tid;
+    uint32_t* set_child_tid; /* May not be needed -ARN */
+    uint32_t* clear_child_tid;
     void* thread_start_addr;
     void* sysret_addr; /* Address set on entry to a syscall */
     uint64_t fake_affinity; /* Simulated affinity of the thread */

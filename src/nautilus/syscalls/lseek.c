@@ -1,11 +1,13 @@
 #include <nautilus/fs.h>
 #include <nautilus/nautilus.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_lseek: " fmt, ##args)
+#define SYSCALL_NAME "sys_lseek"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence) {
   if (fd <= 2) {
-		DEBUG("WARNING: lseek may not be properly implemented for std(in,out,err)\n");
+    DEBUG(
+        "WARNING: lseek may not be properly implemented for std(in,out,err)\n");
     return 0;
   }
   uint64_t ret;

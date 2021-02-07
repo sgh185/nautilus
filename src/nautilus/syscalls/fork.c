@@ -2,10 +2,10 @@
 #include <nautilus/shell.h>
 #include <nautilus/thread.h>
 
+#define SYSCALL_NAME "sys_fork"
+#include "syscall_impl_preamble.h"
 
-nk_thread_id_t
-sys_fork(int a, int b, int c, int d, int e, int f)
-{
-	printk( "Attempting to fork!\n");
-	return nk_thread_fork();
+uint64_t sys_fork() {
+  DEBUG("Call to likely improperly-implemented syscall");
+  return (uint64_t)nk_thread_fork();
 }

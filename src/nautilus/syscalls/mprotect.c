@@ -1,8 +1,7 @@
 #include <nautilus/nautilus.h>
 
-#define ERROR(fmt, args...) ERROR_PRINT("sys_mprotect: " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT("sys_mprotect: " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT("sys_mprotect: " fmt, ##args)
+#define SYSCALL_NAME "sys_mprotect"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_mprotect(int addr, int length, int prot) {
   // "Works" by mmap setting liberal permissions

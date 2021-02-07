@@ -1,18 +1,17 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/timer.h>
 
-#define ERROR(fmt, args...) ERROR_PRINT("sys_nanosleep: " fmt, ##args)
-#define DEBUG(fmt, args...) DEBUG_PRINT("sys_nanosleep: " fmt, ##args)
-#define INFO(fmt, args...) INFO_PRINT("sys_nanosleep: " fmt, ##args)
+#define SYSCALL_NAME "sys_nanosleep"
+#include "syscall_impl_preamble.h"
 
 /// TODO: move these to a better place
 struct timespec {
-  uint64_t tv_sec; /* seconds */
-  uint64_t tv_nsec;  /* nanoseconds */
+  uint64_t tv_sec;  /* seconds */
+  uint64_t tv_nsec; /* nanoseconds */
 };
 #define NSEC_PER_SEC (uint64_t)1000000000
 
-uint64_t sys_nanosleep(uint64_t req, uint64_t rem) { 
+uint64_t sys_nanosleep(uint64_t req, uint64_t rem) {
   const struct timespec* req_sleep = (struct timespec*)req;
 
   if (!req_sleep) {

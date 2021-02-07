@@ -351,7 +351,7 @@ int nk_fs_mkdir(char* path, int mode)
 
     if (!fs) { 
 	    ERROR("Cannot find filesystem named %s\n", fs_name);
-        return FS_BAD_FD;
+        return -1;
     }
 
     return directory_create(fs, path);

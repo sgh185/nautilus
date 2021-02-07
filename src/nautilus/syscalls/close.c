@@ -1,11 +1,10 @@
-#include <nautilus/nautilus.h>
 #include <nautilus/fs.h>
+#include <nautilus/nautilus.h>
 
-int
-sys_close(int fd, int b, int c, int d, int e, int f)
-{
-	// TODO: add protection against bad fd
-  struct nk_fs_open_file_state* file;
-	file = nk_fs_close((struct nk_fs_open_file_state*)fd);
-	return (int)file;
+#define SYSCALL_NAME "sys_close"
+#include "syscall_impl_preamble.h"
+
+uint64_t sys_close(uint64_t fd) {
+  // TODO: add protection against bad fd
+  return (uint64_t)nk_fs_close((struct nk_fs_open_file_state*)fd);
 }

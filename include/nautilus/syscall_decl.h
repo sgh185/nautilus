@@ -1,24 +1,24 @@
-uint64_t sys_close(uint64_t fd, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_close(uint64_t fd);
 
-uint64_t sys_exit(uint64_t	exit_status, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_exit(uint64_t exit_status);
 
-uint64_t sys_fork(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_fork();
 
-uint64_t sys_fstat(uint64_t fd, uint64_t st, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_fstat(uint64_t fd, uint64_t st);
 
-uint64_t sys_ftruncate(uint64_t fd, uint64_t len, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_ftruncate(uint64_t fd, uint64_t len);
 
-uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence);
 
-uint64_t sys_open(uint64_t filename, uint64_t flags,uint64_t  mode);
+uint64_t sys_open(uint64_t filename, uint64_t flags, uint64_t mode);
 
-uint64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_read(uint64_t fd, uint64_t buf, uint64_t len);
 
-uint64_t sys_stat(uint64_t pathname,uint64_t st, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_stat(uint64_t pathname, uint64_t st);
 
-uint64_t sys_write(uint64_t fd, uint64_t buf, uint64_t len);
+uint64_t sys_write(uint32_t fd, const char *buf, size_t len);
 
-uint64_t sys_getpid(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
+uint64_t sys_getpid();
 
 uint64_t sys_gettimeofday(uint64_t timeval_ptr, uint64_t timezone_ptr);
 
@@ -120,7 +120,7 @@ uint64_t sys_setsockopt(uint64_t usockvec);
 
 uint64_t sys_getsockopt(uint64_t fd, uint64_t level, uint64_t optname, uint64_t optval, uint64_t optlen);
 
-uint64_t sys_clone(uint64_t fd, uint64_t level, uint64_t optname, uint64_t optval, uint64_t optlen);
+uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp, uint32_t *parent_tidptr, uint32_t *child_tidptr, void *tls_val);
 
 uint64_t sys_vfork();
 
@@ -402,7 +402,7 @@ uint64_t sys_tkill(uint64_t pid, uint64_t sig);
 
 uint64_t sys_time(uint64_t tloc);
 
-uint64_t sys_futex(uint64_t usaddr, uint64_t op, uint64_t val, uint64_t utime, uint64_t uaddr2, uint64_t val3);
+uint64_t sys_futex(uint32_t *uaddr, int op, uint32_t val, /*(struct timespec*)*/ void *utime, uint32_t *uaddr2, uint32_t val3);
 
 uint64_t sys_sched_setaffinity(uint64_t pid, uint64_t len, uint64_t user_mask_ptr);
 
@@ -434,7 +434,7 @@ uint64_t sys_remap_file_pages(uint64_t start, uint64_t size, uint64_t protocol, 
 
 uint64_t sys_getdents64(uint64_t fd, uint64_t dirent, uint64_t count);
 
-uint64_t sys_set_tid_address(uint64_t tldptr);
+uint64_t sys_set_tid_address(uint32_t *tldptr);
 
 uint64_t sys_restart_syscall();
 
@@ -625,4 +625,3 @@ uint64_t sys_process_vm_writev(uint64_t pud, uint64_t lvec, uint64_t liovcnt, ui
 uint64_t sys_kcmp(uint64_t pid1, uint64_t pid2, uint64_t type, uint64_t idx1, uint64_t idx2);
 
 uint64_t sys_finit_module(uint64_t fd, uint64_t uargs, uint64_t flags);
-

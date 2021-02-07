@@ -1,7 +1,8 @@
 #include <asm/prctl.h>
 #include <nautilus/nautilus.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_arch_prctl: " fmt, ##args)
+#define SYSCALL_NAME "sys_arch_prctl"
+#include "syscall_impl_preamble.h"
 
 /// This is an x86-specific implementation
 uint64_t sys_arch_prctl(uint64_t task, uint64_t option, uint64_t addrlen) {
@@ -15,43 +16,31 @@ uint64_t sys_arch_prctl(uint64_t task, uint64_t option, uint64_t addrlen) {
   uint64_t ret = 0;
   switch (task) {
   case ARCH_SET_FS: {
-    __asm__("movl %0, %%edx\n"
-            "movl %1, %%eax\n"
-            "movq $0xC0000100, %%rcx\n"
-            "wrmsr\n" ::"g"(option >> 32),
-            "g"(option & 0xFFFFFFFF));
+    msr_write(MSR_FS_BASE, option);
     break;
   }
   case ARCH_SET_GS: {
-    __asm__("movl %0, %%edx\n"
-            "movl %1, %%eax\n"
-            "movq $0xC0000101, %%rcx\n"
-            "wrmsr\n" ::"g"(option >> 32),
-            "g"(option & 0xFFFFFFFF));
+    /*
+     * Some changes need to be made to support changing gs, most notably:
+     * 1. In the scheduler, have a concept that a user thread can change gs
+     * 2. Swap gs on syscall entry/exit
+     * 3. Swap gs on any call to Nautilus functions from the process
+     */
+    panic("Changing GS is not supported!\n");
+    msr_write(MSR_GS_BASE, option);
     break;
   }
   case ARCH_GET_FS: {
-    __asm__("movq $0xC0000100, %%rcx\n"
-            "rdmsr\n"
-            "salq $32, %%rdx\n"
-            "orq %%rdx, %%rax\n"
-            "movq %%rax, %0"
-            : "=r"(ret));
+    ret = msr_read(MSR_FS_BASE);
     break;
   }
   case ARCH_GET_GS: {
-    __asm__("movq $0xC0000101, %%rcx\n"
-            "rdmsr\n"
-            "salq $32, %%rdx\n"
-            "orq %%rdx, %%rax\n"
-            "movq %%rax, %0"
-            : "=r"(ret));
+    ret = msr_read(MSR_GS_BASE);
     break;
   }
   default: {
     DEBUG("Unimplemented option\n");
     ret = -1;
-    (void)0;
   }
   }
   return ret;

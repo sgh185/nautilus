@@ -1,7 +1,8 @@
 #include <nautilus/fs.h>
 #include <nautilus/nautilus.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_fstat: " fmt, ##args)
+#define SYSCALL_NAME "sys_fstat"
+#include "syscall_impl_preamble.h"
 
 // This struct is not necessarily correct.
 struct stat {
@@ -33,7 +34,7 @@ uint64_t sys_fstat(uint64_t fd, uint64_t statbuf_) {
   statbuf->st_size = 0;
   statbuf->st_blksize = 1024;
   statbuf->st_blocks = 0;
-	return 0;
+  return 0;
 
   switch (fd) {
   case 0:

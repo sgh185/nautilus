@@ -1,7 +1,8 @@
 #include <nautilus/nautilus.h>
 #include <nautilus/syscall_decl.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_openat: " fmt, ##args)
+#define SYSCALL_NAME "sys_openat"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_openat(uint64_t dfd, uint64_t filename, uint64_t flags,
                     uint64_t mode) {

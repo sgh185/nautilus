@@ -1,7 +1,7 @@
 #include <nautilus/nautilus.h>
 
-
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_sigaction: " fmt, ##args)
+#define SYSCALL_NAME "sys_sigaction"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_rt_sigaction(uint64_t sig, uint64_t act, uint64_t oact,
                           uint64_t sigsetsize) {

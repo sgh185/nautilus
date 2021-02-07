@@ -1,6 +1,7 @@
 #include <nautilus/nautilus.h>
 
-#define DEBUG(fmt, args...) DEBUG_PRINT("syscall_stubs: " fmt, ##args)
+#define SYSCALL_NAME "sys_stubs"
+#include "syscall_impl_preamble.h"
 
 uint64_t sys_lstat(uint64_t filename, uint64_t statbuf) {
   /// TODO: entire syscall
@@ -876,7 +877,6 @@ uint64_t sys_reboot(uint64_t magic1, uint64_t magic2, uint64_t cmd,
   DEBUG("Call to stubbed syscall (reboot)\n");
   return -1;
 }
-
 
 uint64_t sys_setdomainname(uint64_t name, uint64_t len) {
   /// TODO: entire syscall
