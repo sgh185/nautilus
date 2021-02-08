@@ -1,5 +1,5 @@
 #include <asm/lowlevel.h>
-#include <nautilus/syscall_kernel.h>
+#include <nautilus/syscalls/kernel.h>
 
 /*
 Entry point for syscall handler

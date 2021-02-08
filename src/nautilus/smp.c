@@ -29,7 +29,6 @@
 #include <nautilus/gdt.h>
 #include <nautilus/cpu.h>
 #include <nautilus/naut_assert.h>
-#include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
 #include <nautilus/queue.h>
 #include <nautilus/idle.h>
@@ -59,6 +58,10 @@
 
 #ifdef NAUT_CONFIG_CACHEPART
 #include <nautilus/cachepart.h>
+#endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/kernel.h>
 #endif
 
 

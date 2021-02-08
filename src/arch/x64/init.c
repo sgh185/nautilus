@@ -55,7 +55,6 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
-#include <nautilus/syscall_kernel.h>
 #include <aspace/patching.h>
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
@@ -98,6 +97,10 @@
 
 #ifdef NAUT_CONFIG_NET_COLLECTIVE_ETHERNET
 #include <net/collective/ethernet/ethernet_collective.h>
+#endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/kernel.h>
 #endif
 
 #include <dev/apic.h>

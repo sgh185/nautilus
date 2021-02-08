@@ -1,17 +1,14 @@
-#include <nautilus/irq.h>
+#include <nautilus/syscalls/kernel.h>
 
+#include <nautilus/irq.h>
 #include <nautilus/msr.h>
 #include <nautilus/nautilus.h>
 #include <nautilus/process.h>
 #include <nautilus/shell.h>
-#include <nautilus/syscall.h>
-#include <nautilus/syscall_kernel.h>
 #include <nautilus/thread.h>
 
 #define SYSCALL_NAME "syscall"
-#include "syscall_impl_preamble.h"
-
-#define MAX_SYSCALL 314
+#include "impl_preamble.h"
 
 typedef uint64_t (*syscall_t)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
                               uint64_t);
@@ -363,7 +360,7 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
 
   int syscall_nr = (int)r->rax;
   nk_process_t* current_process = nk_process_current();
-  DEBUG("Inside syscall_syscall handler for syscall %d\n", syscall_nr);
+  DEBUG("Inside syscall handler for syscall %d\n", syscall_nr);
   if (!current_process) {
     panic("Syscall out of the context of a process.\n");
   }
