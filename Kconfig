@@ -1093,7 +1093,6 @@ menu Debugging
         Turn on debug prints for wait queues
 	YOU PROBABLY DO NOT WANT TO DO THIS - SEE COMMENTS
 
-
 config DEBUG_FUTURES
       bool "Debug Futures"
       depends on DEBUG_PRINTS
@@ -1235,6 +1234,13 @@ config DEBUG_PMC
         default n
         help
                 Turn on debug prints for the performance counter (PMC) subsystem
+
+config DEBUG_LINUX_SYSCALLS
+      bool "Debug Linux Syscalls"
+      depends on DEBUG_PRINTS && LINUX_SYSCALLS
+      default n
+      help
+        Turn on debug prints for Linux Syscall emulation
 
 endmenu
 
