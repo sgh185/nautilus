@@ -1,4 +1,6 @@
+#include <nautilus/syscalls/decl.h>
 #include <nautilus/syscalls/kernel.h>
+#include <nautilus/syscalls/numbers.h>
 
 #include <nautilus/irq.h>
 #include <nautilus/msr.h>

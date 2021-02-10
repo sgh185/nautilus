@@ -44,6 +44,10 @@ extern "C" {
 //#include <nautilus/cachepart.h>
 //#include <nautilus/scheduler.h>
 
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/proc.h>
+#endif
+
 /* common thread stack sizes */
 #define PSTACK_DEFAULT 0  // will be 4K
 #define PSTACK_4KB     0x001000
@@ -96,11 +100,15 @@ typedef struct nk_process {
   // what aspace the process is using
   nk_aspace_t *aspace;
 
-  // beginning of heap
+  // beginning of heap TODO move to syscall state?
   void *heap_begin;
 
-  // end of heap
+  // end of heap TODO move to syscall state?
   void *heap_end;
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+  struct nk_process_linux_syscall_state syscall_state;
+#endif
 
   // last CPU a thread is pinned to
   uint64_t last_cpu_thread;

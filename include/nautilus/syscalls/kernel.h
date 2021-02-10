@@ -3,8 +3,6 @@
 
 #ifndef __ASSEMBLER__
 
-#include <nautilus/syscalls/decl.h>
-#include <nautilus/syscalls/numbers.h>
 #include <nautilus/nautilus.h>
 
 int nk_legacy_syscall_handler(excp_entry_t* excp, excp_vec_t vector,

@@ -1,4 +1,5 @@
 obj-y += \
+  proc.o \
 	tests.o \
 	state.o \
 	stubs.o \

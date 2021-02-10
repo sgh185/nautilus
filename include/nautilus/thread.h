@@ -43,6 +43,10 @@ extern "C" {
 #include <nautilus/aspace.h>
 #endif
 
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/proc.h>
+#endif
+
 #include <nautilus/alloc.h>
 
 typedef uint64_t nk_stack_size_t;
@@ -191,12 +195,18 @@ struct nk_thread {
 
 #ifdef NAUT_CONFIG_PROCESSES
     nk_process_t *process;       /* Initialized if part of a process */
+#endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+    struct nk_thread_linux_syscall_state syscall_state;
+    // TODO: move below into syscall_state
     uint32_t* set_child_tid; /* May not be needed -ARN */
+    void* sysret_addr; /* Address set on entry to a syscall */
     uint32_t* clear_child_tid;
     void* thread_start_addr;
-    void* sysret_addr; /* Address set on entry to a syscall */
     uint64_t fake_affinity; /* Simulated affinity of the thread */
 #endif
+
     nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 
     nk_stack_size_t stack_size;
