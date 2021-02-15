@@ -110,6 +110,11 @@ typedef struct nk_aspace_carat {
     // address space
     nk_aspace_t *aspace;
 
+    /*
+     * CARAT state 
+     */
+    nk_carat_context *context;
+
     // perhaps you will want to do concurrency control?
     spinlock_t  lock;
 
@@ -541,7 +546,7 @@ static int defragment_region(
     /**
      *  Called nk_carat_move_region to actually do the work of defragmentation
      * */
-    if (nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
+    if (nk_carat_move_region(carat->context, cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
       ASPACE_UNLOCK(carat);
       ERROR("failed to move region...\n");
       return -1;
@@ -588,7 +593,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 
     void *free_space_start; // don't care
     // call CARAT runtime
-    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
+    int res = nk_carat_move_region(carat->context, cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
     if (res) {
         ASPACE_UNLOCK(carat);
         return -1;
