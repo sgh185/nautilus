@@ -39,7 +39,12 @@
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
 
+
+/*
+ * Helper, status macros
+ */
 #define CARAT_STACK_CHECK 0
+
 
 /*
  * =================== Data Structures/Definitions ===================  
@@ -63,7 +68,12 @@ struct move_context {
 /*
  * Driver for performing a move of an allocation that's already tracked
  */ 
-int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
+int _move_allocation(
+    nk_carat_context *the_context,
+    void *allocation_to_move,
+    void *allocation_target
+);
+
 
 /*
  * Driver for performing multiple moves of allocations that are already tracked
@@ -73,7 +83,6 @@ int nk_carat_move_allocations(void **allocations_to_move, void **allocation_targ
 /*
  * Driver for defragmenting a region using allocation moves
  */
-
 int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length, void **free_start);
 
 /*

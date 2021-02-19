@@ -33,7 +33,10 @@
  * Handler for patching escapes upon moving @entry->pointer to @allocation_target 
  */ 
 NO_CARAT_NO_INLINE
-int _carat_patch_escapes(allocation_entry *entry, void *allocation_target) 
+int _carat_patch_escapes(
+    allocation_entry *entry, 
+    void *allocation_target
+) 
 {
     /*
      * TOP --- Iterate over each escape, and change what each escape  
@@ -122,7 +125,10 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
 }
 #endif
 
-// Debugging
+
+/*
+ * Debugging
+ */ 
 NO_CARAT
 static void __carat_print_registers (struct nk_regs * r)
 {
@@ -141,9 +147,9 @@ static void __carat_print_registers (struct nk_regs * r)
 
 
 /*
-* Search through all registers in a thread and patch 
-* any of them that refer to the allocation being moved
-*/ 
+ * Search through all registers in a thread and patch 
+ * any of them that refer to the allocation being moved
+ */ 
 NO_CARAT
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state) 
 {
@@ -152,10 +158,12 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
      */ 
     struct move_context *context = (struct move_context*) state;
 
+
     /*
      * Acquire all registers
      */ 
     struct nk_regs * r = ((struct nk_regs*) ((char*)t->rsp - 128)); // FIX: t->rsp - 128 might be wrong, look at garbage collector
+
 
     /*
      * Debugging, sanity check for t->rsp - 128
@@ -205,133 +213,228 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
     return;
 }
 
+
 /*
-* Catches the runtime up before any move happens
-*/
+ * Catches the runtime up before any move happens
+ */
 NO_CARAT
-void _carat_cleanup() {
-    CARAT_PRINT("CARAT: processesing escape window of size %lu\n", global_carat_context.total_escape_entries);
-    _carat_process_escape_window();
-    //TODO: if we implement batch freeing, process frees here
-}
+void _carat_cleanup(nk_carat_context *the_context) 
+{
+    /*
+     * Process the remaining escapes in @the_context->escape_window
+     */ 
+    CARAT_PRINT(
+        "CARAT: processesing escape window of size %lu\n", 
+        the_context->total_escape_entries
+    );
 
-NO_CARAT 
-int _move_allocation(void *allocation_to_move, void *allocation_target) {
-
-    _carat_cleanup();
+    _carat_process_escape_window(the_context);
 
 
     /*
-    * Find the entry for the @allocation_to_move addr in the 
-    * allocation_map --- if not found, return -1
-    */
-    allocation_entry *entry = _carat_find_allocation_entry(allocation_to_move);
-    if (!entry) {
+     * TODO: if we implement batch freeing, process frees here 
+     */
+    
+
+    return;
+}
+
+
+NO_CARAT 
+int _move_allocation(
+    nk_carat_context *the_context,
+    void *allocation_to_move,
+    void *allocation_target
+) 
+{
+    /*
+     * Perform any leftover/cleanup processing for @the_context 
+     * before moving anything related to @allocation_to_move
+     */ 
+    _carat_cleanup(the_context);
+
+
+    /*
+     * Find the entry for the @allocation_to_move addr in the 
+     * allocation_map --- if not found, return -1
+     */
+    allocation_entry *entry = 
+        _carat_find_allocation_entry(
+            the_context,
+            allocation_to_move
+        );
+
+    if (!entry) 
+    {
         CARAT_PRINT("CARAT: Cannot find entry\n");
         goto out_bad;
     }
 
+
 	/*
-    * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
-    * to use the address of @allocation_target
-    */
-    if (!_carat_patch_escapes(entry, allocation_target)) {
+     * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
+     * to use the address of @allocation_target
+     */
+    if (!_carat_patch_escapes(entry, allocation_target)) 
+    {
         CARAT_PRINT("CARAT: The patch is toast --- can't patch escapes!\n");
         goto out_bad;
     }
 
 
     /*
-    * For each thread, patch the registers that currently contain references to 
-    * @allocation_target. In order to patch each thread, 
-    * all necessary info is packaged into a move_context struct
-    */
-    struct move_context context = {allocation_to_move, allocation_target, entry->size, 0};
+     * For each thread, patch the registers that currently contain references to 
+     * @allocation_target. In order to patch each thread, 
+     * all necessary info is packaged into a move_context struct
+     */
+    struct move_context context = { allocation_to_move, allocation_target, entry->size, 0};
     nk_sched_map_threads(-1, _carat_patch_thread_registers, &context);
-    if (context.failed) {
+    if (context.failed) 
+    {
         CARAT_PRINT("CARAT: Unable to patch threads\n");
         goto out_bad;
     }
    
+
     /*
 	 * TODO: Do we need to handle our own stack? --- this is the possible 
 	 * location in the handler where the stack needs to be handled 
 	 */
 
-    /*
-    * Move the contents pointed to by @allocation_to_move to the 
-    * location @allocation_target (this is the "actual" move)
-    */
-    memmove(allocation_target, allocation_to_move, entry->size);
 
+    /*
+     * Move the contents pointed to by @allocation_to_move to the 
+     * location @allocation_target (this is the "actual" move)
+     */
+    memmove(allocation_target, allocation_to_move, entry->size);
     return 0;
 
+
 out_bad:
-    CARAT_PRINT("_move_allocation failed: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
+    CARAT_PRINT(
+        "_move_allocation failed: Allocation to move: %p, Allocation target: %p", 
+        allocation_to_move, 
+        allocation_target
+    );
     return -1;
 
 }
 
+
 NO_CARAT
-int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target) 
+int nk_carat_move_allocation(
+    nk_carat_context *the_context
+    void *allocation_to_move, 
+    void *allocation_target
+)
 {
     /*
-    * Pauses all execution so we can perform a move
-    */
-	if (!(nk_sched_stop_world())) {
+     * Pauses all execution so we can perform a move
+     */
+	if (!(nk_sched_stop_world())) 
+    {
         CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
         goto out_bad;
     }
 
-    CARAT_READY_OFF;
 
-    if(_move_allocation(allocation_to_move, allocation_target)) {
-        goto out_bad;
-    }
+    /*
+     * Pause CARAT for the move
+     */ 
+    CARAT_READY_OFF(the_context);
 
-    CARAT_READY_ON;
+
+    /*
+     * Perform the move
+     */ 
+    int move_status = 
+        _move_allocation(
+            the_context,
+            allocation_to_move,
+            allocation_target
+        );
+
+    if (move_status) { goto out_bad; }
+
+
+    /*
+     * Turn everything back on
+     */ 
+    CARAT_READY_ON(the_context);
     nk_sched_start_world();
+
 
     CARAT_PRINT("CARAT: Move succeeded.\n");
-    
     return 0;
 
-out_bad:
-    CARAT_PRINT("nk_carat_move_allocation: Allocation to move: %p, Allocation target: %p", allocation_to_move, allocation_target);
-    return -1;
 
+out_bad:
+    CARAT_PRINT(
+        "nk_carat_move_allocation: Allocation to move: %p, Allocation target: %p", 
+        allocation_to_move, 
+        allocation_target
+    );
+    
+    return -1;
 }
 
+
 NO_CARAT
-int nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves) 
+int nk_carat_move_allocations(
+    nk_carat_context *the_context
+    void **allocations_to_move, 
+    void **allocation_targets, 
+    uint64_t num_moves
+) 
 {
     /*
-    * Pauses all execution so we can perform a series of move
-    */
-	if (!(nk_sched_stop_world())) {
+     * Pauses all execution so we can perform a series of move
+     */
+	if (!(nk_sched_stop_world())) 
+    {
         CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
         goto out_bad;
     }
 
-    CARAT_READY_OFF;
 
-    for(int i = 0; i < num_moves; i++) {
-        if(_move_allocation(allocations_to_move[i], allocation_targets[i])) {
-            goto out_bad;
-        }
+    /*
+     * Now turn off CARAT to perform the moves
+     */ 
+    CARAT_READY_OFF(the_context);
+
+    
+    /*
+     * Perform a series of moves
+     */ 
+    for (int i = 0; i < num_moves; i++) 
+    {
+        int next_move_status =
+            _move_allocation(
+                the_context,
+                allocations_to_move[i],
+                allocation_targets[i]
+            );
+
+        if (next_move_status) { goto out_bad; }
     }
     
-    CARAT_READY_ON;
+
+    /*
+     * Turn everything back on
+     */ 
+    CARAT_READY_ON(the_context);
     nk_sched_start_world();
 
+
     CARAT_PRINT("CARAT: Moves succeeded.\n");
-    
     return 0;
+
 
 out_bad:
     CARAT_PRINT("nk_carat_move_allocations: failed to move");
     return -1;
 }
+
 
 NO_CARAT
 int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length, void **free_start) 
