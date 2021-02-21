@@ -7,7 +7,7 @@ public:
   void hello() {
     printf("Hello, world!\n");
   }
-}
+};
 
 int main() {
   HelloFriend fnd;
