@@ -12,6 +12,7 @@ Entry point for syscall handler
 // Interesting to see if register can directly be moved to RFLAGS
 
 ENTRY(syscall_entry)
+    subq $256, %rsp // To avoid mangling redzone
     pushf 
     SAVE_GPRS_SYSCALL()
     movq %rsp, %rdi
@@ -24,6 +25,7 @@ ENTRY(syscall_entry)
     mov %r13, %rsp
     RESTORE_GPRS_EXCEPT_RAX()
     popf
+    addq $256, %rsp
     jmp *%rcx
 bad:
     movabs $syscall_err_str, %rdi

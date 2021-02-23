@@ -306,7 +306,6 @@ smp_setup_xcall_bsp (struct cpu * core)
     return 0;
 }
 
-
 static int
 smp_ap_setup (struct cpu * core)
 {
@@ -343,6 +342,10 @@ smp_ap_setup (struct cpu * core)
     if (nk_alloc_init_ap()) { 
 	ERROR_PRINT("Could not set up allocators for core %u\n",core->id);
     }
+#endif
+
+#ifdef NAUT_CONFIG_USE_IST
+    nk_gdt_init_ap(core);
 #endif
 
 #ifdef NAUT_CONFIG_ASPACES

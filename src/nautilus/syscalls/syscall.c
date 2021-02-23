@@ -358,8 +358,6 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
   }
 #endif
 
-  DEBUG("On entry to syscall, %%gsbase=%p\n", msr_read(0xC0000101));
-
   int syscall_nr = (int)r->rax;
   nk_process_t* current_process = nk_process_current();
   DEBUG("Inside syscall handler for syscall %d\n", syscall_nr);

@@ -101,8 +101,8 @@ struct gate_desc64 {
         struct {
             uint16_t target_off_lo;
             uint16_t target_css;
-            uint8_t  ist   : 5;
-            uint8_t  rsvd0 : 3;
+            uint8_t  ist   : 3;
+            uint8_t  rsvd0 : 5;
             uint8_t  type  : 4;
             uint8_t  rsvd1 : 1;
             uint8_t  dpl   : 2;
@@ -157,7 +157,13 @@ write_gate_desc (struct   gate_desc64 * idt,
 static inline void
 set_intr_gate (struct gate_desc64 * idt, unsigned gate, const void * func) 
 {
+#ifdef NAUT_CONFIG_USE_IST
+    // We don't want to use IST when handling DF, otherwise a triple fault is more likely
+    char use_ist = gate != DF_EXCP;
+    write_gate_desc(idt, gate, GATE_TYPE_INT, func, 0, use_ist, KERNEL_CS);
+#else
     write_gate_desc(idt, gate, GATE_TYPE_INT, func, 0, 0, KERNEL_CS);
+#endif
 }
 
 

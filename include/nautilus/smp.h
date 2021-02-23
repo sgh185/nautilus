@@ -45,6 +45,10 @@ uint8_t nk_get_cpu_by_lapicid (uint8_t lapicid);
 #include <nautilus/mm.h>
 #include <nautilus/queue.h>
 
+#ifdef NAUT_CONFIG_USE_IST
+#include <nautilus/gdt.h>
+#endif
+
 struct naut_info;
 struct nk_topo_params;
 struct nk_cpu_coords;
@@ -127,6 +131,14 @@ struct cpu {
 
 
     struct nk_rand_info * rand;
+
+#ifdef NAUT_CONFIG_USE_IST
+    /* CPU-specific GDT, for separate IST per-CPU */
+    // Set up in smp_ap_setup
+    struct gdt_desc64 gdtr64;
+    uint64_t gdt64_entries[5];
+    struct tss64 tss;
+#endif
 
     /* temporary */
 #ifdef NAUT_CONFIG_PROFILE

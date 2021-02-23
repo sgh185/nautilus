@@ -75,6 +75,21 @@ GLOBAL(early_irq_common)
 
     SAVE_GPRS()
 
+#ifdef NAUT_CONFIG_USE_IST
+    /* Although we are on the interrupt stack now, the context switch code assumes that the
+     * interrupt frame is on a stack unique to each thread. Therefore, we must return to the
+     * thread stack, taking care not to touch the red zone.
+     * @TODO optimize stack subtraction and copy size as needed.
+     */
+    movq 160(%rsp), %rdi   // Get current thread's real stack pointer
+    subq $1024, %rdi       // Subtract from the stack to avoid the redzone + copy size + if we are on the same stack?
+    movq %rdi, %rbx        // Callee-saved
+    movq %rsp, %rsi        // Source for memcpy
+    movq $256, %rdx        // Size for memcpy
+    callq memcpy           // Copy this interrupt frame and saved registers to this place on the stack
+    movq %rbx, %rsp        // Move our current rsp to the bottom of the copied stack
+#endif
+
 #ifdef NAUT_CONFIG_FPU_SAVE
     /* Save the FPRs */
     movq %gs:0x0, %rax

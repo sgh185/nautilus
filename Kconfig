@@ -262,8 +262,15 @@ config PARTITION_SUPPORT
     help
       Enable disk/device partitioning
 
+config USE_IST 
+    bool "Enable IST"
+    default n
+    help
+      Enable IST (separate interrupt stacks)
+
 config PROCESSES
     bool "Enable support for process creation"
+    select USE_IST
     default n
     help
       Enable processes
@@ -277,7 +284,8 @@ config LINUX_SYSCALLS
 
 config LOADER_SIGNATURE
     bool "Use signature verification of loaded user processes"
-    default y
+    depends on PROCESSES
+    default n
     help
       Use signature verification when loading user processes
 
