@@ -55,7 +55,9 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
+#ifdef NAUT_CONFIG_ASPACE_CARAT
 #include <aspace/patching.h>
+#endif
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
 #endif
