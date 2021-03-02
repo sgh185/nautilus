@@ -38,7 +38,7 @@ void init_syscall_table();
   subq $120, % rsp;
 
 #define RESTORE_GPRS_EXCEPT_RAX() \
-  movq(% rsp), % r15;             \
+  movq (% rsp), % r15;             \
   movq 8(% rsp), % r14;           \
   movq 16(% rsp), % r13;          \
   movq 24(% rsp), % r12;          \
