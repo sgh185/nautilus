@@ -142,9 +142,12 @@ continue_context_switch:
 #endif
 
 #ifdef NAUT_CONFIG_ASPACES
+    // Need two pushes to align stack to mod 16 + 8 before call to nk_aspace_switch
+    push %rax
     push %rax
     movq 24(%rax), %rdi
     call nk_aspace_switch
+    pop %rax
     pop %rax
 #endif
 	
