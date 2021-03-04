@@ -20,6 +20,9 @@
   }
 
 extern void syscall_test_main();
+int parsec_started = 0;
+uint64_t starting_cycles = 0;
+uint64_t ending_cycles = 0;
 
 static int passed_tests;
 static int total_tests;
@@ -181,6 +184,48 @@ static struct shell_cmd_impl syscalltest_impl = {
 
 nk_register_shell_cmd(syscalltest_impl);
 
+/*static int handle_exec_fg(char* buf, void* priv) {
+  int argc = 0;
+  char* argv[64] = {0};
+  char* argp = buf;
+  argv[0] = buf;
+  for (argc = 1; argc < 64; argc++) {
+    while (*argp != ' ' && *argp != 0) {
+      argp++;
+    }
+    if (*argp == 0) {
+      break;
+    }
+    *argp = 0;
+    argp++;
+    argv[argc] = argp;
+  }
+
+  // struct nk_exec* e = nk_load_exec(argv[1]);
+  // if (e) {
+  //   nk_start_exec(e, argc - 1,
+  //                     argv + 1);  Programs will expect argv[0] to be the
+  //                                   program name, so must modify this 
+  //   nk_unload_exec(e);
+  // }
+  
+  nk_process_t* process = nk_process_current();
+  char omp_threads[64] = {0};
+  sprintf((char*)&omp_threads, "OMP_NUM_THREADS=%d", nk_get_num_cpus());
+  char* envp[] = {(char*)&omp_threads, "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
+  if (nk_process_create(argv[1], argv + 1, envp, "paging", &process)) {
+    nk_vc_printf("Failed to create new process\n");
+    return -1;
+  }
+  if (nk_process_run(process, 0)) {
+    nk_vc_printf("Failed to run process\n");
+    return -1;
+  }
+  nk_vc_printf("Started %s in the background.\n", argv[1]);
+  return 0;
+}*/
+
+
 static int handle_exec(char* buf, void* priv) {
   int argc = 0;
   char* argv[64] = {0};
@@ -214,6 +259,13 @@ static int handle_exec(char* buf, void* priv) {
     nk_vc_printf("Failed to create new process\n");
     return -1;
   }
+
+  if(!parsec_started){
+        parsec_started = 1;
+  	starting_cycles = rdtsc();
+ 	nk_vc_printf("Benchmark %s started with #cycles of %llu!\n",argv[1],starting_cycles);
+  }
+
   if (nk_process_run(process, 0)) {
     nk_vc_printf("Failed to run process\n");
     return -1;
@@ -231,5 +283,18 @@ static struct shell_cmd_impl exec_impl = {
     .handler = handle_exec,
 
 };
+
+/*static struct shell_cmd_impl exec_impl_fg = {
+
+    .cmd = "fg",
+
+    .help_str = "execute a process in the foreground",
+
+    .handler = handle_exec_fg,
+};
+
+*/
+
+//nk_register_shell_cmd(exec_impl_fg);
 
 nk_register_shell_cmd(exec_impl);
