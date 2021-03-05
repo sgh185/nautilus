@@ -33,6 +33,7 @@ SECTIONS
     .rela.dyn       :
     {
       *(.rela.init)
+      *(.rela.init_array)
       *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
       *(.rela.fini)
       *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
@@ -68,6 +69,16 @@ SECTIONS
         *(.tdata .tdata.* .gnu.linkonce.td.*)
     }
 
+    __preinit_array_start = .;
+    __preinit_array_end = .;
+    __init_array_start = .;
+    .init_array : {
+        *(.init_array)
+    }
+    __init_array_end = .;
+    __fini_array_start = .;
+    __fini_array_end = .;
+
     __naut_sign_end = .;
     
     .naut_secure : {
@@ -83,13 +94,6 @@ SECTIONS
     }
 
     _bssEnd = .;
-
-    __preinit_array_start = .;
-    __preinit_array_end = .;
-    __init_array_start = .;
-    __init_array_end = .;
-    __fini_array_start = .;
-    __fini_array_end = .;
 
     heap_start = .;
     

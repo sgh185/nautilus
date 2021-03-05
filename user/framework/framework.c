@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <nautilus/nautilus_exe.h>
 
+// Space for the signature of the final binary. Set by nsign after final link.
+__attribute__((section(".naut_secure"))) unsigned char __NAUT_SIGNATURE[16];
+
 // pointer to the NK function table
 // to be filled in by the loader
 void * (**__nk_func_table)(); 

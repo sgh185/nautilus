@@ -259,31 +259,33 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   // load executable into memory
   p->exe = nk_load_exec(exe_name);
 
-  // map executable in address space if it's not within first 4GB of memory
-  // TODO MAC: This *WILL* break if part of the executable is mapped and part of it isn't
+  // map executable in address space if it's not (entirely) within first 4GB of memory
   uint64_t exe_end_addr = (uint64_t)p->exe + p->exe->blob_size;
-  if (((uint64_t)p->exe > KERNEL_MEMORY_SIZE) || (exe_end_addr > KERNEL_MEMORY_SIZE)) {
-    PROCESS_DEBUG("WARNING: WE'RE MAPPING EXECUTABLE TO ASPACE. CHECK THIS IS DONE CORRECTLY.\n");
+  if (((uint64_t)p->exe->blob > KERNEL_MEMORY_SIZE) || (exe_end_addr > KERNEL_MEMORY_SIZE)) {
+
+    nk_aspace_characteristics_t aspace_chars;
+    if (nk_aspace_query(aspace_type, &aspace_chars)) {
+      // TODO MAC: Exit gracefully
+      nk_unload_exec(p->exe);
+      free(p);
+      nk_aspace_destroy(addr_space);
+      return -1;
+    }
+
     nk_aspace_region_t r_exe;
-    if (exe_end_addr > KERNEL_MEMORY_SIZE) {
+    if ((uint64_t)p->exe->blob < KERNEL_MEMORY_SIZE) {
+      // We are partially overlapping the boundary between the lower 4G and beyond
       r_exe.va_start = (void *)KERNEL_MEMORY_SIZE;
       r_exe.pa_start = (void *)KERNEL_MEMORY_SIZE;
       uint64_t exe_overshoot = exe_end_addr - KERNEL_MEMORY_SIZE;
-      nk_aspace_characteristics_t aspace_chars;
-      if (nk_aspace_query(aspace_type, &aspace_chars)) {
-        // TODO MAC: Exit gracefully
-        nk_unload_exec(p->exe);
-        free(p);
-        nk_aspace_destroy(addr_space);
-        return -1;
-      }
-      
       r_exe.len_bytes = exe_overshoot + (exe_overshoot % aspace_chars.granularity);
     } else {
+      // We are completely beyond the lower 4G
       r_exe.va_start = p->exe->blob;
       r_exe.pa_start = p->exe->blob;
-      r_exe.len_bytes = p->exe->blob_size;
+      r_exe.len_bytes = p->exe->blob_size + (p->exe->blob_size % aspace_chars.granularity);
     }
+
     r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
 
     if (nk_aspace_add_region(addr_space, &r_exe)) {
@@ -293,16 +295,17 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
       nk_aspace_destroy(addr_space);
       return -1;
     }
-    
   }
+
   if (new_aspace) {
     *new_aspace = addr_space;
   }
+
   if (stack) {
     *stack = p_addr_start + PSTACK_SIZE;
   }
+
   return 0;
- 
 }
 
 

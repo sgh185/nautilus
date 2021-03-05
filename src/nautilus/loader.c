@@ -461,6 +461,8 @@ struct nk_exec *nk_load_exec(char *path)
         goto out_bad;
     }
 
+    DEBUG("Loading new process to memory starting at 0x%p\n", e->blob);
+
     memcpy(e->blob, page, MB_LOAD);
     
     e->blob_size = blob_size;
