@@ -260,7 +260,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   p->exe = nk_load_exec(exe_name);
 
   // map executable in address space if it's not (entirely) within first 4GB of memory
-  uint64_t exe_end_addr = (uint64_t)p->exe + p->exe->blob_size;
+  uint64_t exe_end_addr = (uint64_t)p->exe->blob + p->exe->blob_size;
   if (((uint64_t)p->exe->blob > KERNEL_MEMORY_SIZE) || (exe_end_addr > KERNEL_MEMORY_SIZE)) {
 
     nk_aspace_characteristics_t aspace_chars;
