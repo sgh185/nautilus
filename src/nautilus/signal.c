@@ -435,23 +435,35 @@ void __sighand_wrapper(uint64_t signal, nk_signal_info_t *sig_info, uint64_t rsp
 
 static int setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signal_info_t *sig_info, uint64_t rsp)
 {
-    struct nk_regs this_frame;
+    /* For debugging purposes, print out what the original iframe looks like */
     SIGNAL_DEBUG("Dumping out saved regs at rsp.\n");
-    nk_dump_mem((void*)rsp, sizeof(struct nk_regs)); 
-    memcpy(&this_frame /* sizeof(struct nk_regs)*/, (void *)rsp, sizeof(struct nk_regs));
+    nk_dump_mem((void*)rsp, sizeof(struct nk_regs));
+
+    /* Copy iframe to our current frame */ 
+    struct nk_regs this_frame;
+    memcpy(&this_frame, (void *)rsp, sizeof(struct nk_regs));
+
+    /* For debugging... print our copied frame */
     SIGNAL_DEBUG("Dumping out saved regs in this frame.\n");
     nk_dump_mem(&this_frame, sizeof(struct nk_regs));  
-    //this_frame.rsp = (uint64_t)(&this_frame); /*Want to use builtin to get this*/
+
+    /* We will return to a signal handler wrapper which will call the handler */ 
+    /* This might not work for other compilers... we'll see */
     this_frame.rsp = (uint64_t) __builtin_frame_address(0) + 0x8;
     this_frame.rip = (uint64_t)__sighand_wrapper;
+
+    /* Now we fill in our registers w/ signal handler args */
     this_frame.rdi = (uint64_t)signal;
-    //this_frame.rsi = (uint64_t)sig_info;
-    this_frame.rsi = (uint64_t)0xDEADBEEF01234567UL;
+    this_frame.rsi = (uint64_t)sig_info;
     this_frame.rdx = (uint64_t)rsp;
     this_frame.rcx = (uint64_t)sig_act;
+    //this_frame.rsi = (uint64_t)0xDEADBEEF01234567UL;
+
+    /* For debugging... see what our current copied iframe looks like */
     SIGNAL_DEBUG("Dumping out saved regs after modification.\n");
     nk_dump_mem(&this_frame, sizeof(struct nk_regs));  
-    /* Set new stack ptr */
+
+    /* set new stack ptr, pop regs, and iret */
     asm volatile("movq %0, %%rsp; \n"
             "popq %%r15; \n"
             "popq %%r14; \n"
@@ -469,10 +481,9 @@ static int setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signa
             "popq %%rbx; \n"
             "popq %%rax; \n"
             "addq $16, %%rsp; \n" /* Pop off vector and err code */
-            //"decw %%gs:8; \n"      // decrement interrupt nesting level
             "iretq; \n"
             : /* No output */
-            : "r"(&this_frame) /* input */
+            : "r"(&this_frame) /* input = ptr to iframe */
             : /* No clobbered registers */
             ); 
     return 0; /* I don't think we'll ever return here, but compiler was complaining */
