@@ -426,14 +426,16 @@ void signal_delivered(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_act
     set_current_blocked(&blocked);
 }
 
-void __sighand_wrapper(uint64_t signal, nk_signal_info_t *sig_info, uint64_t rsp, nk_signal_action_t *sig_act)
+void __attribute__((noinline)) __sighand_wrapper(uint64_t signal, nk_signal_info_t *sig_info, uint64_t rsp, nk_signal_action_t *sig_act)
 {
     /* Should only enter here through iretq. I think. */
     (sig_act->handler)(signal); /*sig_info, (void*)rsp); */
+    SIGNAL_DEBUG("We returned to __sighand_wrapper.\n");
+    return;
 
 }
 
-static int setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signal_info_t *sig_info, uint64_t rsp)
+static int __attribute__ ((noinline)) setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signal_info_t *sig_info, uint64_t rsp)
 {
     /* For debugging purposes, print out what the original iframe looks like */
     SIGNAL_DEBUG("Dumping out saved regs at rsp.\n");
@@ -490,7 +492,7 @@ static int setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signa
      
 }
 
-static void handle_signal(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_action_t *sig_act, uint64_t rsp)
+static void __attribute__((noinline)) handle_signal(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_action_t *sig_act, uint64_t rsp)
 {
     /* TODO MAC: Choosing, once again, to ignore syscall stuff */
 
@@ -502,20 +504,18 @@ static void handle_signal(uint64_t signal, nk_signal_info_t *sig_info, nk_signal
     }
     /* Should return here after signal handler? */
     /* TODO MAC: Clear direction flag as per ABI for function entry ???? */
-    SIGNAL_INFO("Returned from signal handler in handle_signal.\n");
     SIGNAL_DEBUG("Returned from signal handler in handle_signal.\n");
     
     signal_delivered(signal, sig_info, sig_act, rsp);
 }
 
 /* Simplified version of do_notify_resume. May be used if we implement do_signal() separately */
-void do_notify_resume(uint64_t rsp, uint64_t num_sigs)
+void __attribute__((noinline)) do_notify_resume(uint64_t rsp, uint64_t num_sigs)
 {
     SIGNAL_DEBUG("Entered do_notify_resume() w/ rsp: %#018x and num_sigs = %lu.\n", rsp, num_sigs);
     nk_signal_action_t sig_act;
     nk_signal_info_t sig_info; 
     int signal;
-
     signal = get_signal_to_deliver(&sig_info, &sig_act, rsp);
     
     SIGNAL_DEBUG("Got signal to deliver: %d.\n", signal);
@@ -523,9 +523,6 @@ void do_notify_resume(uint64_t rsp, uint64_t num_sigs)
     if (signal > 0) {
         SIGNAL_DEBUG("Entering handle signal. Sig: %d, sig_info: %p, sig_act: %p.\n", signal, &sig_info, &sig_act);
         handle_signal(signal, &sig_info, &sig_act, rsp);
-        SIGNAL_DEBUG("Returned from signal handler!\n");
-        SIGNAL_INFO("Returned from signal handler!\n");
-        return;
     }
     
     SIGNAL_DEBUG("Returned from signal handler (past if statement)!\n");
