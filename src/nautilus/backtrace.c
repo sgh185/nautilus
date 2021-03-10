@@ -51,7 +51,7 @@ nk_dump_mem (const void * addr, ulong_t n)
     ulong_t new = (n % 16 == 0) ? n : ((n+16) & ~0xf);
 
     for (i = 0; i < new/(sizeof(void*)); i+=2) {
-        printk("%p: %08p  %08p  ", ((void**)addr + i), *((void**)addr + i), *((void**)addr + i + 1));
+        printk("%p: %016llx  %016llx  ", ((void**)addr + i), *((void**)addr + i), *((void**)addr + i + 1));
         for (j = 0; j < 16; j++) {
             char tmp = *((char*)addr + j);
             printk("%c", (tmp < 0x7f && tmp > 0x1f) ? tmp : '.');
