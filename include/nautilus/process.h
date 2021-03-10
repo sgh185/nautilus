@@ -31,18 +31,13 @@
 extern "C" {
 #endif
 
-#include <nautilus/spinlock.h>
-#include <nautilus/intrinsics.h>
-
 // Always included so we get the necessary type
-#include <nautilus/list.h>
 #include <nautilus/aspace.h>
+#include <nautilus/signal.h>
 #include <nautilus/group.h>
 #include <nautilus/loader.h>
 #include <nautilus/alloc.h>
 #include <nautilus/vc.h>
-//#include <nautilus/cachepart.h>
-//#include <nautilus/scheduler.h>
 
 /* common thread stack sizes */
 #define PSTACK_DEFAULT 0  // will be 4K
@@ -152,13 +147,18 @@ typedef struct nk_process {
   // process type maybe?
   //   kernel vs user level process
 
-  // ptr to process memory allocator
-  //    implemented in the future
-
   // process hierarchy info
   struct nk_process* parent;
 
-  // Need to figure out signals in the future
+  // signal handling info
+  nk_signal_handler_table_t *signal_handler;
+  nk_signal_descriptor_t *signal_descriptor;
+  /* 
+   * Might add notifier fields later
+   * Notifier fields are used by device
+   * drivers to block signals
+   */
+  
 
 } nk_process_t; 
 

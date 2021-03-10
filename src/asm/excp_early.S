@@ -175,10 +175,26 @@ skip_cat_entry:
     // do we need to switch to someone else?
     callq nk_sched_need_resched
     testq %rax, %rax
-    jz thr_return
+    jz is_pending_work
     movq %rax, %rdi
      // on a context switch, this will handle cache partition changes for the new thread	
     jmp nk_thread_switch_intr_entry    
+
+is_pending_work:
+#if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
+    /* Enable interrupts? */
+    movq %gs:0x0, %rax
+    movq 32(%rax), %rdi
+    testq %rdi, %rdi
+    jz thr_return /* No work to do, just return */
+    /* Need to restore regs (or just pass top of stack to do_notify_resume */
+    movq %rdi, %rsi
+    //movq %rsp, %rdi
+    movq 0x0(%rax), %rdi
+    callq do_notify_resume
+    /* Disable interrupts? */
+    /* jump back to need resched to check all this again? */
+#endif /* if not enabled, just fall through like usual */
 
 thr_return:
 #if GPIO_OUTPUT && defined(NAUT_CONFIG_GPIO)
