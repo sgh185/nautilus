@@ -6,7 +6,7 @@
 #include "impl_preamble.h"
 
 #define HEAP_BOT \
-  (void*)0x100000000UL /* Lowest virtual address for the process heap */
+  (void*)0x10000000000UL /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
   0x1400000UL /* Heap is increased by a multiple of this amount */
 

@@ -8,13 +8,15 @@ obj-y += futures.o
 obj-y += bsp.o
 obj-y += net_udp_echo.o
 obj-y += test.o
-obj-y += skiplist_test.o
-obj-y += map_test.o
+
+obj-$(NAUT_CONFIG_ASPACE_CARAT) += skiplist_test.o \
+                                   map_test.o
 
 obj-$(NAUT_CONFIG_TEST_FIBERS) += fibers.o \
 								   fibers_random.o
 
-obj-$(NAUT_CONFIG_PROCESSES) += process.o
+obj-$(NAUT_CONFIG_PROCESSES) += process.o \
+								signal.o
 
 obj-$(NAUT_CONFIG_TEST_CACHEPART) += cachepart.o
 

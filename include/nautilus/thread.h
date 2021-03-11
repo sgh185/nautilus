@@ -43,6 +43,10 @@ extern "C" {
 #include <nautilus/aspace.h>
 #endif
 
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/proc.h>
+#endif
+
 #include <nautilus/alloc.h>
 
 typedef uint64_t nk_stack_size_t;
@@ -186,17 +190,35 @@ struct nk_thread {
     uint16_t fpu_state_offset;   /* +16 SHOULD NOT CHANGE POSITION */
     nk_cache_part_thread_state_t /* +18 SHOULD NOT CHANGE POSITION */
              cache_part_state;   /* Always included to reserve this "slot" for asm code */
-    nk_aspace_t      *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
+    struct nk_aspace *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
                                  /* Always included to reserve this "slot" for asm code */
+    uint64_t num_sigs;           /* +32 SHOULD NOT CHANGE POSITION */
+                                 /* Always included */
 
 #ifdef NAUT_CONFIG_PROCESSES
-    nk_process_t *process;       /* Initialized if part of a process */
+    struct nk_process *process;       /* Initialized if part of a process */
+    /* For signal handling, shared state with process: */
+    nk_signal_handler_table_t *signal_handler; /* points to process' signal handler */
+    nk_signal_descriptor_t *signal_descriptor; /* points to process' signal descriptor */
+
+    /* For individual thread signal handling */
+    nk_signal_set_t blocked;
+    nk_signal_set_t real_blocked;
+    nk_signal_pending_t signals_pending;
+    uint64_t signal_hand_rsp;
+    uint64_t sh_rsp_size;
+#endif
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+    struct nk_thread_linux_syscall_state syscall_state;
+    // TODO: move below into syscall_state
     uint32_t* set_child_tid; /* May not be needed -ARN */
+    void* sysret_addr; /* Address set on entry to a syscall */
     uint32_t* clear_child_tid;
     void* thread_start_addr;
-    void* sysret_addr; /* Address set on entry to a syscall */
     uint64_t fake_affinity; /* Simulated affinity of the thread */
 #endif
+
     nk_alloc_t       *alloc;     /* custom allocator - NULL means use system allocator */
 
     nk_stack_size_t stack_size;

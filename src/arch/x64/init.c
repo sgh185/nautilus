@@ -55,7 +55,9 @@
 #include <nautilus/barrier.h>
 #include <nautilus/vc.h>
 #include <nautilus/dev.h>
+#ifdef NAUT_CONFIG_ASPACE_CARAT
 #include <aspace/patching.h>
+#endif
 #ifdef NAUT_CONFIG_PARTITION_SUPPORT
 #include <nautilus/partition.h>
 #endif
@@ -183,7 +185,7 @@
 
 extern spinlock_t printk_lock;
 
-
+extern struct gdt_desc64 gdtr64;
 
 #define QUANTUM_IN_NS (1000000000ULL/NAUT_CONFIG_HZ)
 
@@ -295,10 +297,16 @@ static int launch_vmm_environment()
 
 extern struct naut_info * smp_ap_stack_switch(uint64_t, uint64_t, struct naut_info*);
 
+/*
 char *script[] = { "meminfo",
                    "allocator_test_trace dumb 0 2",
                    "\0",
                    0 };
+*/
+
+char *script[] = { "sigtest",
+                    "\0",
+                    0 };
 
 void
 init (unsigned long mbd,
@@ -502,6 +510,10 @@ init (unsigned long mbd,
     nk_cache_part_start();
 #endif
 
+#ifdef NAUT_CONFIG_USE_IST
+    nk_gdt_init();
+#endif
+    
     sti();
 
     /* interrupts are now on */

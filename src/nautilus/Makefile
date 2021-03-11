@@ -87,3 +87,5 @@ obj-$(NAUT_CONFIG_PROCESSES) += process.o \
 								signal.o
 
 obj-$(NAUT_CONFIG_LINUX_SYSCALLS) += syscalls/
+
+obj-$(NAUT_CONFIG_USE_IST) += gdt.o

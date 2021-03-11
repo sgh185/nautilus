@@ -31,18 +31,17 @@
 extern "C" {
 #endif
 
-#include <nautilus/spinlock.h>
-#include <nautilus/intrinsics.h>
-
 // Always included so we get the necessary type
-#include <nautilus/list.h>
 #include <nautilus/aspace.h>
+#include <nautilus/signal.h>
 #include <nautilus/group.h>
 #include <nautilus/loader.h>
 #include <nautilus/alloc.h>
 #include <nautilus/vc.h>
-//#include <nautilus/cachepart.h>
-//#include <nautilus/scheduler.h>
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+#include <nautilus/syscalls/proc.h>
+#endif
 
 /* common thread stack sizes */
 #define PSTACK_DEFAULT 0  // will be 4K
@@ -96,11 +95,15 @@ typedef struct nk_process {
   // what aspace the process is using
   nk_aspace_t *aspace;
 
-  // beginning of heap
+  // beginning of heap TODO move to syscall state?
   void *heap_begin;
 
-  // end of heap
+  // end of heap TODO move to syscall state?
   void *heap_end;
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+  struct nk_process_linux_syscall_state syscall_state;
+#endif
 
   // last CPU a thread is pinned to
   uint64_t last_cpu_thread;
@@ -152,13 +155,18 @@ typedef struct nk_process {
   // process type maybe?
   //   kernel vs user level process
 
-  // ptr to process memory allocator
-  //    implemented in the future
-
   // process hierarchy info
   struct nk_process* parent;
 
-  // Need to figure out signals in the future
+  // signal handling info
+  nk_signal_handler_table_t *signal_handler;
+  nk_signal_descriptor_t *signal_descriptor;
+  /* 
+   * Might add notifier fields later
+   * Notifier fields are used by device
+   * drivers to block signals
+   */
+  
 
 } nk_process_t; 
 

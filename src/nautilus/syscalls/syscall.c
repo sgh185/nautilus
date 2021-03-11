@@ -1,4 +1,6 @@
+#include <nautilus/syscalls/decl.h>
 #include <nautilus/syscalls/kernel.h>
+#include <nautilus/syscalls/numbers.h>
 
 #include <nautilus/irq.h>
 #include <nautilus/msr.h>
@@ -355,8 +357,6 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
     panic("Start syscall with interrupts off!");
   }
 #endif
-
-  DEBUG("On entry to syscall, %%gsbase=%p\n", msr_read(0xC0000101));
 
   int syscall_nr = (int)r->rax;
   nk_process_t* current_process = nk_process_current();

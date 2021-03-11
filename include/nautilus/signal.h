@@ -31,176 +31,277 @@ extern "C" {
 #endif
 
 #include <nautilus/spinlock.h>
-#include <nautilus/intrinsics.h>
-#include <nautilus/nautilus.h>
 #include <nautilus/signal_consts.h>
 #include <nautilus/list.h>
 
 /* Function signature of a signal handler */
 typedef void (*nk_signal_handler_t)(int signal_num);
 #define DEFAULT_SIG ((nk_signal_handler_t)0)
-#define IGNORE_SIG ((nk_signalHandler_t)1)
+#define IGNORE_SIG ((nk_signal_handler_t)1)
 
+struct nk_process;
+struct nk_thread;
+struct nk_wait_queue;
 
 /* Struct for siginfo -- stores info about a specific occurrence of a signal */
 typedef struct signal_info_struct {
-  uint64_t signal_num;
-  uint64_t signal_err_num;
-  uint64_t signal_code;
-  union {
-    /* kill() syscall */
-    struct {
-      uint64_t sender_pid;
-    } _kill_info;
+    uint64_t signal_num;
+    uint64_t signal_err_num;
+    uint64_t signal_code;
+    union {
+        /* kill() syscall */
+        struct {
+            uint64_t sender_pid;
+        } _kill_info;
 
-    /* Posix.1b timers and signals not implemented */
-    /* SIGCHLD */
-    struct {
-      uint64_t child_pid;
-      uint64_t exit_status;
-      uint64_t utime;
-      uint64_t stime;
-    } _sigchld_info;
+        /* Posix.1b timers and signals not implemented */
+        /* SIGCHLD */
+        struct {
+            uint64_t child_pid;
+            uint64_t exit_status;
+            uint64_t utime;
+            uint64_t stime;
+        } _sigchld_info;
     
-    /* SIGILL, SIGFPE, SIGSEGV, SIGBUS, SIGTRAP, SIGEMT */
-    struct {
-      void *faulting_addr; /* User ptr, address which caused fault */
-      short addr_lsb; /* LSB of reported addr from SIGBUS */
-      /* Don't handle SEGV_BNDERR or SEGV_PKUERR */
-    } _sigfault_info;
+        /* SIGILL, SIGFPE, SIGSEGV, SIGBUS, SIGTRAP, SIGEMT */
+        struct {
+            void *faulting_addr; /* User ptr, address which caused fault */
+            short addr_lsb; /* LSB of reported addr from SIGBUS */
+            /* Don't handle SEGV_BNDERR or SEGV_PKUERR */
+        } _sigfault_info;
 
-    /* SIGPOLL */
-    struct {
-      uint64_t band; /* poll in, out, or msg */
-      int file_descriptor;
-    } _sigpoll_info;
+        /* SIGPOLL */
+        struct {
+            uint64_t band; /* poll in, out, or msg */
+            int file_descriptor;
+        } _sigpoll_info;
     
-    /* SIGSYS */
-    struct {
-      void *caller_addr; /* addr of caller */
-      uint64_t syscall_num; /* syscall triggered by caller */
-    } _sigsys_info;
- } signal_info;
+        /* SIGSYS */
+        struct {
+            void *caller_addr; /* addr of caller */
+            uint64_t syscall_num; /* syscall triggered by caller */
+        } _sigsys_info;
+    } signal_info;
 } nk_signal_info_t;   
+
+/* Sig info constants (no info or from kernel) */
+#define SEND_SIGNAL_NO_INFO      (nk_signal_info_t *)0
+#define SEND_SIGNAL_KERNEL       (nk_signal_info_t *)1
 
 /* Signal Bit Set (For now, we assume SIGSET_SIZE == 1) */
 typedef struct signal_set{
-  uint64_t sig[SIGSET_SIZE];
+      uint64_t sig[SIGSET_SIZE];
 } nk_signal_set_t;
 
 /* LL Signal Queue (for RT signals, may not be needed?) */
-struct signal_queue {
-  struct list_head lst;
-  nk_signal_set_t signal;
+typedef struct signal_queue {
+    struct list_head lst;
+    uint64_t flags;
+    nk_signal_info_t signal_info;
 } nk_signal_queue_t;
 
 /* LL of pending signals */
-struct signal_pending {
-  struct list_head lst;
-  nk_signal_set_t signal;
+typedef struct signal_pending {
+    struct list_head lst;
+    nk_signal_set_t signal;
 } nk_signal_pending_t;
 
 
 /* Signal action tells us what handler to use, if signal is ignored, or if signal is blocked */
 typedef struct signal_action {
-  nk_signal_handler_t handler; /* Ptr to signal handler, IGNORE_SIG(=1), or DEFAULT_SIG(=0) */ 
-  nk_signal_set_t mask; /* what should be masked when running signal handler */
-  uint64_t signal_flags; /* How to handle signal */
+    nk_signal_handler_t handler; /* Ptr to signal handler, IGNORE_SIG(=1), or DEFAULT_SIG(=0) */ 
+    nk_signal_set_t mask; /* what should be masked when running signal handler */
+    uint64_t signal_flags; /* How to handle signal */
 } nk_signal_action_t;
 
 /* Table of signal action structs. May be shared among processes. */
 typedef struct signal_handler_table {
-  uint64_t count; /* How many processes are using this signal handler table? */
-  nk_signal_action_t *handlers[SIGSET_SIZE]; /* pointers to sig action structs */
-  spinlock_t lock; /* Multiple processes can use this table */ 
+    uint64_t count; /* How many processes are using this signal handler table? */
+    nk_signal_action_t *handlers[NUM_SIGNALS]; /* pointers to sig action structs */
+    spinlock_t lock; /* Multiple processes can use this table */ 
 } nk_signal_handler_table_t;
 
 /* Information for an occurrence of a signal */
-typedef struct process_signal {
-  nk_signal_action_t signal_action; /* What action the signal will take */
-  nk_signal_info_t signal_info; /* Info about signal TODO MAC: Should we support this?*/
-  uint64_t signal_num; /* Number of signal (1-64) */
-} nk_signal_t;
+typedef struct ksignal {
+    nk_signal_action_t signal_action; /* What action the signal will take */
+    nk_signal_info_t signal_info; /* Info about signal TODO MAC: Should we support this?*/
+    uint64_t signal_num; /* Number of signal (1-64) */
+} nk_ksignal_t;
+
+typedef struct signal_descriptor {
+    uint64_t count; /* Use counter */
+    uint64_t live; /* Live threads within process */
+    struct nk_wait_queue *wait_child_exit; /* for processes sleeping in wait4() */
+    struct nk_thread *curr_target; /* Last thread to receive signal */
+    nk_signal_pending_t shared_pending; /* shared pending signals */
+    int group_exit_code;
+    struct nk_thread *group_exit_task; /* thread doing the notifying? */
+    uint64_t notify_count; /* num threads killed on group exit */
+    uint64_t group_stop_count; /* num threads stopped on group stop */
+    uint64_t flags;
+    /* May not make sense to keep track on a per process basis? */
+    uint64_t num_queued; /* Number of RT signals queued. */
+} nk_signal_descriptor_t;
+
+
 
 
 /* Interface functions */
 
-static inline void sigaddset(nk_signal_set_t *set, uint64_t signal) {
-  /* Assumes signal <= BYTES_PER_WORD */
-  signal--;
-  set->sig[0] |= 1UL << signal;
+static inline void sigaddset(nk_signal_set_t *set, uint64_t signal)
+{
+    /* Assumes signal <= BYTES_PER_WORD */
+    signal--;
+    set->sig[0] |= 1UL << signal;
 }
 
-static inline void sigdelset(nk_signal_set_t *set, uint64_t signal) {
-  /* Assumes signal <= BYTES_PER_WORD */
-  signal--;
-  set->sig[0] &= ~(1UL << signal);
+static inline void sigdelset(nk_signal_set_t *set, uint64_t signal)
+{
+    /* Assumes signal <= BYTES_PER_WORD */
+    signal--;
+    set->sig[0] &= ~(1UL << signal);
 }
 
-static inline int sigismember(nk_signal_set_t *set, uint64_t signal) {
-  signal--;
-  return (set->sig[0] >> signal) & 1;
+static inline int sigismember(nk_signal_set_t *set, uint64_t signal)
+{
+    signal--;
+    return (set->sig[0] >> signal) & 1;
 }
 
-static inline int sigisemptyset(nk_signal_set_t *set) {
-  return !(set->sig[0]);
+static inline int sigisemptyset(nk_signal_set_t *set) 
+{
+    return !(set->sig[0]);
 }
 
-static inline int sigequalsets(const nk_signal_set_t *set1, const nk_signal_set_t *set2) {
-  return set1->sig[0] == set2->sig[0];
+static inline int sigequalsets(const nk_signal_set_t *set1, const nk_signal_set_t *set2) 
+{
+    return set1->sig[0] == set2->sig[0];
 }
 
 #define sigmask(signal) (1UL << ((signal) - 1))
 
-static inline void sigorsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2) {
-  result->sig[0] = ((set1->sig[0]) | (set2->sig[0]));
+static inline void sigorsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2)
+{
+    result->sig[0] = ((set1->sig[0]) | (set2->sig[0]));
 }
 
-static inline void sigandsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2) {
-  result->sig[0] = ((set1->sig[0]) & (set2->sig[0]));
+static inline void sigandsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2) 
+{
+    result->sig[0] = ((set1->sig[0]) & (set2->sig[0]));
 }
 
-static inline void sigandnsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2) {
-  result->sig[0] = ((set1->sig[0]) & ~(set2->sig[0]));
+static inline void sigandnsets(nk_signal_set_t *result, nk_signal_set_t *set1, nk_signal_set_t *set2) 
+{
+    result->sig[0] = ((set1->sig[0]) & ~(set2->sig[0]));
 }
 
-static inline void signotset(nk_signal_set_t *set) {
-  set->sig[0] = ~(set->sig[0]);
+static inline void signotset(nk_signal_set_t *set)
+{
+    set->sig[0] = ~(set->sig[0]);
 }
 
-static inline void sigemptyset(nk_signal_set_t *set) {
-  set->sig[0] = 0;
+static inline void sigemptyset(nk_signal_set_t *set)
+{
+    set->sig[0] = 0;
 }
 
-static inline void sigfillset(nk_signal_set_t *set) {
-  set->sig[0] = -1;
+static inline void sigfillset(nk_signal_set_t *set) 
+{
+    set->sig[0] = -1;
 }
 
 /* TODO MAC: Should we restrict mask to only first 32 bits? */
 static inline void sigaddsetmask(nk_signal_set_t *set, uint64_t mask)
 {
-	set->sig[0] |= mask;
+    set->sig[0] |= mask;
 }
 
 static inline void sigdelsetmask(nk_signal_set_t *set, uint64_t mask)
 {
-	set->sig[0] &= ~mask;
+    set->sig[0] &= ~mask;
 }
 
 static inline int sigtestsetmask(nk_signal_set_t *set, uint64_t mask)
 {
-	return (set->sig[0] & mask) != 0;
+    return (set->sig[0] & mask) != 0;
 }
 
 static inline void siginitset(nk_signal_set_t *set, uint64_t mask)
 {
-	set->sig[0] = mask;
+    set->sig[0] = mask;
 }
 
 static inline void siginitsetinv(nk_signal_set_t *set, uint64_t mask)
 {
-	set->sig[0] = ~mask;
+    set->sig[0] = ~mask;
 }
+
+static inline void init_sigpending(nk_signal_pending_t *pending)
+{
+    sigemptyset(&(pending->signal));
+    INIT_LIST_HEAD(&(pending->lst));
+}
+
+/* Signal mask definitions */
+#define rt_sigmask(sig) sigmask(sig)
+
+#ifdef NKSIGEMT /* TODO MAC: Might not be needed */
+#define SIGEMT_MASK rt_sigmask(SIGEMT)
+#else
+#define SIGEMT_MASK 0
+#endif
+
+#define siginmask(sig, mask) \
+	((sig) > 0 && (sig) < SIGRTMIN && (rt_sigmask(sig) & (mask)))
+
+#define SIG_KERNEL_ONLY_MASK (\
+	rt_sigmask(NKSIGKILL)   |  rt_sigmask(NKSIGSTOP))
+
+#define SIG_KERNEL_STOP_MASK (\
+	rt_sigmask(NKSIGSTOP)   |  rt_sigmask(NKSIGTSTP)   | \
+	rt_sigmask(NKSIGTTIN)   |  rt_sigmask(NKSIGTTOU)   )
+
+#define SIG_KERNEL_COREDUMP_MASK (\
+        rt_sigmask(NKSIGQUIT)   |  rt_sigmask(NKSIGILL)    | \
+	rt_sigmask(NKSIGTRAP)   |  rt_sigmask(NKSIGABRT)   | \
+        rt_sigmask(NKSIGFPE)    |  rt_sigmask(NKSIGSEGV)   | \
+	rt_sigmask(NKSIGBUS)    |  rt_sigmask(NKSIGSYS)    | \
+        rt_sigmask(NKSIGXCPU)   |  rt_sigmask(NKSIGXFSZ)   | \
+	SIGEMT_MASK				       )
+
+#define SIG_KERNEL_IGNORE_MASK (\
+        rt_sigmask(NKSIGCONT)   |  rt_sigmask(NKSIGCHLD)   | \
+	rt_sigmask(NKSIGWINCH)  |  rt_sigmask(NKSIGURG)    )
+
+#define SIG_SPECIFIC_SICODES_MASK (\
+	rt_sigmask(NKSIGILL)    |  rt_sigmask(NKSIGFPE)    | \
+	rt_sigmask(NKSIGSEGV)   |  rt_sigmask(NKSIGBUS)    | \
+	rt_sigmask(NKSIGTRAP)   |  rt_sigmask(NKSIGCHLD)   | \
+	rt_sigmask(NKSIGPOLL)   |  rt_sigmask(NKSIGSYS)    | \
+	SIGEMT_MASK                                    )
+
+#define sig_kernel_only(sig)		siginmask(sig, SIG_KERNEL_ONLY_MASK)
+#define sig_kernel_coredump(sig)	siginmask(sig, SIG_KERNEL_COREDUMP_MASK)
+#define sig_kernel_ignore(sig)		siginmask(sig, SIG_KERNEL_IGNORE_MASK)
+#define sig_kernel_stop(sig)		siginmask(sig, SIG_KERNEL_STOP_MASK)
+#define sig_specific_sicodes(sig)	siginmask(sig, SIG_SPECIFIC_SICODES_MASK)
+
+/* Flushing/Modifying Signal State */
+void nk_signal_flush_queue(nk_signal_pending_t *queue); /* Flush pending queue */
+void nk_signal_flush(struct nk_process *process); /* Flush all pending signals */
+int nk_signal_process_mask(int how, nk_signal_set_t *set, nk_signal_set_t *old_set); /* how = NKSIG_BLOCK, NKSIG_UNBLOCK, or NKSIG_SETMASK */
+void recalc_sigpending();
+int nk_signal_next(nk_signal_pending_t *pending, nk_signal_set_t *mask); /* Given mask, find next signal to execute */
+
+/* Sending signals */
+int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_dest, uint64_t dest_type);
+int nk_signal_info_send(uint64_t signal, nk_signal_info_t *signal_info, struct nk_process *process);
+void nk_signal_force(uint64_t signal); /* Forces a signal to the current process -- cannot fail */
+void nk_signal_force_specific(uint64_t signal); /* Optimized for SIGSTOP and SIGKILL */ 
+
+/* Processing Signals */
+int nk_signal_get(); /* Gets pending signals for current process */
+
 
 #ifdef __cplusplus
 }

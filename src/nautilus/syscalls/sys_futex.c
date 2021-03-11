@@ -5,7 +5,7 @@
 #define SYSCALL_NAME "sys_futex"
 #include "impl_preamble.h"
 
-#define NUM_FUTEXES 32
+#define NUM_FUTEXES 128
 
 #define FUTEX_WAIT 0
 #define FUTEX_WAKE 1

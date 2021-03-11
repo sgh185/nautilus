@@ -183,11 +183,34 @@ gdt32:
     .quad 0x00cf92000000ffff /* data */
 
 .align 8
-gdt64:
+GLOBAL(gdt64)
     .quad 0x0000000000000000 /* null */
     .quad 0x00af9a000000ffff /* code (note lme bit) */
     .quad 0x00af92000000ffff /* data (most entries don't matter) */
+#ifdef NAUT_CONFIG_USE_IST
+    .quad 0x0000000000000000 /* TSS static allocation, update the value in init */
+    .quad 0x0000000000000000 /* TSS static allocation, upper half*/
 
+.align 8
+GLOBAL(tss64)
+    .long 0x00000000         /* Reserved per spec */
+    .quad 0x0000000000000000 /* RSP0. All RSPx fields should never be used as we are always in ring 0 */
+    .quad 0x0000000000000000 /* RSP1 */
+    .quad 0x0000000000000000 /* RSP2 */
+    .long 0x00000000         /* Reserved per spec */
+    .long 0x00000000         /* Reserved per spec */
+    .quad 0x0000000000000000 /* IST1 */
+    .quad 0x0000000000000000 /* IST2 */
+    .quad 0x0000000000000000 /* IST3 */
+    .quad 0x0000000000000000 /* IST4 */
+    .quad 0x0000000000000000 /* IST5 */
+    .quad 0x0000000000000000 /* IST6 */
+    .quad 0x0000000000000000 /* IST7 */
+    .long 0x00000000         /* Reserved per spec */
+    .long 0x00000000         /* Reserved per spec */
+    .word 0x0000             /* Reserved per spec */
+    .word 0x0068             /* IOPB offset */
+#endif
 
 .align 8
 gdtr32:
@@ -196,6 +219,10 @@ gdtr32:
 
 .align 8
 GLOBAL(gdtr64)
+#ifdef NAUT_CONFIG_USE_IST
+    .word 39
+#else
     .word 23
+#endif
     .quad gdt64
 

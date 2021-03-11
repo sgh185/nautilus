@@ -292,17 +292,17 @@ int clear_cache (nk_aspace_paging_t *p, nk_aspace_region_t *region, uint64_t thr
 int region_align_check(nk_aspace_paging_t *p, nk_aspace_region_t *region) {
     // sanity check for region validness
     if ((addr_t) region->va_start % p->chars.alignment != 0) {
-        ERROR("region VA_start=0x%p expect to have alignment of %lx", region->va_start, p->chars.alignment);
+        ERROR("region VA_start=0x%p expect to have alignment of %lx\n", region->va_start, p->chars.alignment);
         return -1;
     }
 
     if ((addr_t) region->pa_start % p->chars.alignment != 0) {
-        ERROR("region PA_start=0x%p expect to have alignment of %lx", region->pa_start, p->chars.alignment);
+        ERROR("region PA_start=0x%p expect to have alignment of %lx\n", region->pa_start, p->chars.alignment);
         return -1;
     }
 
     if ((addr_t) region->len_bytes % p->chars.granularity != 0) {
-        ERROR("region len_bytes=0x%lx expect to have granularity of %lx", region->len_bytes, p->chars.granularity);
+        ERROR("region len_bytes=0x%lx expect to have granularity of %lx\n", region->len_bytes, p->chars.granularity);
         return -1;
     }
     return 0;
