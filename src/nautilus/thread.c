@@ -401,6 +401,7 @@ nk_thread_create (nk_thread_fun_t fun,
     t->signal_handler = &global_sig_table;
     t->signal_descriptor = &sig_desc;
     INIT_LIST_HEAD(&(t->signals_pending.lst));
+    spinlock_init(&t->signal_handler->lock);
 #endif
     
     t->fun = fun;

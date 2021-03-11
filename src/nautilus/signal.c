@@ -66,6 +66,7 @@ void set_current_blocked(nk_signal_set_t *newset)
     uint8_t irq_state = acquire_sig_hand_lock(cur_thread->signal_handler);
     /* TODO MAC: This might be wrong, it may be more complex than this :) */
     cur_thread->blocked = *newset;
+    release_sig_hand_lock(cur_thread->signal_handler, irq_state);
     /* Why do this? */
     //recalc_sigpending();
 }
@@ -196,8 +197,7 @@ static int __send_signal(uint64_t signal, nk_signal_info_t *signal_info, nk_thre
     if (q) {
         SIGNAL_DEBUG("Allocated sig queue.\n");
         list_add_tail(&(q->lst), &(pending->lst));
-        //TODO MAC: Need to do this atomically (same when I decrement it)
-        signal_dest->num_sigs += 1;
+        atomic_inc(signal_dest->num_sigs);
         /* Should we create sig info? */
         switch ((uint64_t)signal_info) {
         case (uint64_t)SEND_SIGNAL_NO_INFO:
@@ -299,6 +299,45 @@ int next_signal(nk_signal_pending_t *pending, nk_signal_set_t *mask)
 	return sig;
 }
 
+static void __sigqueue_free(nk_signal_queue_t *q)
+{
+    nk_thread_t *me = get_cur_thread();
+	atomic_dec(me->num_sigs);
+	kmem_free(q);
+}
+
+static void collect_signal(int sig, nk_signal_pending_t *pending, nk_signal_info_t *sig_info)
+{
+    nk_signal_queue_t *q, *first = NULL;
+    list_for_each_entry(q, &pending->lst, lst) {
+	    if (q->signal_info.signal_num == sig) {
+			if (first) {
+			    goto still_pending;
+            }
+			first = q;
+		}
+	}
+    sigdelset(&pending->signal, sig);
+
+    if (first) {
+still_pending:
+		list_del_init(&first->lst);
+		copy_siginfo(sig_info, &first->signal_info);
+		__sigqueue_free(first);
+	} else {
+		/*
+		 * Ok, it wasn't in the queue.  This must be
+		 * a fast-pathed signal or we must have been
+		 * out of queue space.  So zero out the info.
+		 */
+		sig_info->signal_num = sig;
+		sig_info->signal_err_num = 0;
+		sig_info->signal_code = SI_USER;
+		//sig_info->si_pid = 0;
+		//sig_info->si_uid = 0;
+	}
+}
+
 int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_info_t *sig_info)
 {
     
@@ -318,7 +357,8 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
 		} */
     
         /* TODO MAC: Will do this in the future... basically getting sig info */
-		//collect_signal(sig, pending, info);
+        /* For now, we just remove from queue */
+		collect_signal(sig, pending, sig_info);
 	} else { /* TODO MAC: check shared pending... */
        return sig; 
     }
@@ -339,6 +379,7 @@ int get_signal_to_deliver(nk_signal_info_t *sig_info, nk_signal_action_t *ret_si
  
     /* Skipping a ton of work for stopped threads. Should implement this later */ 
 relock:
+    SIGNAL_DEBUG("Attempting to acquire sig_hand lock.\n");
     irq_state = acquire_sig_hand_lock(sig_hand);
     
 
@@ -356,8 +397,8 @@ relock:
             SIGNAL_DEBUG("Breaking: Signal_Num == 0.\n");
             break;
         }
-        // Decrement # of pending signals
-        cur_thread->num_sigs = cur_thread->num_sigs - 1;
+        // Decrement # of pending signals (nvm, this is done in dequeue signal)
+        //cur_thread->num_sigs = cur_thread->num_sigs - 1;
 
         /* Skip ptrace case */
 
@@ -404,6 +445,7 @@ relock:
     } 
 
     /* End of loop, all other cases reach this point */
+    SIGNAL_DEBUG("Releasing sig_hand lock.\n");
     release_sig_hand_lock(sig_hand, irq_state);
     return signal_num;
 }
@@ -506,7 +548,7 @@ static void __attribute__((noinline)) handle_signal(uint64_t signal, nk_signal_i
     /* TODO MAC: Clear direction flag as per ABI for function entry ???? */
     SIGNAL_DEBUG("Returned from signal handler in handle_signal.\n");
     
-    signal_delivered(signal, sig_info, sig_act, rsp);
+    //signal_delivered(signal, sig_info, sig_act, rsp);
 }
 
 /* Simplified version of do_notify_resume. May be used if we implement do_signal() separately */

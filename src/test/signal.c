@@ -34,6 +34,10 @@ sig_thread2 (void *in, void **out)
         nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
         return;
     }
+    if (nk_signal_send(17, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+        nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
+        return;
+    }
     nk_vc_printf("Sent signal... recieve it please!\n"); 
 }
 
