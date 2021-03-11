@@ -82,6 +82,7 @@ void _nk_carat_globals_compiler_target(void) {
 
 void nk_carat_init(void) {
     __nk_func_table[NK_CARAT_INIT]();
+    _nk_carat_globals_compiler_target();
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
