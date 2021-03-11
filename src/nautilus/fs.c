@@ -483,7 +483,7 @@ ssize_t nk_fs_write(nk_fs_fd_t fd, void *buf, size_t num_bytes)
     }
 
     FILE_LOCK(fd);
-    ssize_t n = file_read(fd, buf, num_bytes);
+    ssize_t n = file_write(fd, buf, num_bytes);
     if (n>=0) {fd->position += n; }
     FILE_UNLOCK(fd);
 

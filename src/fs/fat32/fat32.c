@@ -422,7 +422,7 @@ static void *fat32_create(void *state, char *path, int isdir)
     free_split_path(parts,num_parts);
     //return ptr to the dir_entry of the newly created file
     // huh?
-    return (void*) (1);
+    return (void*) path;
 }
 
 static void *fat32_create_file(void *state, char *path)
