@@ -33,10 +33,12 @@
  * - FIX: obvious
  * - CONV: conversion from C++ to C, format: CONV [C++] -> [C]
  */ 
+#pragma once
 
 #include <nautilus/nautilus.h>
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
+#include <aspace/carat.h>
 #include <nautilus/skiplist.h>
 
 
@@ -147,9 +149,9 @@ typedef struct carat_context_t {
 
 
 /*
- * Official context type
+ * More names for the same thing
  */ 
-typedef nk_carat_context carat_context; 
+typedef carat_context nk_carat_context;
 
 
 /*
