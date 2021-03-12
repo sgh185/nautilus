@@ -407,7 +407,7 @@ static int grow_shrink_chain(struct fat32_state* state, uint32_t cluster_entry, 
 	//grow chain
 	for(uint32_t i = start; i < size; i++) {
 	    uint32_t tmp = fat[i];
-	    if( (tmp << 1) == FREE_CLUSTER ){
+	    if( (tmp >> 24) == FREE_CLUSTER ){
 		//update FAT table
 		DEBUG("ALLOC BLOCK: i is %u\n", i);
 		if (cluster_entry_cpy == -1) { // alloc block for new file
