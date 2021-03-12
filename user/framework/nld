@@ -23,8 +23,8 @@ if [[ $* != *-nokarat* ]]; then
   USER_OBJ=target.o
   BLOB_OBJ=blob.o
   BLOB_BC=blob.bc
-  BLOB_SIMPLIFY_BC=blob_simplify.bc
-  BLOB_OPT_BC=blob_opt.bc
+  BLOB_SIMPLIFY_BC=blob_simplify.ll
+  BLOB_OPT_BC=blob_opt.ll
   KARAT_OUT=karat.out
   BLOB_KOBJ=blob.kobj.o
   LD=ld
@@ -42,7 +42,7 @@ if [[ $* != *-nokarat* ]]; then
   ${ME} ${NORMFLAGS} -S ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
 
   # Run KARAT pass
-  ${ME} -load ~/CAT/lib/KARAT.so -karat -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
+  ${ME} -load ~/CAT/lib/KARAT.so -karat -target-user -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
   clang -mno-red-zone -fPIC -c ${BLOB_OPT_BC} -o target.o
 else
   echo "Called with -nokarat"
@@ -58,6 +58,6 @@ ld -static -pie --no-dynamic-linker \
   $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o \
   -L/home/arn9233/ -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
   target.o $DIRNAME/framework_low_level.o \
-  -lm -lomp -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
+  -lm -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
   $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o \
   $OUT_FLAG
