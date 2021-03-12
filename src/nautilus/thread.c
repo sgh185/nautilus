@@ -69,6 +69,7 @@ void sig_hand_hello(int sig_num)
 
 } 
 
+#ifdef NAUT_CONFIG_PROCESSES
 nk_signal_action_t sig_act_table_entry = {
 .handler = sig_hand_hello,
 .mask = {0},
@@ -81,11 +82,12 @@ nk_signal_handler_table_t global_sig_table = {
 .lock = 0,
 };
 
-
 nk_signal_descriptor_t sig_desc = {
     .count = 1, /* Use counter */
     .curr_target = 0, /* Last thread to receive signal */
 };
+#endif
+
 
 
 /****** SEE BELOW FOR EXTERNAL THREAD INTERFACE ********/
