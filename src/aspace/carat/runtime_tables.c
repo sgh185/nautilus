@@ -552,7 +552,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 		if (false 
 			|| (!escape_address) /* Condition 1 */
 			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
-			|| (!(corresponding_entry = _carat_find_allocation_entry(*escape_address)))) /* Condition 3 */
+			|| (!(corresponding_entry = _carat_find_allocation_entry(the_context, *escape_address)))) /* Condition 3 */
 			{ 
 				missed_escapes_counter++;
 				continue; 
@@ -655,9 +655,17 @@ void nk_carat_init()
      * that the caller of nk_carat_init is init(), which means that the global
      * CARAT context will automatically be allocated for the idle thread.
      */ 
-    global_carat_context = *(initialize_new_carat_context()); 
 
-	 
+	/*
+	 * At this point, we're in idle() --- there are no CARAT contexts
+	 * built yet --- this builds the first one for the "kernel"/"global"
+	 * aspace
+	 * 
+	 * Fetch this aspace and build a CARAT context for it
+	 */ 
+    ((nk_aspace_carat_t *) get_cur_thread()->aspace)->context = initialize_new_carat_context();
+
+
     /*
      * Invoke wrapper housing compiler-injected global allocation tracking
      */
@@ -725,6 +733,6 @@ nk_carat_context * initialize_new_carat_context(void)
     _nk_carat_globals_compiler_target();
 
     
-	return;
+	return new_context;
 }
 

@@ -218,7 +218,7 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
  * Catches the runtime up before any move happens
  */
 NO_CARAT
-void _carat_cleanup(nk_carat_context *the_context) 
+static void _carat_cleanup(nk_carat_context *the_context) 
 {
     /*
      * Process the remaining escapes in @the_context->escape_window
@@ -323,7 +323,7 @@ out_bad:
 
 NO_CARAT
 int nk_carat_move_allocation(
-    nk_carat_context *the_context
+    nk_carat_context *the_context,
     void *allocation_to_move, 
     void *allocation_target
 )
@@ -381,7 +381,7 @@ out_bad:
 
 NO_CARAT
 int nk_carat_move_allocations(
-    nk_carat_context *the_context
+    nk_carat_context *the_context,
     void **allocations_to_move, 
     void **allocation_targets, 
     uint64_t num_moves
@@ -514,9 +514,11 @@ out_bad:
 
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
 
-/* TODO : Make void */
-NO_CARAT
-static int handle_print_table(nk_carat_context *the_context) 
+
+/*
+ * "Modularism" --- Handle printing of allocation tables
+ */ 
+static void _print_table(nk_carat_context *the_context)
 {
 	/*
      * Set up table formatting 
@@ -545,10 +547,30 @@ static int handle_print_table(nk_carat_context *the_context)
         "Number of escapes in escape window: %lu\n", 
         FETCH_TOTAL_ESCAPES(the_context)
     );
+
+
+    return;
+}
+
+
+NO_CARAT
+static int handle_print_table(char *buf, void *priv) 
+{
+    /*
+     * Fetch the current context --- a HACK
+     */
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
+    /*
+     * Print the table for the current aspace
+     */     
+    _print_table(the_context);
     
 
     return 0;
 }
+
 
 static struct shell_cmd_impl print_table_impl = {
     .cmd = "print_table",
@@ -598,7 +620,7 @@ allocation_entry *_carat_find_random_alloc(nk_carat_context *the_context)
 	/* 
      * Select a random index from the map  
      */
-    uint64_t target = (rdtsc() % CARAT_ALLOCATION_MAP_SIZE),
+    uint64_t target = (rdtsc() % CARAT_ALLOCATION_MAP_SIZE(the_context)),
              count = 0;
 
     /* 	
@@ -636,6 +658,13 @@ static int handle_carat_test(char *buf, void *priv)
     {
         nk_vc_printf("Moving %lu times.\n", count);
 
+
+        /*
+         * Fetch the current CARAT context
+         */ 
+        nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
         /* 		
          * Perform "count" number of sequential moves 
          */
@@ -644,7 +673,7 @@ static int handle_carat_test(char *buf, void *priv)
             /* 		
              * Find a random entry from the allocation table
              */
-            allocation_entry* entry = _carat_find_random_alloc();
+            allocation_entry* entry = _carat_find_random_alloc(the_context);
             if(!entry) {
                 nk_vc_printf("CARAT: Random entry not found.\n");
                 return -1;
@@ -673,7 +702,7 @@ static int handle_carat_test(char *buf, void *priv)
              * nk_carat_move_allocation does all checks and returns -1 if any fail 
              */
             nk_vc_printf("%d ", i);
-            if(nk_carat_move_allocation(old, new)) {
+            if(nk_carat_move_allocation(the_context, old, new)) {
                 panic("carat_test: nk_carat_move_allocation failed!");
             }
 
@@ -681,7 +710,7 @@ static int handle_carat_test(char *buf, void *priv)
             /*
              * Debugging
              */ 
-            handle_print_table();
+            _print_table(the_context);
 			
         
             /* 

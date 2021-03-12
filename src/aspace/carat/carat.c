@@ -23,36 +23,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include <nautilus/nautilus.h>
-#include <nautilus/spinlock.h>
-#include <nautilus/paging.h>
-#include <nautilus/thread.h>
-#include <nautilus/shell.h>
-
-#include <nautilus/aspace.h>
-
-
-#include <aspace/patching.h>
-
-
-// TODO: path need to be changed
-// DATA structure go outside
-#include <nautilus/list.h>
-
-#ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
-    #include <aspace/region_tracking/mm_rb_tree.h>
-
-#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_SPLAY_TREE
-    #include <aspace/region_tracking/mm_splay_tree.h>
-
-#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_LINKED_LIST
-    #include <aspace/region_tracking/mm_linked_list.h>
-
-#else
-    #include <aspace/region_tracking/node_struct.h>
-
-#endif
-
+#include <aspace/carat.h>
 
 #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
 #undef DEBUG_PRINT
@@ -97,38 +68,6 @@
     &&  NK_ASPACE_GET_KERN(r1->protect.flags)  >= NK_ASPACE_GET_KERN(r2->protect.flags) \
     )
 
-
-
-typedef struct nk_aspace_carat_thread {
-    struct nk_thread * thread_ptr;
-    struct list_head thread_node;
-} nk_aspace_carat_thread_t;
-
-typedef struct nk_aspace_carat {
-    // pointer to the abstract aspace that the
-    // rest of the kernel uses when dealing with this
-    // address space
-    nk_aspace_t *aspace;
-
-    /*
-     * CARAT state 
-     */
-    nk_carat_context *context;
-
-    // perhaps you will want to do concurrency control?
-    spinlock_t  lock;
-
-
-    mm_struct_t * mm;
-
-    // Your characteristics
-    nk_aspace_characteristics_t chars;
-
-    //We may need the list of threads
-    //   struct list_head threads;
-    nk_aspace_carat_thread_t threads;
-
-} nk_aspace_carat_t;
 
 
 
