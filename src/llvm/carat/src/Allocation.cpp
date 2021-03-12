@@ -71,45 +71,73 @@ void AllocationHandler::Inject()
 
 
     /*
-     * Instrument allocations
+     * Instrument allocations. If this code makes you
+     * vomit, trust us it makes us vomit too
      */ 
     if (!NoMallocs)
     {
-        /*
-         * Instrument system mallocs
-         */ 
-        InstrumentMallocs(
-            AllocID::SysMalloc,
-            0 /* Size operand no */
-        );
+        if (InstrumentingUserCode)
+        {
+            /*
+             * Instrument user malloc
+             */ 
+            InstrumentMallocs(
+                AllocID::UserMalloc,
+                0 /* Size operand no */
+            );
+        }
+        else
+        {
+            /*
+             * Instrument system mallocs
+             */ 
+            InstrumentMallocs(
+                AllocID::SysMalloc,
+                0 /* Size operand no */
+            );
 
 
-        /*
-         * Instrument aspace/allocator mallocs
-         */ 
-        InstrumentMallocs(
-            AllocID::ASpaceMalloc,
-            1 /* Size operand no */
-        );
+            /*
+             * Instrument aspace/allocator mallocs
+             */ 
+            InstrumentMallocs(
+                AllocID::ASpaceMalloc,
+                1 /* Size operand no */
+            );
+        }
+
     } 
     if (!NoFrees) 
     {
-        /*
-         * Instrument system frees
-         */ 
-        InstrumentFrees(
-            AllocID::SysFree,
-            0 /* Pointer operand no */
-        );
+        if (InstrumentingUserCode)
+        {
+            /*
+             * Instrument user frees
+             */ 
+            InstrumentFrees(
+                AllocID::UserFree,
+                0 /* Size operand no */
+            );
+        }
+        else
+        {
+            /*
+             * Instrument system frees
+             */ 
+            InstrumentFrees(
+                AllocID::SysFree,
+                0 /* Pointer operand no */
+            );
 
 
-        /*
-         * Instrument aspace/allocator frees
-         */ 
-        InstrumentFrees(
-            AllocID::ASpaceFree,
-            1 /* Pointer operand no */
-        );
+            /*
+             * Instrument aspace/allocator frees
+             */ 
+            InstrumentFrees(
+                AllocID::ASpaceFree,
+                1 /* Pointer operand no */
+            );
+        }
     }
 
 
@@ -177,18 +205,27 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
 
                 /*
+                 * Select the allocation methods map to operate on
+                 */  
+                std::unordered_map<Function *, AllocID> MapToUse = 
+                    (InstrumentingUserCode) ?
+                    (UserAllocMethodsToIDs) :
+                    (KernelAllocMethodsToIDs) ;
+
+
+                /*
                  * If the callee isn't a "malloc" or "free",
                  * ignore the call instruction
                  * 
                  * NOTE --- THIS IGNORES INDIRECT CALLS --- FIX
                  */ 
-                if (KernelAllocMethodsToIDs.find(Callee) == KernelAllocMethodsToIDs.end()) { continue; }
+                if (MapToUse.find(Callee) == MapToUse.end()) { continue; }
 
 
                 /*
                  * Fetch the AllocID, mark each call for instrumentation
                  */ 
-                InstructionsToInstrument[KernelAllocMethodsToIDs[Callee]].insert(NextCall);
+                InstructionsToInstrument[MapToUse[Callee]].insert(NextCall);
             }
         }
     }
@@ -404,7 +441,7 @@ void AllocationHandler::InstrumentGlobals()
 
         /*
          * Build void pointer cast for current global --- necessary
-         * to process in the CARAT kernel runtime
+         * to process in the CARAT runtime
          */ 
         Value *PointerCast = 
             TargetBuilder.CreatePointerCast(
@@ -453,7 +490,7 @@ void AllocationHandler::InstrumentMallocs(
 
 
     /*
-     * Instrument all collected "malloc"ss
+     * Instrument all collected "malloc"s
      */ 
     for (auto NextMalloc : InstructionsToInstrument[MallocTypeID])
     {

@@ -43,6 +43,8 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   ASPACE_MALLOC = "__impl_alloc",
                   KERNEL_FREE = "kmem_sys_free",
                   ASPACE_FREE = "__impl_free",
+                  USER_MALLOC = "malloc",
+                  USER_FREE = "free",
                   ANNOTATION = "llvm.global.annotations",
                   NOCARAT = "nocarat";
 
@@ -72,9 +74,18 @@ std::unordered_map<AllocID, std::string> IDsToKernelAllocMethods = {
     { AllocID::ASpaceFree, ASPACE_FREE }
 };
 
+std::unordered_map<AllocID, std::string> IDsToUserAllocMethods = {
+    { AllocID::UserMalloc, USER_MALLOC } ,
+    { AllocID::UserFree, USER_FREE },
+};
+
 std::unordered_map<std::string, Function *> KernelAllocNamesToMethods;
 
 std::unordered_map<Function *, AllocID> KernelAllocMethodsToIDs;
+
+std::unordered_map<std::string, Function *> UserAllocNamesToMethods;
+
+std::unordered_map<Function *, AllocID> UserAllocMethodsToIDs;
 
 std::unordered_set<Function *> AnnotatedFunctions;
 
@@ -82,6 +93,12 @@ std::unordered_set<Function *> AnnotatedFunctions;
 /*
  * Command line options for pass
  */ 
+cl::opt<bool> InstrumentingUserCode(
+    "target-user",
+    cl::init(false),
+    cl::desc("Performs instrumentation for user code")
+);
+
 cl::opt<bool> NoGlobals(
     "fno-globals",
     cl::init(false),

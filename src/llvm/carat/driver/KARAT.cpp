@@ -33,6 +33,16 @@
 #include "Noelle.hpp"
 #endif
 
+
+#define FetchAllocMethods(type) \
+    for (auto const &[ID, Name] : IDsTo##type##AllocMethods) \
+    { \
+        Function *AllocMethod = Utils::GetMethod(&M, Name); \
+        type##AllocNamesToMethods[Name] = AllocMethod; \
+        type##AllocMethodsToIDs[AllocMethod] = ID; \
+    } \
+
+
 namespace
 {
 struct CAT : public ModulePass
@@ -97,12 +107,8 @@ struct CAT : public ModulePass
         /*
          * Now fetch all kernel allocation methods, stash them
          */
-        for (auto const &[ID, Name] : IDsToKernelAllocMethods)
-        {
-            Function *KAMethod = Utils::GetMethod(&M, Name);
-            KernelAllocNamesToMethods[Name] = KAMethod;
-            KernelAllocMethodsToIDs[KAMethod] = ID;
-        }
+        if (InstrumentingUserCode) FetchAllocMethods(User)
+        else FetchAllocMethods(Kernel)
 
 
         return false;
@@ -121,16 +127,14 @@ struct CAT : public ModulePass
 
 
             /*
-             * Vet the kernel allocation methods --- check if kmem
-             * invocations are vanilla or not (i.e. invocations via
-             * indirect call, etc.)
+             * Vet allocation methods (of kernel OR userspace)
              */ 
-            Utils::VetKernelAllocMethods();
+            Utils::VetAllocMethods();
         }
 
 
         /*
-         * Perform all CARAT instrumentation on the kernel
+         * --- Perform all CARAT instrumentation on the code ---
          */ 
 
         /*
