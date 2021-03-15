@@ -14,13 +14,14 @@ DIRNAME=$(dirname $REALPATH)
 CRTGEN_DIR=/usr/lib64
 CRTBE_DIR=/usr/lib/gcc/x86_64-redhat-linux/8
 
+TARGET_OBJ=nk_nld_target.o
+
 OUT_FLAG=$(echo "$*" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
 
 make framework -C $DIRNAME
 
 if [[ $* != *-nokarat* ]]; then
-  USER_OBJ=target.o
   BLOB_OBJ=blob.o
   BLOB_BC=blob.bc
   BLOB_SIMPLIFY_BC=blob_simplify.bc
@@ -43,12 +44,12 @@ if [[ $* != *-nokarat* ]]; then
 
   # Run KARAT pass
   ${ME} -load ~/CAT/lib/KARAT.so -karat -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
-  clang -mno-red-zone -fPIC -c ${BLOB_OPT_BC} -o target.o
+  clang -mno-red-zone -fPIC -c ${BLOB_OPT_BC} -o ${TARGET_OBJ}
 else
   echo "Called with -nokarat"
   set -x
   SNIPPED_ARGS=$(echo $* | sed 's/-nokarat//')
-  ld -r $SNIPPED_ARGS $DIRNAME/glue.o $DIRNAME/framework.o -o target.o
+  ld -r $SNIPPED_ARGS $DIRNAME/glue.o $DIRNAME/framework.o -o ${TARGET_OBJ}
 fi
 
 # /home/arn9233 is included because of static libomp.a, which doesn't typically exist.
@@ -56,8 +57,9 @@ fi
 ld -static -pie --no-dynamic-linker \
   -T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 -z relro -z now \
   $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o \
-  -L/home/arn9233/ -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
-  target.o $DIRNAME/framework_low_level.o \
+  -L/home/zhn1979 -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
+  ${TARGET_OBJ} $DIRNAME/framework_low_level.o \
   -lm -lomp -ldl -lstdc++ --start-group -lgcc -lgcc_eh -lpthread -lc -lrt --end-group \
   $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o \
   $OUT_FLAG
+
