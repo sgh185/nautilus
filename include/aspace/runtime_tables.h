@@ -36,134 +36,19 @@
 #pragma once
 
 #include <nautilus/nautilus.h>
-#include <nautilus/naut_types.h>
-#include <nautilus/naut_string.h>
-#include <aspace/carat.h>
-#include <nautilus/skiplist.h>
+#include <aspace/carat_defs.h>
+
 
 
 /*
- * =================== Utility Macros ===================  
- */ 
-
-/*
- * Debugging macros --- for QEMU
- */ 
-#define DB(x) outb(x, 0xe9)
-#define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
-#define DHB(x) DHN(x >> 4) ; DHN(x);
-#define DHW(x) DHB(x >> 8) ; DHB(x);
-#define DHL(x) DHW(x >> 16) ; DHW(x);
-#define DHQ(x) DHL(x >> 32) ; DHL(x);
-#define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
-
-
-/*
- * Printing
- */ 
-#define DO_CARAT_PRINT 1
-#if DO_CARAT_PRINT
-#define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
-#else
-#define CARAT_PRINT(...) 
-#endif
-
-
-/*
- * Malloc
- */ 
-#define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
-#define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
-
-
-/*
- * Skiplist setup
- */
-#define CARAT_INIT_NUM_GEARS 6
-
-
-/*
- * Sizes
- */ 
-#define ONE_MB 1048576
-#define THIRTY_TWO_GB 0x800000000ULL
-#define ESCAPE_WINDOW_SIZE ONE_MB
-
-
-/*
- * =================== Data Structures/Definitions ===================  
- */ 
-
-/*
- * Typedefs for CARAT data structures
- */ 
-typedef nk_slist_uintptr_t nk_carat_escape_set;
-typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
-
-/*
- * carat_context
+ * =================== Interfaces for runtime table data structures ===================  
  * 
- * - Main, global context for CARAT in the kernel
- * - Contains the global allocation map, escape window information, and 
- *   state from initialization and about stack allocation tracking
- * 
- * NOTE --- this is an ENGINEERING fix --- it is possible that a global
- * context will create more resource pressure, cache misses, and other 
- * underlying inefficiencies than the original design (scattered globals)
- */
-
-typedef struct carat_context_t {
-
-    /*
-     * allocation_map
-     * 
-     * - Global allocation map
-     * - Stores [allocation address : allocation_entry address]
-     */ 
-    nk_carat_allocation_map *allocation_map;
-
-
-    /*
-     * Escape window
-     * - The escape window is an optimization to conduct escapes handling in batches
-     * - Functions in the following way:
-     *   
-     *   void **a = malloc(); // the data itself is treated as a void * --- therefore, malloc
-     *                        // treated with a double pointer
-     *   void **escape = a; // an escape
-     *   void ***escape_window = [escape, escape, escape, ...] // an array of escapes
-     * 
-     * - Statistics --- total_escape_entries is a counter helps with batch processing,
-     *                  indicating how many escapes are yet to be processed
-     */ 
-    void ***escape_window;
-    uint64_t total_escape_entries;
-
-
-    /*
-     * Flag to indicate that CARAT is ready to run
-     */ 
-    int carat_ready; 
-
-} carat_context;
-
-
-/*
- * More names for the same thing
+ * Interfaces for:
+ * - CARAT contexts
+ * - Allocation tables
+ * - Escapes sets
+ * - Allocation entries
  */ 
-typedef carat_context nk_carat_context;
-
-
-/*
- * Global carat context declaration
- */ 
-extern carat_context global_carat_context;
-
-
-/*
- * Non-canonical address used for protections checks
- */ 
-extern void *non_canonical;
 
 
 /*
@@ -241,31 +126,6 @@ extern void *non_canonical;
     nk_slist_foreach((global_carat_context.allocation_map), pair, iterator)
 
 #endif
-
-
-
-/*
- * allocation_entry
- *
- * Setup for an allocation entry 
- * - An allocation_entry stores necessary information to *track* each allocation
- * - There is one allocation_entry object for each allocation
- */ 
-typedef struct allocation_entry_t { 
-
-    /*
-     * Pointer to the allocation, size of allocation
-     */ 
-    void *pointer; 
-    uint64_t size;
-
-    /*
-     * Set of all *potential* escapes for this particular
-     * allocation, the pointer -> void **
-     */ 
-    nk_carat_escape_set *escapes_set;
-
-} allocation_entry;
 
 
 /*

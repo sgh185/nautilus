@@ -23,7 +23,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include <aspace/carat.h>
+#include <aspace/patching.h> /* Questionable --- patching.h accumulates all CARAT .h info */
 
 #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
 #undef DEBUG_PRINT
