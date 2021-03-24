@@ -26,7 +26,7 @@ uint64_t sys_exit(uint64_t exit_status) {
      struct apic_dev *apic = sys->cpus[0]->apic;
      uint64_t time_duration = apic_cycles_to_realtime(apic,ending_cycles-starting_cycles);
   
-     nk_vc_printf("Benchmark blackscholes finished!\nThe totle # of cycles measured in internal nautilus is %llu, and the time duration is %llu",ending_cycles-starting_cycles,time_duration);
+     nk_vc_printf("Benchmark finished!\nThe totle # of cycles measured in internal nautilus is %llu, and the time duration is %llu",ending_cycles-starting_cycles,time_duration);
  
      starting_cycles = 0;
      ending_cycles = 0;
