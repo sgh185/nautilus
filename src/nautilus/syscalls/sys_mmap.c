@@ -80,13 +80,13 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
   new_region.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
 
   // If the allocation is inside lower 4G, it is already mapped
-  if (allocation > (void*)0x100000000UL) {
+  // if (allocation > (void*)0x100000000UL) {
     if (nk_aspace_add_region(nk_process_current()->aspace, &new_region)) {
       DEBUG("Failed to add aspace region\n");
       free(allocation);
       return -1;
     }
-  }
+  // }
 
   return (uint64_t)allocation;
 }

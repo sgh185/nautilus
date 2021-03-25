@@ -174,7 +174,7 @@ void __nk_process_wrapper(void *i, void **o) {
 
   // TODO MAC: This works... but aspace swap is sketchy
   int argc = p->argc;
-  char **args = p->argv_virt;
+  char **args = p->argv;
   char **envp = p->envp;
   struct nk_exec *exe = p->exe;
 
@@ -229,32 +229,32 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   }
   memset(p_addr_start, 0, PSTACK_SIZE);
   
-  // add stack to address space
-  nk_aspace_region_t r_stack;
-  r_stack.va_start = (void *)PSTACK_START;
-  r_stack.pa_start = p_addr_start;
-  r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
-  r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  // // add stack to address space
+  // nk_aspace_region_t r_stack;
+  // r_stack.va_start = (void *)PSTACK_START;
+  // r_stack.pa_start = p_addr_start;
+  // r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
+  // r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
-  if (nk_aspace_add_region(addr_space, &r_stack)) {
-    PROCESS_ERROR("failed to add initial process aspace stack region\n");
-    nk_aspace_destroy(addr_space);
-    free(p_addr_start);
-    return -1;
-  }
+  // if (nk_aspace_add_region(addr_space, &r_stack)) {
+  //   PROCESS_ERROR("failed to add initial process aspace stack region\n");
+  //   nk_aspace_destroy(addr_space);
+  //   free(p_addr_start);
+  //   return -1;
+  // }
 
-  // add kernel to address space
-  nk_aspace_region_t r_kernel;
-  r_kernel.va_start = (void *)KERNEL_ADDRESS_START;
-  r_kernel.pa_start = (void *)KERNEL_ADDRESS_START;
-  r_kernel.len_bytes = KERNEL_MEMORY_SIZE; 
-  r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  // // add kernel to address space
+  // nk_aspace_region_t r_kernel;
+  // r_kernel.va_start = (void *)KERNEL_ADDRESS_START;
+  // r_kernel.pa_start = (void *)KERNEL_ADDRESS_START;
+  // r_kernel.len_bytes = KERNEL_MEMORY_SIZE; 
+  // r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
-  if (nk_aspace_add_region(addr_space, &r_kernel)) {
-    PROCESS_ERROR("failed to add initial process aspace stack region\n");
-    nk_aspace_destroy(addr_space);
-    return -1;
-  }
+  // if (nk_aspace_add_region(addr_space, &r_kernel)) {
+  //   PROCESS_ERROR("failed to add initial process aspace stack region\n");
+  //   nk_aspace_destroy(addr_space);
+  //   return -1;
+  // }
   
   // load executable into memory
   p->exe = nk_load_exec(exe_name);

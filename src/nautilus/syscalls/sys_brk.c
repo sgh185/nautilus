@@ -39,7 +39,7 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     nk_aspace_region_t heap_expand;
-    heap_expand.va_start = (void*)HEAP_BOT;
+    heap_expand.va_start = new_heap; //(void*)HEAP_BOT;
     heap_expand.pa_start = new_heap;
     heap_expand.len_bytes = HEAP_SIZE_INCREMENT;
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
@@ -50,9 +50,9 @@ uint64_t sys_brk(const uint64_t brk) {
       free(new_heap);
       goto out;
     }
-    current_process->heap_begin = HEAP_BOT;
+    current_process->heap_begin = new_heap;
     current_process->heap_end =
-        current_process->heap_begin + HEAP_SIZE_INCREMENT;
+        new_heap + HEAP_SIZE_INCREMENT;
   } else {
     // Some memory has already been allocated
     if ((void*)brk > current_process->heap_end) {
