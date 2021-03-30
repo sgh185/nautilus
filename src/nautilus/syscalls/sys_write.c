@@ -7,7 +7,6 @@
 
 uint64_t sys_write(uint32_t fd, const char* buf, size_t len) {
   unsigned long flags;
-  uint64_t ret = -1;
 
   if (fd == STDOUT_FILENO || fd == STDERR_FILENO) {
     uint64_t i = 0;
@@ -16,13 +15,11 @@ uint64_t sys_write(uint32_t fd, const char* buf, size_t len) {
       buf++;
       i++;
     }
-    ret = len;
+
+    return len;
   } else {
-    DEBUG("Non-stdio fds are not yet supported\n");
-    return -1;
-    // ret = (uint64_t)nk_fs_write((struct nk_fs_open_file_state*)fd,
-    // (void*)buf,
-    //                        (ssize_t)len);
+  	nk_process_t* current_process = GET_PROC();
+	struct nk_fs_open_file_state* nk_fd = fd_to_nk_fs(&current_process->syscall_state.fd_table,fd);
+	return nk_fs_write(nk_fd,buf,len);
   }
-  return ret;
 }

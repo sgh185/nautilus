@@ -21,6 +21,7 @@ BLOB_KOBJ = blob.kobj.o
 //CC = gcc
 
 CC = wllvm
+CXX = clang++
 ME = opt
 FINALCC = clang
 LD = ld
@@ -46,6 +47,7 @@ KARAT_TRANS = cp
 #          -Wstrict-overflow=5
 
 CFLAGS = -O2 -mno-red-zone -fPIC -Wall
+CXXFLAGS = $(CFLAGS)
 NORMFLAGS = -loop-simplify -lcssa
 
 # For C++ add
@@ -63,7 +65,7 @@ NORMFLAGS = -loop-simplify -lcssa
 all: $(TARGET) #$(BLOB_LL)
 
 $(TARGET:.exe=.o):
-	$(CC) $(CFLAGS) -c $(TARGET:.exe=.c) -I../../include -o $(TARGET:.exe=.o)	
+	$(CC) $(CXXFLAGS) -c $(TARGET:.exe=.cpp) -I../../include -o $(TARGET:.exe=.o)	
 
 framework_low_level.o: framework_low_level.S
 	$(CC) $(CFLAGS) -c framework_low_level.S

@@ -11,10 +11,14 @@ uint64_t sys_close(fd_t fd) {
 
   nk_process_t* current_process = GET_PROC();
 
-  if (!fd_to_nk_fs(&current_process->syscall_state.fd_table, fd)) {
+  struct nk_fs_open_file_state* nk_file = fd_to_nk_fs(&current_process->syscall_state.fd_table,fd);
+
+  if (!nk_file) {
     DEBUG("Can't close an unopened file\n");
     return -1;
   }
-  WARN("Not actually closing an open file descriptor\n");
+  
+  nk_fs_close(nk_file);
+
   return 0;
 }
