@@ -66,7 +66,7 @@ struct nk_fs {
     struct list_head  fs_list_node;
 
     uint64_t          flags;
-#define NK_FS_READONLY   0
+#define NK_FS_READONLY  1 
 
     void             *state;  // internal FS state
     struct nk_fs_int *interface;
