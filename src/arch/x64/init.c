@@ -565,7 +565,7 @@ init (unsigned long mbd,
 
 #ifdef NAUT_CONFIG_FAT32_FILESYSTEM_DRIVER
 #ifdef NAUT_CONFIG_RAMDISK_EMBED
-    nk_fs_fat32_attach("ramdisk0","rootfs", 1);
+    nk_fs_fat32_attach("ramdisk0","rootfs", 0);
 #endif
 #endif
 
