@@ -142,7 +142,6 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
       new_str_len = strlen(arr[i]) + 1;
       ptr_arr[i] = &(stack_arr[stack_idx]);
       strcpy(&(stack_arr[stack_idx]), arr[i]);
-      stack_arr[new_str_len] = 0;
       stack_idx += new_str_len + 1;
     }
     ptr_arr[i] = 0;
