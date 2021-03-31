@@ -725,13 +725,6 @@ nk_carat_context * initialize_new_carat_context(void)
 	 * CARAT is ready --- set the flag
 	 */ 
 	CARAT_READY_ON(new_context);
-
-	
-    /*
-     * Invoke wrapper housing compiler-injected global allocation tracking
-     */
-    _nk_carat_globals_compiler_target();
-
     
 	return new_context;
 }
