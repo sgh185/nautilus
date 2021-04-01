@@ -7,9 +7,9 @@
 NAUTILUS_DIR = ../..
 
 
-TARGET = test.exe
+TARGET = hello.exe
 
-USER_OBJ = test.o
+USER_OBJ = hello.o
 
 BLOB_OBJ = blob.o
 BLOB_BC = blob.bc
