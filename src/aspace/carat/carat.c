@@ -684,7 +684,7 @@ static struct nk_aspace *create(char *name, nk_aspace_characteristics_t *c)
     carat->aspace = nk_aspace_register(name,
                     // we want both page faults and general protection faults (NO, no GPF)
                     //    NK_ASPACE_HOOK_PF | NK_ASPACE_HOOK_GPF,
-                        NK_ASPACE_HOOK_GPF,
+                        0,
                     // our interface functions (see above)
                     &carat_interface,
                     // our state, which will be passed back
