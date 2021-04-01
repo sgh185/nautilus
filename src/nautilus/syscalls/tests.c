@@ -245,4 +245,37 @@ static struct shell_cmd_impl exec_impl = {
 
 };
 
+
+static int handle_create(char* buf, void* priv){
+  nk_fs_fd_t fd = nk_fs_open("/hello.txt",O_RDWR|O_CREAT,1);
+  if (FS_FD_ERR(fd)) {
+     nk_vc_printf("Cannot open \"%s\"\n",buf);
+     return 0;
+  }
+  char wr_buf[] = "file created\n";
+  nk_fs_write(fd,(void*) wr_buf, sizeof(*wr_buf));
+  nk_fs_close(fd);
+
+  fd = nk_fs_open("/hello.txt",O_RDWR|O_CREAT,1);
+  if (FS_FD_ERR(fd)) {
+     nk_vc_printf("Cannot open \"%s\"\n",buf);
+     return 0;
+  }
+  char wr_buf2[] = "file created\n";
+  nk_fs_write(fd,(void*) wr_buf2, sizeof(*wr_buf));
+  nk_fs_close(fd);
+
+
+  return 0;
+}
+
+static struct shell_cmd_impl create_impl = {
+    .cmd = "create",
+    
+    .help_str = "create a file called hello.txt",
+    
+    .handler = handle_create,
+};
+
+nk_register_shell_cmd(create_impl);
 nk_register_shell_cmd(exec_impl);
