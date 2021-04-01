@@ -209,9 +209,15 @@ typedef struct allocation_entry_t {
  * ========== Definitions --- Globals for CARAT ========== 
  */ 
 /*
- * Global carat context declaration
+ * Global carat context declaration --- DEPRECATED
  */ 
 extern carat_context global_carat_context;
+
+
+/*
+ * "CARAT-ready" bootstrapping flag
+ */ 
+extern int karat_ready;
 
 
 /*
