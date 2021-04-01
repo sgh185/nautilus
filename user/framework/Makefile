@@ -6,10 +6,11 @@
 
 NAUTILUS_DIR = ../..
 
+TARGET_NAME=hello
 
-TARGET = hello.exe
+TARGET = $(TARGET_NAME).exe
 
-USER_OBJ = hello.o
+USER_OBJ = $(TARGET_NAME).o
 
 BLOB_OBJ = blob.o
 BLOB_BC = blob.bc
@@ -24,7 +25,7 @@ CC = wllvm
 ME = opt
 FINALCC = clang
 LD = ld
-NLD = ./nld
+NLD = ./nld-ubuntu
 NSIGN = ./nsign
 EXTRACTBC = extract-bc
 LLVMDIS   = llvm-dis
@@ -112,5 +113,5 @@ nokarat: $(TARGET:.exe=.o) framework
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 clean: 
-	rm -f $(TARGET) *.o *.bc *.ll 
+	rm -f $(TARGET) *.o *.bc *.ll *.out *.unsigned *.exe 
 
