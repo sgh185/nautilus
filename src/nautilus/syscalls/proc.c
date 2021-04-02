@@ -16,7 +16,9 @@ struct nk_fs_open_file_state* fd_to_nk_fs(struct file_descriptor_table* table,
 fd_t fd_add(struct file_descriptor_table* table, struct nk_fs_open_file_state* nk_fd) {
   
   if (table->next_fd_index >= SYSCALL_NUM_FDS) {
-    DEBUG("Can't support more fds, please add a better data structure.\n");
+    ERROR("Can't support more fds, please add a better data structure.\n");
+    while(1)
+      ;
   }
 
   struct file_descriptor* fd_table_entry = &table->fds[table->next_fd_index];
