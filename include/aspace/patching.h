@@ -112,12 +112,14 @@ int _carat_patch_escapes(
 
 /*
  * Upon a move --- "handle_thread" will update each thread's register 
- * state to use @state->allocation_target instead of @state->allocation_to_move
+ * and stack state to use @state->allocation_target instead of @state->allocation_to_move
  *
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
 static void __carat_print_registers (struct nk_regs * r);
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state);
+static void _carat_patch_thread_stack(struct nk_thread *t, void *state);
+static void _carat_patch_thread_registers_stack(struct nk_thread *t, void *state);
 
 
 /*

@@ -154,7 +154,7 @@ NO_CARAT
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state) 
 {
     /*
-     * Cast to struct move_context from @context
+     * Cast to struct move_context
      */ 
     struct move_context *context = (struct move_context*) state;
 
@@ -190,7 +190,7 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
         (context->size) \
     ); \
     \
-    if (offset_##reg > 0) { r->reg = (((uint64_t) context->allocation_target) + offset_##reg); }
+    if (offset_##reg != -1) { r->reg = (((uint64_t) context->allocation_target) + offset_##reg); }
 
     HANDLE_REG(context, r15)
 	HANDLE_REG(context, r14)
@@ -207,12 +207,55 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
     HANDLE_REG(context, rcx)
     HANDLE_REG(context, rbx)
     HANDLE_REG(context, rax)
-	// TODO --- handle rsp and rip later
+	// TODO --- handle rip later. rsp is handled by _carat_patch_thread_stack
 
 
     return;
 }
 
+/*
+ * Search through all addresses in the thread's stack 
+ * and patch any of them that refer to the allocation being moved
+ */ 
+NO_CARAT
+static void _carat_patch_thread_stack(struct nk_thread *t, void *state) 
+{
+    /*
+     * Cast to struct move_context
+     */ 
+    struct move_context *context = (struct move_context*) state;
+
+    uint64_t *stack_start = t->stack;
+    nk_stack_size_t stack_size = t->stack_size;
+    uint64_t *stack_end = stack_start + stack_size;
+
+    /*
+     * Loop through every address in the stack
+     */ 
+    for (uint64_t *stack_addr = stack_start; stack_addr < stack_end; stack_addr += 8) {
+        /*
+         * Determine if the value stored in the stack location 
+         * aliases @allocation_to_move --- if it does, then
+         * "patch" the value to use @allocation_target at the
+         * correct offset
+         */ 
+        uint64_t offset = _carat_get_query_offset((void*) *stack_addr, context->allocation_to_move, context->size);
+        if (offset != -1) {
+            *stack_addr = (((uint64_t) context->allocation_target) + offset);
+        }
+    }
+}
+
+/*
+ * Patch the stack and the registers for a given thread.
+ * This function is passed into and called by nk_sched_map_threads
+ */ 
+NO_CARAT
+static void _carat_patch_thread_registers_and_stack(struct nk_thread *t, void *state) 
+{
+    _carat_patch_thread_registers(t, state);
+    _carat_patch_thread_stack(t, state);
+}
 
 /*
  * Catches the runtime up before any move happens
@@ -283,24 +326,17 @@ int _move_allocation(
 
 
     /*
-     * For each thread, patch the registers that currently contain references to 
-     * @allocation_target. In order to patch each thread, 
-     * all necessary info is packaged into a move_context struct
+     * For each thread, patch the registers and stack addresses
+     * that currently contain references to @allocation_target. 
+     * In order to patch each thread, all necessary info is packaged into a move_context struct
      */
     struct move_context package = { allocation_to_move, allocation_target, entry->size, 0 };
-    nk_sched_map_threads(-1, _carat_patch_thread_registers, &package);
+    nk_sched_map_threads(-1, _carat_patch_thread_registers_and_stack, &package);
     if (package.failed) 
     {
         CARAT_PRINT("CARAT: Unable to patch threads\n");
         goto out_bad;
     }
-   
-
-    /*
-	 * TODO: Do we need to handle our own stack? --- this is the possible 
-	 * location in the handler where the stack needs to be handled 
-	 */
-
 
     /*
      * Move the contents pointed to by @allocation_to_move to the 
