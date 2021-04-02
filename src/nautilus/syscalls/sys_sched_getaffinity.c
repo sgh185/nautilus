@@ -23,7 +23,7 @@ uint64_t sys_sched_getaffinity(uint64_t pid, uint64_t len,
 
   // PID !=0 means the caller is requesting info for another process/thread
   if (pid) {
-    ERROR("Not supported for other processes. Using fake return value\n");
+    WARN("Not supported for other processes. Using fake return value\n");
     affinity_to_return = system_bitmask;
     goto out;
   }

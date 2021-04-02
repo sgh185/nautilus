@@ -142,12 +142,14 @@ continue_context_switch:
 #endif
 
 #ifdef NAUT_CONFIG_ASPACES
-    // Need two pushes to align stack to mod 16 + 8 before call to nk_aspace_switch
-    push %rax
+    // This is a hack to fix a strange issue where sometimes the stack is aligned differently (8 vs 16 byte).
+    // Notably, this is likely masking a bug somewhere else (possibly in the above assembly)
     push %rax
     movq 24(%rax), %rdi
+    mov %rsp, %r14
+    andq $0xFFFFFFFFFFFFFFF0, %rsp
     call nk_aspace_switch
-    pop %rax
+    mov %r14, %rsp
     pop %rax
 #endif
 	
