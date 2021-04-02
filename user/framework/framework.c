@@ -11,6 +11,7 @@ void * (**__nk_func_table)();
 
 extern int _start();
 
+__attribute__((noinline, used, annotate("nocarat")))
 void __nk_exec_entry(void *in, void **out, void * (**table)())
 {
     __nk_func_table = table;
@@ -51,38 +52,47 @@ void __nk_exec_entry(void *in, void **out, void * (**table)())
     );
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void* nk_func_table_access(volatile int entry_no, void* arg1, void* arg2) {
   return __nk_func_table[entry_no]((char*)arg1, arg2);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_global(void* ptr, uint64_t size, uint64_t global_ID) {
     __nk_func_table[NK_CARAT_INSTRUMENT_GLOBAL](ptr, size, global_ID);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_malloc(void* ptr, uint64_t size) {
     __nk_func_table[NK_CARAT_INSTRUMENT_MALLOC](ptr, size);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_calloc(void* ptr, uint64_t size) {
     __nk_func_table[NK_CARAT_INSTRUMENT_CALLOC](ptr, size);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_realloc(void* ptr, uint64_t size) {
     __nk_func_table[NK_CARAT_INSTRUMENT_REALLOC](ptr, size);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_free(void* ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_FREE](ptr);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_escapes(void* ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void _nk_carat_globals_compiler_target(void) {
     __nk_func_table[NK_CARAT_GLOBALS_COMPILER_TARGET]();
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_init(void) {
     __nk_func_table[NK_CARAT_INIT]();
     _nk_carat_globals_compiler_target();

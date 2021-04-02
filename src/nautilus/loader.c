@@ -513,11 +513,22 @@ struct nk_exec *nk_load_exec(char *path)
     return 0;
 }
 
+#include <aspace/runtime_tables.h>
+
 // run executable's entry point - this is a blocking call on the current thread
 // user I/O is via the current VC
 
 static void * (*__nk_func_table[])() = {
     [NK_VC_PRINTF] = (void * (*)()) nk_vc_printf,
+    [NK_CARAT_INSTRUMENT_GLOBAL] = (void * (*)()) nk_carat_instrument_global,
+    [NK_CARAT_INSTRUMENT_MALLOC] = (void * (*)()) nk_carat_instrument_malloc,
+    [NK_CARAT_INSTRUMENT_CALLOC] = (void * (*)()) nk_carat_instrument_calloc,
+    [NK_CARAT_INSTRUMENT_REALLOC] = (void * (*)()) nk_carat_instrument_realloc,
+    [NK_CARAT_INSTRUMENT_FREE] = (void * (*)()) nk_carat_instrument_free,
+    [NK_CARAT_INSTRUMENT_ESCAPE] = (void * (*)()) nk_carat_instrument_escapes,
+    [NK_CARAT_GLOBALS_COMPILER_TARGET] = (void * (*)())  _nk_carat_globals_compiler_target,
+    [NK_CARAT_INIT] = (void * (*)()) nk_carat_init,
+    [NK_CARAT_CHECK_PROTECTION] = (void * (*)()) nk_aspace_protection_check,
 };
 
 int 

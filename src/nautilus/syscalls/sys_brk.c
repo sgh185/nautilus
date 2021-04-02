@@ -39,7 +39,7 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     nk_aspace_region_t heap_expand;
-    heap_expand.va_start = (void*)HEAP_BOT;
+    heap_expand.va_start = new_heap; //(void*)HEAP_BOT;
     heap_expand.pa_start = new_heap;
     heap_expand.len_bytes = HEAP_SIZE_INCREMENT;
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
@@ -50,29 +50,32 @@ uint64_t sys_brk(const uint64_t brk) {
       free(new_heap);
       goto out;
     }
-    current_process->heap_begin = HEAP_BOT;
+    current_process->heap_begin = new_heap;
     current_process->heap_end =
-        current_process->heap_begin + HEAP_SIZE_INCREMENT;
+        new_heap + HEAP_SIZE_INCREMENT;
   } else {
     // Some memory has already been allocated
     if ((void*)brk > current_process->heap_end) {
-      void* new_heap = malloc(HEAP_SIZE_INCREMENT);
+      uint64_t new_size = HEAP_SIZE_INCREMENT + ((uint64_t)current_process->heap_end - (uint64_t)current_process->heap_begin);
+      void* new_heap = malloc(new_size);
       if (!new_heap) {
         goto out;
       }
       nk_aspace_region_t heap_expand;
-      heap_expand.va_start = current_process->heap_end;
+      heap_expand.va_start = new_heap;
       heap_expand.pa_start = new_heap;
-      heap_expand.len_bytes = HEAP_SIZE_INCREMENT;
+      heap_expand.len_bytes = new_size;
       heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                   NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                   NK_ASPACE_EAGER;
-      if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
+      if (nk_aspace_move_region(nk_process_current()->aspace, &current_process->heap_region, &heap_expand)) {
         nk_vc_printf("Fail to allocate more heap to aspace\n");
         free(new_heap);
         goto out;
       }
-      current_process->heap_end += HEAP_SIZE_INCREMENT;
+      current_process->heap_region = heap_expand;
+      current_process->heap_begin = new_heap;
+      current_process->heap_end = new_heap + new_size;
     }
   }
 

@@ -60,6 +60,7 @@
 /*
  * Conditions check 
  */ 
+#define CHECK_CARAT_BOOTSTRAP_FLAG if (!karat_ready) { return; } 
 #define CHECK_CARAT_READY(c) if (!(c->carat_ready)) { return; }
 #define CARAT_READY_ON(c) c->carat_ready = 1
 #define CARAT_READY_OFF(c) c->carat_ready = 0
@@ -190,7 +191,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 /*
  * Macro expansion utility --- fetch the current CARAT context
  */ 
-#define FETCH_CARAT_CONTEXT (((nk_aspace_carat_t *) get_cur_thread()->aspace)->context) 
+#define FETCH_CARAT_CONTEXT (((nk_aspace_carat_t *) get_cur_thread()->aspace->state)->context) 
 
 
 /*
@@ -202,6 +203,23 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 #define ADD_ESCAPE_TO_WINDOW(ctx, addr) \
     ctx->escape_window[FETCH_TOTAL_ESCAPES(ctx)] = ((void **) addr); \
     ctx->total_escape_entries++;
+
+
+/*
+ * Debugging
+ */
+#define PRINT_ASPACE_INFO \
+    if (DO_CARAT_PRINT) \
+    { \
+        DS("gct: "); \
+        DHQ(((uint64_t) get_cur_thread())); \
+        DS("\na: "); \
+        DHQ(((uint64_t) get_cur_thread()->aspace)); \
+        DS("\nctx "); \
+        DHQ(((uint64_t) (FETCH_CARAT_CONTEXT))); \
+        DS("\n"); \
+    }
+
 
 
 /*
