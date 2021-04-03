@@ -3,6 +3,8 @@
 #define SYSCALL_NAME "sys_mmap"
 #include "impl_preamble.h"
 
+#include <nautilus/syscalls/proc.h>
+
 #define MAP_PRIVATE 0x2
 #define MAP_FIXED 0x10
 #define MAP_ANONYMOUS 0x20
@@ -21,9 +23,6 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
   int flags = (int)flags_;
   int fd = (int)fd_;
   sint64_t offset = (sint64_t)offset_;
-
-  DEBUG("Unimplemented with args:\n%p\n%p\n%p\n%p\n%p\n%p\n", addr, length,
-        prot, flags, fd, offset);
 
   if (fd != -1) {
     ERROR("Not implemented for file descriptors\n");
@@ -58,35 +57,26 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
     DEBUG("Malloc failed\n");
     return -1;
   }
+  memset(allocation, 0, length); // mmap specifies 0-initialized memory
 
-  nk_aspace_region_t new_region;
-  new_region.va_start = allocation;
-  new_region.pa_start = allocation;
-  new_region.len_bytes = length;
-  new_region.protect.flags = 0;
-
-  /*
-  if (prot & PROT_READ) {
-    new_region.protect.flags |= NK_ASPACE_READ;
-  }
-  if (prot & PROT_WRITE) {
-    new_region.protect.flags |= NK_ASPACE_WRITE;
-  }
-  if (prot & PROT_EXEC) {
-    new_region.protect.flags |= NK_ASPACE_EXEC;
-  }
-  */
+  nk_aspace_region_t* new_region = malloc(sizeof(nk_aspace_region_t));
+  memset(new_region, 0, sizeof(nk_aspace_region_t));
+  new_region->va_start = allocation;
+  new_region->pa_start = allocation;
+  new_region->len_bytes = length;
   // To simplify mprotect, grant all permissions for now. TODO
-  new_region.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
+  new_region->protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
 
   // If the allocation is inside lower 4G, it is already mapped
   // if (allocation > (void*)0x100000000UL) {
-    if (nk_aspace_add_region(nk_process_current()->aspace, &new_region)) {
-      DEBUG("Failed to add aspace region\n");
-      free(allocation);
-      return -1;
-    }
-  // }
+  if (nk_aspace_add_region(nk_process_current()->aspace, &new_region)) {
+    DEBUG("Failed to add aspace region\n");
+    free(allocation);
+    return -1;
+  }
+
+  // Add the new region to the mmap tracking structure for this process.
+  proc_mmap_add_region(syscall_get_proc(), new_region);
 
   return (uint64_t)allocation;
 }

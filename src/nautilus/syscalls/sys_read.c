@@ -28,7 +28,7 @@ uint64_t sys_read(fd_t fd, uint64_t buf, uint64_t len) {
     return read_bytes;
   }
 
-  nk_process_t* current_process = GET_PROC();
+  nk_process_t* current_process = syscall_get_proc();
 
   struct nk_fs_open_file_state* nk_fs_state = fd_to_nk_fs(&current_process->syscall_state.fd_table, fd);
   if (!nk_fs_state) {

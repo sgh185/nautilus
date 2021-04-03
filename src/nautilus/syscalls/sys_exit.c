@@ -2,6 +2,7 @@
 #include <nautilus/shell.h>
 #include <nautilus/syscalls/decl.h>
 #include <nautilus/thread.h>
+#include <nautilus/syscalls/proc.h>
 
 #define SYSCALL_NAME "sys_exit"
 #include "impl_preamble.h"

@@ -1210,12 +1210,6 @@ uint64_t sys_clock_nanosleep(uint64_t which_clock, uint64_t flags,
   return -1;
 }
 
-uint64_t sys_exit_group(uint64_t error_code) {
-  /// TODO: entire syscall
-  DEBUG("Call to stubbed syscall (exit_group)\n");
-  return -1;
-}
-
 uint64_t sys_epoll_wait(uint64_t epfd, uint64_t events, uint64_t maxevents,
                         uint64_t timeout) {
   /// TODO: entire syscall
