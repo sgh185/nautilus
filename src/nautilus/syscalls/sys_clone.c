@@ -86,10 +86,7 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp,
   DEBUG("%p\n%p\n%p\n%p\n%p\n", clone_flags, newsp, parent_tidptr, child_tidptr,
         tls_val);
 
-  nk_process_t* current_process = nk_process_current();
-  if (!current_process) {
-    panic("Call to sys_clone out of the context of a process.\n");
-  }
+  nk_process_t* current_process = syscall_get_proc();
 
   struct clone_compat_args* args = malloc(
       sizeof(struct clone_compat_args)); /* Free is handled by new thread */

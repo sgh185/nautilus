@@ -9,7 +9,7 @@ uint64_t sys_close(fd_t fd) {
     DEBUG("Closing stdio is not defined\n");
   }
 
-  nk_process_t* current_process = GET_PROC();
+  nk_process_t* current_process = syscall_get_proc();
 
   if (!fd_to_nk_fs(&current_process->syscall_state.fd_table, fd)) {
     DEBUG("Can't close an unopened file\n");

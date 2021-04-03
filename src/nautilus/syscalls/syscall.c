@@ -359,11 +359,9 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
 #endif
 
   int syscall_nr = (int)r->rax;
-  nk_process_t* current_process = nk_process_current();
+  nk_process_t* current_process = syscall_get_proc();
   DEBUG("Inside syscall handler for syscall %d\n", syscall_nr);
-  if (!current_process) {
-    panic("Syscall out of the context of a process.\n");
-  }
+
   get_cur_thread()->sysret_addr =
       (void*)r->rcx; /* Used for special return in clone */
   if (syscall_table[syscall_nr] != 0) {

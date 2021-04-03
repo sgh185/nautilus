@@ -21,10 +21,7 @@
 /// segment end.
 uint64_t sys_brk(const uint64_t brk) {
 
-  nk_process_t* current_process = nk_process_current();
-  if (!current_process) {
-    panic("Call to sys_brk out of the context of a process.\n");
-  }
+  nk_process_t* current_process = syscall_get_proc();
 
   DEBUG("Called with brk=%p\n", brk);
 
@@ -45,7 +42,7 @@ uint64_t sys_brk(const uint64_t brk) {
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                 NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                 NK_ASPACE_EAGER;
-    if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
+    if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
       nk_vc_printf("Fail to allocate initial heap to aspace\n");
       free(new_heap);
       goto out;
@@ -67,7 +64,7 @@ uint64_t sys_brk(const uint64_t brk) {
       heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                   NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                   NK_ASPACE_EAGER;
-      if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
+      if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
         nk_vc_printf("Fail to allocate more heap to aspace\n");
         free(new_heap);
         goto out;
