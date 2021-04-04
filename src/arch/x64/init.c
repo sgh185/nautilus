@@ -455,10 +455,6 @@ init (unsigned long mbd,
 
     mm_boot_kmem_cleanup();
 
-    // Placed with medium amount intelligence
-#ifdef NAUT_CONFIG_ASPACE_CARAT
-	nk_carat_init();
-#endif
     smp_setup_xcall_bsp(naut->sys.cpus[0]);
 
     nk_cpu_topo_discover(naut->sys.cpus[0]); 
@@ -480,6 +476,11 @@ init (unsigned long mbd,
 #endif
 
     smp_bringup_aps(naut);
+
+    // Placed with medium amount intelligence
+#ifdef NAUT_CONFIG_ASPACE_CARAT
+	nk_carat_init();
+#endif
 
 #ifdef NAUT_CONFIG_ENABLE_MONITOR
     nk_monitor_init();
