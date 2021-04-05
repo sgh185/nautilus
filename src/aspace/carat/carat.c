@@ -662,6 +662,13 @@ static struct nk_aspace *create(char *name, nk_aspace_characteristics_t *c)
     // spinlock_init(carat->lock);
     INIT_LIST_HEAD(&(carat->threads.thread_node));
 
+
+    /*
+     * Initialize CARAT context
+     */ 
+    carat->context = initialize_new_carat_context(); 
+
+
     // initialize region dat structure
 #ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
     carat->mm = mm_rb_tree_create();
