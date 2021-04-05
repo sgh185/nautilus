@@ -48,6 +48,18 @@ nk_aspace_region_t * virtual_update_region (
     return 0;
 }
 
+nk_aspace_region_t * virtual_next_smallest ( mm_struct_t * self, nk_aspace_region_t * cur_region) {
+    // should never be called as a virtual function 
+    panic("should not call virtual_update_region\n");;
+    return 0;
+}
+
+nk_aspace_region_t * virtual_prev_largest (mm_struct_t * self, nk_aspace_region_t * cur_region){
+    // should never be called as a virtual function 
+    panic("should not call virtual_update_region\n");;
+    return 0;
+}
+
 int virtual_destory (mm_struct_t * self) {
     panic("should not call virtual destroy\n");
     return 0;
@@ -69,6 +81,8 @@ int mm_struct_init(mm_struct_t * self) {
     vptr->contains = &virtual_contains;
     vptr->find_reg_at_addr = &virtual_find_reg_at_addr;
     vptr->update_region = &virtual_update_region;
+    vptr->next_smallest = &virtual_next_smallest;
+    vptr->prev_largest = &virtual_prev_largest;
     vptr->destroy = &virtual_destory;
 
     self->vptr = vptr;
@@ -123,6 +137,15 @@ nk_aspace_region_t * mm_update_region (
     uint8_t eq_flag
 ) {
     return (* self->vptr->update_region) (self, cur_region, new_region, eq_flag);
+}
+
+
+nk_aspace_region_t * mm_get_next_smallest ( mm_struct_t * self, nk_aspace_region_t * cur_region) {
+    return (* self->vptr->next_smallest) (self, cur_region);
+}
+
+nk_aspace_region_t * mm_get_prev_largest (mm_struct_t * self, nk_aspace_region_t * cur_region){
+    return (* self->vptr->prev_largest) (self, cur_region);
 }
 
 int mm_destory (mm_struct_t * self) {
