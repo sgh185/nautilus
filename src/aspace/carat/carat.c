@@ -114,6 +114,38 @@ static int destroy(void *state) {
 }
 
 
+static int _add_thread_to_carat_aspace_list(
+    nk_aspace_carat_t *carat,
+    nk_thread_t *t
+)
+{
+    /*
+     * Wrap @t
+     */ 
+    nk_aspace_carat_thread_t * new_thread_wrapper = (nk_aspace_carat_thread_t *) malloc(sizeof(nk_aspace_carat_thread_t));
+    new_thread_wrapper->thread_ptr = t;
+
+
+    /*
+     * Add @t to @carat 
+     */ 
+    struct list_head * nelm = &new_thread_wrapper->thread_node;
+    list_add_tail(nelm, &(carat->threads.thread_node));
+   
+
+    return 0;
+}
+
+void add_thread_to_carat_aspace(
+    nk_aspace_carat_t *carat_aspace,
+    nk_thread_t *t
+)
+{
+    _add_thread_to_carat_aspace_list(carat_aspace, t);
+    return;
+}
+
+
 /**
  * Although it sounds intuitive to add lock protection to prevent concurrency issue,
  *      this add_thread is only expected be called in move_thread function in aspace.c
@@ -128,15 +160,10 @@ static int add_thread(void *state)
 
 
     DEBUG("adding thread %d (%s) to address space %s\n", t->tid,THREAD_NAME(t), ASPACE_NAME(carat));
-    
-    nk_aspace_carat_thread_t * new_thread_wrapper = (nk_aspace_carat_thread_t *) malloc(sizeof(nk_aspace_carat_thread_t));
-    new_thread_wrapper->thread_ptr = t;
-
-    struct list_head * nelm = &new_thread_wrapper->thread_node;
-    // carat->threads
-    list_add_tail(nelm, &(carat->threads.thread_node));
-    
+    _add_thread_to_carat_aspace_list(carat, t);
+ 
     // ASPACE_UNLOCK(carat);
+    
     return 0;
 }
 

@@ -262,3 +262,15 @@ typedef struct nk_aspace_carat {
 } nk_aspace_carat_t;
 
 
+/*
+ * ========== Definitions --- ASpace-related CARAT ========== 
+ */ 
+
+/*
+ * Utility
+ */ 
+void add_thread_to_carat_aspace(
+    nk_aspace_carat_t *carat_aspace,
+    nk_thread_t *t
+);
+    
