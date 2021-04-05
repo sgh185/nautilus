@@ -12,6 +12,9 @@ typedef struct mem_map_struct
     uint32_t size;
 } mm_struct_t;
 
+#define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+#define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
+
 /*
     list of vitual functions to be implemented. 
 */ 
@@ -52,7 +55,18 @@ typedef struct mm_struct_vtbl
         nk_aspace_region_t * new_region, 
         uint8_t eq_flag
     );
+    
+    nk_aspace_region_t * (* next_smallest) (
+        mm_struct_t * self, 
+        nk_aspace_region_t * cur_region
+    );
 
+
+    nk_aspace_region_t * ( * prev_largest) (
+        mm_struct_t * self,
+        nk_aspace_region_t * cur_region
+    );
+    
     int (* destroy) (
         mm_struct_t * self
     );
@@ -96,6 +110,26 @@ if no region contains such address, return NULL
 */
 
 nk_aspace_region_t * mm_find_reg_at_addr (mm_struct_t * self, addr_t address);
+
+/**
+ *  find the smallest (in terms of VA) region that is larger than cur_region
+ *  largest strict lower bound
+ *  return NULL if cur_region is not contained in the data structure
+ *  return @cur_region if curgion is the largest in the data structure
+ *  return the strict lower bound region ow.
+* */
+nk_aspace_region_t * mm_get_next_smallest ( mm_struct_t * self, nk_aspace_region_t * cur_region);
+
+/**
+ *  find the laregest (in terms of VA) region that is samller than cur_region
+ *  smallest strict upper bound
+ * return NULL if cur_region is not contained in the data structure
+ *  return @cur_region if curgion is the largest in the data structure
+ *  return the strict lower bound region ow.
+* */
+nk_aspace_region_t * mm_get_prev_largest (mm_struct_t * self, nk_aspace_region_t * cur_region);
+
+
 
 /*
     destroy and free the data structure

@@ -225,6 +225,8 @@ static int remove_thread(void *state)
     return failed;
 }
 
+
+/* region->pa = kmem_speicific_malloc(n) */
 static int add_region(void *state, nk_aspace_region_t *region)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
@@ -601,6 +603,141 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
     return 0;
 }
 
+/**
+ *  region contains old va/pa_start, lenbytes
+ *  new_size is the new lenbytes
+ *  say we are growing,new_size > old_size
+ *  
+ *  [pa_start, pa_start + old_size] assume already already allocated by kmem
+ *  [pa_start + old_size, pa_start + new_size] is this allocated completely? 
+ *  However, kmem_specific cannot garantee where is the new allocation
+ * */
+
+
+
+static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force){
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(carat);
+
+    if (CARAT_INVALID(region)) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    if (region->len_bytes == new_size) {
+        // size equal nothing to do
+        return 0;
+    }
+
+    uint64_t old_size = region->len_bytes;
+    nk_aspace_region_t new_region = *region;
+    new_region.len_bytes = new_size;
+
+    nk_aspace_region_t * matched_region = mm_contains(carat->mm, region, all_eq_flag);
+    if (matched_region == NULL) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    if (new_size > old_size) {
+        /**
+         * expanding
+         * */
+        int hasOverlap = 0;
+        
+        /**
+         *  next_smallest == NULL if carat->mm doesn't contain region
+         *  next_smallest == region if region is the largest in the carat->mm
+         * */
+        nk_aspace_region_t * next_smallest = mm_get_next_smallest(carat->mm, region);
+        
+        if (next_smallest == NULL) {
+            ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
+            ASPACE_UNLOCK(carat);
+            return -1;
+        }
+
+        if (next_smallest != region) {
+            hasOverlap = overlap_helper(&new_region, next_smallest);
+        }
+
+        if (hasOverlap && !by_force) {
+            ERROR("The region "REGION_FORMAT" cannot update length to %lx due to existed overlapping regiong" REGION_FORMAT "\n", 
+                    REGION(region), 
+                    new_size,
+                    REGION(next_smallest)
+                );
+            ASPACE_UNLOCK(carat);
+            return -1;
+        } 
+        else if (hasOverlap && by_force) 
+        {
+            /**
+             *  move by force
+             * */
+            int needToMove = 1;
+            do {
+                void * move_target_addr = kmem_sys_malloc_specific(next_smallest->len_bytes, my_cpu_id(),0);
+                nk_aspace_region_t move_target = {
+                    .va_start = move_target_addr,
+                    .pa_start = move_target_addr,
+                    .len_bytes = next_smallest->len_bytes,
+                    .protect = next_smallest->protect,
+                    .requested_permissions = next_smallest->requested_permissions
+                };
+
+                if (move_region(state, next_smallest, &move_target)) {
+                    ERROR("Fail to move region from "REGION_FORMAT" to "REGION_FORMAT"\n", REGION(next_smallest), REGION(&move_target) );
+                    ASPACE_UNLOCK(carat);
+                    return -1;
+                }
+                
+                nk_aspace_region_t *afterNext = mm_get_next_smallest(carat->mm, next_smallest);
+                
+                needToMove = 0;
+                if (afterNext == NULL) {
+                    ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(next_smallest));
+                    ASPACE_UNLOCK(carat);
+                    return -1;
+                }
+
+                if (afterNext != next_smallest) {
+                    needToMove = overlap_helper(afterNext, next_smallest);
+                }
+            
+                next_smallest = afterNext;
+            }  while (needToMove);
+        }
+        
+        /**
+         *  we are done with every preprocessing, safe to update the region in the data structure
+         * */
+        
+    } 
+    else 
+    {
+        /**
+         * shrinking，just update the region directly
+         * */
+    }
+
+    /**
+     * update
+     * */
+    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
+    nk_aspace_region_t * target_region = mm_update_region(carat->mm, region, &new_region, check_flag);
+    
+    if (target_region == NULL){
+        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+        ASPACE_UNLOCK(carat);
+        return -1;
+    } 
+    
+    ASPACE_UNLOCK(carat);
+    return 0;
+}
+
 static int switch_from(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
@@ -677,6 +814,7 @@ static nk_aspace_interface_t carat_interface = {
     .protection_check = protection_check,
     .move_region = move_region,
     .defragment_region = defragment_region,
+    .resize_region = resize_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
@@ -926,6 +1064,21 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
     //     nk_vc_printf("failed! protection check\n");
     //     goto test_fail;
     // }
+
+
+    // r5: [400,1200] (old region)  => [400,1800] expanding:
+    // r6: [800,900]  r7:[1000 1200] r8:[]
+    // nk_aspace_region_t carat_r5, carat_r6, carat_r7, carat_r8, carat_r9;
+    // create a 1-1 region mapping all of physical memory
+    // so that the kernel can work when that thread is active
+    // carat_r0.va_start = 0;
+    // carat_r0.pa_start = 0;
+    // carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+    // set protections for kernel
+    // use EAGER to tell paging implementation that it needs to build all these PTs right now
+    // carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+
 
 
     nk_vc_printf("Before Destroy\n");
