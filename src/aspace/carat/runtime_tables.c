@@ -660,13 +660,37 @@ void _nk_carat_globals_compiler_target(void)
 }
 
 
+static void _map_thread_with_carat_aspace(
+    nk_thread_t *t,
+    void *state
+)
+{
+    /*
+     * Fetch the CARAT aspace from @state via cast 
+     */ 
+    nk_aspace_t *the_aspace = ((nk_aspace_t *) state);
+
+
+    /*
+     * Perform two mappings:
+     * 1) Assign the CARAT aspace to @t
+     * 2) Add @t to the list of thread in the CARAT aspace
+     */ 
+    t->aspace = the_aspace; 
+    add_thread_to_carat_aspace(((nk_aspace_carat_t *) the_aspace->state), t);
+   
+
+    return;
+}
+
+
 /*
  * Main driver for initialization. 
  * This function must successfully return in exactly one spot for global allocation 
  * tracking injections to be properly instrumented. They will all happen right before the return.
  */ 
 NO_CARAT
-void nk_carat_init()
+void nk_carat_init(void)
 {
     /*
      * Build a new CARAT context and set it to the global CARAT context. Note
@@ -674,24 +698,56 @@ void nk_carat_init()
      * CARAT context will automatically be allocated for the idle thread.
      */ 
 
+	/*
+	 * At this point, we're in init() --- there are no CARAT contexts
+	 * built yet --- this builds the first one for the "kernel"/"global"
+	 * aspace
+     *
+     * Build a new aspace and sanity check 
+	 */ 
+    nk_aspace_characteristics_t c;
+    if (nk_aspace_query("carat", &c)) { 
+        panic("nk_carat_init: failed to find carat implementation\n"); 
+    }
+
+    nk_aspace_t *the_aspace = 
+        nk_aspace_create(
+            "carat", 
+            "kernel",
+            &c
+        );
     
+    if (!the_aspace) { 
+        panic("nk_carat_init: failed to create carat aspace for kernel\n");
+    }
+
+
+    /*
+     * Build context for new CARAT aspace
+     */ 
+    ((nk_aspace_carat_t *) the_aspace->state)->context = initialize_new_carat_context(); 
+
+    
+    /*
+     * Add all threads to the new CARAT aspace (and vice versa). Don't
+     * check for failures b/c I definitely don't write bugs ...
+     *
+     * Should this work here? Should we even invoke it? Fuck if I know
+     */ 
+    nk_sched_map_threads(
+        -1, 
+        _map_thread_with_carat_aspace, 
+        the_aspace 
+    );
+
+
     /*
      * KARAT is good to go --- turn on bootstrapping flag (Note
      * that this flag is different than the ready flag belonging
      * to each nk_carat_context --- which needs to be set separately
-     * per used context)
+     * per used context). 
      */ 
     karat_ready |= 1;
-
-
-	/*
-	 * At this point, we're in idle() --- there are no CARAT contexts
-	 * built yet --- this builds the first one for the "kernel"/"global"
-	 * aspace
-	 * 
-	 * Fetch this aspace and build a CARAT context for it
-	 */ 
-    ((nk_aspace_carat_t *) get_cur_thread()->aspace->state)->context = initialize_new_carat_context();
 
 
     /*
