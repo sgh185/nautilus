@@ -24,6 +24,7 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
+#ifdef NAUT_CONFIG_USE_NOELLE
 
 #include "../include/ProtectionsDFA.hpp"
 
@@ -303,7 +304,7 @@ std::function<void (Instruction *inst, std::set<Value *> &OUT, DataFlowResult *d
     return ComputeOUT;
 }
 
-
+#endif
 
 
 

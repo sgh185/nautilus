@@ -84,6 +84,8 @@ enum AllocID
     SysFree,
     ASpaceFree,
     UserMalloc,
+    UserCalloc,
+    UserRealloc,
     UserFree
 };
 
@@ -105,6 +107,8 @@ const std::string CARAT_MALLOC,
                   KERNEL_FREE,
                   ASPACE_FREE,
                   USER_MALLOC,
+                  USER_CALLOC,
+                  USER_REALLOC,
                   USER_FREE,
                   ANNOTATION,
                   NOCARAT;

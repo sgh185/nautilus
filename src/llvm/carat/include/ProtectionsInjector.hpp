@@ -27,6 +27,8 @@
 
 #pragma once
 
+#ifdef NAUT_CONFIG_USE_NOELLE
+
 #include "ProtectionsDFA.hpp"
 
 
@@ -154,3 +156,5 @@ private:
 
     void _printGuards(void);
 };
+
+#endif

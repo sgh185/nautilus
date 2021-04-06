@@ -29,7 +29,7 @@
 #include "../include/Configurations.hpp"
 
 /*
- * Function names to inject/directly handle
+ * Function names to inject/directly handle, really need to JSON this
  */ 
 const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_REALLOC = "nk_carat_instrument_realloc",
@@ -44,6 +44,8 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   KERNEL_FREE = "kmem_sys_free",
                   ASPACE_FREE = "__impl_free",
                   USER_MALLOC = "malloc",
+                  USER_CALLOC = "calloc",
+                  USER_REALLOC = "realloc",
                   USER_FREE = "free",
                   ANNOTATION = "llvm.global.annotations",
                   NOCARAT = "nocarat";
@@ -75,7 +77,9 @@ std::unordered_map<AllocID, std::string> IDsToKernelAllocMethods = {
 };
 
 std::unordered_map<AllocID, std::string> IDsToUserAllocMethods = {
-    { AllocID::UserMalloc, USER_MALLOC } ,
+    { AllocID::UserMalloc, USER_MALLOC },
+    { AllocID::UserCalloc, USER_CALLOC },
+    { AllocID::UserRealloc, USER_REALLOC },
     { AllocID::UserFree, USER_FREE },
 };
 
@@ -105,7 +109,7 @@ cl::opt<bool> NoGlobals(
     cl::desc("No instrumentation of global variables")
 );
 
-cl::opt<bool> NoMallocs(
+cl::opt<bool> NoMallocs( /* NOTE --- Covers all variants: realloc, calloc, etc. */
     "fno-mallocs",
     cl::init(false),
     cl::desc("No instrumentation of 'mallocs'")

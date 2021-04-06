@@ -30,8 +30,8 @@
 #include "Escapes.hpp"
 
 #ifdef NAUT_CONFIG_USE_NOELLE
+
 #include "Noelle.hpp"
-#endif
 
 
 #define STORE_GUARD 1
@@ -95,3 +95,5 @@ private:
     std::function<void (Instruction *inst, std::set<Value *>& OUT, DataFlowResult *df)> _computeOUT(void);
 
 };
+
+#endif

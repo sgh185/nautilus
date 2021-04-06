@@ -51,9 +51,14 @@ public:
      */ 
     void InstrumentGlobals(void);
 
-    void InstrumentMallocs(
-        AllocID MallocTypeID,
-        unsigned SizeOperandNo
+    void InstrumentAllocations(
+        AllocID AllocTypeID,
+        unsigned SizeOperandNo,
+        std::string CARATMethodName=CARAT_MALLOC,
+        bool NeedExtraParam=false,
+        unsigned ExtraOperandNo=0,
+        Type *ExtraOpTargetTy=nullptr,
+        Instruction::CastOps ExtraOpCast=Instruction::ZExt
     );
 
     void InstrumentFrees(
