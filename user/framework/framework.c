@@ -53,37 +53,37 @@ void __nk_exec_entry(void *in, void **out, void * (**table)())
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void* nk_func_table_access(volatile int entry_no, void* arg1, void* arg2) {
+void * nk_func_table_access(volatile int entry_no, void *arg1, void *arg2) {
   return __nk_func_table[entry_no]((char*)arg1, arg2);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_global(void* ptr, uint64_t size, uint64_t global_ID) {
+void nk_carat_instrument_global(void *ptr, uint64_t size, uint64_t global_ID) {
     __nk_func_table[NK_CARAT_INSTRUMENT_GLOBAL](ptr, size, global_ID);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_malloc(void* ptr, uint64_t size) {
+void nk_carat_instrument_malloc(void *ptr, uint64_t size) {
     __nk_func_table[NK_CARAT_INSTRUMENT_MALLOC](ptr, size);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_calloc(void* ptr, uint64_t size) {
-    __nk_func_table[NK_CARAT_INSTRUMENT_CALLOC](ptr, size);
+void nk_carat_instrument_calloc(void *ptr, uint64_t size_of_element, uint64_t num_elements) {
+    __nk_func_table[NK_CARAT_INSTRUMENT_CALLOC](ptr, size_of_element, num_elements);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_realloc(void* ptr, uint64_t size) {
-    __nk_func_table[NK_CARAT_INSTRUMENT_REALLOC](ptr, size);
+void nk_carat_instrument_realloc(void *ptr, uint64_t size, void *old_address) {
+    __nk_func_table[NK_CARAT_INSTRUMENT_REALLOC](ptr, size, old_address);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_free(void* ptr) {
+void nk_carat_instrument_free(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_FREE](ptr);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_instrument_escapes(void* ptr) {
+void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
@@ -111,7 +111,7 @@ void * _kmem_sys_malloc(uint64_t size) {
 /*
  WE NEED TO HANDLE THE ACCESS SIZE
  */
-int nk_carat_check_protection(void* ptr, int is_write) {
+int nk_carat_check_protection(void *ptr, int is_write) {
     return __nk_func_table[NK_CARAT_CHECK_PROTECTION](ptr, is_write);
 }
 
