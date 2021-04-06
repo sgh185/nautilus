@@ -630,6 +630,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
         return 0;
     }
 
+
     uint64_t old_size = region->len_bytes;
     nk_aspace_region_t new_region = *region;
     new_region.len_bytes = new_size;
@@ -640,18 +641,19 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
         return -1;
     }
 
+
     if (new_size > old_size) {
         /**
          * expanding
          * */
+	
         int hasOverlap = 0;
         
         /**
          *  next_smallest == NULL if carat->mm doesn't contain region
          *  next_smallest == region if region is the largest in the carat->mm
          * */
-        nk_aspace_region_t * next_smallest = mm_get_next_smallest(carat->mm, region);
-        
+       	nk_aspace_region_t * next_smallest = mm_get_next_smallest(carat->mm, region);
         if (next_smallest == NULL) {
             ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
             ASPACE_UNLOCK(carat);
@@ -676,7 +678,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
             /**
              *  move by force
              * */
-            int needToMove = 1;
+	    int needToMove = 1;
             do {
                 void * move_target_addr = kmem_sys_malloc_specific(next_smallest->len_bytes, my_cpu_id(),0);
                 nk_aspace_region_t move_target = {
@@ -725,14 +727,18 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
     /**
      * update
      * */
+
     uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
     nk_aspace_region_t * target_region = mm_update_region(carat->mm, region, &new_region, check_flag);
     
+
     if (target_region == NULL){
         ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
         ASPACE_UNLOCK(carat);
         return -1;
-    } 
+    }
+
+    mm_show(carat->mm); 
     
     ASPACE_UNLOCK(carat);
     return 0;
@@ -1040,6 +1046,7 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
     if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
         nk_vc_printf("failed! protection check\n");
         goto test_fail;
+    //adding region (VA=0x00000008be600000 to PA=0x00000008be600000, len=400000, prot=5f) to address space carat protection check
     }
 
     // should not pass protection check due to no exec permission
@@ -1091,12 +1098,124 @@ test_fail:
     return 0;
 }
 
+
+static int CARAT_Resize_sanity(char *_buf, void* _priv){
+
+    #define LEN_1KB (0x400UL)
+    #define LEN_4KB (0x1000UL)
+    #define LEN_256KB (0x40000UL)
+    #define LEN_512KB (0x80000UL)
+
+    #define LEN_1MB (0x100000UL)
+    #define LEN_4MB (0x400000UL)
+    #define LEN_6MB (0x600000UL)
+    #define LEN_16MB (0x1000000UL)
+
+    #define LEN_1GB (0x40000000UL)
+    #define LEN_4GB (0x100000000UL)
+
+    #define ADDR_4GB ((void *) 0x100000000UL)
+    #define ADDR_8GB ((void *) 0x200000000UL)
+    #define ADDR_12GB ((void *) 0x300000000UL)
+    #define ADDR_16GB ((void *) 0x400000000UL)
+    #define ADDR_UPPER ((void *) 0xffff800000000000UL)
+    
+
+    nk_vc_printf("Start: CARAT Protection check sanity test.\n");
+
+    nk_aspace_characteristics_t c;
+    if (nk_aspace_query("carat",&c)) {
+        nk_vc_printf("failed to find carat implementation\n");
+        goto test_fail;
+    }
+    nk_aspace_t *carat_aspace = nk_aspace_create("carat", "carat protection check",&c);
+
+
+
+    nk_aspace_region_t carat_r0, carat_r1, carat_r2, carat_r3;
+    
+    carat_r0.va_start = 0;
+    carat_r0.pa_start = 0;
+    carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+    // set protections for kernel
+    // use EAGER to tell paging implementation that it needs to build all these PTs right now
+    carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    // now add the region
+    if (nk_aspace_add_region(carat_aspace, &carat_r0)) {
+        DEBUG("failed! to add initial eager region to address space\n");
+        goto test_fail;
+    }
+    
+    uint64_t* VA1 = kmem_malloc_specific(LEN_1MB,my_cpu_id(),0);
+    uint64_t* VA2 = kmem_malloc_specific(LEN_4MB,my_cpu_id(),0);
+    uint64_t* VA3 = kmem_malloc_specific(LEN_1MB,my_cpu_id(),0);
+
+    carat_r1.va_start = VA1+LEN_4GB;
+    carat_r1.pa_start = VA1+LEN_4GB;
+    carat_r1.len_bytes = LEN_1MB;
+    carat_r1.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    carat_r2.va_start = VA2+LEN_4GB;
+    carat_r2.pa_start = VA2+LEN_4GB,
+    carat_r2.len_bytes = LEN_4MB,
+    carat_r2.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    	
+
+    carat_r3.va_start = VA3+LEN_4GB;
+    carat_r3.pa_start = VA3+LEN_4GB,
+    carat_r3.len_bytes = LEN_1MB,
+    carat_r3.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    nk_vc_printf("The VA for region_0 is %p, region_1 %p,and region_2 %p\n",VA1,VA2,VA3);
+         
+    if(nk_aspace_add_region(carat_aspace,&carat_r1)){
+	DEBUG("failed! to add r1 region to address space\n");
+        goto test_fail;
+    }
+    
+    if(nk_aspace_add_region(carat_aspace,&carat_r2)){
+    	DEBUG("failed! to add r2 region to address space\n");
+    }
+
+    if(nk_aspace_add_region(carat_aspace,&carat_r3)){
+    	DEBUG("failed! to add r3 region to address space\n");
+    }
+   
+
+    DEBUG("now resize region_1 starting at %p from length of %lu bytes to %lu bytes\n",VA1+LEN_4GB,carat_r1.len_bytes,LEN_1GB);
+ 
+    if(nk_aspace_resize_region(carat_aspace,&carat_r1,LEN_1GB,1)){
+    	nk_vc_printf("Failed to resize the region\n");
+	goto test_fail;
+    }
+
+    DEBUG("Resize succeeded!\n"); 
+
+    nk_vc_printf("Before Destroy\n");
+    //nk_aspace_destroy(carat_aspace);
+
+    nk_vc_printf("CARAT Protection check sanity test Passed!\n");
+    return 0;
+test_fail:
+    nk_vc_printf("CARAT Protection check sanity test failed!\n");
+    return 0;
+}
+
+
 static struct shell_cmd_impl carat_protect_sanity = {
     .cmd      = "carat-protect-sanity",
     .help_str = "Sanity check for CARAT protection",
     .handler  = CARAT_Protection_sanity,
 };
 
+static struct shell_cmd_impl carat_resize_sanity = {
+    .cmd    = "carat-resize-sanity",
+    .help_str = "Sanity check for CARAT protection",
+    .handler = CARAT_Resize_sanity,
+};
+
+nk_register_shell_cmd(carat_resize_sanity);
 nk_register_shell_cmd(carat_protect_sanity);
 
 
