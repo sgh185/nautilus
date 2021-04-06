@@ -26,12 +26,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "./include/Escapes.hpp"
-#include "autoconf.h"
-
-#if NAUT_CONFIG_USE_NOELLE
-#include "Noelle.hpp"
-#endif
+#include "./include/Protections.hpp"
 
 
 #define FetchAllocMethods(type) \
@@ -140,24 +135,16 @@ struct CAT : public ModulePass
         /*
          * Allocation tracking
          */ 
-        AllocationHandler *AH = new AllocationHandler(&M);
-        AH->Inject();
+        AllocationHandler AH = AllocationHandler(&M);
+        AH.Inject();
 
 
         /*
          * Escapes tracking
          */ 
-        EscapesHandler *EH = new EscapesHandler(&M);
-        EH->Inject(); // Only memory uses
+        EscapesHandler EH = EscapesHandler(&M);
+        EH.Inject(); // Only memory uses
 
-
-        /*
-         * Protections
-         */ 
-#if 0
-        ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
-        PH->Inject();
-#endif
 
 #if NAUT_CONFIG_USE_NOELLE
         /*  
@@ -166,22 +153,15 @@ struct CAT : public ModulePass
         Noelle &NoelleAnalysis = getAnalysis<Noelle>();
 
 
-        /*  
-         * Fetch the dependence graph of the entry function.
-         */
-        Function *MainFromNoelle = NoelleAnalysis.getEntryFunction();
-        PDG *FDG = NoelleAnalysis.getFunctionDependenceGraph(MainFromNoelle);
-
-
-        /* 
-         * Output PDG statistics
+        /*
+         * Protections
          */ 
-        errs() << "getNumberOfInstructionsIncluded: " << FDG->getNumberOfInstructionsIncluded() << "\n"
-               << "getNumberOfDependencesBetweenInstructions: " << FDG->getNumberOfDependencesBetweenInstructions() << "\n";
+        ProtectionsHandler PH = ProtectionsHandler(&M, &NoelleAnalysis);
+        PH.Protect();
 #endif
 
 
-        return false;
+        return true;
     }
 
 

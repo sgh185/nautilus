@@ -10,12 +10,11 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
@@ -28,7 +27,7 @@
 
 #pragma once
 
-#include "Configurations.hpp"
+#include "ProtectionsDFA.hpp"
 
 
 class GuardInfo 
@@ -50,7 +49,7 @@ private:
 
 
 
-class Injector : public InstVisitor<Injector>
+class ProtectionsInjector : public InstVisitor<ProtectionsInjector>
 {
 
 public:
@@ -58,10 +57,10 @@ public:
     /*
      * Constructors
      */ 
-    Injector(
+    ProtectionsInjector(
         Function *F, 
         DataFlowResult *DFR, 
-        Constant *numNowPtr,
+        Value *NonCanonical,
         Noelle *noelle,
         Function *ProtectionsMethod
     );
@@ -79,7 +78,7 @@ public:
     void visitCallInst(CallInst &I);
     void visitStoreInst(StoreInst &I);
     void visitLoadInst(LoadInst &I);
-    void visitInvokeInst(Invoke &I);
+    void visitInvokeInst(InvokeInst &I);
 
 
 private:
@@ -87,28 +86,27 @@ private:
     /*
      * Passed state
      */ 
-    Function *F;
-    Function *ProtectionsMethod;
+    Function *F, *ProtectionsMethod;
     DataFlowResult *DFR;
-    Constant *numNowPtr;
+    Value *NonCanonical;
     Noelle *noelle;
 
 
     /*
      * New analysis state
      */ 
-    std::unordered_map<BasicBlock *, LoopDependenceInfo *> instToLoop;
+    std::unordered_map<BasicBlock *, LoopDependenceInfo *> BasicBlockToLoopMap;
 
     Instruction *First;
 
-    bool AllocaOutsideEntry=true;
+    bool AllocaOutsideEntry=false;
 
     std::unordered_map<Function *, bool> InstrumentedFunctions;
 
     std::unordered_map<
         Instruction *, /* The load/store/call for which the guard is generated --- SYMBOLIC */
         GuardInfo * /* The information needed to generate the guard (see above) */
-    > &InjectionLocations;
+    > InjectionLocations;
 
 
     /*
@@ -126,11 +124,33 @@ private:
      */ 
     void _doTheBusiness(void);
 
+    void _findInjectionLocations(void);
+
     void _doTheInject(void);
+
+    bool _optimizeForLoopInvariance(
+        LoopDependenceInfo *NestedLoop,
+        Instruction *I, 
+        Value *PointerOfMemoryInstruction, 
+        bool IsWrite
+    );
+
+    bool _optimizeForInductionVariableAnalysis(
+        LoopDependenceInfo *NestedLoop,
+        Instruction *I, 
+        Value *PointerOfMemoryInstruction, 
+        bool IsWrite
+    );
 
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> _findPointToInsertGuard(void);
 
-    bool _allocaOutsideFirstBBChecker();
+    void _allocaOutsideFirstBBChecker(void);
 
-    void printGuards();
+    template<typename MemInstTy>
+    void _invokeLambda(
+        MemInstTy *I,
+        bool IsWrite
+    );
+
+    void _printGuards(void);
 };

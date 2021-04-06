@@ -10,12 +10,11 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
@@ -76,7 +75,7 @@ DataFlowResult *ProtectionsDFA::FetchResult(void)
 /*
  * ---------- Private methods (DFA setup) ----------
  */
-std::function<void (Instruction *, DataFlowResult *)> ProtectionsDFA::_computeGEN(void)
+std::function<void (Instruction *I, DataFlowResult *Result)> ProtectionsDFA::_computeGEN(void)
 {
     auto DFAGen = 
         []
@@ -87,31 +86,31 @@ std::function<void (Instruction *, DataFlowResult *)> ProtectionsDFA::_computeGE
          */
         if (true
             && (!isa<StoreInst>(I))
-            && (!isa<LoadInst>(I)))
-            { return; }
+            && (!isa<LoadInst>(I))) return;
 
 
         /*
          * Find pointer to guard
          */ 
         Value *PointerToGuard = nullptr;
-
-        if (isa<StoreInst>(I))
+        if (true 
+            && STORE_GUARD
+            && isa<StoreInst>(I))
         {
-#if STORE_GUARD
-            auto NextStoreInst = cast<StoreInst>(I);
-            PointerToGuard = NextStoreInst->getPointerOperand();
-#endif
+            StoreInst *Store = cast<StoreInst>(I);
+            PointerToGuard = Store->getPointerOperand();
         } 
-        else 
+        else if (LOAD_GUARD)
         {
-#if LOAD_GUARD
-            auto NextLoadInst = cast<LoadInst>(I);
-            PointerToGuard = NextLoadInst->getPointerOperand();
-#endif
+            LoadInst *Load = cast<LoadInst>(I);
+            PointerToGuard = Load->getPointerOperand();
         }
 
-        if (!PointerToGuard) { return; }
+
+        /*
+         * If no pointer is found, do nothing
+         */
+        if (!PointerToGuard) return;
 
 
         /*
@@ -134,14 +133,14 @@ std::function<void (Instruction *, DataFlowResult *)> ProtectionsDFA::_computeGE
 }
 
 
-std::function<void (Instruction *, DataFlowResult *)> ProtectionsDFA::_computeKILL(void)
+std::function<void (Instruction *I, DataFlowResult *Result)> ProtectionsDFA::_computeKILL(void)
 {
     /*
      * TOP --- No concept of a KILL set in AC/DC???
      */ 
     auto DFAKill = 
         []
-        (Instruction *I, DataFlowResult *Results) -> void {
+        (Instruction *I, DataFlowResult *Result) -> void {
         return;
     };
 
@@ -157,27 +156,34 @@ void ProtectionsDFA::_initializeUniverse(void)
      * PHINodes and possible external functions from pointers,
      * indirect calls, etc.
      */
-    for(auto &B : *F)
+    for (auto &B : *F)
     {
         for (auto &I : B)
         {
+            /*
+             * Add all instructions to the universe
+             */
             TheUniverse.insert(&I);
 
+
+            /*
+             * Add all operand uses to the universe
+             */ 
             for (auto Index = 0; 
                  Index < I.getNumOperands(); 
                  Index++)
             {
                 Value *NextOperand = I.getOperand(Index);
 
+                /*
+                 * Ignore basic block and function operands
+                 */  
                 if (false
                     || (isa<Function>(NextOperand))
-                    || (isa<BasicBlock>(NextOperand)))
-                    { continue; }
+                    || (isa<BasicBlock>(NextOperand))) continue;
    
                 TheUniverse.insert(NextOperand);
             }
-
-
         }
     }
 
@@ -185,7 +191,7 @@ void ProtectionsDFA::_initializeUniverse(void)
     /*
      * Save arguments as well
      */  
-    for (auto &Arg : F->args()) { TheUniverse.insert(&Arg); }
+    for (auto &Arg : F->args()) TheUniverse.insert(&Arg);
     
 
     /*
@@ -238,7 +244,7 @@ std::function<void (Instruction *inst, std::set<Value *> &OUT)> ProtectionsDFA::
 std::function<void (Instruction *inst, std::set<Value *> &IN, Instruction *predecessor, DataFlowResult *df)> ProtectionsDFA::_computeIN(void)
 {
     /*
-     * Define the IN set --- 
+     * Define the IN set
      */
     auto ComputeIn = 
         [] 
@@ -268,19 +274,21 @@ std::function<void (Instruction *inst, std::set<Value *> &IN, Instruction *prede
 
 std::function<void (Instruction *inst, std::set<Value *> &OUT, DataFlowResult *df)> ProtectionsDFA::_computeOUT(void)
 {
-    auto computeOUT = 
+    auto ComputeOUT = 
         [] 
-        (Instruction *inst, std::set<Value *> &OUT, DataFlowResult *df) -> void {
+        (Instruction *inst, std::set<Value *> &OUT, DataFlowResult *DF) -> void {
 
         /*
          * Fetch the IN[inst] set.
          */
-        auto& IN = df->IN(inst);
+        auto &IN = DF->IN(inst);
+
 
         /*
          * Fetch the GEN[inst] set.
          */
-        auto& GEN = df->GEN(inst);
+        auto &GEN = DF->GEN(inst);
+
 
         /*
          * Set the OUT[inst] set.
@@ -292,7 +300,7 @@ std::function<void (Instruction *inst, std::set<Value *> &OUT, DataFlowResult *d
     };
 
 
-    return computeOUT;
+    return ComputeOUT;
 }
 
 

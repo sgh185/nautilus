@@ -10,28 +10,28 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
- * Authors: Drew Kersnar, Gaurav Chaudhary, Souradip Ghosh, 
- *          Brian Suchy, Peter Dinda 
+ * Authors: Drew Kersnar, Souradip Ghosh, 
+ *          Brian Suchy, Simone Campanoni, Peter Dinda 
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "Utils.hpp"
+#include "ProtectionsInjector.hpp"
 
 using namespace llvm;
 
 class ProtectionsHandler
 {
+    
 public:
 
     /*
@@ -57,4 +57,16 @@ private:
     Module *M;
     Noelle *N;
     
+
+    /*
+     * New analysis state
+     */
+    Value *NonCanonical;
+
+
+    /*
+     * Methods
+     */
+    void _buildNonCanonicalAddress(void);
+
 };

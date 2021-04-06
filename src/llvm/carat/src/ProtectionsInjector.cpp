@@ -10,12 +10,11 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
@@ -25,46 +24,44 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
-
-#include "../include/Injector.hpp"
+#include "../include/ProtectionsInjector.hpp"
 
 /*
  * ---------- Constructors ----------
  */
-Injector::Injector(
+ProtectionsInjector::ProtectionsInjector(
     Function *F, 
     DataFlowResult *DFR, 
-    Constant *numNowPtr,
+    Value *NonCanonical,
     Noelle *noelle,
     Function *ProtectionsMethod
-) : F(F), DFR(DFR), numNowPtr(numNowPtr), ProtectionsMethod(ProtectionsMethod), noelle(noelle) 
+) : F(F), DFR(DFR), NonCanonical(NonCanonical), ProtectionsMethod(ProtectionsMethod), noelle(noelle) 
 {
    
     /*
-     * Set new state
+     * Set new state from NOELLE
      */ 
-    auto programLoops = noelle.getProgramLoops();
-    this->instToLoop = noelle.getInnermostLoopsThatContains(*programLoops);
+    auto ProgramLoops = noelle->getLoops();
+    this->BasicBlockToLoopMap = noelle->getInnermostLoopsThatContains(*ProgramLoops);
 
 
     /*
      * Perform initial analysis
      */ 
-    __allocaOutsideFirstBBChecker();
+    _allocaOutsideFirstBBChecker();
 
 
     /*
      * Fetch the first instruction of the entry basic block
      */ 
-    First = F->getEntryBasicBlock().getFirstNonPHI();
-
+    First = F->getEntryBlock().getFirstNonPHI();
 }
 
 
 /*
  * ---------- Drivers ----------
  */
-void Injector::Inject(void)
+void ProtectionsInjector::Inject(void)
 {
     /*
      * Find all locations that guards need to be injected
@@ -86,38 +83,20 @@ void Injector::Inject(void)
 /*
  * ---------- Visitor methods ----------
  */
-
-
-void Injector::visitInvokeInst(InvokeInst &I)
+void ProtectionsInjector::visitInvokeInst(InvokeInst &I)
 {
     /*
-     * Assumption for Nautilus
+     * Assumption for Nautilus --- no handling of invokes
      */  
-
     errs() << "Found a invoke instruction in function " << F->getName() << "\n"
            << I << "\n";
 
     abort();
 }
 
-void Injector::visitCallInst(CallInst &I)
+
+void ProtectionsInjector::visitCallInst(CallInst &I)
 {
-    /*
-     * Debugging --- FIX
-     * 
-     * NOTE --- Ideally, only some intrinsics should be 
-     * instrumented (i.e. llvm.memcpy, etc.), and markers
-     * (i.e. llvm.lifetime, etc.) should be ignored. For
-     * now, we are instrumenting ALL intrinsics as a 
-     * conservative approach
-     */  
-    if (I.isIntrinsic())
-    {
-        errs() << "Found an intrinsic! Instrumenting for now ... \n" 
-               << I << "\n";
-    }
-
-
     /*
      * Fetch the callee of @I
      */ 
@@ -138,6 +117,22 @@ void Injector::visitCallInst(CallInst &I)
 
 
     /*
+     * Debugging --- FIX
+     * 
+     * NOTE --- Ideally, only some intrinsics should be 
+     * instrumented (i.e. llvm.memcpy, etc.), and markers
+     * (i.e. llvm.lifetime, etc.) should be ignored. For
+     * now, we are instrumenting ALL intrinsics as a 
+     * conservative approach
+     */  
+    if (Callee->isIntrinsic())
+    {
+        errs() << "Found an intrinsic! Instrumenting for now ... \n" 
+               << I << "\n";
+    }
+
+
+    /*
      * If the callee of @I has already been instrumented and 
      * all stack locations are at the top of the entry basic
      * block (@this->AllocaOutsideEntry), then nothing else 
@@ -146,7 +141,7 @@ void Injector::visitCallInst(CallInst &I)
     if (true
         && !AllocaOutsideEntry
         && (Callee)
-        && (InstrumentedFunctions[Callee])) { return; }
+        && (InstrumentedFunctions[Callee])) return;
 
 
     /*
@@ -158,14 +153,14 @@ void Injector::visitCallInst(CallInst &I)
      * Otherwise, hoist the guard for @I to the first 
      * instruction in the entry basic block
      * 
-     * Update statistics
+     * Finally, update statistics
      */ 
     if (AllocaOutsideEntry)
     {
         InjectionLocations[&I] = 
-            GuardInfo(
+            new GuardInfo(
                 &I,
-                numNowPtr, // TODO: change to the stack pointer location during the function call
+                NonCanonical, // TODO: change to the stack pointer location during the function call
                 true /* IsWrite */ 
             );
 
@@ -174,9 +169,9 @@ void Injector::visitCallInst(CallInst &I)
     else
     {
         InjectionLocations[&I] = 
-            GuardInfo(
+            new GuardInfo(
                 First,
-                numNowPtr, // TODO: change to the stack pointer location during the function call
+                NonCanonical, // TODO: change to the stack pointer location during the function call
                 true /* IsWrite */ 
             );
 
@@ -193,28 +188,19 @@ void Injector::visitCallInst(CallInst &I)
     return;
 }
 
-/*
- * Simplification --- reduce code repitition
- */ 
-#define LAMBDA_INVOCATION \
-    auto TheLambda = _findPointToInsertGuard(); \
-    \
-    Value *PointerToHandle = I.getPointerOperand(); \
-    TheLambda(&I, PointerToHandle, isWrite); \
 
-
-void Injector::visitStoreInst(StoreInst &I)
+void ProtectionsInjector::visitStoreInst(StoreInst &I)
 {
-    bool isWrite = true;
-    LAMBDA_INVOCATION
+    bool IsWrite = true;
+    _invokeLambda(&I, IsWrite);
     return;
 }
 
 
-void Injector::visitLoadInst(LoadInst &I)
+void ProtectionsInjector::visitLoadInst(LoadInst &I)
 {
-    bool isWrite = false;
-    LAMBDA_INVOCATION
+    bool IsWrite = false;
+    _invokeLambda(&I, IsWrite);
     return;
 }
 
@@ -222,7 +208,7 @@ void Injector::visitLoadInst(LoadInst &I)
 /*
  * ---------- Private methods ----------
  */
-void Injector::_findInjectionLocations(void)
+void ProtectionsInjector::_findInjectionLocations(void)
 {
     /*
      * Invoke the visitors to fill out the InjectionLocations map
@@ -233,153 +219,418 @@ void Injector::_findInjectionLocations(void)
     /*
      * Debugging
      */ 
-    printGuards();
+    _printGuards();
 
 
     return;
 }
 
 
-void Inject::_doTheInject(void)
+void ProtectionsInjector::_doTheInject(void)
 {
     /*
      * Do the inject
      */ 
-    for (auto const &[guardedInst, guardInfo] : InjectionLocations) {
-
+    for (auto const &[guardedInst, guardInfo] : InjectionLocations) 
+    {
+        // errs() << *guardedInst << *guardInfo << "\n";
         // TODO: insert call to ProtectionsMethod at guardInfo.InjectionLocation, 
         // with arguments guardInfo.PointerToGuard and guardInfo.IsWrite
     }
 
+
+    return;
 }
 
 
-std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injector::_findPointToInsertGuard(void) {
+bool ProtectionsInjector::_optimizeForLoopInvariance(
+    LoopDependenceInfo *NestedLoop,
+    Instruction *I, 
+    Value *PointerOfMemoryInstruction, 
+    bool IsWrite
+)
+{
+    /*
+     * If @NestedLoop is not valid, we cannot optimize for loop invariance
+     */
+    if (!NestedLoop) { 
+        return false;
+    }
 
+
+    /*
+     * Setup --- fetch the loop structure for @NestedLoop
+     */
+    bool Hoistable = false;
+    LoopDependenceInfo *NextLoop = NestedLoop;
+    LoopStructure *NextLoopStructure = NextLoop->getLoopStructure();
+    Instruction *InjectionLocation = nullptr;
+
+
+    /*
+     * Walk up the loop nest until @PointerOfMemoryInstruction to determine 
+     * the outermost loop of which PointerOfMemoryInstruction is a loop 
+     * invariant. 
+     */
+    while (NextLoop) 
+    {
+        /*
+         * Fetch the invariant manager of the next loop 
+         */
+        InvariantManager *Manager = NextLoop->getInvariantManager();
+
+
+        /*
+         * If @PointerOfMemoryInstruction is not a loop invariant
+         * of this loop, we cannot iterate anymore --- break and 
+         * determine if the guard can actually be hoisted
+         */ 
+        if (!(Manager->isLoopInvariant(PointerOfMemoryInstruction))) break;
+
+
+        /*
+         * We know we're dealining with a loop invariant --- set the 
+         * injection location to this loop's preheader terminator and 
+         * continue to iterate.
+         */
+        BasicBlock *PreHeader = NextLoopStructure->getPreHeader();
+        InjectionLocation = PreHeader->getTerminator();
+
+
+        /*
+         * Set state for the next iteration up the loop nest
+         */
+        LoopDependenceInfo *ParentLoop = BasicBlockToLoopMap[PreHeader];
+        assert (ParentLoop != NextLoop);
+
+        NextLoop = ParentLoop;
+        NextLoopStructure = 
+            (NextLoop) ?
+            (NextLoop->getLoopStructure()) :
+            (nullptr) ;
+
+        Hoistable |= true;
+    }
+
+
+    /*
+     * If we can truly hoist the guard --- mark the 
+     * injection location, update statistics, and return
+     */
+    if (Hoistable)
+    {
+        InjectionLocations[I] = 
+            new GuardInfo(
+                InjectionLocation,
+                PointerOfMemoryInstruction, 
+                IsWrite
+            );
+
+        loopInvariantGuard++;
+    }
+
+
+    return Hoistable;
+}
+
+
+bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
+    LoopDependenceInfo *NestedLoop,
+    Instruction *I, 
+    Value *PointerOfMemoryInstruction, 
+    bool IsWrite
+)
+{
+    /*
+     * If @NestedLoop is not valid, we cannot optimize for loop invariance
+     */
+    if (!NestedLoop) { 
+        return false; 
+    }
+
+
+    /*
+     * Setup --- fetch the loop structure and IV manager for @NestedLoop
+     */
+    LoopStructure *NestedLoopStructure = NestedLoop->getLoopStructure();
+    InductionVariableManager *IVManager = NestedLoop->getInductionVariableManager();
+
+
+    /*
+     * Fetch @PointerOfMemoryInstruction as an instruction, sanity check
+     */
+    Instruction *PointerOfMemoryInstructionAsInst = dyn_cast<Instruction>(PointerOfMemoryInstruction);
+    if (!PointerOfMemoryInstructionAsInst) { 
+        return false; 
+    }
+
+
+    /*
+     * Check if @PointerOfMemoryInstruction contributes to an induction 
+     * variable --- if not, there's no optimization we can do
+     */
+    if (!(IVManager->doesContributeToComputeAnInductionVariable(PointerOfMemoryInstructionAsInst))) {
+        return false;
+    }
+
+
+    /*
+     * At this point, we know that the computation of @PointerOfMemoryInstruction
+     * depends on a bounded scalar evolution --- which means that the guard can be
+     * hoisted outside the loop where the boundaries used in the check can range from
+     * start to end (low to high??) address of the scalar evolution
+     * 
+     * FIX --- Currently using a non-canonical address for the start address and not 
+     *         checking the end addresss
+     */
+    bool Hoisted = false;
+    Value *StartAddress = NonCanonical; /* FIX */
+    if (StartAddress)
+    {
+        BasicBlock *PreHeader = NestedLoopStructure->getPreHeader();
+        Instruction *InjectionLocation = PreHeader->getTerminator();
+
+        InjectionLocations[I] = 
+            new GuardInfo(
+                InjectionLocation,
+                StartAddress,
+                IsWrite
+            );
+
+        scalarEvolutionGuard++;
+        Hoisted |= true;
+    }
+
+
+    return Hoisted;
+}
+
+
+std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> ProtectionsInjector::_findPointToInsertGuard(void) 
+{
     /*
      * Define the lamda that will be executed to identify where to place the guards.
      */
+    auto FindPointToInsertGuardFunc = 
+    [this](Instruction *inst, Value *PointerOfMemoryInstruction, bool isWrite) -> void {
 
-    auto findPointToInsertGuard = 
-    [this](Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite) -> void {
-#if OPTIMIZED
         /*
-         * Check if the pointer has already been guarded.
+         * The scoop:
+         * 
+         * - @inst will be some kind of memory instruction (load/store, potentially
+         *   call instruction)
+         * - @PointerOfMemoryInstruction will be the pointer operand of said
+         *   memory instruction (@inst)
+         * - @isWrite denotes the characteristic of @inst (i.e. load=FALSE, 
+         *   store=TRUE, etc.)
+         * 
+         * Several steps to check/perform:
+         * 
+         * 1) If @PointerOfMemoryInstruction has already been guarded:
+         *    a) @PointerOfMemoryInstruction is in the IN set of @inst, indicating
+         *       that the DFA has determined that the pointer need not be checked
+         *       when considering guarding at @inst
+         *    b) @PointerOfMemoryInstruction is an alloca i.e. we know all origins
+         *       of allocas since they're on the stack --- **FIX** (possible because
+         *       the stack is already safe??)
+         *    c) @PointerOfMemoryInstruction originates from a library allocator
+         *       call instruction --- these pointers are the ones being tracked and
+         *       also assumed to be safe b/c we trust the allocator
+         *    ... then we're done --- don't have to do anything!
+         * 
+         * 2) Otherwise, we can check if @inst is part of a loop nest. If that's the
+         *    case, we can try to perform one of two optimizations:
+         *    a) If @inst is a loop invariant, we can use NOELLE to understand how 
+         *       far up the loop nest we can hoist the guard for @inst. Said guard will be 
+         *       injected in the determined loop's preheader (b/c that's how hoisting works) 
+         *       and guard the pointer directly.
+         *    b) If this isn't possible (i.e. @inst isn't a loop invariant), then we can
+         *       also determine if @inst contributes to an induction variable, which is
+         *       going to be based on a scalar evolution expression. If NOELLE determines
+         *       that @inst fits this characterization, then we guard the start address
+         *       through the end address (**do we need to guard the end addr, or can we 
+         *       guard start + an offset?**), and hoist this guard @inst's parent loop 
+         *       (i.e to the preheader).
+         *   
+         * 3) If @inst wasn't a part of a loop nest or if the optimizations attempted
+         *    did not work, then the guard must be placed right before @inst.
          */
-        auto& INSetOfI = DFR->IN(inst);
-        if (INSetOfI.find(pointerOfMemoryInstruction) != INSetOfI.end()) {
-            //errs() << "YAY: skip a guard for the instruction: " << *inst << "\n";
+
+
+        /*
+         * <Step 1a.>
+         */
+        auto &INSetOfI = DFR->IN(inst);
+        if (INSetOfI.find(PointerOfMemoryInstruction) != INSetOfI.end()) 
+        {
             redundantGuard++;                  
             return;
         }
 
+
         /*
-        * Check if the pointer comes from a known allocation
-        */
-        if (isa<AllocaInst>(pointerOfMemoryInstruction)) {
-            //errs() << "YAY: skip a guard for the instruction: " << *inst << " because the pointer comes from a known place\n";
+         * <Step 1b.>
+         */
+        if (isa<AllocaInst>(PointerOfMemoryInstruction)) 
+        {
             redundantGuard++;                  
             return ;
         }
-        if (auto callInst = dyn_cast<CallInst>(pointerOfMemoryInstruction)) {
-            auto callee = callInst->getCalledFunction();
-            if (callee != nullptr){
-                auto calleeName = callee->getName();
-                errs() << "AAA " << calleeName << "\n";
-                if (  false
-                    || calleeName.equals("malloc")
-                    || calleeName.equals("calloc")
-                ){
-                //errs() << "YAY: skip a guard for the instruction: " << *inst << " because the pointer comes from a known place\n";
-                redundantGuard++;                  
-                return ;
+
+        
+        /*
+         * <Step 1c.>
+         */
+        if (CallInst *Call = dyn_cast<CallInst>(PointerOfMemoryInstruction)) 
+        {
+            /*
+             * Fetch callee to examine
+             */
+            Function *Callee = Call->getCalledFunction();
+
+
+            /*
+             * Fetch callee to examine
+             */
+            if (Callee)
+            {
+                /*
+                 * If it's a library allocator call, then we're already
+                 * "checked it" --- redundant guard
+                 * 
+                 * TODO --- Update to reflect either kernel or user alloc methods
+                 */
+                auto CalleeName = Callee->getName();
+                errs() << "AAA " << CalleeName << "\n";
+                if (false
+                    || CalleeName.equals("malloc")
+                    || CalleeName.equals("calloc"))
+                {
+                    redundantGuard++;                  
+                    return ;
                 }
             }
         }
 
+
         /*
-         * We have to guard the pointer.
-         *
-         * Check if we can hoist the guard outside the loop.
+         * We have to guard the pointer --- fetch the 
+         * potential loop nest that @inst belongs to
          */
-        //errs() << "XAN: we have to guard the memory instruction: " << *inst << "\n" ;
-        auto added = false;
-        auto nestedLoop = instToLoop[inst->getParent()];
-        if (nestedLoop == nullptr) {
-            /*
-             * We have to guard just before the memory instruction.
-             * The instruction doesn't belong to a loop so no further optimizations are available.
-             */
-            InjectionLocations[inst] = 
-                GuardInfo(
+        bool Guarded = false;
+        LoopDependenceInfo *NestedLoop = BasicBlockToLoopMap[inst->getParent()];
+
+        /*
+         * <Step 2a.>
+         */
+        Guarded |= 
+            _optimizeForLoopInvariance(
+                NestedLoop,
+                inst,
+                PointerOfMemoryInstruction,
+                isWrite
+            );
+
+
+        /*
+         * <Step 2b.>
+         */
+        if (!Guarded)
+        {
+            Guarded |= 
+                _optimizeForInductionVariableAnalysis(                
+                    NestedLoop,
                     inst,
-                    pointerOfMemoryInstruction, 
+                    PointerOfMemoryInstruction,
                     isWrite
                 );
-            nonOptimizedGuard++;
-            //errs() << "XAN:   The instruction doesn't belong to a loop so no further optimizations are available\n";
-            return;
         }
+
+
         /*
-         * @inst belongs to a loop, so we can try to hoist the guard.
+         * <Step 3>
          */
-        //errs() << "XAN:   It belongs to the loop " << *nestedLoop << "\n";
-        auto nestedLoopLS = nestedLoop->getLoopStructure();
-        Instruction* preheaderBBTerminator = nullptr;
-        while (nestedLoop != NULL) {
-            auto invariantManager = nestedLoop->getInvariantManager();
-            if (  false
-                || invariantManager->isLoopInvariant(pointerOfMemoryInstruction)
-                ) {
+        if (!Guarded) 
+        {
+            InjectionLocations[inst] = 
+                new GuardInfo(
+                    inst,
+                    PointerOfMemoryInstruction, 
+                    isWrite
+                );
+
+            nonOptimizedGuard++;
+        }
+
+
+        return;
+
+#if 0
+        /*
+         * Otherwise @inst belongs to a loop, so we can first try
+         * to hoist the guard --- <Step 3.>
+         */
+        bool Hoistable = false;
+        LoopStructure *NestedLoopStructure = NestedLoop->getLoopStructure();
+        Instruction *PreheaderBBTerminator = nullptr;
+        while (NestedLoop) 
+        {
+            InvariantManager *Manager = NestedLoop->getInvariantManager();
+            if (Manager->isLoopInvariant(PointerOfMemoryInstruction)) 
+            {
                 //errs() << "YAY:   we found an invariant address to check:" << *inst << "\n";
-                auto preheaderBB = nestedLoopLS->getPreHeader();
-                preheaderBBTerminator = preheaderBB->getTerminator();
-                auto tempNestedLoop = instToLoop[preheaderBB];
-                assert(tempNestedLoop != nestedLoop);
-                nestedLoop = tempNestedLoop;
-                nestedLoopLS = 
-                    (nestedLoop != nullptr) ?
-                    nestedLoop->getLoopStructure() :
+                auto preheaderBB = NestedLoopStructure->getPreHeader();
+                PreheaderBBTerminator = preheaderBB->getTerminator();
+
+                auto tempNestedLoop = BasicBlockToLoopMap[preheaderBB];
+                assert(tempNestedLoop != NestedLoop);
+                NestedLoop = tempNestedLoop;
+                NestedLoopStructure = 
+                    (NestedLoop != nullptr) ?
+                    NestedLoop->getLoopStructure() :
                     nullptr;
 
-                added = true;
+                Hoistable = true;
 
             } else {
                 break;
             }
         }
-        if(added){
+        if(Hoistable)
+        {
             /*
              * We can hoist the guard outside the loop.
              */
-            loopInvariantGuard++;
             InjectionLocations[inst] = 
-                GuardInfo(
-                    preheaderBBTerminator,
-                    pointerOfMemoryInstruction, 
+                new GuardInfo(
+                    PreheaderBBTerminator,
+                    PointerOfMemoryInstruction, 
                     isWrite
                 );
+
+            loopInvariantGuard++;
             return;
         }
         //errs() << "XAN:   It cannot be hoisted. Check if it can be merged\n";
 
         /*
-        * The memory instruction isn't loop invariant.
-        *
-        * Check if it is based on an induction variable.
-        */
-        nestedLoop = instToLoop[inst->getParent()];
-        assert(nestedLoop != nullptr);
-        nestedLoopLS = nestedLoop->getLoopStructure();
-        auto ivManager = nestedLoop->getInductionVariableManager();
-        auto pointerOfMemoryInstructionInst = dyn_cast<Instruction>(pointerOfMemoryInstruction);
-        if (ivManager->doesContributeToComputeAnInductionVariable(pointerOfMemoryInstructionInst)){
+         * The memory instruction isn't loop invariant.
+         *
+         * Check if it is based on an induction variable.
+         */
+        NestedLoop = BasicBlockToLoopMap[inst->getParent()];
+        assert (NestedLoop != nullptr);
+        NestedLoopStructure = NestedLoop->getLoopStructure();
+
+        auto ivManager = NestedLoop->getInductionVariableManager();
+        auto PointerOfMemoryInstructionInst = dyn_cast<Instruction>(PointerOfMemoryInstruction);
+        if (ivManager->doesContributeToComputeAnInductionVariable(PointerOfMemoryInstructionInst)){
             /*
                 * The computation of the pointer is based on a bounded scalar evolution.
                 * This means, the guard can be hoisted outside the loop where the boundaries used in the check go from the lowest to the highest address.
                 */
             //SCEV_CARAT_Visitor visitor{};
-            auto startAddress = numNowPtr; // FIXME Iterate over SCEV to fetch the actual start and end addresses
+            auto startAddress = NonCanonical; // FIXME Iterate over SCEV to fetch the actual start and end addresses
             //auto startAddress = visitor.visit((const SCEV *)AR);
             /*auto startAddressSCEV = AR->getStart();
                 errs() << "XAN:         Start address = " << *startAddressSCEV << "\n";
@@ -393,21 +644,21 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
                 //errs() << "YAY: we found a scalar evolution-based memory instruction: " ;
                 //inst->print(errs());
                 //errs() << "\n";
-                auto preheaderBB = nestedLoopLS->getPreHeader();
-                preheaderBBTerminator = preheaderBB->getTerminator();
+                auto preheaderBB = NestedLoopStructure->getPreHeader();
+                PreheaderBBTerminator = preheaderBB->getTerminator();
 
                 scalarEvolutionGuard++;
 
                 InjectionLocations[inst] = 
-                    GuardInfo(
-                        preheaderBBTerminator,
+                    new GuardInfo(
+                        PreheaderBBTerminator,
                         startAddress,
                         isWrite
                     );
                 return;
             }
         }
-#endif //OPTIMIZED
+// #endif //OPTIMIZED
         //errs() << "NOOO: the guard cannot be hoisted or merged: " << *inst << "\n" ;
 
         /*
@@ -415,63 +666,100 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction)> Injec
          * We have to guard just before the memory instruction.
          */
         InjectionLocations[inst] = 
-            GuardInfo(
+            new GuardInfo(
                 inst,
-                pointerOfMemoryInstruction, 
+                PointerOfMemoryInstruction, 
                 isWrite
             );
         nonOptimizedGuard++;
         return;
+
+#endif
+
     };
 
-    return findPointToInsertGuard;
+
+    return FindPointToInsertGuardFunc;
 }
 
-bool Injector::_allocaOutsideFirstBBChecker() {
+
+void ProtectionsInjector::_allocaOutsideFirstBBChecker(void) 
+{
     /*
      * Check if there is no stack allocations other than 
      * those in the first basic block of the function.
      */
-    auto firstBB = &*(F->begin());
-    for(auto& B : *F){
-        for(auto& I : B){
-            if (  true
+    BasicBlock *FirstBB = &*(F->begin());
+    for (auto &B : *F)
+    {
+        for (auto &I : B)
+        {
+            if (true
                 && isa<AllocaInst>(&I)
-                && (&B != firstBB)
-                ){
-
+                && (&B != FirstBB))
+            {
                 /*
-                 * We found a stack allocation not in the first basic block.
+                 * We found a stack allocation not in the entry basic block.
                  */
-                //errs() << "NOOOO: Found an alloca outside the first BB = " << I << "\n";
-                AllocaOutsideEntry = true;
+                AllocaOutsideEntry |= true;
+                break;
             }
         }
     }
-    AllocaOutsideEntry = false;
+
 
     return;
 }
 
-void Injector::printGuards() {
+
+template<typename MemInstTy>
+void ProtectionsInjector::_invokeLambda(
+    MemInstTy *I,
+    bool IsWrite
+)
+{
+    /*
+     * Fetch the lambda to invoke --- FIX
+     */ 
+    auto TheLambda = _findPointToInsertGuard();
+    
+
+    /*
+     * Fetch the pointer to handle from @I
+     */
+    Value *PointerToHandle = I->getPointerOperand();
+
+
+    /*
+     * Invoke the lambda
+     */
+    TheLambda(I, PointerToHandle, IsWrite);
+
+
+    return;
+}
+
+
+void ProtectionsInjector::_printGuards(void) 
+{
     /*
      * Print where to put the guards
      */
     errs() << "GUARDS\n";
-    for (auto& guard : InjectionLocations){
-        auto inst = guard.first;
-        errs() << " " << *inst << "\n";
-    }
+    for (auto &Guard : InjectionLocations)
+        errs() << " " << *(Guard.first) << "\n";
 
 
-    //Print results
-    errs() << "Guard Information\n";
-    errs() << "Unoptimized Guards:\t" << nonOptimizedGuard << "\n"; 
-    errs() << "Redundant Optimized Guards:\t" << redundantGuard << "\n"; 
-    errs() << "Loop Invariant Hoisted Guards:\t" << loopInvariantGuard << "\n"; 
-    errs() << "Scalar Evolution Combined Guards:\t" << scalarEvolutionGuard << "\n"; 
-    errs() << "Hoisted Call Guards\t" << callGuardOpt << "\n"; 
-    errs() << "Total Guards:\t" << nonOptimizedGuard + loopInvariantGuard + scalarEvolutionGuard << "\n"; 
+    /*
+     * Print guard statistics
+     */
+    errs() << "GUARDS: Guard Information\n";
+    errs() << "GUARDS: Unoptimized Guards:\t" << nonOptimizedGuard << "\n"; 
+    errs() << "GUARDS: Redundant Optimized Guards:\t" << redundantGuard << "\n"; 
+    errs() << "GUARDS: Loop Invariant Hoisted Guards:\t" << loopInvariantGuard << "\n"; 
+    errs() << "GUARDS: Scalar Evolution Combined Guards:\t" << scalarEvolutionGuard << "\n"; 
+    errs() << "GUARDS: Hoisted Call Guards\t" << callGuardOpt << "\n"; 
+    errs() << "GUARDS: Total Guards:\t" << nonOptimizedGuard + loopInvariantGuard + scalarEvolutionGuard << "\n"; 
 
 
     return;

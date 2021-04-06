@@ -58,6 +58,8 @@
 #include <set>
 #include <cassert>
 
+#include "autoconf.h"
+
 
 /*
  * Debugging

@@ -10,12 +10,11 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
@@ -28,7 +27,16 @@
 
 #pragma once
 
-#include "Configurations.hpp"
+#include "Escapes.hpp"
+
+#ifdef NAUT_CONFIG_USE_NOELLE
+#include "Noelle.hpp"
+#endif
+
+
+#define STORE_GUARD 1
+#define LOAD_GUARD 1
+
 
 class ProtectionsDFA
 {
@@ -72,9 +80,9 @@ private:
     /*
      * Private methods
      */     
-    std::function<void (Instruction *, DataFlowResult *)> _computeGEN(void);
+    std::function<void (Instruction *I, DataFlowResult *Result)> _computeGEN(void);
 
-    std::function<void (Instruction *, DataFlowResult *)> _computeKILL(void);
+    std::function<void (Instruction *I, DataFlowResult *Result)> _computeKILL(void);
 
     void _initializeUniverse(void);
 
