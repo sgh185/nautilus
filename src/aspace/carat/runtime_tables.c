@@ -326,7 +326,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 
 
 NO_CARAT_NO_INLINE
-void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element)
+void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_t num_elements)
 {
     /*
      * Fetch the current thread's carat context 
@@ -340,6 +340,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
 	CHECK_CARAT_READY(the_context);  
+
 
 	/*
 	 * Create a new allocation_entry object for the @address to be added --- here,
@@ -360,7 +361,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 
 
 NO_CARAT_NO_INLINE
-void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size)
+void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, void *old_address)
 {
     /*
      * Fetch the current thread's carat context 

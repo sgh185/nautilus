@@ -312,13 +312,13 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size);
 /*
  * Instrumentation for "calloc" --- adding
  */ 
-void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element);
+void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_t num_elements);
 
 
 /*
  * Instrumentation for "realloc" --- adding
  */
-void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size);
+void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, void *old_address);
 
 
 /*
