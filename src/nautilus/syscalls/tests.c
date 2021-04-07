@@ -181,6 +181,8 @@ static struct shell_cmd_impl syscalltest_impl = {
 
 nk_register_shell_cmd(syscalltest_impl);
 
+static uint64_t omp_num_threads = 0;
+
 static int handle_exec(char* buf, void* priv) {
   int argc = 0;
   char* argv[64] = {0};
@@ -208,7 +210,16 @@ static int handle_exec(char* buf, void* priv) {
 
   nk_process_t* process;
   char omp_threads[64] = {0};
-  sprintf((char*)&omp_threads, "OMP_NUM_THREADS=%d", nk_get_num_cpus());
+
+  if (omp_num_threads == 0) {
+    // The number of threads was not explicitly set.
+    omp_num_threads = nk_get_num_cpus();
+  }
+
+  nk_vc_printf("Going to start a process with OMP_NUM_THREADS=%d\n",
+               omp_num_threads);
+
+  sprintf((char*)&omp_threads, "OMP_NUM_THREADS=%d", omp_num_threads);
   char* envp[] = {(char*)&omp_threads, "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
   if (nk_process_create(argv[1], argv + 1, envp, "paging", &process)) {
     nk_vc_printf("Failed to create new process\n");
@@ -232,4 +243,28 @@ static struct shell_cmd_impl exec_impl = {
 
 };
 
+static int handle_omp_num_threads(char* buf, void* priv) {
+  uint64_t num_threads;
+  sscanf(buf, "omp_num_threads %ld", &num_threads);
+  if (num_threads == 0) {
+    nk_vc_printf("0 threads makes no sense; doing nothing.\n");
+    return 0;
+  } else if (num_threads > nk_get_num_cpus()) {
+    nk_vc_printf(
+        "WARNING: Setting number of threads (%ld) greater than the detected "
+        "number of CPUs (%d). This may not be handled correctly by the "
+        "process/syscall abstraction when spawning new threads.\n",
+        num_threads, nk_get_num_cpus());
+  }
+  omp_num_threads = num_threads;
+  return 0;
+}
+
+static struct shell_cmd_impl omp_num_threads_impl = {
+    .cmd = "omp_num_threads",
+    .help_str = "set the number of omp threads",
+    .handler = handle_omp_num_threads,
+};
+
 nk_register_shell_cmd(exec_impl);
+nk_register_shell_cmd(omp_num_threads_impl);
