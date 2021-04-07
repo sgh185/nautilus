@@ -87,32 +87,15 @@ void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
-__attribute__((noinline, used, annotate("nocarat")))
+__attribute__((constructor, noinline, optnone, used, annotate("nocarat")))
 void _nk_carat_globals_compiler_target(void) {
-    __nk_func_table[NK_CARAT_GLOBALS_COMPILER_TARGET]();
-}
-
-__attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_init(void) {
-    __nk_func_table[NK_CARAT_INIT]();
-    _nk_carat_globals_compiler_target();
-}
-
-__attribute__((noinline, used, annotate("nocarat")))
-void kmem_sys_free(void *ptr) {
-    free(ptr);
-}
-
-__attribute__((noinline, used, annotate("nocarat")))
-void * _kmem_sys_malloc(uint64_t size) {
-    return malloc(size);
+    return;
 }
 
 /*
- WE NEED TO HANDLE THE ACCESS SIZE
+ * WE NEED TO HANDLE THE ACCESS SIZE
  */
+__attribute__((noinline, used, annotate("nocarat")))
 int nk_carat_check_protection(void *ptr, int is_write) {
     return __nk_func_table[NK_CARAT_CHECK_PROTECTION](ptr, is_write);
 }
-
-__attribute__((noinline, optnone, used, annotate("nocarat"))) void make_carat_pass_work(void) { return; }
