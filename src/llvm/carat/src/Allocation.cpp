@@ -415,15 +415,18 @@ void AllocationHandler::InstrumentGlobals()
 {
     /*
      * TOP --- Instrument each global variable --- inject
-     * instrumentation into "nk_carat_init"
+     * instrumentation into "_nk_carat_globals_compiler_target"
      */ 
 
     /*
-     * Fetch insertion point as the terminator of "nk_carat_init"
+     * Fetch insertion point as the terminator of "_nk_carat_globals_compiler_target"
      */
     Instruction *InsertionPoint = Target->back().getTerminator();
-    assert(isa<ReturnInst>(InsertionPoint)
-           && "InstrumentGlobals: Back block terminator of 'nk_carat_init' is not return!");
+    assert(
+        true
+        && isa<ReturnInst>(InsertionPoint)
+        && "InstrumentGlobals: Back block terminator of '_nk_carat_globals_compiler_target' is not return!"
+    );
 
 
     /*

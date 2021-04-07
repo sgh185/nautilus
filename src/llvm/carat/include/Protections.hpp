@@ -24,7 +24,12 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
-#ifdef NAUT_CONFIG_USE_NOELLE
+
+#pragma once
+
+#include "autoconf.h"
+
+#if NAUT_CONFIG_USE_NOELLE
 
 #include "ProtectionsInjector.hpp"
 

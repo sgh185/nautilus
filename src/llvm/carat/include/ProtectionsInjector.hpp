@@ -27,7 +27,9 @@
 
 #pragma once
 
-#ifdef NAUT_CONFIG_USE_NOELLE
+#include "autoconf.h"
+
+#if NAUT_CONFIG_USE_NOELLE
 
 #include "ProtectionsDFA.hpp"
 

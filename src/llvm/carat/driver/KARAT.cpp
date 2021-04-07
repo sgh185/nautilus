@@ -28,7 +28,7 @@
 
 #include "autoconf.h"
 
-#ifdef NAUT_CONFIG_USE_NOELLE
+#if NAUT_CONFIG_USE_NOELLE
 #include "./include/Protections.hpp"
 #else
 #include "./include/Escapes.hpp"

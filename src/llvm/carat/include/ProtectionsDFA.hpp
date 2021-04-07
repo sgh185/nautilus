@@ -27,9 +27,11 @@
 
 #pragma once
 
+#include "autoconf.h"
+
 #include "Escapes.hpp"
 
-#ifdef NAUT_CONFIG_USE_NOELLE
+#if NAUT_CONFIG_USE_NOELLE
 
 #include "Noelle.hpp"
 
