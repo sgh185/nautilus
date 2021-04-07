@@ -60,7 +60,6 @@ std::unordered_set<std::string> CARATNames = {
     CARAT_CALLOC,
     CARAT_REMOVE_ALLOC, 
     CARAT_ESCAPE,
-    CARAT_INIT,
     CARAT_GLOBAL_MALLOC,
     CARAT_GLOBALS_TARGET
 };

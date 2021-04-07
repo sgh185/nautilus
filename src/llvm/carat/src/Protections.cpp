@@ -49,6 +49,12 @@ ProtectionsHandler::ProtectionsHandler(
 void ProtectionsHandler::Protect(void)
 {
     /*
+     * Check user arguments
+     */
+    if (NoProtections) return;
+
+
+    /*
      * Iterate over all functions in @this->M, compute the DFA 
      * and calls to the runtime protections method if possible
      */ 
@@ -57,7 +63,7 @@ void ProtectionsHandler::Protect(void)
         /*
          * Skip functions that are not instrumentable
          */ 
-        if (!(Utils::IsInstrumentable(F))) continue;  
+        if (!(Utils::IsInstrumentable(F))) continue;
 
 
         /*

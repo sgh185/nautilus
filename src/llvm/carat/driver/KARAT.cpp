@@ -26,6 +26,8 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
+#include "autoconf.h"
+
 #ifdef NAUT_CONFIG_USE_NOELLE
 #include "./include/Protections.hpp"
 #else
@@ -57,7 +59,7 @@ struct CAT : public ModulePass
          */  
         Utils::ExitOnInit();
 
-        
+
         /*
          * Fetch the "nocarat" annotation attribute --- necessary
          * to find user-marked functions in kernel code
@@ -116,6 +118,12 @@ struct CAT : public ModulePass
 
     bool runOnModule(Module &M) override
     {
+        /*
+         * Debugging
+         */  
+        Utils::ExitOnInit();
+
+
         if (Debug || true)
         {
             /*
@@ -135,6 +143,23 @@ struct CAT : public ModulePass
         /*
          * --- Perform all CARAT instrumentation on the code ---
          */ 
+#if NAUT_CONFIG_USE_NOELLE
+        if (!NoProtections)
+        {
+            /*  
+             * Fetch Noelle
+             */
+            Noelle &NoelleAnalysis = getAnalysis<Noelle>();
+
+
+            /*
+             * Protections
+             */ 
+            ProtectionsHandler PH = ProtectionsHandler(&M, &NoelleAnalysis);
+            PH.Protect();
+        }
+#endif
+
 
         /*
          * Allocation tracking
@@ -150,21 +175,6 @@ struct CAT : public ModulePass
         EH.Inject(); // Only memory uses
 
 
-#if NAUT_CONFIG_USE_NOELLE
-        /*  
-         * Fetch Noelle --- DEMONSTRATION
-         */
-        Noelle &NoelleAnalysis = getAnalysis<Noelle>();
-
-
-        /*
-         * Protections
-         */ 
-        ProtectionsHandler PH = ProtectionsHandler(&M, &NoelleAnalysis);
-        PH.Protect();
-#endif
-
-
         return true;
     }
 
@@ -173,7 +183,10 @@ struct CAT : public ModulePass
     {   
 
 #if NAUT_CONFIG_USE_NOELLE
-        AU.addRequired<Noelle>();
+        /*
+         * Use NOELLE IFF we need protections only
+         */
+        if (!NoProtections) AU.addRequired<Noelle>();
 #endif
 
         return;

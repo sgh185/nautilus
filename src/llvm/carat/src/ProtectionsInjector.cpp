@@ -144,7 +144,9 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
     if (true
         && !AllocaOutsideEntry
         && (Callee)
-        && (InstrumentedFunctions[Callee])) return;
+        && (InstrumentedFunctions[Callee])) { 
+        return;
+    }
 
 
     /*
