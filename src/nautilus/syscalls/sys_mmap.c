@@ -59,6 +59,9 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
     return -1;
   }
 
+
+  memset(allocation,0,length);// mmap specifies 0-initialized memory
+
   nk_aspace_region_t new_region;
   new_region.va_start = allocation;
   new_region.pa_start = allocation;

@@ -360,7 +360,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   envs = copy_argv_or_envp(envp, envc, envp_len, &stack_ptr);  
 
   // create a new allocator
-  nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
+  nk_alloc_t *alloc = NULL; //nk_alloc_create("dumb", "proc-alloc");
 
   // ensure that lock has been initialized to 0
   spinlock_init(&(p->lock));
