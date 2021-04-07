@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <stdlib.h>
+
 
 /*
  * Function signatures for instrumentation methods
@@ -13,6 +15,15 @@ void _nk_carat_globals_compiler_target(void) ;
 
 
 /*
+ * Compiler target to insert globals
+ */ 
+__attribute__((constructor, noinline, optnone, used, annotate("nocarat")))
+void _nk_carat_globals_compiler_target(void) {
+    return;
+}
+
+
+/*
  * HACK --- Link this function instead of the entire framework
  * such that the following happens:
  * a) All of the instrumentation methods' signatures persist in the
@@ -23,9 +34,17 @@ void _nk_carat_globals_compiler_target(void) ;
 __attribute__((optnone, noinline, used, annotate("nocarat")))
 static void _framework_persist_function_signatures(void)
 {
+    
+#define _DUMMY_SIZE 16
+#define _DUMMY_ENTRIES 10
+
     volatile int condition = 0;
     if (condition)
     {
+        void *test_ptr = malloc(_DUMMY_SIZE);
+        test_ptr = calloc(_DUMMY_ENTRIES, _DUMMY_SIZE);
+        test_ptr = realloc(test_ptr, _DUMMY_SIZE);
+        free(test_ptr);
         nk_carat_instrument_global(NULL, 0, 0);
         nk_carat_instrument_malloc(NULL, 0);
         nk_carat_instrument_calloc(NULL, 0, 0);

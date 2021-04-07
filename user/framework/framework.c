@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <nautilus/nautilus_exe.h>
 
+
 // Space for the signature of the final binary. Set by nsign after final link.
 __attribute__((section(".naut_secure"))) unsigned char __NAUT_SIGNATURE[16];
 
@@ -85,11 +86,6 @@ void nk_carat_instrument_free(void *ptr) {
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
-}
-
-__attribute__((constructor, noinline, optnone, used, annotate("nocarat")))
-void _nk_carat_globals_compiler_target(void) {
-    return;
 }
 
 /*
