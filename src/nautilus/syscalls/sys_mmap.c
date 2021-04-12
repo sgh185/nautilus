@@ -59,26 +59,26 @@ uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
   }
   memset(allocation, 0, length); // mmap specifies 0-initialized memory
 
-  nk_aspace_region_t* new_region = malloc(sizeof(nk_aspace_region_t));
-  memset(new_region, 0, sizeof(nk_aspace_region_t));
-  new_region->va_start = allocation;
-  new_region->pa_start = allocation;
-  new_region->len_bytes = length;
-  // To simplify mprotect, grant all permissions for now. TODO
-  new_region->protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
+  // This region is not actually mapped
+  nk_aspace_region_t new_region;
+  new_region.va_start = allocation;
+  new_region.pa_start = allocation;
+  new_region.len_bytes = length;
+  // // To simplify mprotect, grant all permissions for now. TODO
+  // new_region.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC;
 
-  // Create the aspace region for the process.
-  // If the allocation is inside lower 4G, it is already mapped.
-  if (allocation > (void*)0x100000000UL) {
-    if (nk_aspace_add_region(syscall_get_proc()->aspace, new_region)) {
-      DEBUG("Failed to add aspace region\n");
-      free(allocation);
-      return -1;
-    }
-  }
+  // // Create the aspace region for the process.
+  // // If the allocation is inside lower 4G, it is already mapped.
+  // if (allocation > (void*)0x100000000UL) {
+  //   if (nk_aspace_add_region(syscall_get_proc()->aspace, &new_region)) {
+  //     DEBUG("Failed to add aspace region\n");
+  //     free(allocation);
+  //     return -1;
+  //   }
+  // }
 
   // Add the new region to the mmap tracking structure for this process.
-  proc_mmap_add_region(syscall_get_proc(), new_region);
+  proc_mmap_add_region(syscall_get_proc(), &new_region);
 
   return (uint64_t)allocation;
 }

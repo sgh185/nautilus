@@ -3,6 +3,19 @@
 #define SYSCALL_NAME "proc"
 #include "impl_preamble.h"
 
+#define SANITY_CHECKS 1
+
+#if SANITY_CHECKS
+#define PAD 0
+#define MALLOC_SPECIFIC(x,c) ({ void *p  = malloc_specific((x)+2*PAD,c); if (!p) { panic("Failed to Allocate %d bytes\n",x); } memset(p,0,(x)+2*PAD); p+PAD; })
+#define MALLOC(x) ({ void *p  = malloc((x)+2*PAD); if (!p) { panic("Failed to Allocate %d bytes\n",x); } memset(p,0,(x)+2*PAD); p+PAD; })
+#define FREE(x) do {if (x) { free(((void*)x)-PAD); x=0;} } while (0)
+#else // no sanity checks
+#define MALLOC_SPECIFIC(x,c) malloc_specific(x,c)
+#define MALLOC(x) malloc(x)
+#define FREE(x) free(x)
+#endif // sanity checks
+
 struct nk_fs_open_file_state* fd_to_nk_fs(struct file_descriptor_table* table,
                                           fd_t fd) {
   for (size_t i = 0; i < SYSCALL_NUM_FDS; i++) {
@@ -42,12 +55,12 @@ void free_process_syscall_state(struct nk_process_linux_syscall_state* syscall_s
     while (region) {
       struct linux_mmap_region* region_to_free = region;
       region = region->next;
-      free(region_to_free);
+      FREE(region_to_free);
     }
     struct linux_mmap_allocation* allocation_to_free = allocation;
     allocation = allocation->next;
-    free(allocation_to_free->start);
-    free(allocation_to_free);
+    FREE(allocation_to_free->start);
+    FREE(allocation_to_free);
   }
 
   // We don't want to release the state lock since implicitly using the state
@@ -91,7 +104,7 @@ void proc_mmap_add_region(nk_process_t* proc,
   // Set up new allocation
   struct linux_mmap_allocation* old_head = syscall_state->mmap_allocation_list;
   struct linux_mmap_allocation* new_head =
-      malloc(sizeof(struct linux_mmap_allocation));
+      MALLOC(sizeof(struct linux_mmap_allocation));
   memset(new_head, 0, sizeof(struct linux_mmap_allocation));
   new_head->start = aspace_region->va_start;
   new_head->end = new_head->start + aspace_region->len_bytes;
@@ -100,7 +113,7 @@ void proc_mmap_add_region(nk_process_t* proc,
 
   // Default region, which covers an entire allocation
   struct linux_mmap_region* default_region =
-      malloc(sizeof(struct linux_mmap_region));
+      MALLOC(sizeof(struct linux_mmap_region));
   memset(default_region, 0, sizeof(struct linux_mmap_region));
   default_region->start = new_head->start;
   default_region->end = new_head->end;
@@ -156,7 +169,7 @@ void proc_mmap_remove_region(nk_process_t* proc, void* start_addr,
           }
           struct linux_mmap_region* region_to_free = region;
           region = region->next;
-          free(region_to_free);
+          FREE(region_to_free);
           continue;
         } else {
           SYSCALL_ASSERT(false, "This should not be possible.\n");
@@ -177,8 +190,8 @@ void proc_mmap_remove_region(nk_process_t* proc, void* start_addr,
       }
       struct linux_mmap_allocation* allocation_to_free = allocation;
       allocation = allocation->next;
-      free(allocation_to_free->start);
-      free(allocation_to_free);
+      FREE(allocation_to_free->start);
+      FREE(allocation_to_free);
       continue;
     }
     last_allocation = allocation;

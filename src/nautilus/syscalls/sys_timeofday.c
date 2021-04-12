@@ -10,8 +10,8 @@
 #define SYSCALL_NAME "sys_timeofday"
 #include "impl_preamble.h"
 
-#define NSEC_PER_SEC (uint64_t)1000000000
-#define NSEC_PER_USEC (uint64_t)1000U
+#define NSEC_PER_SEC 1000000000ULL
+#define NSEC_PER_USEC 1000ULL
 
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
@@ -43,7 +43,9 @@ uint64_t cycles2ns(uint64_t cycles) {
 }
 
 /// @return The time in nanoseconds
-uint64_t get_time() { return cycles2ns(get_cycles()) + time_offset; }
+uint64_t get_time() { 
+  return nk_sched_get_realtime();
+}
 
 /// @param ns The number of nanoseconds to offset against the 0 cycle count time
 void set_time(uint64_t ns) { time_offset = ns - cycles2ns(get_cycles()); }

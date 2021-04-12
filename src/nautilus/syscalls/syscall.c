@@ -347,16 +347,17 @@ void init_syscall_table() {
 int int80_handler(excp_entry_t* excp, excp_vec_t vector, void* state) {
 
   struct nk_regs* r = (struct nk_regs*)((char*)excp - 128);
+  DEBUG("Entering syscall via int80\n");
   return nk_syscall_handler(r);
 }
 
 uint64_t nk_syscall_handler(struct nk_regs* r) {
 
-#ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
-  if (!irqs_enabled()) {
-    panic("Start syscall with interrupts off!");
-  }
-#endif
+// #ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
+//   if (!irqs_enabled()) {
+//     panic("Start syscall with interrupts off!");
+//   }
+// #endif
 
   int syscall_nr = (int)r->rax;
   nk_process_t* current_process = syscall_get_proc();
@@ -372,11 +373,11 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
     DEBUG("System Call not Implemented: %d!!\n", syscall_nr);
   }
 
-#ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
-  if (!irqs_enabled()) {
-    panic("Return from syscall with interrupts off!");
-  }
-#endif
+// #ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
+//   if (!irqs_enabled()) {
+//     panic("Return from syscall with interrupts off!");
+//   }
+// #endif
 
   return r->rax;
 }
