@@ -197,16 +197,7 @@ struct nk_thread {
 
 #ifdef NAUT_CONFIG_PROCESSES
     struct nk_process *process;       /* Initialized if part of a process */
-    /* For signal handling, shared state with process: */
-    nk_signal_handler_table_t *signal_handler; /* points to process' signal handler */
-    nk_signal_descriptor_t *signal_descriptor; /* points to process' signal descriptor */
-
-    /* For individual thread signal handling */
-    nk_signal_set_t blocked;
-    nk_signal_set_t real_blocked;
-    nk_signal_pending_t signals_pending;
-    uint64_t signal_hand_rsp;
-    uint64_t sh_rsp_size;
+    nk_signal_task_state *signal_state; /* All signal state contained here */
 #endif
 
 #ifdef NAUT_CONFIG_LINUX_SYSCALLS

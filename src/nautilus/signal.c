@@ -43,12 +43,57 @@
 #define ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
 
 
-//#define GET_SIGNAL_HAND_TABLE(d_type, sig_dest, name) if (dest_type) {name = ((nk_thread_t*)sig_dest)->signal_handler;}; else {name = ((nk_process_t*)sig_dest)->signal_handler;}
-#define GET_SIGNALS_PENDING(dest) (dest)->signals_pending
-#define GET_SHARED_PENDING(dest) (dest)->signal_descriptor->shared_pending
+/* Global structures
+ * TODO MAC: Move to a different file
+ */ 
+
+/* Used for testing */
+void sig_hand_hello(int sig_num)
+{
+    SIGNAL_INFO("Hello World from signal %d.\n", sig_num);
+
+} 
+
+nk_signal_handler_table_t nk_signal_global_handler_table = {
+    .count = 1,
+    .handlers[0 ... 63] = {
+        //.handler = DEFAULT_SIG,
+        .handler = sig_hand_hello,
+        .mask = {0},
+        .signal_flags = 0,
+    },
+    .lock = SPINLOCK_INITIALIZER,
+};
+
+nk_signal_descriptor_t nk_signal_global_descriptor = {
+    .count = 1, /* Use counter */
+    .live = 1, /* TODO MAC: Not sure if we should initialize to 1 */
+    /* TODO MAC: Add wait_queue init (for now we do it elsewhere) */
+};
+
+
+/*
+nk_signal_action_t sig_act_table_entry = {
+.handler = sig_hand_hello,
+.mask = {0},
+.signal_flags = 0,
+};
+
+nk_signal_handler_table_t global_sig_table = {
+.count = 1,
+.handlers[0 ... 63] = &sig_act_table_entry,
+.lock = 0,
+};
+
+*/
+
+/* Signal Macros */
+#define GET_SIGNALS_PENDING(dest) (dest)->signal_state->signals_pending
+#define GET_SHARED_PENDING(dest) (dest)->signal_state->signal_descriptor->shared_pending
+
 static inline nk_signal_handler_t idx_sig_hand(nk_thread_t *dst, uint64_t signum)
 {
-    return dst->signal_handler->handlers[(signum)-1]->handler;
+    return dst->signal_state->signal_handler->handlers[(signum)-1].handler;
 }
 
 static inline uint8_t acquire_sig_hand_lock(nk_signal_handler_table_t *signal_handler) {
@@ -63,10 +108,10 @@ void set_current_blocked(nk_signal_set_t *newset)
 {
     nk_thread_t *cur_thread = get_cur_thread();
     sigdelsetmask(newset, sigmask(NKSIGKILL) | sigmask(NKSIGSTOP));
-    uint8_t irq_state = acquire_sig_hand_lock(cur_thread->signal_handler);
+    uint8_t irq_state = acquire_sig_hand_lock(cur_thread->signal_state->signal_handler);
     /* TODO MAC: This might be wrong, it may be more complex than this :) */
-    cur_thread->blocked = *newset;
-    release_sig_hand_lock(cur_thread->signal_handler, irq_state);
+    cur_thread->signal_state->blocked = *newset;
+    release_sig_hand_lock(cur_thread->signal_state->signal_handler, irq_state);
     /* Why do this? */
     //recalc_sigpending();
 }
@@ -76,15 +121,15 @@ void set_current_blocked(nk_signal_set_t *newset)
 static int sig_ignored(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_forced)
 {
     /* Blocked signals are not ignored. Race condition with unblocking */
-    if (sigismember(&(signal_dest->blocked), signal) ||  
-        sigismember(&(signal_dest->real_blocked), signal))
+    if (sigismember(&(signal_dest->signal_state->blocked), signal) ||  
+        sigismember(&(signal_dest->signal_state->real_blocked), signal))
     { return 0; }
 
     nk_signal_handler_t signal_handler = idx_sig_hand(signal_dest, signal); 
 
     /* Don't fully understand this case yet. Let's skip */
     #if 0
-    if ((signal_dest->signal_descriptor->flags & SIGNAL_UNKILLABLE) &&
+    if ((signal_dest->signal_state->signal_descriptor->flags & SIGNAL_UNKILLABLE) &&
         signal_handler == DEFAULT_SIG &&
         !(is_forced && (signal == NKSIGKILL || signal == NKSIGSTOP)))
     { return 1; }
@@ -99,7 +144,7 @@ static int sig_ignored(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_fo
 
 static int prepare_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_forced) {
     /* Get sig descriptor (shared between all threads in process/group) */
-    nk_signal_descriptor_t *sig_desc = signal_dest->signal_descriptor;
+    nk_signal_descriptor_t *sig_desc = signal_dest->signal_state->signal_descriptor;
 
     /* TODO MAC: These things are unimplemented, but we will need them in future */
     #if 0
@@ -125,8 +170,8 @@ static nk_signal_queue_t *__sig_queue_alloc(uint64_t signal, nk_thread_t *signal
     nk_signal_queue_t *q = 0;
     
     /* Fetch number of pending signals for process */
-    uint64_t pending = signal_dest->signal_descriptor->num_queued;
-    atomic_inc(signal_dest->signal_descriptor->num_queued); 
+    uint64_t pending = signal_dest->signal_state->signal_descriptor->num_queued;
+    atomic_inc(signal_dest->signal_state->signal_descriptor->num_queued); 
     /* Decide whether to queue a signal */
     if (must_q || (pending <= RLIMIT_SIGPENDING)) {
         /* TODO MAC: Should I use kmem alloc? */
@@ -136,7 +181,7 @@ static nk_signal_queue_t *__sig_queue_alloc(uint64_t signal, nk_thread_t *signal
     }
 
     if (!q) {
-        atomic_dec(signal_dest->signal_descriptor->num_queued); 
+        atomic_dec(signal_dest->signal_state->signal_descriptor->num_queued); 
     } else {
         INIT_LIST_HEAD(&(q->lst));
         q->flags = 0;
@@ -341,7 +386,7 @@ still_pending:
 int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_info_t *sig_info)
 {
     
-    nk_signal_pending_t *pending = &(thread->signals_pending);
+    nk_signal_pending_t *pending = &(thread->signal_state->signals_pending);
 
     int sig = next_signal(pending, sig_mask);
 
@@ -370,8 +415,8 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
 int get_signal_to_deliver(nk_signal_info_t *sig_info, nk_signal_action_t *ret_sig_act, uint64_t rsp)
 {
     nk_thread_t *cur_thread = get_cur_thread();
-    nk_signal_handler_table_t *sig_hand = cur_thread->signal_handler;
-    nk_signal_descriptor_t *sig_desc = cur_thread->signal_descriptor;
+    nk_signal_handler_table_t *sig_hand = cur_thread->signal_state->signal_handler;
+    nk_signal_descriptor_t *sig_desc = cur_thread->signal_state->signal_descriptor;
     int signal_num;
     uint8_t irq_state;
    
@@ -390,7 +435,7 @@ relock:
         /* Skipping work to check job ctrl status (?) */
 
         /* Dequeue signal and check if it's valid */
-        signal_num = dequeue_signal(cur_thread, &(cur_thread->blocked), sig_info);
+        signal_num = dequeue_signal(cur_thread, &(cur_thread->signal_state->blocked), sig_info);
         SIGNAL_DEBUG("Dequeued signal num: %d.\n", signal_num);
 
         if (!signal_num) { /* Signal num == 0, break */
@@ -402,7 +447,7 @@ relock:
 
         /* Skip ptrace case */
 
-        tmp_sig_act = (sig_hand->handlers[signal_num-1]);
+        tmp_sig_act = &(sig_hand->handlers[signal_num-1]);
 
         /* Again, ignore trace step */
 
@@ -423,7 +468,7 @@ relock:
             break;
         }
 
-        /* TODO MAC: Don't think this applies for nautilus */
+        /* Default action for signal might be to ignore it. */
         if (sig_kernel_ignore(signal_num)) { /* kernel only, default is ignore */
             SIGNAL_DEBUG("Ignoring signal: %d.\n", signal_num);
             continue;
@@ -461,7 +506,7 @@ void signal_delivered(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_act
      */
 
      
-    sigorsets(&blocked, &(get_cur_thread()->blocked), &(sig_act->mask));
+    sigorsets(&blocked, &(get_cur_thread()->signal_state->blocked), &(sig_act->mask));
     if (!(sig_act->signal_flags & SIG_ACT_NODEFER)) {
         sigaddset(&blocked, signal);
     }
@@ -539,7 +584,7 @@ static void __attribute__((noinline)) handle_signal(uint64_t signal, nk_signal_i
     /* TODO MAC: Choosing, once again, to ignore syscall stuff */
 
     /* TODO MAC: Ignoring debugger case... ? */
-    nk_signal_set_t old_blocked = get_cur_thread()->blocked;
+    nk_signal_set_t old_blocked = get_cur_thread()->signal_state->blocked;
     if (setup_rt_frame(signal, sig_act, sig_info, rsp) < 0) {
         /* Force sigsegv? We'll just panic :) */
         panic("Things got screwed up during signal handling.\n");
@@ -577,10 +622,54 @@ void __attribute__((noinline)) do_notify_resume(uint64_t rsp, uint64_t num_sigs)
 
 
 
+/*************** Initializing Signal State *****************/
+int nk_signal_init_task_state(nk_signal_task_state **state_ptr) {
+    /* TODO MAC: Might want to use a different malloc? */
+    nk_signal_task_state *state = (nk_signal_task_state *) kmem_sys_mallocz(sizeof(nk_signal_task_state));
+    if (!state) {
+        SIGNAL_ERROR("Failed to allocate task state.\n");
+        return -1;
+    }
+   
+    /*
+     * TODO MAC: For now, allocate handler and descriptor for each thread.
+     * This is super naive because we want to share between threads in process.
+     * Must figure out how to relay that thread will be part of a process.
+     */
+    nk_signal_handler_table_t *handler = (nk_signal_handler_table_t *) kmem_sys_mallocz(sizeof(nk_signal_handler_table_t));
+    if (!handler) {
+        SIGNAL_ERROR("Failed to allocate signal handler table.\n");
+        free(state);
+        return -1;
+    }
 
+    nk_signal_descriptor_t *desc = (nk_signal_descriptor_t *) kmem_sys_mallocz(sizeof(nk_signal_descriptor_t));
+    if (!desc) {
+        SIGNAL_ERROR("Failed to allocate signal descriptor.\n");
+        free(state);
+        free(handler);
+        return -1;
+    }
 
+    /* Memcpy default handler and desc */
+    memcpy(handler, &nk_signal_global_handler_table, sizeof(nk_signal_global_handler_table)); 
+    memcpy(desc, &nk_signal_global_descriptor, sizeof(nk_signal_global_descriptor)); 
+    
+    /* Set all fields in task struct */
+    state->signal_handler = handler;
+    state->signal_descriptor = desc;
+    state->blocked.sig[0] = 0;
+    state->real_blocked.sig[0] = 0;
+    init_sigpending(&state->signals_pending); 
 
-
+    /* Return by reference */
+    if (!state_ptr) {
+        SIGNAL_ERROR("Cannot return task signal state by reference.\n");
+        return -1;
+    }
+    *state_ptr = state;
+    return 0; 
+}
 
 /*************** Interface Functions *****************/
 
@@ -591,9 +680,8 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
 
     /* Get Signal Handler so we can acquire the lock */
     nk_signal_handler_table_t *sig_hand;
-   // GET_SIGNAL_HAND_TABLE(dest_type, signal_dest, sig_hand);
     if (dest_type) {
-        sig_hand = ((nk_thread_t*)signal_dest)->signal_handler;
+        sig_hand = ((nk_thread_t*)signal_dest)->signal_state->signal_handler;
     } else {
         sig_hand = ((nk_process_t*)signal_dest)->signal_handler;
     }
