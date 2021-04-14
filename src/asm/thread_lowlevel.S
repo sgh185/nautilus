@@ -52,11 +52,11 @@ ENTRY(nk_thread_switch)
     movq 8(%rsp), %rax   /* save return address */
     movq %rax, -24(%rsp) /* move ret addr down (past intr state holder) */
     leaq 16(%rsp), %rsp  /* we don't want to modify RFLAGS inadvertenly, hence the lea */
+    movq -8(%rsp), %rax  /* restore rax */    
     movq %rsp, -16(%rsp) /* save RSP */
     pushq $KERNEL_SS     /* save SS */
     leaq -8(%rsp), %rsp
     pushfq               /* save RFLAGS */
-    movq -8(%rsp), %rax  /* restore rax */
     pushq $KERNEL_CS     /* push CS seg sel */
     subq $16, %rsp        /* point rsp at ret addr */
 
@@ -195,6 +195,7 @@ ENTRY(nk_thread_switch_exit_helper)
 	// We now mark ourselves as toast for the reaper
 	movl %edx, (%rsi)
 	
+	subq $8, %rsp
 	// At this point, we are racing with the reaper on a different core,
 	// which might take away our stack.  However, we have interrupts
 	// off locally, so as long as *we* don't use the stack, we should be OK

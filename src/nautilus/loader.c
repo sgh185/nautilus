@@ -542,7 +542,7 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
 
     start = exec->blob + exec->entry_offset;
 
-    DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %p and %p\n", exec, exec->blob, start, in, out);
+    DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %p and %p, the length of blob is %lu\n", exec, exec->blob, start, in, out, exec->blob_size);
 
     int rc =  start(in, out, __nk_func_table);
 

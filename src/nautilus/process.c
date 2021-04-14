@@ -424,7 +424,7 @@ int nk_process_name(nk_process_id_t proc, char *name)
 int nk_process_run(nk_process_t *p, int target_cpu) {
   nk_thread_id_t tid;
   p->last_cpu_thread = target_cpu;
-  return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 4096 * 4096 * 32, &tid, target_cpu);
+  return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 4096ULL * 4096ULL * 32ULL*8ULL, &tid, target_cpu);
 }
 
 int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **p, int target_cpu) {
