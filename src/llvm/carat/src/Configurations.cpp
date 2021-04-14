@@ -39,6 +39,8 @@ const std::string CARAT_MALLOC = "nk_carat_instrument_malloc",
                   CARAT_INIT = "nk_carat_init",
                   CARAT_GLOBAL_MALLOC = "nk_carat_instrument_global",
                   CARAT_GLOBALS_TARGET = "_nk_carat_globals_compiler_target",
+                  CARAT_STACK_GUARD = "nk_carat_guard_callee_stack",
+                  CARAT_PROTECT = "nk_carat_guard_address",
                   KERNEL_MALLOC = "_kmem_sys_malloc",
                   ASPACE_MALLOC = "__impl_alloc",
                   KERNEL_FREE = "kmem_sys_free",
@@ -61,7 +63,9 @@ std::unordered_set<std::string> CARATNames = {
     CARAT_REMOVE_ALLOC, 
     CARAT_ESCAPE,
     CARAT_GLOBAL_MALLOC,
-    CARAT_GLOBALS_TARGET
+    CARAT_GLOBALS_TARGET,
+    CARAT_STACK_GUARD,
+    CARAT_PROTECT
 };
 
 std::unordered_map<std::string, Function *> CARATNamesToMethods;

@@ -134,6 +134,8 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
     {
         errs() << "Found an intrinsic! Instrumenting for now ... \n" 
                << I << "\n";
+
+        return;
     }
 
 
@@ -168,7 +170,8 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
             new GuardInfo(
                 &I,
                 NonCanonical, // TODO: change to the stack pointer location during the function call
-                true /* IsWrite */ 
+                true, /* IsWrite */
+                CARATNamesToMethods[CARAT_STACK_GUARD] 
             );
 
         nonOptimizedGuard++;
@@ -179,7 +182,8 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
             new GuardInfo(
                 First,
                 NonCanonical, // TODO: change to the stack pointer location during the function call
-                true /* IsWrite */ 
+                true, /* IsWrite */ 
+                CARATNamesToMethods[CARAT_STACK_GUARD]
             );
 
         callGuardOpt++;
@@ -233,16 +237,86 @@ void ProtectionsInjector::_findInjectionLocations(void)
 }
 
 
+ArrayRef<Value *> ProtectionsInjector::_buildStackGuardArgs(GuardInfo *GI)
+{
+    /*
+     * TOP --- Build the function arguments for the call injection
+     * for the method "nk_carat_guard_callee_stack"
+     */
+
+    /*
+     * Calculate the stack frame size to check --- set as a "uint64_t"
+     *
+     * TODO --- Actually calculate this, set to 512 for now
+     */
+    const uint64_t StackFrameSize = 512;
+    llvm::IRBuilder<> Builder{GI->FunctionToInject->getContext()};
+    ArrayRef<Value *> CallArgs = {
+        Builder.getInt64(StackFrameSize)
+    };
+
+
+    return CallArgs;
+}
+
+
+ArrayRef<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo *GI)
+{
+    /*
+     * TOP --- Build the function arguments for the call injection
+     * for the method "nk_carat_guard_address"
+     */
+
+    /*
+     * Set up builder
+     */
+    llvm::IRBuilder<> Builder{GI->FunctionToInject->getContext()};
+
+
+    /*
+     * Build the call args
+     */
+    ArrayRef<Value *> CallArgs = {
+        GI->PointerToGuard,
+        Builder.getInt32(GI->IsWrite)
+    };
+
+
+    return CallArgs;
+}
+
+
 void ProtectionsInjector::_doTheInject(void)
 {
     /*
      * Do the inject
      */ 
-    for (auto const &[guardedInst, guardInfo] : InjectionLocations) 
+    for (auto const &[InstToGuard, GI] : InjectionLocations) 
     {
-        // errs() << *guardedInst << *guardInfo << "\n";
-        // TODO: insert call to ProtectionsMethod at guardInfo.InjectionLocation, 
-        // with arguments guardInfo.PointerToGuard and guardInfo.IsWrite
+        /*
+         * Set up builder
+         */
+        llvm::IRBuilder<> Builder{GI->InjectionLocation};
+
+
+        /*
+         * Set up arguments based on the "GI->FunctionToInject" field
+         */ 
+        Function *FTI = GI->FunctionToInject;
+        ArrayRef<Value *> CallArgs = 
+            (FTI == CARATNamesToMethods[CARAT_STACK_GUARD]) ?
+            (_buildStackGuardArgs(GI)) :
+            (_buildGenericProtectionArgs(GI));
+
+
+        /*
+         * Inject the call instruction based on the selected args
+         */
+        CallInst *Instrumentation = 
+              Builder.CreateCall(
+                  FTI, 
+                  CallArgs
+              );  
     }
 
 
@@ -330,7 +404,8 @@ bool ProtectionsInjector::_optimizeForLoopInvariance(
             new GuardInfo(
                 InjectionLocation,
                 PointerOfMemoryInstruction, 
-                IsWrite
+                IsWrite,
+                CARATNamesToMethods[CARAT_PROTECT]
             );
 
         loopInvariantGuard++;
@@ -401,7 +476,8 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
             new GuardInfo(
                 InjectionLocation,
                 StartAddress,
-                IsWrite
+                IsWrite,
+                CARATNamesToMethods[CARAT_PROTECT]
             );
 
         scalarEvolutionGuard++;
@@ -563,7 +639,8 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
                 new GuardInfo(
                     inst,
                     PointerOfMemoryInstruction, 
-                    isWrite
+                    isWrite,
+                    CARATNamesToMethods[CARAT_PROTECT]
                 );
 
             nonOptimizedGuard++;

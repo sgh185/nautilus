@@ -41,13 +41,14 @@ public:
     GuardInfo(
         Instruction *IL,
         Value *PTG,
-        bool IW
-    ) : InjectionLocation(IL), PointerToGuard(PTG), IsWrite(IW) {};
+        bool IW,
+        Function *FTI
+    ) : InjectionLocation(IL), PointerToGuard(PTG), IsWrite(IW), FunctionToInject(FTI) {};
 
-private:
     Instruction *InjectionLocation;
     Value *PointerToGuard;
     bool IsWrite; /* i.e. store=TRUE, load=FALSE */
+    Function *FunctionToInject;
 
 };
 
@@ -129,6 +130,10 @@ private:
     void _doTheBusiness(void);
 
     void _findInjectionLocations(void);
+
+    ArrayRef<Value *> _buildStackGuardArgs(GuardInfo *GI);
+
+    ArrayRef<Value *> _buildGenericProtectionArgs(GuardInfo *GI);
 
     void _doTheInject(void);
 
