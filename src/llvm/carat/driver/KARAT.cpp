@@ -26,12 +26,23 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include "./include/Escapes.hpp"
 #include "autoconf.h"
 
 #if NAUT_CONFIG_USE_NOELLE
-#include "Noelle.hpp"
+#include "./include/Protections.hpp"
+#else
+#include "./include/Escapes.hpp"
 #endif
+
+
+#define FetchAllocMethods(type) \
+    for (auto const &[ID, Name] : IDsTo##type##AllocMethods) \
+    { \
+        Function *AllocMethod = Utils::GetMethod(&M, Name); \
+        type##AllocNamesToMethods[Name] = AllocMethod; \
+        type##AllocMethodsToIDs[AllocMethod] = ID; \
+    } \
+
 
 namespace
 {
@@ -48,7 +59,7 @@ struct CAT : public ModulePass
          */  
         Utils::ExitOnInit();
 
-        
+
         /*
          * Fetch the "nocarat" annotation attribute --- necessary
          * to find user-marked functions in kernel code
@@ -97,12 +108,8 @@ struct CAT : public ModulePass
         /*
          * Now fetch all kernel allocation methods, stash them
          */
-        for (auto const &[ID, Name] : IDsToKernelAllocMethods)
-        {
-            Function *KAMethod = Utils::GetMethod(&M, Name);
-            KernelAllocNamesToMethods[Name] = KAMethod;
-            KernelAllocMethodsToIDs[KAMethod] = ID;
-        }
+        if (InstrumentingUserCode) FetchAllocMethods(User)
+        else FetchAllocMethods(Kernel)
 
 
         return false;
@@ -111,6 +118,12 @@ struct CAT : public ModulePass
 
     bool runOnModule(Module &M) override
     {
+        /*
+         * Debugging
+         */  
+        Utils::ExitOnInit();
+
+
         if (Debug || true)
         {
             /*
@@ -121,63 +134,48 @@ struct CAT : public ModulePass
 
 
             /*
-             * Vet the kernel allocation methods --- check if kmem
-             * invocations are vanilla or not (i.e. invocations via
-             * indirect call, etc.)
+             * Vet allocation methods (of kernel OR userspace)
              */ 
-            Utils::VetKernelAllocMethods();
+            Utils::VetAllocMethods();
         }
 
 
         /*
-         * Perform all CARAT instrumentation on the kernel
+         * --- Perform all CARAT instrumentation on the code ---
          */ 
+#if NAUT_CONFIG_USE_NOELLE
+        if (!NoProtections)
+        {
+            /*  
+             * Fetch Noelle
+             */
+            Noelle &NoelleAnalysis = getAnalysis<Noelle>();
+
+
+            /*
+             * Protections
+             */ 
+            ProtectionsHandler PH = ProtectionsHandler(&M, &NoelleAnalysis);
+            PH.Protect();
+        }
+#endif
+
 
         /*
          * Allocation tracking
          */ 
-        AllocationHandler *AH = new AllocationHandler(&M);
-        AH->Inject();
+        AllocationHandler AH = AllocationHandler(&M);
+        AH.Inject();
 
 
         /*
          * Escapes tracking
          */ 
-        EscapesHandler *EH = new EscapesHandler(&M);
-        EH->Inject(); // Only memory uses
+        EscapesHandler EH = EscapesHandler(&M);
+        EH.Inject(); // Only memory uses
 
 
-        /*
-         * Protections
-         */ 
-#if 0
-        ProtectionsHandler *PH = new ProtectionsHandler(&M, &FunctionMap);
-        PH->Inject();
-#endif
-
-#if NAUT_CONFIG_USE_NOELLE
-        /*  
-         * Fetch Noelle --- DEMONSTRATION
-         */
-        Noelle &NoelleAnalysis = getAnalysis<Noelle>();
-
-
-        /*  
-         * Fetch the dependence graph of the entry function.
-         */
-        Function *MainFromNoelle = NoelleAnalysis.getEntryFunction();
-        PDG *FDG = NoelleAnalysis.getFunctionDependenceGraph(MainFromNoelle);
-
-
-        /* 
-         * Output PDG statistics
-         */ 
-        errs() << "getNumberOfInstructionsIncluded: " << FDG->getNumberOfInstructionsIncluded() << "\n"
-               << "getNumberOfDependencesBetweenInstructions: " << FDG->getNumberOfDependencesBetweenInstructions() << "\n";
-#endif
-
-
-        return false;
+        return true;
     }
 
 
@@ -185,7 +183,10 @@ struct CAT : public ModulePass
     {   
 
 #if NAUT_CONFIG_USE_NOELLE
-        AU.addRequired<Noelle>();
+        /*
+         * Use NOELLE IFF we need protections only
+         */
+        if (!NoProtections) AU.addRequired<Noelle>();
 #endif
 
         return;

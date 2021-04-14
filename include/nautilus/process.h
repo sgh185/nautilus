@@ -101,6 +101,8 @@ typedef struct nk_process {
   // end of heap TODO move to syscall state?
   void *heap_end;
 
+  nk_aspace_region_t heap_region;
+
 #ifdef NAUT_CONFIG_LINUX_SYSCALLS
   struct nk_process_linux_syscall_state syscall_state;
 #endif

@@ -29,22 +29,27 @@
 
 #include "autoconf.h"
 
+#include "Escapes.hpp"
+
 #if NAUT_CONFIG_USE_NOELLE
 
-#include "ProtectionsInjector.hpp"
+#include "Noelle.hpp"
 
-using namespace llvm;
 
-class ProtectionsHandler
+#define STORE_GUARD 1
+#define LOAD_GUARD 1
+
+
+class ProtectionsDFA
 {
-    
+
 public:
 
     /*
      * Constructors
      */ 
-    ProtectionsHandler(
-        Module *M,
+    ProtectionsDFA(
+        Function *F,
         Noelle *N
     );
 
@@ -52,30 +57,45 @@ public:
     /*
      * Drivers
      */ 
-    void Protect(void);
+    void Compute(void);
+    DataFlowResult *FetchResult(void);
 
 
 private:
-    
+
     /*
      * Passed state
      */ 
-    Module *M;
+    Function *F;
     Noelle *N;
-    
+
 
     /*
      * New analysis state
-     */
-    Value *NonCanonical;
+     */     
+    std::set<Value *> TheUniverse;
+    BasicBlock *Entry;
+    Instruction *First;
+    DataFlowResult *TheResult;
 
 
     /*
-     * Methods
-     */
-    void _buildNonCanonicalAddress(void);
+     * Private methods
+     */     
+    std::function<void (Instruction *I, DataFlowResult *Result)> _computeGEN(void);
+
+    std::function<void (Instruction *I, DataFlowResult *Result)> _computeKILL(void);
+
+    void _initializeUniverse(void);
+
+    std::function<void (Instruction *inst, std::set<Value *> &IN)> _initializeIN(void);
+
+    std::function<void (Instruction *inst, std::set<Value *> &OUT)> _initializeOUT(void);
+
+    std::function<void (Instruction *inst, std::set<Value *> &IN, Instruction *predecessor, DataFlowResult *df)> _computeIN(void);
+
+    std::function<void (Instruction *inst, std::set<Value *>& OUT, DataFlowResult *df)> _computeOUT(void);
 
 };
 
 #endif
-

@@ -33,13 +33,20 @@
  * - FIX: obvious
  * - CONV: conversion from C++ to C, format: CONV [C++] -> [C]
  */ 
+#pragma once
 
-#include <aspace/runtime_tables.h>
+
 #include <nautilus/nautilus.h>
+#include <aspace/runtime_tables.h>
 #include <nautilus/shell.h>
 #include <nautilus/vc.h>
 
+
+/*
+ * Helper, status macros
+ */
 #define CARAT_STACK_CHECK 0
+
 
 /*
  * =================== Data Structures/Definitions ===================  
@@ -63,35 +70,56 @@ struct move_context {
 /*
  * Driver for performing a move of an allocation that's already tracked
  */ 
-int nk_carat_move_allocation(void *allocation_to_move, void *allocation_target);
+int nk_carat_move_allocation(
+    nk_carat_context *the_context,
+    void *allocation_to_move, 
+    void *allocation_target
+);
+
 
 /*
  * Driver for performing multiple moves of allocations that are already tracked
  */ 
-int nk_carat_move_allocations(void **allocations_to_move, void **allocation_targets, uint64_t num_moves);
+int nk_carat_move_allocations(
+    nk_carat_context *the_context,
+    void **allocations_to_move, 
+    void **allocation_targets, 
+    uint64_t num_moves
+);
+
 
 /*
  * Driver for defragmenting a region using allocation moves
  */
+int nk_carat_move_region(
+    nk_carat_context *the_context,
+    void *region_start, 
+    void *new_region_start, 
+    uint64_t region_length, 
+    void **free_start
+);
 
-int nk_carat_move_region(void *region_start, void *new_region_start, uint64_t region_length, void **free_start);
 
 /*
  * Upon a move --- "carat_patch_escapes" will iterate through all escapes
  * from @entry (existing at @entry + (an offset)), and update each escaped 
  * pointer to use @allocation_target (at @allocation_target + (an offset))
  */ 
-int _carat_patch_escapes(allocation_entry *entry, void *allocation_target);
-
+int _carat_patch_escapes(
+    allocation_entry *entry, 
+    void *allocation_target
+);
 
 /*
  * Upon a move --- "handle_thread" will update each thread's register 
- * state to use @state->allocation_target instead of @state->allocation_to_move
+ * and stack state to use @state->allocation_target instead of @state->allocation_to_move
  *
  * TODO --- @state needs to be a type [struct move_alloc_state *]
  */ 
 static void __carat_print_registers (struct nk_regs * r);
 static void _carat_patch_thread_registers(struct nk_thread *t, void *state);
+static void _carat_patch_thread_stack(struct nk_thread *t, void *state);
+static void _carat_patch_thread_registers_stack(struct nk_thread *t, void *state);
 
 
 /*

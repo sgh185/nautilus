@@ -33,14 +33,22 @@
  * =================== Setting Necessary Global State ===================
  */ 
 
+/*
+ * "CARAT-ready" bootstrapping flag
+ */ 
+int karat_ready = 0;
+
 
 /*
- * Set ready flag --- no need to set anything else before nk_carat_init
+ * Setup for protections --- non-canonical address used for 
+ * protections check 
  */ 
-carat_context global_carat_context = {
-	.carat_ready = 0
-};
+void *non_canonical = ((void *) 0x22DEADBEEF22);
 
+
+/*
+ * =================== Utility Analysis and Builder Methods ===================
+ */ 
 
 /*
  * Setup for allocations
@@ -69,17 +77,6 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	return new_entry;
 }
 
-
-/*
- * Setup for protections --- non-canonical address used for 
- * protections check 
- */ 
-void *non_canonical = ((void *) 0x22DEADBEEF22);
-
-
-/*
- * =================== Utility Analysis Methods ===================
- */ 
 
 /*
  * Analysis of address aliasing
@@ -135,8 +132,11 @@ sint64_t _carat_get_query_offset(void *query_address, void *alloc_address, uint6
 /*
  * Find a corresponding allocation_entry object for @address
  */ 
-NO_CARAT
-allocation_entry * _carat_find_allocation_entry(void *address)
+NO_CARAT // CHANGE
+allocation_entry * _carat_find_allocation_entry(
+    nk_carat_context *the_context,
+    void *address
+)
 {
 	// CONV [brian] -> [better than brian] 	
 	/*
@@ -146,7 +146,11 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 	 * "better_lower_bound" returns the node containing the
 	 * address that is the closest to @address AND <= @address
 	 */
-	__auto_type *lower_bound_node = CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(address);
+	__auto_type *lower_bound_node = 
+        CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(
+            the_context,
+            address
+        );
 
 
 	/* 
@@ -188,7 +192,7 @@ allocation_entry * _carat_find_allocation_entry(void *address)
 /*
  * Self explanatory stats for CARAT
  */ 
-NO_CARAT
+NO_CARAT // CHANGE
 void nk_carat_report_statistics()
 {
 	/*
@@ -196,7 +200,17 @@ void nk_carat_report_statistics()
 	 * 
 	 * TODO --- add more statistics
 	 */ 
-	CARAT_PRINT("Size of Allocation Table: %lu\n", CARAT_ALLOCATION_MAP_SIZE); 
+
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
+	CARAT_PRINT("Size of Allocation Table: %lu\n", CARAT_ALLOCATION_MAP_SIZE(the_context)); 
+
+
 	return;
 }
 
@@ -220,24 +234,32 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
     DHQ(global_ID);
     DS("\n");
 
+    
+    /*
+     * Fetch the current thread's carat context 
+     */
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
 
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);
 
 
     /*
      * Turn off CARAT in order to perform instrumentation
      */ 
-    CARAT_READY_OFF;
+    CARAT_READY_OFF(the_context);
 
 
 	/*
 	 * Create an entry and add the mapping to the allocation_map
 	 */ 
 	CREATE_ENTRY_AND_ADD_SILENT (
+        the_context,
 		address, 
 		allocation_size
 	);
@@ -246,7 +268,7 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
     /*
      * Turn on CARAT upon exit
      */ 
-    CARAT_READY_ON;
+    CARAT_READY_ON(the_context);
 
 
     return;
@@ -256,23 +278,37 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 {
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
+    /*
+     * Debugging
+     */
+    PRINT_ASPACE_INFO
+
+
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);
 
 
     /*
      * Turn off CARAT in order to perform instrumentation
      */ 
-    CARAT_READY_OFF;
+    CARAT_READY_OFF(the_context);
 
 
 	/*
 	 * Create an entry and add the mapping to the allocation_map
 	 */ 
 	CREATE_ENTRY_AND_ADD (
+        the_context,
 		address, 
 		allocation_size,
 		"nk_carat_instrument_malloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
@@ -282,7 +318,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
     /*
      * Turn on CARAT upon exit
      */ 
-    CARAT_READY_ON;
+    CARAT_READY_ON(the_context);
 
 
 	return;
@@ -290,13 +326,21 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 
 
 NO_CARAT_NO_INLINE
-void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element)
+void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_t num_elements)
 {
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);  
+
 
 	/*
 	 * Create a new allocation_entry object for the @address to be added --- here,
@@ -305,6 +349,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 	 */ 
 	uint64_t allocation_size = num_elements * size_of_element;
 	CREATE_ENTRY_AND_ADD (
+        the_context,
 		address, 
 		allocation_size,
 		"nk_carat_instrument_calloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
@@ -316,13 +361,20 @@ void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t s
 
 
 NO_CARAT_NO_INLINE
-void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size)
+void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, void *old_address)
 {
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);
 
 
 	/*
@@ -330,6 +382,7 @@ void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t 
 	 * corresponding allocation_entry object because of realloc's resizing
 	 */ 
 	REMOVE_ENTRY (
+        the_context,
 		old_address,
 		"nk_carat_instrument_realloc: REMOVE_ENTRY failed on address"
 	);
@@ -339,9 +392,10 @@ void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t 
 	 * Create an entry and add the mapping to the allocation_map
 	 */ 
 	CREATE_ENTRY_AND_ADD (
+        the_context,
 		new_address, 
 		allocation_size,
-		"HandleReallocToAllocationTable: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		"nk_carat_instrument_realloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
 	);
 
 	
@@ -352,17 +406,24 @@ void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t 
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_free(void *address)
 {
+    /*
+     * Fetch the current thread's carat context 
+     */
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * free before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);
 
 
     /*
      * Turn off CARAT in order to perform instrumentation
      */ 
-    CARAT_READY_OFF;
+    CARAT_READY_OFF(the_context);
 
 
 	/*
@@ -373,6 +434,7 @@ void nk_carat_instrument_free(void *address)
 	DS("\n");
 	
 	REMOVE_ENTRY (
+        the_context,
 		address,
 		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
 	);
@@ -381,7 +443,7 @@ void nk_carat_instrument_free(void *address)
     /*
      * Turn on CARAT upon exit
      */ 
-    CARAT_READY_ON;
+    CARAT_READY_ON(the_context);
 
 
 	return;
@@ -400,35 +462,48 @@ void nk_carat_instrument_free(void *address)
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 {
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
 	/*
-	 * Only proceed if CARAT is ready (from init()) --- NOTE --- any
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
 	 * allocation before CARAT is ready will NOT be tracked
 	 */
-	CHECK_CARAT_READY
+	CHECK_CARAT_READY(the_context);
 
 
     /*
      * Turn off CARAT in order to perform instrumentation
      */ 
-    CARAT_READY_OFF;
+    CARAT_READY_OFF(the_context);
 
 
 	/*
 	 * Escapes are processed using batch processing --- if the escapeWindow
 	 * is completely filled --- we need to process it first
 	 */ 
-	uint64_t num_entries = global_carat_context.total_escape_entries;
-	// todo: disable CARAT before and after this call
-	if (num_entries >= ESCAPE_WINDOW_SIZE) { _carat_process_escape_window(); }
+	// todo: disable CARAT before and after this call --- suspicious
+	if (FETCH_TOTAL_ESCAPES(the_context) >= ESCAPE_WINDOW_SIZE) { _carat_process_escape_window(the_context); }
 
 
 	/*
 	 * Add the escape to the end of the escapeWindow --- this will be
 	 * processed at some point in batch, update the counter
 	 */ 
-	global_carat_context.escape_window[num_entries] = ((void **) new_destination_of_escaping_address);
-	global_carat_context.total_escape_entries++;
-	// DS("ES: ");
+    ADD_ESCAPE_TO_WINDOW (
+        the_context,
+        new_destination_of_escaping_address
+    );
+	
+
+    /*
+     * Debugging
+     */ 
+    // DS("ES: ");
 	// DHQ((global_carat_context.total_escape_entries));
 	// DS("\n");
 
@@ -436,7 +511,7 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
     /*
      * Turn on CARAT upon exit
      */ 
-    CARAT_READY_ON;
+    CARAT_READY_ON(the_context);
 
 
 	return;
@@ -444,14 +519,19 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 
 
 NO_CARAT_NO_INLINE
-void _carat_process_escape_window()
+void _carat_process_escape_window(nk_carat_context *the_context)
 {	
 	/*
 	 * TOP --- perform batch processing of escapes in the escape window
 	 */ 
 	DS("CARAT: pew\n");
+	uint64_t num_entries = FETCH_TOTAL_ESCAPES(the_context);
+	void ***the_escape_window = FETCH_ESCAPE_WINDOW(the_context);
+
+#if 0
 	uint64_t num_entries = global_carat_context.total_escape_entries;
 	void ***the_escape_window = global_carat_context.escape_window;
+#endif
 
 	/*
 	 * Build a set of escapes that are already processed --- if we encounter
@@ -492,10 +572,11 @@ void _carat_process_escape_window()
 		if (false 
 			|| (!escape_address) /* Condition 1 */
 			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
-			|| (!(corresponding_entry = _carat_find_allocation_entry(*escape_address)))) /* Condition 3 */
+			|| (!(corresponding_entry = _carat_find_allocation_entry(the_context, *escape_address)))) /* Condition 3 */
 			{ 
 				missed_escapes_counter++;
-				continue; }
+				continue; 
+            }
 
 		
 		/*
@@ -511,7 +592,12 @@ void _carat_process_escape_window()
 	/*
 	 * Reset the global escapes counter
 	 */ 
+    RESET_ESCAPE_WINDOW(the_context);
+
+
+#if 0
 	global_carat_context.total_escape_entries = 0;
+#endif
 
 
 	return;
@@ -527,6 +613,7 @@ void _carat_process_escape_window()
  * is determined to be illegal, panic. Otherwise, 
  * do nothing
  */
+NO_CARAT_NO_INLINE
 void nk_carat_guard_address(void *memory_address, int is_write) {
 
 	// TODO:
@@ -546,12 +633,6 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	return;
 }
 
-
-
-/*
- * =================== Initilization Methods ===================
- */ 
-
 /*
  * Utility to get %rsp
  */ 
@@ -565,6 +646,33 @@ uint64_t _carat_get_rsp()
     
 
 /*
+ * Instrumentation for call instructions
+ * Make sure the stack has enough space to grow to support this guarded call instruction. 
+ */
+NO_CARAT_NO_INLINE
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
+
+	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
+
+	// check if the new stack is still within the region
+	nk_thread_t *thread = get_cur_thread();
+	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
+	if (stack_too_large) {
+		// TODO: expand stack instead of panicking 
+		panic("Stack has grown outside of valid memory! \n");
+	}
+
+	return;
+}
+
+
+
+/*
+ * =================== Initilization Methods ===================
+ */ 
+
+
+/*
  * Wrapper for the compiler to target and inject
  * allocation tracking for globals --- HACK
  */ 
@@ -575,14 +683,115 @@ void _nk_carat_globals_compiler_target(void)
 }
 
 
+static void _map_thread_with_carat_aspace(
+    nk_thread_t *t,
+    void *state
+)
+{
+    /*
+     * Fetch the CARAT aspace from @state via cast 
+     */ 
+    nk_aspace_t *the_aspace = ((nk_aspace_t *) state);
+
+
+    /*
+     * Perform two mappings:
+     * 1) Assign the CARAT aspace to @t
+     * 2) Add @t to the list of thread in the CARAT aspace
+     */ 
+    t->aspace = the_aspace; 
+    add_thread_to_carat_aspace(((nk_aspace_carat_t *) the_aspace->state), t);
+   
+
+    return;
+}
+
+
 /*
  * Main driver for initialization. 
  * This function must successfully return in exactly one spot for global allocation 
  * tracking injections to be properly instrumented. They will all happen right before the return.
  */ 
 NO_CARAT
-void nk_carat_init()
+void nk_carat_init(void)
 {
+    /*
+     * Build a new CARAT context and set it to the global CARAT context. Note
+     * that the caller of nk_carat_init is init(), which means that the global
+     * CARAT context will automatically be allocated for the idle thread.
+     */ 
+
+	/*
+	 * At this point, we're in init() --- there are no CARAT contexts
+	 * built yet --- this builds the first one for the "kernel"/"global"
+	 * aspace
+     *
+     * Build a new aspace and sanity check 
+	 */ 
+    nk_aspace_characteristics_t c;
+    if (nk_aspace_query("carat", &c)) { 
+        panic("nk_carat_init: failed to find carat implementation\n"); 
+    }
+
+    nk_aspace_t *the_aspace = 
+        nk_aspace_create(
+            "carat", 
+            "kernel",
+            &c
+        );
+    
+    if (!the_aspace) { 
+        panic("nk_carat_init: failed to create carat aspace for kernel\n");
+    }
+
+
+    /*
+     * Build context for new CARAT aspace
+     */ 
+    ((nk_aspace_carat_t *) the_aspace->state)->context = initialize_new_carat_context(); 
+
+    
+    /*
+     * Add all threads to the new CARAT aspace (and vice versa). Don't
+     * check for failures b/c I definitely don't write bugs ...
+     *
+     * Should this work here? Should we even invoke it? Fuck if I know
+     */ 
+    nk_sched_map_threads(
+        -1, 
+        _map_thread_with_carat_aspace, 
+        the_aspace 
+    );
+
+
+    /*
+     * KARAT is good to go --- turn on bootstrapping flag (Note
+     * that this flag is different than the ready flag belonging
+     * to each nk_carat_context --- which needs to be set separately
+     * per used context). 
+     */ 
+    karat_ready |= 1;
+
+
+    /*
+     * Invoke wrapper housing compiler-injected global allocation tracking
+     */
+    _nk_carat_globals_compiler_target();
+
+    
+	return;
+}
+
+
+NO_CARAT
+nk_carat_context * initialize_new_carat_context(void)
+{
+    /*
+     * Allocate a new nk_carat_context
+     */ 
+    nk_carat_context *new_context = ((nk_carat_context *) CARAT_MALLOC(sizeof(nk_carat_context)));
+
+
 	/*
 	 * Stash %rsp for later initialization
 	 */ 
@@ -592,7 +801,7 @@ void nk_carat_init()
 	/*
 	 * Set up global allocation map
 	 */ 
-	global_carat_context.allocation_map = CARAT_ALLOCATION_MAP_BUILD;
+	new_context->allocation_map = CARAT_ALLOCATION_MAP_BUILD;
 
 	
 	/*
@@ -605,6 +814,7 @@ void nk_carat_init()
 	void *rsp_as_void_ptr = ((void *)(rsp - allocation_size));
  
 	CREATE_ENTRY_AND_ADD (
+        new_context,
 		rsp_as_void_ptr,
 		allocation_size,
 		"CARATInit: nk_map_insert failed on rsp_as_void_ptr"
@@ -614,22 +824,16 @@ void nk_carat_init()
 	/*
 	 * Set of escape window and its corresponding statistics/counters
 	 */ 
-	global_carat_context.total_escape_entries = 0;
-	global_carat_context.escape_window = ((void ***) CARAT_MALLOC(ESCAPE_WINDOW_SIZE * sizeof(void *)));
+    RESET_ESCAPE_WINDOW(new_context);
+    new_context->escape_window = ((void ***) CARAT_MALLOC(ESCAPE_WINDOW_SIZE * sizeof(void *)));
 
 
 	/*
 	 * CARAT is ready --- set the flag
 	 */ 
-	CARAT_READY_ON;
-
-	
-    /*
-     * Invoke wrapper housing compiler-injected global allocation tracking
-     */
-    _nk_carat_globals_compiler_target();
-
+	CARAT_READY_ON(new_context);
     
-	return;
+	
+	return new_context;
 }
 

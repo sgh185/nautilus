@@ -89,5 +89,5 @@ namespace Utils
      */ 
     bool Verify(Module &M);
 
-    void VetKernelAllocMethods(void);
+    void VetAllocMethods(void);
 } 

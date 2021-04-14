@@ -349,7 +349,7 @@ bool Utils::Verify(Module &M)
 }
 
 
-void Utils::VetKernelAllocMethods(void)
+void Utils::VetAllocMethods(void)
 {
     /*
      * TOP --- For each kernel alloc call --- perform
@@ -364,9 +364,18 @@ void Utils::VetKernelAllocMethods(void)
     
 
     /*
+     * Select a map to vet
+     */ 
+    std::unordered_map<Function *, AllocID> MapToVet = 
+        (InstrumentingUserCode) ?
+        (UserAllocMethodsToIDs) :
+        (KernelAllocMethodsToIDs) ;
+
+
+    /*
      * Iterate over kernel alloc methods
      */ 
-    for (auto const &[Method, ID] : KernelAllocMethodsToIDs)
+    for (auto const &[Method, ID] : MapToVet)
     {
         errs() << "Vetting " << Method->getName() << " ...\n";
 

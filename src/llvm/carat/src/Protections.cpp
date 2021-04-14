@@ -10,21 +10,24 @@
  * http://www.v3vee.org  and
  * http://xstack.sandia.gov/hobbes
  *
- * Copyright (c) 2020, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
- * Copyright (c) 2020, Gaurav Chaudhary <gauravchaudhary2021@u.northwestern.edu>
- * Copyright (c) 2020, Souradip Ghosh <sgh@u.northwestern.edu>
- * Copyright (c) 2020, Brian Suchy <briansuchy2022@u.northwestern.edu>
- * Copyright (c) 2020, Peter Dinda <pdinda@northwestern.edu>
- * Copyright (c) 2020, The V3VEE Project  <http://www.v3vee.org> 
+ * Copyright (c) 2021, Souradip Ghosh <sgh@u.northwestern.edu>
+ * Copyright (c) 2021, Drew Kersnar <drewkersnar2021@u.northwestern.edu>
+ * Copyright (c) 2021, Brian Suchy <briansuchy2022@u.northwestern.edu>
+ * Copyright (c) 2021, Peter Dinda <pdinda@northwestern.edu>
+ * Copyright (c) 2021, The V3VEE Project  <http://www.v3vee.org> 
  *                     The Hobbes Project <http://xstack.sandia.gov/hobbes>
  * All rights reserved.
  *
- * Authors: Drew Kersnar, Gaurav Chaudhary, Souradip Ghosh, 
- *          Brian Suchy, Peter Dinda 
+ * Authors: Drew Kersnar, Souradip Ghosh, 
+ *          Brian Suchy, Simone Campanoni, Peter Dinda 
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
+
+#include "autoconf.h"
+
+#if NAUT_CONFIG_USE_NOELLE
 
 #include "../include/Protections.hpp"
 
@@ -49,6 +52,12 @@ ProtectionsHandler::ProtectionsHandler(
 void ProtectionsHandler::Protect(void)
 {
     /*
+     * Check user arguments
+     */
+    if (NoProtections) return;
+
+
+    /*
      * Iterate over all functions in @this->M, compute the DFA 
      * and calls to the runtime protections method if possible
      */ 
@@ -57,7 +66,7 @@ void ProtectionsHandler::Protect(void)
         /*
          * Skip functions that are not instrumentable
          */ 
-        if (!IsInstrumentable(F)) continue;
+        if (!(Utils::IsInstrumentable(F))) continue;
 
 
         /*
@@ -76,9 +85,10 @@ void ProtectionsHandler::Protect(void)
          */
         ProtectionsInjector *PI = new ProtectionsInjector(
             &F,
-            TheDFA->FetchResult(),
+            PD->FetchResult(),
             NonCanonical,
-            N /* Noelle */
+            N /* Noelle */,
+            nullptr /* ProtectionsMethod */
         );
 
         PI->Inject();
@@ -87,3 +97,40 @@ void ProtectionsHandler::Protect(void)
 
     return;
 }
+
+
+/*
+ * ---------- Private methods ----------
+ */ 
+#define NON_CANONICAL 0x22DEADBEEF22
+void ProtectionsHandler::_buildNonCanonicalAddress(void)
+{
+    /*
+     * TOP --- Build a non canonical address that the 
+     * injector can directly refer to
+     */ 
+
+    /*
+     * Set up builder and module info
+     */
+    llvm::IRBuilder<> Builder{M->getContext()};
+    auto DataLayout = M->getDataLayout();
+
+
+    /*
+     * Set up "numNowPtr" --- i.e. the NonCanonical value --- FIX
+     */ 
+    ConstantInt *NonCanonicalValue = Builder.getInt64(NON_CANONICAL);
+    IntegerType *PointerTy = Builder.getIntPtrTy(DataLayout);
+    NonCanonical = 
+        Builder.CreateIntToPtr(
+            NonCanonicalValue,
+            PointerTy
+        );
+
+
+    return;
+}
+
+
+#endif

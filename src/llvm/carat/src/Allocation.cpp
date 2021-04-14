@@ -71,45 +71,101 @@ void AllocationHandler::Inject()
 
 
     /*
-     * Instrument allocations
+     * Instrument allocations. If this code makes you
+     * vomit, trust us it makes us vomit too
      */ 
     if (!NoMallocs)
     {
-        /*
-         * Instrument system mallocs
-         */ 
-        InstrumentMallocs(
-            AllocID::SysMalloc,
-            0 /* Size operand no */
-        );
+        if (InstrumentingUserCode)
+        {
+            /*
+             * Instrument user malloc
+             */ 
+            InstrumentAllocations(
+                AllocID::UserMalloc,
+                0 /* Size operand no */
+            );
 
 
-        /*
-         * Instrument aspace/allocator mallocs
-         */ 
-        InstrumentMallocs(
-            AllocID::ASpaceMalloc,
-            1 /* Size operand no */
-        );
+            /*
+             * Instrument user calloc
+             */ 
+            InstrumentAllocations(
+                AllocID::UserCalloc,
+                1, /* Size operand no (NOTE --- This is size per element for calloc) */
+                CARAT_CALLOC, /* CARAT method name to use */
+                true, /* Need extra param to handle */
+                0, /* Operand no. for @nitems in calloc */
+                Type::getInt64Ty(M->getContext()), /* Target type for size per element */
+                Instruction::ZExt /* Operand cast for extra param */
+            );
+
+
+            /*
+             * Instrument user realloc
+             */ 
+            InstrumentAllocations(
+                AllocID::UserRealloc,
+                1, /* Size operand no */
+                CARAT_REALLOC, /* CARAT method name to use */
+                true, /* Need extra param to handle */
+                0, /* Operand no for old pointer (@ptr) */
+                Type::getInt8PtrTy(M->getContext()), /* Target type for old pointer @ptr */
+                Instruction::BitCast /* Operand cast for extra param */
+            );
+        }
+        else
+        {
+            /*
+             * Instrument system mallocs
+             */ 
+            InstrumentAllocations(
+                AllocID::SysMalloc,
+                0 /* Size operand no */
+            );
+
+
+            /*
+             * Instrument aspace/allocator mallocs
+             */ 
+            InstrumentAllocations(
+                AllocID::ASpaceMalloc,
+                1 /* Size operand no */
+            );
+        }
+
     } 
     if (!NoFrees) 
     {
-        /*
-         * Instrument system frees
-         */ 
-        InstrumentFrees(
-            AllocID::SysFree,
-            0 /* Pointer operand no */
-        );
+        if (InstrumentingUserCode)
+        {
+            /*
+             * Instrument user frees
+             */ 
+            InstrumentFrees(
+                AllocID::UserFree,
+                0 /* Size operand no */
+            );
+        }
+        else
+        {
+            /*
+             * Instrument system frees
+             */ 
+            InstrumentFrees(
+                AllocID::SysFree,
+                0 /* Pointer operand no */
+            );
 
 
-        /*
-         * Instrument aspace/allocator frees
-         */ 
-        InstrumentFrees(
-            AllocID::ASpaceFree,
-            1 /* Pointer operand no */
-        );
+            /*
+             * Instrument aspace/allocator frees
+             */ 
+            InstrumentFrees(
+                AllocID::ASpaceFree,
+                1 /* Pointer operand no */
+            );
+        }
     }
 
 
@@ -177,18 +233,27 @@ void AllocationHandler::_getAllNecessaryInstructions()
 
 
                 /*
+                 * Select the allocation methods map to operate on
+                 */  
+                std::unordered_map<Function *, AllocID> MapToUse = 
+                    (InstrumentingUserCode) ?
+                    (UserAllocMethodsToIDs) :
+                    (KernelAllocMethodsToIDs) ;
+
+
+                /*
                  * If the callee isn't a "malloc" or "free",
                  * ignore the call instruction
                  * 
                  * NOTE --- THIS IGNORES INDIRECT CALLS --- FIX
                  */ 
-                if (KernelAllocMethodsToIDs.find(Callee) == KernelAllocMethodsToIDs.end()) { continue; }
+                if (MapToUse.find(Callee) == MapToUse.end()) { continue; }
 
 
                 /*
                  * Fetch the AllocID, mark each call for instrumentation
                  */ 
-                InstructionsToInstrument[KernelAllocMethodsToIDs[Callee]].insert(NextCall);
+                InstructionsToInstrument[MapToUse[Callee]].insert(NextCall);
             }
         }
     }
@@ -350,15 +415,18 @@ void AllocationHandler::InstrumentGlobals()
 {
     /*
      * TOP --- Instrument each global variable --- inject
-     * instrumentation into "nk_carat_init"
+     * instrumentation into "_nk_carat_globals_compiler_target"
      */ 
 
     /*
-     * Fetch insertion point as the terminator of "nk_carat_init"
+     * Fetch insertion point as the terminator of "_nk_carat_globals_compiler_target"
      */
     Instruction *InsertionPoint = Target->back().getTerminator();
-    assert(isa<ReturnInst>(InsertionPoint)
-           && "InstrumentGlobals: Back block terminator of 'nk_carat_init' is not return!");
+    assert(
+        true
+        && isa<ReturnInst>(InsertionPoint)
+        && "InstrumentGlobals: Back block terminator of '_nk_carat_globals_compiler_target' is not return!"
+    );
 
 
     /*
@@ -404,7 +472,7 @@ void AllocationHandler::InstrumentGlobals()
 
         /*
          * Build void pointer cast for current global --- necessary
-         * to process in the CARAT kernel runtime
+         * to process in the CARAT runtime
          */ 
         Value *PointerCast = 
             TargetBuilder.CreatePointerCast(
@@ -437,15 +505,20 @@ void AllocationHandler::InstrumentGlobals()
 }
 
 
-void AllocationHandler::InstrumentMallocs(
-    AllocID MallocTypeID,
-    unsigned SizeOperandNo
+void AllocationHandler::InstrumentAllocations(
+    AllocID AllocTypeID,
+    unsigned SizeOperandNo,
+    std::string CARATMethodName,
+    bool NeedExtraParam,
+    unsigned ExtraOperandNo,
+    Type *ExtraOpTargetTy,
+    Instruction::CastOps ExtraOpCast
 )
 {
     /*
      * Set up for injection
      */ 
-    Function *CARATMalloc = CARATNamesToMethods[CARAT_MALLOC];
+    Function *CARATAlloc = CARATNamesToMethods[CARATMethodName];
 
     IRBuilder<> TypeBuilder{M->getContext()};
     Type *VoidPointerType = TypeBuilder.getInt8PtrTy(),
@@ -453,22 +526,24 @@ void AllocationHandler::InstrumentMallocs(
 
 
     /*
-     * Instrument all collected "malloc"ss
+     * Instrument all collected "malloc"s
      */ 
-    for (auto NextMalloc : InstructionsToInstrument[MallocTypeID])
+    for (auto NextAlloc : InstructionsToInstrument[AllocTypeID])
     {
         /*
          * Debugging
          */ 
-        errs() << "NextMalloc: " << *NextMalloc << "\n";
+        errs() << "NextAlloc: " << *NextAlloc << "\n";
         
     
         /*
          * Set up insertion point
          */ 
-        Instruction *InsertionPoint = NextMalloc->getNextNode();
-        assert(!!InsertionPoint 
-               && "InstrumentMallocs: Can't find an insertion point!");
+        Instruction *InsertionPoint = NextAlloc->getNextNode();
+        assert(true
+            && !!InsertionPoint 
+            && "InstrumentAllocations: Can't find an insertion point!"
+        );
 
 
         /*
@@ -476,27 +551,27 @@ void AllocationHandler::InstrumentMallocs(
          */ 
         IRBuilder<> Builder = 
             Utils::GetBuilder(
-                NextMalloc->getFunction(), 
+                NextAlloc->getFunction(), 
                 InsertionPoint
             );
 
 
         /*
-         * Cast return value from "malloc" to void pointer
+         * Cast return value from allocation function to void pointer
          */
-        Value *MallocReturnCast = 
+        Value *AllocReturnCast = 
           Builder.CreatePointerCast(
-                NextMalloc, 
+                NextAlloc, 
                 VoidPointerType
             );
 
 
         /*
-         * Cast size parameter to "malloc" into i64
+         * Cast size parameter to allocation function into i64 ("malloc", etc.)
          */
-        Value *MallocSizeArgCast = 
+        Value *AllocSizeArgCast = 
             Builder.CreateZExtOrBitCast(
-                NextMalloc->getOperand(SizeOperandNo), 
+                NextAlloc->getOperand(SizeOperandNo), 
                 Int64Type
             );
 
@@ -504,18 +579,46 @@ void AllocationHandler::InstrumentMallocs(
         /*
          * Set up call parameters
          */ 
-        ArrayRef<Value *> CallArgs = {
-            MallocReturnCast,
-            MallocSizeArgCast
+        SmallVector<Value *, 3> CallArgs = {
+            AllocReturnCast,
+            AllocSizeArgCast
         };
+
+
+        /*
+         * If there's an extra parameter we need to handle, then
+         * handle here and add it to the the instrumentation args
+         * 
+         * This extra param is typically used for variants of "malloc"
+         */
+        if (NeedExtraParam)
+        {
+            /*
+             * Cast the extra param based on @ExtraOpCast and 
+             * @ExtraOpTargetTy to handle more complicated 
+             * instrumentation methods
+             */
+            Value *ExtraParam = 
+                Builder.CreateCast(
+                    ExtraOpCast,
+                    NextAlloc->getOperand(ExtraOperandNo), 
+                    ExtraOpTargetTy
+                );
+
+
+            /* 
+             * Add to instrumentation args data structure
+             */
+            CallArgs.push_back(ExtraParam);
+        }
 
 
         /*
          * Inject
          */ 
-        CallInst *InstrumentMalloc = 
+        CallInst *InstrumentAlloc = 
             Builder.CreateCall(
-                CARATMalloc, 
+                CARATAlloc, 
                 CallArgs
             );
     }

@@ -33,137 +33,37 @@
  * - FIX: obvious
  * - CONV: conversion from C++ to C, format: CONV [C++] -> [C]
  */ 
+#pragma once
 
 #include <nautilus/nautilus.h>
-#include <nautilus/naut_types.h>
-#include <nautilus/naut_string.h>
-#include <nautilus/skiplist.h>
+#include <aspace/carat.h>
 
-
-/*
- * =================== Utility Macros ===================  
- */ 
-
-/*
- * Debugging macros --- for QEMU
- */ 
-#define DB(x) outb(x, 0xe9)
-#define DHN(x) outb(((x & 0xF) >= 10) ? (((x & 0xF) - 10) + 'a') : ((x & 0xF) + '0'), 0xe9)
-#define DHB(x) DHN(x >> 4) ; DHN(x);
-#define DHW(x) DHB(x >> 8) ; DHB(x);
-#define DHL(x) DHW(x >> 16) ; DHW(x);
-#define DHQ(x) DHL(x >> 32) ; DHL(x);
-#define DS(x) { char *__curr = x; while(*__curr) { DB(*__curr); *__curr++; } }
 
 
 /*
- * Printing
- */ 
-#define DO_CARAT_PRINT 1
-#if DO_CARAT_PRINT
-#define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
-#else
-#define CARAT_PRINT(...) 
-#endif
-
-
-/*
- * Malloc
- */ 
-#define CARAT_MALLOC(n) ({void *__p = malloc(n); if (!__p) { CARAT_PRINT("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
-#define CARAT_REALLOC(p, n) ({void *__p = realloc(p, n); if (!__p) { CARAT_PRINT("Realloc failed\n"); panic("Malloc failed\n"); } __p;})
-
-
-/*
- * Skiplist setup
- */
-#define CARAT_INIT_NUM_GEARS 6
-
-
-/*
- * Sizes
- */ 
-#define ONE_MB 1048576
-#define THIRTY_TWO_GB 0x800000000ULL
-#define ESCAPE_WINDOW_SIZE ONE_MB
-
-
-/*
- * =================== Data Structures/Definitions ===================  
- */ 
-
-/*
- * Typedefs for CARAT data structures
- */ 
-typedef nk_slist_uintptr_t nk_carat_escape_set;
-typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
-
-/*
- * carat_context
+ * =================== Interfaces for runtime table data structures ===================  
  * 
- * - Main, global context for CARAT in the kernel
- * - Contains the global allocation map, escape window information, and 
- *   state from initialization and about stack allocation tracking
- * 
- * NOTE --- this is an ENGINEERING fix --- it is possible that a global
- * context will create more resource pressure, cache misses, and other 
- * underlying inefficiencies than the original design (scattered globals)
- */
-
-typedef struct carat_context_t {
-
-    /*
-     * allocation_map
-     * 
-     * - Global allocation map
-     * - Stores [allocation address : allocation_entry address]
-     */ 
-    nk_carat_allocation_map *allocation_map;
-
-
-    /*
-     * Escape window
-     * - The escape window is an optimization to conduct escapes handling in batches
-     * - Functions in the following way:
-     *   
-     *   void **a = malloc(); // the data itself is treated as a void * --- therefore, malloc
-     *                        // treated with a double pointer
-     *   void **escape = a; // an escape
-     *   void ***escape_window = [escape, escape, escape, ...] // an array of escapes
-     * 
-     * - Statistics --- total_escape_entries is a counter helps with batch processing,
-     *                  indicating how many escapes are yet to be processed
-     */ 
-    void ***escape_window;
-    uint64_t total_escape_entries;
-
-
-    /*
-     * Flag to indicate that CARAT is ready to run
-     */ 
-    int carat_ready; 
-
-} carat_context;
+ * Interfaces for:
+ * - CARAT contexts
+ * - Allocation tables
+ * - Escapes sets
+ * - Allocation entries
+ */ 
 
 
 /*
- * Global carat context declaration
+ * Helper macros for manipulating CARAT contexts 
+ * (nk_carat_context). Note that all parameters
+ * are ASSUMED to be pointers
  */ 
-extern carat_context global_carat_context;
-
-
-/*
- * Non-canonical address used for protections checks
- */ 
-extern void *non_canonical;
-
 
 /*
  * Conditions check 
  */ 
-#define CHECK_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
-#define CARAT_READY_ON global_carat_context.carat_ready = 1
-#define CARAT_READY_OFF global_carat_context.carat_ready = 0
+#define CHECK_CARAT_BOOTSTRAP_FLAG if (!karat_ready) { return; } 
+#define CHECK_CARAT_READY(c) if (!(c->carat_ready)) { return; }
+#define CARAT_READY_ON(c) c->carat_ready = 1
+#define CARAT_READY_OFF(c) c->carat_ready = 0
 
 
 /* 
@@ -181,47 +81,52 @@ extern void *non_canonical;
 
 /*
  * Interface for "nk_carat_allocation_map" --- specifically for the
- * global "allocation_map" data structure
+ * per nk_carat_context (i.e. @c) "allocation_map" data structure
  */ 
 #define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
-#define CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
-#define CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
-#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
-#define CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define CARAT_ALLOCATION_MAP_ITERATE \
+#define CARAT_ALLOCATION_MAP_SIZE(c) nk_map_get_size((c->allocation_map))
+#define CARAT_ALLOCATION_MAP_INSERT(c, key, val) (nk_map_insert((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
+#define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(c, key, val) (nk_map_insert_by_force((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
+#define CARAT_ALLOCATION_MAP_REMOVE(c, key) nk_map_remove((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(c, key) nk_map_better_lower_bound((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define CARAT_ALLOCATION_MAP_ITERATE(c) \
 	nk_slist_node_uintptr_t_uintptr_t *iterator; \
 	nk_pair_uintptr_t_uintptr_t *pair; \
     \
-    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator)
+    nk_slist_foreach((c->allocation_map), pair, iterator)
 
 #define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (pair->first)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
 #define CARAT_ALLOCATION_MAP_CURRENT_ENTRY ((allocation_entry *) (pair->second)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
 
 
+#define USE_GLOBAL_CARAT 0
+
+#if USE_GLOBAL_CARAT
+/*
+ * Conditions check 
+ */ 
+#define CHECK_GLOBAL_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
+#define GLOBAL_CARAT_READY_ON global_carat_context.carat_ready = 1
+#define GLOBAL_CARAT_READY_OFF global_carat_context.carat_ready = 0
+
 
 /*
- * allocation_entry
- *
- * Setup for an allocation entry 
- * - An allocation_entry stores necessary information to *track* each allocation
- * - There is one allocation_entry object for each allocation
+ * Interface for "nk_carat_allocation_map" --- specifically for the
+ * global "allocation_map" data structure
  */ 
-typedef struct allocation_entry_t { 
+#define GLOBAL_CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
+#define GLOBAL_CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
+#define GLOBAL_CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
+#define GLOBAL_CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
+#define GLOBAL_CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define GLOBAL_CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
+#define GLOBAL_CARAT_ALLOCATION_MAP_ITERATE \
+	nk_slist_node_uintptr_t_uintptr_t *iterator; \
+	nk_pair_uintptr_t_uintptr_t *pair; \
+    \
+    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator)
 
-    /*
-     * Pointer to the allocation, size of allocation
-     */ 
-    void *pointer; 
-    uint64_t size;
-
-    /*
-     * Set of all *potential* escapes for this particular
-     * allocation, the pointer -> void **
-     */ 
-    nk_carat_escape_set *escapes_set;
-
-} allocation_entry;
+#endif
 
 
 /*
@@ -234,7 +139,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  * Macro expansion utility --- creating allocation_entry objects
  * and adding them to the allocation map
  */ 
-#define CREATE_ENTRY_AND_ADD(key, size, str) \
+#define CREATE_ENTRY_AND_ADD(ctx, key, size, str) \
 	/*
 	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
@@ -244,7 +149,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	/*
 	 * Add the mapping [@##key : newEntry] to the allocation_map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
+	if (!(CARAT_ALLOCATION_MAP_INSERT(ctx, key, new_entry))) { \
 		panic(str" %p\n", key); \
 	}
 
@@ -253,7 +158,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  * Macro expansion utility --- creating allocation_entry objects
  * and adding them to the allocation map
  */ 
-#define CREATE_ENTRY_AND_ADD_SILENT(key, size) \
+#define CREATE_ENTRY_AND_ADD_SILENT(ctx, key, size) \
 	/*
 	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
@@ -264,7 +169,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	 * Add the mapping [@##key : newEntry] to the allocation_map BUT do
      * not panic if the entry already exists in the allocation_map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_INSERT(key, new_entry))) { \
+	if (!(CARAT_ALLOCATION_MAP_INSERT(ctx, key, new_entry))) { \
         DS("dup: "); \
         DHQ(((uint64_t) key)); \
         DS("\n"); \
@@ -274,13 +179,47 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 /*
  * Macro expansion utility --- for deleting allocation_entry objects
  */ 
-#define REMOVE_ENTRY(key, str) \
+#define REMOVE_ENTRY(ctx, key, str) \
 	/*
 	 * Delete the @##key from the allocation map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_REMOVE(key))) { \
+	if (!(CARAT_ALLOCATION_MAP_REMOVE(ctx, key))) { \
 		panic(str" %p\n", key); \
 	}
+
+
+/*
+ * Macro expansion utility --- fetch the current CARAT context
+ */ 
+#define FETCH_CARAT_CONTEXT (((nk_aspace_carat_t *) get_cur_thread()->aspace->state)->context) 
+
+
+/*
+ * CARAT context fetchers, setters
+ */ 
+#define FETCH_TOTAL_ESCAPES(ctx) (ctx->total_escape_entries)
+#define FETCH_ESCAPE_WINDOW(ctx) (ctx->escape_window)
+#define RESET_ESCAPE_WINDOW(ctx) ctx->total_escape_entries = 0
+#define ADD_ESCAPE_TO_WINDOW(ctx, addr) \
+    ctx->escape_window[FETCH_TOTAL_ESCAPES(ctx)] = ((void **) addr); \
+    ctx->total_escape_entries++;
+
+
+/*
+ * Debugging
+ */
+#define PRINT_ASPACE_INFO \
+    if (DO_CARAT_PRINT) \
+    { \
+        DS("gct: "); \
+        DHQ(((uint64_t) get_cur_thread())); \
+        DS("\na: "); \
+        DHQ(((uint64_t) get_cur_thread()->aspace)); \
+        DS("\nctx "); \
+        DHQ(((uint64_t) (FETCH_CARAT_CONTEXT))); \
+        DS("\n"); \
+    }
+
 
 
 /*
@@ -302,15 +241,21 @@ void _nk_carat_globals_compiler_target(void);
 
 
 /*
- * Main driver for CARAT initialization
+ * Main driver for global CARAT initialization
  */ 
-void nk_carat_init();
+void nk_carat_init(void);
+
+
+/*
+ * Driver for per-aspace CARAT initialization
+ */ 
+nk_carat_context * initialize_new_carat_context(void);
 
 
 /*
  * Utility for rsp 
  */
-uint64_t _carat_get_rsp();
+uint64_t _carat_get_rsp(void);
 
 
 /*
@@ -337,13 +282,15 @@ sint64_t _carat_get_query_offset(void *query_address, void *alloc_address, uint6
  * Takes a specified allocation and returns its corresponding allocation_entry,
  * otherwise return nullptr
  */ 
-allocation_entry *_carat_find_allocation_entry(void *address);
-
+allocation_entry * _carat_find_allocation_entry(
+    nk_carat_context *the_context,
+    void *address
+);
 
 /*
  * Statistics --- obvious
  */
-void nk_carat_report_statistics();
+void nk_carat_report_statistics(void);
 
 
 /*
@@ -365,13 +312,13 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size);
 /*
  * Instrumentation for "calloc" --- adding
  */ 
-void nk_carat_instrument_calloc(void *address, uint64_t num_elements, uint64_t size_of_element);
+void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_t num_elements);
 
 
 /*
  * Instrumentation for "realloc" --- adding
  */
-void nk_carat_instrument_realloc(void *old_address, void *new_address, uint64_t allocation_size);
+void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, void *old_address);
 
 
 /*
@@ -396,7 +343,7 @@ void nk_carat_instrument_escapes(void *escaping_address);
 /*
  * Batch processing for escapes
  */ 
-void _carat_process_escape_window();
+void _carat_process_escape_window(nk_carat_context *the_context);
 
 /*
  * =================== Protection Handling Methods ===================  
@@ -410,4 +357,9 @@ void _carat_process_escape_window();
  */
 void nk_carat_guard_address(void *memory_address, int is_write);
 
+/*
+ * Instrumentation for call instructions
+ * Make sure the stack has enough space to grow to support this guarded call instruction. 
+ */
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size);
 

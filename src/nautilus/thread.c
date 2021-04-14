@@ -62,7 +62,6 @@ extern void nk_thread_switch(nk_thread_t*);
 extern void nk_thread_entry(void *);
 static struct nk_tls tls_keys[TLS_MAX_KEYS];
 
-
 /****** SEE BELOW FOR EXTERNAL THREAD INTERFACE ********/
 
 

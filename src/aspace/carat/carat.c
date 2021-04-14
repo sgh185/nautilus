@@ -23,36 +23,7 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
-#include <nautilus/nautilus.h>
-#include <nautilus/spinlock.h>
-#include <nautilus/paging.h>
-#include <nautilus/thread.h>
-#include <nautilus/shell.h>
-
-#include <nautilus/aspace.h>
-
-
-#include <aspace/patching.h>
-
-
-// TODO: path need to be changed
-// DATA structure go outside
-#include <nautilus/list.h>
-
-#ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
-    #include <aspace/region_tracking/mm_rb_tree.h>
-
-#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_SPLAY_TREE
-    #include <aspace/region_tracking/mm_splay_tree.h>
-
-#elif defined NAUT_CONFIG_ASPACE_CARAT_REGION_LINKED_LIST
-    #include <aspace/region_tracking/mm_linked_list.h>
-
-#else
-    #include <aspace/region_tracking/node_struct.h>
-
-#endif
-
+#include <aspace/patching.h> /* Questionable --- patching.h accumulates all CARAT .h info */
 
 #ifndef NAUT_CONFIG_DEBUG_ASPACE_CARAT
 #undef DEBUG_PRINT
@@ -99,33 +70,6 @@
 
 
 
-typedef struct nk_aspace_carat_thread {
-    struct nk_thread * thread_ptr;
-    struct list_head thread_node;
-} nk_aspace_carat_thread_t;
-
-typedef struct nk_aspace_carat {
-    // pointer to the abstract aspace that the
-    // rest of the kernel uses when dealing with this
-    // address space
-    nk_aspace_t *aspace;
-
-    // perhaps you will want to do concurrency control?
-    spinlock_t  lock;
-
-
-    mm_struct_t * mm;
-
-    // Your characteristics
-    nk_aspace_characteristics_t chars;
-
-    //We may need the list of threads
-    //   struct list_head threads;
-    nk_aspace_carat_thread_t threads;
-
-} nk_aspace_carat_t;
-
-
 
 
 
@@ -170,6 +114,38 @@ static int destroy(void *state) {
 }
 
 
+static int _add_thread_to_carat_aspace_list(
+    nk_aspace_carat_t *carat,
+    nk_thread_t *t
+)
+{
+    /*
+     * Wrap @t
+     */ 
+    nk_aspace_carat_thread_t * new_thread_wrapper = (nk_aspace_carat_thread_t *) malloc(sizeof(nk_aspace_carat_thread_t));
+    new_thread_wrapper->thread_ptr = t;
+
+
+    /*
+     * Add @t to @carat 
+     */ 
+    struct list_head * nelm = &new_thread_wrapper->thread_node;
+    list_add_tail(nelm, &(carat->threads.thread_node));
+   
+
+    return 0;
+}
+
+void add_thread_to_carat_aspace(
+    nk_aspace_carat_t *carat_aspace,
+    nk_thread_t *t
+)
+{
+    _add_thread_to_carat_aspace_list(carat_aspace, t);
+    return;
+}
+
+
 /**
  * Although it sounds intuitive to add lock protection to prevent concurrency issue,
  *      this add_thread is only expected be called in move_thread function in aspace.c
@@ -184,15 +160,10 @@ static int add_thread(void *state)
 
 
     DEBUG("adding thread %d (%s) to address space %s\n", t->tid,THREAD_NAME(t), ASPACE_NAME(carat));
-    
-    nk_aspace_carat_thread_t * new_thread_wrapper = (nk_aspace_carat_thread_t *) malloc(sizeof(nk_aspace_carat_thread_t));
-    new_thread_wrapper->thread_ptr = t;
-
-    struct list_head * nelm = &new_thread_wrapper->thread_node;
-    // carat->threads
-    list_add_tail(nelm, &(carat->threads.thread_node));
-    
+    _add_thread_to_carat_aspace_list(carat, t);
+ 
     // ASPACE_UNLOCK(carat);
+    
     return 0;
 }
 
@@ -541,7 +512,7 @@ static int defragment_region(
     /**
      *  Called nk_carat_move_region to actually do the work of defragmentation
      * */
-    if (nk_carat_move_region(cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
+    if (nk_carat_move_region(carat->context, cur_region->pa_start, new_region.pa_start, cur_region->len_bytes, free_space_start)) {
       ASPACE_UNLOCK(carat);
       ERROR("failed to move region...\n");
       return -1;
@@ -588,7 +559,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 
     void *free_space_start; // don't care
     // call CARAT runtime
-    int res = nk_carat_move_region(cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
+    int res = nk_carat_move_region(carat->context, cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
     if (res) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -718,6 +689,13 @@ static struct nk_aspace *create(char *name, nk_aspace_characteristics_t *c)
     // spinlock_init(carat->lock);
     INIT_LIST_HEAD(&(carat->threads.thread_node));
 
+
+    /*
+     * Initialize CARAT context
+     */ 
+    carat->context = initialize_new_carat_context(); 
+
+
     // initialize region dat structure
 #ifdef NAUT_CONFIG_ASPACE_CARAT_REGION_RB_TREE
     carat->mm = mm_rb_tree_create();
@@ -740,7 +718,7 @@ static struct nk_aspace *create(char *name, nk_aspace_characteristics_t *c)
     carat->aspace = nk_aspace_register(name,
                     // we want both page faults and general protection faults (NO, no GPF)
                     //    NK_ASPACE_HOOK_PF | NK_ASPACE_HOOK_GPF,
-                        NK_ASPACE_HOOK_GPF,
+                        0,
                     // our interface functions (see above)
                     &carat_interface,
                     // our state, which will be passed back

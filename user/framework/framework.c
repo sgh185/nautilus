@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <nautilus/nautilus_exe.h>
 
+
 // Space for the signature of the final binary. Set by nsign after final link.
 __attribute__((section(".naut_secure"))) unsigned char __NAUT_SIGNATURE[16];
 
@@ -11,6 +12,7 @@ void * (**__nk_func_table)();
 
 extern int _start();
 
+__attribute__((noinline, used, annotate("nocarat")))
 void __nk_exec_entry(void *in, void **out, void * (**table)())
 {
     __nk_func_table = table;
@@ -51,57 +53,45 @@ void __nk_exec_entry(void *in, void **out, void * (**table)())
     );
 }
 
-void* nk_func_table_access(volatile int entry_no, void* arg1, void* arg2) {
+__attribute__((noinline, used, annotate("nocarat")))
+void * nk_func_table_access(volatile int entry_no, void *arg1, void *arg2) {
   return __nk_func_table[entry_no]((char*)arg1, arg2);
 }
 
-void nk_carat_instrument_global(void* ptr, uint64_t size, uint64_t global_ID) {
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_global(void *ptr, uint64_t size, uint64_t global_ID) {
     __nk_func_table[NK_CARAT_INSTRUMENT_GLOBAL](ptr, size, global_ID);
 }
 
-void nk_carat_instrument_malloc(void* ptr, uint64_t size) {
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_malloc(void *ptr, uint64_t size) {
     __nk_func_table[NK_CARAT_INSTRUMENT_MALLOC](ptr, size);
 }
 
-void nk_carat_instrument_calloc(void* ptr, uint64_t size) {
-    __nk_func_table[NK_CARAT_INSTRUMENT_CALLOC](ptr, size);
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_calloc(void *ptr, uint64_t size_of_element, uint64_t num_elements) {
+    __nk_func_table[NK_CARAT_INSTRUMENT_CALLOC](ptr, size_of_element, num_elements);
 }
 
-void nk_carat_instrument_realloc(void* ptr, uint64_t size) {
-    __nk_func_table[NK_CARAT_INSTRUMENT_REALLOC](ptr, size);
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_realloc(void *ptr, uint64_t size, void *old_address) {
+    __nk_func_table[NK_CARAT_INSTRUMENT_REALLOC](ptr, size, old_address);
 }
 
-void nk_carat_instrument_free(void* ptr) {
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_free(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_FREE](ptr);
 }
 
-void nk_carat_instrument_escapes(void* ptr) {
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
-void _nk_carat_globals_compiler_target(void) {
-    __nk_func_table[NK_CARAT_GLOBALS_COMPILER_TARGET]();
-}
-
-void nk_carat_init(void) {
-    __nk_func_table[NK_CARAT_INIT]();
-}
-
-__attribute__((noinline, used, annotate("nocarat")))
-void kmem_sys_free(void *ptr) {
-    free(ptr);
-}
-
-__attribute__((noinline, used, annotate("nocarat")))
-void * _kmem_sys_malloc(uint64_t size) {
-    return malloc(size);
-}
-
 /*
- WE NEED TO HANDLE THE ACCESS SIZE
+ * WE NEED TO HANDLE THE ACCESS SIZE
  */
-int nk_carat_check_protection(void* ptr, int is_write) {
+__attribute__((noinline, used, annotate("nocarat")))
+int nk_carat_check_protection(void *ptr, int is_write) {
     return __nk_func_table[NK_CARAT_CHECK_PROTECTION](ptr, is_write);
 }
-
-__attribute__((noinline, optnone, used, annotate("nocarat"))) void make_carat_pass_work(void) { return; }

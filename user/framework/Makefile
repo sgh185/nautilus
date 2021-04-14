@@ -6,10 +6,11 @@
 
 NAUTILUS_DIR = ../..
 
+TARGET_NAME=hello
 
-TARGET = hello.exe
+TARGET = $(TARGET_NAME).exe
 
-USER_OBJ = hello.o
+USER_OBJ = $(TARGET_NAME).o
 
 BLOB_OBJ = blob.o
 BLOB_BC = blob.bc
@@ -102,7 +103,7 @@ framework: glue.o framework_low_level.o framework.o
 # 	$(NLD) $^ -o $(TARGET:.exe=.unsigned)
 
 $(TARGET:.exe=.unsigned) : $(TARGET:.exe=.o) framework
-	$(NLD) $(TARGET:.exe=.o)  -o $(TARGET:.exe=.unsigned)
+	$(NLD) $(TARGET:.exe=.o) -o $(TARGET:.exe=.unsigned)
 
 $(TARGET) : $(TARGET:.exe=.unsigned)
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
@@ -112,5 +113,5 @@ nokarat: $(TARGET:.exe=.o) framework
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 clean: 
-	rm -f $(TARGET) *.o *.bc *.ll 
+	rm -f $(TARGET) *.o *.bc *.ll *.out *.unsigned *.exe 
 

@@ -11,8 +11,8 @@ fi
 REALPATH=$(realpath $0)
 DIRNAME=$(dirname $REALPATH)
 
-CRTGEN_DIR=/usr/lib64
-CRTBE_DIR=/usr/lib/gcc/x86_64-redhat-linux/8
+CRTGEN_DIR=/usr/lib64/x86_64-linux-gnu
+CRTBE_DIR=/usr/lib/gcc/x86_64-linux-gnu/8
 
 OUT_FLAG=$(echo "$*" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
@@ -56,7 +56,7 @@ fi
 ld -static -pie --no-dynamic-linker \
   -T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 -z relro -z now \
   $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o \
-  -L/home/arn9233/ -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
+  -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
   target.o $DIRNAME/framework_low_level.o \
   -lm -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
   $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o \

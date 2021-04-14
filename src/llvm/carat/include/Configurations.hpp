@@ -58,6 +58,7 @@
 #include <set>
 #include <cassert>
 
+#include "autoconf.h"
 
 /*
  * Debugging
@@ -81,6 +82,10 @@ enum AllocID
     ASpaceMalloc,
     SysFree,
     ASpaceFree,
+    UserMalloc,
+    UserCalloc,
+    UserRealloc,
+    UserFree
 };
 
 
@@ -100,6 +105,10 @@ const std::string CARAT_MALLOC,
                   ASPACE_MALLOC,
                   KERNEL_FREE,
                   ASPACE_FREE,
+                  USER_MALLOC,
+                  USER_CALLOC,
+                  USER_REALLOC,
+                  USER_FREE,
                   ANNOTATION,
                   NOCARAT;
 
@@ -126,12 +135,23 @@ extern
 std::unordered_map<Function *, AllocID> KernelAllocMethodsToIDs;
 
 extern
+std::unordered_map<AllocID, std::string> IDsToUserAllocMethods;
+
+extern
+std::unordered_map<std::string, Function *> UserAllocNamesToMethods;
+
+extern
+std::unordered_map<Function *, AllocID> UserAllocMethodsToIDs;
+
+extern
 std::unordered_set<Function *> AnnotatedFunctions;
 
 
 /*
  * Command line options for pass
  */ 
+extern cl::opt<bool> InstrumentingUserCode;
+
 extern cl::opt<bool> NoGlobals;
 
 extern cl::opt<bool> NoMallocs;
