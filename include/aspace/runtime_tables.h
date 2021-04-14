@@ -357,4 +357,9 @@ void _carat_process_escape_window(nk_carat_context *the_context);
  */
 void nk_carat_guard_address(void *memory_address, int is_write);
 
+/*
+ * Instrumentation for call instructions
+ * Make sure the stack has enough space to grow to support this guarded call instruction. 
+ */
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size);
 

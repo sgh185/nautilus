@@ -613,6 +613,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
  * is determined to be illegal, panic. Otherwise, 
  * do nothing
  */
+NO_CARAT_NO_INLINE
 void nk_carat_guard_address(void *memory_address, int is_write) {
 
 	// TODO:
@@ -632,12 +633,6 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	return;
 }
 
-
-
-/*
- * =================== Initilization Methods ===================
- */ 
-
 /*
  * Utility to get %rsp
  */ 
@@ -649,6 +644,33 @@ uint64_t _carat_get_rsp()
 	return rsp;
 }
     
+
+/*
+ * Instrumentation for call instructions
+ * Make sure the stack has enough space to grow to support this guarded call instruction. 
+ */
+NO_CARAT_NO_INLINE
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
+
+	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
+
+	// check if the new stack is still within the region
+	nk_thread_t *thread = get_cur_thread();
+	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
+	if (stack_too_large) {
+		// TODO: expand stack instead of panicking 
+		panic("Stack has grown outside of valid memory! \n");
+	}
+
+	return;
+}
+
+
+
+/*
+ * =================== Initilization Methods ===================
+ */ 
+
 
 /*
  * Wrapper for the compiler to target and inject
