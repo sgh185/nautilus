@@ -90,7 +90,7 @@ nk_print_regs (struct nk_regs * r)
     ulong_t cr8 = 0ul;
     ulong_t fs  = 0ul;
     ulong_t gs  = 0ul;
-    ulong_t sgs = 0ul;
+    ulong_t ksgs = 0ul;
     uint_t  fsi;
     uint_t  gsi;
     uint_t  cs;
@@ -122,7 +122,7 @@ nk_print_regs (struct nk_regs * r)
 
     gs  = msr_read(MSR_GS_BASE);
     fs  = msr_read(MSR_FS_BASE);
-    gsi = msr_read(MSR_KERNEL_GS_BASE);
+    ksgs = msr_read(MSR_KERNEL_GS_BASE);
     efer = msr_read(IA32_MSR_EFER);
 
     asm volatile("movq %%cr0, %0": "=r" (cr0));
@@ -132,7 +132,7 @@ nk_print_regs (struct nk_regs * r)
     asm volatile("movq %%cr8, %0": "=r" (cr8));
 
     printk("FS: %016lx(%04x) GS: %016lx(%04x) knlGS: %016lx\n", 
-            fs, fsi, gs, gsi, sgs);
+            fs, fsi, gs, gsi, ksgs);
     printk("CS: %04x DS: %04x ES: %04x CR0: %016lx\n", 
             cs, ds, es, cr0);
     printk("CR2: %016lx CR3: %016lx CR4: %016lx\n", 
