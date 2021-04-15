@@ -131,9 +131,9 @@ private:
 
     void _findInjectionLocations(void);
 
-    ArrayRef<Value *> _buildStackGuardArgs(GuardInfo *GI);
+    std::vector<Value *> _buildStackGuardArgs(GuardInfo *GI);
 
-    ArrayRef<Value *> _buildGenericProtectionArgs(GuardInfo *GI);
+    std::vector<Value *> _buildGenericProtectionArgs(GuardInfo *GI);
 
     void _doTheInject(void);
 

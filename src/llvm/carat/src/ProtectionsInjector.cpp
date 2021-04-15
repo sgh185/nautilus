@@ -237,7 +237,7 @@ void ProtectionsInjector::_findInjectionLocations(void)
 }
 
 
-ArrayRef<Value *> ProtectionsInjector::_buildStackGuardArgs(GuardInfo *GI)
+std::vector<Value *> ProtectionsInjector::_buildStackGuardArgs(GuardInfo *GI)
 {
     /*
      * TOP --- Build the function arguments for the call injection
@@ -250,8 +250,8 @@ ArrayRef<Value *> ProtectionsInjector::_buildStackGuardArgs(GuardInfo *GI)
      * TODO --- Actually calculate this, set to 512 for now
      */
     const uint64_t StackFrameSize = 512;
-    llvm::IRBuilder<> Builder{GI->FunctionToInject->getContext()};
-    ArrayRef<Value *> CallArgs = {
+    llvm::IRBuilder<> Builder{F->getContext()};
+    std::vector<Value *> CallArgs = {
         Builder.getInt64(StackFrameSize)
     };
 
@@ -260,7 +260,7 @@ ArrayRef<Value *> ProtectionsInjector::_buildStackGuardArgs(GuardInfo *GI)
 }
 
 
-ArrayRef<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo *GI)
+std::vector<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo *GI)
 {
     /*
      * TOP --- Build the function arguments for the call injection
@@ -270,14 +270,25 @@ ArrayRef<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo *GI
     /*
      * Set up builder
      */
-    llvm::IRBuilder<> Builder{GI->FunctionToInject->getContext()};
+    llvm::IRBuilder<> Builder{GI->InjectionLocation};
+
+
+    /*
+     * Cast @GI->PointerToGuard as a void pointer for instrumentation
+     */
+    Value *VoidPointerToGuard = 
+        Builder.CreatePointerCast(
+            GI->PointerToGuard,
+            Builder.getInt8PtrTy()
+        );
 
 
     /*
      * Build the call args
      */
-    ArrayRef<Value *> CallArgs = {
-        GI->PointerToGuard,
+    errs() << "PointerToGuard: " << *(GI->PointerToGuard) << "\n";
+    std::vector<Value *> CallArgs = {
+        VoidPointerToGuard,
         Builder.getInt32(GI->IsWrite)
     };
 
@@ -303,7 +314,7 @@ void ProtectionsInjector::_doTheInject(void)
          * Set up arguments based on the "GI->FunctionToInject" field
          */ 
         Function *FTI = GI->FunctionToInject;
-        ArrayRef<Value *> CallArgs = 
+        std::vector<Value *> CallArgs = 
             (FTI == CARATNamesToMethods[CARAT_STACK_GUARD]) ?
             (_buildStackGuardArgs(GI)) :
             (_buildGenericProtectionArgs(GI));
@@ -312,10 +323,13 @@ void ProtectionsInjector::_doTheInject(void)
         /*
          * Inject the call instruction based on the selected args
          */
+        errs() << "FTI: " << FTI->getName() << "\n";
+        errs() << "CallArgs: \n";
+        for (auto Element : CallArgs) errs() << "\t" << *Element << "\n";
         CallInst *Instrumentation = 
               Builder.CreateCall(
                   FTI, 
-                  CallArgs
+                  ArrayRef<Value *>(CallArgs)
               );  
     }
 
