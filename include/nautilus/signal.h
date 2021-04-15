@@ -30,18 +30,21 @@
 extern "C" {
 #endif
 
-#include <nautilus/spinlock.h>
 #include <nautilus/signal_consts.h>
+#include <nautilus/spinlock.h>
 #include <nautilus/list.h>
+
 
 /* Function signature of a signal handler */
 typedef void (*nk_signal_handler_t)(int signal_num);
 #define DEFAULT_SIG ((nk_signal_handler_t)0)
 #define IGNORE_SIG ((nk_signal_handler_t)1)
 
+
 struct nk_process;
 struct nk_thread;
 struct nk_wait_queue;
+
 
 /* Struct for siginfo -- stores info about a specific occurrence of a signal */
 typedef struct signal_info_struct {
@@ -88,10 +91,12 @@ typedef struct signal_info_struct {
 #define SEND_SIGNAL_NO_INFO      (nk_signal_info_t *)0
 #define SEND_SIGNAL_KERNEL       (nk_signal_info_t *)1
 
+
 /* Signal Bit Set (For now, we assume SIGSET_SIZE == 1) */
 typedef struct signal_set{
       uint64_t sig[SIGSET_SIZE];
 } nk_signal_set_t;
+
 
 /* LL Signal Queue (for RT signals, may not be needed?) */
 typedef struct signal_queue {
@@ -99,6 +104,7 @@ typedef struct signal_queue {
     uint64_t flags;
     nk_signal_info_t signal_info;
 } nk_signal_queue_t;
+
 
 /* LL of pending signals */
 typedef struct signal_pending {
@@ -114,12 +120,14 @@ typedef struct signal_action {
     uint64_t signal_flags; /* How to handle signal */
 } nk_signal_action_t;
 
+
 /* Table of signal action structs. May be shared among processes. */
 typedef struct signal_handler_table {
     uint64_t count; /* How many processes are using this signal handler table? */
-    nk_signal_action_t *handlers[NUM_SIGNALS]; /* pointers to sig action structs */
+    nk_signal_action_t handlers[NUM_SIGNALS]; /* pointers to sig action structs */
     spinlock_t lock; /* Multiple processes can use this table */ 
 } nk_signal_handler_table_t;
+
 
 /* Information for an occurrence of a signal */
 typedef struct ksignal {
@@ -128,6 +136,8 @@ typedef struct ksignal {
     uint64_t signal_num; /* Number of signal (1-64) */
 } nk_ksignal_t;
 
+
+/* Signal descriptor (lives inside of thread struct) */
 typedef struct signal_descriptor {
     uint64_t count; /* Use counter */
     uint64_t live; /* Live threads within process */
@@ -144,7 +154,26 @@ typedef struct signal_descriptor {
 } nk_signal_descriptor_t;
 
 
+/* 
+ * Task signal info struct. 
+ * Cleanly stores all signal state for threads/processes/tgroups 
+ */
+typedef struct signal_task_state {
+    /* For signal handling, shared state w/ processes and groups */
+    /* TODO MAC: Figure out how to properly do this :) */
+    nk_signal_handler_table_t *signal_handler;
+    nk_signal_descriptor_t *signal_descriptor;
+    
+    /* For individual thread signal handling */
+    nk_signal_set_t blocked;
+    nk_signal_set_t real_blocked;
+    nk_signal_pending_t signals_pending;
 
+    /* Unused for now
+    uint64_t signal_hand_rsp;
+    uint64_t sh_rsp_size;
+    */
+} nk_signal_task_state;
 
 /* Interface functions */
 
@@ -242,6 +271,11 @@ static inline void init_sigpending(nk_signal_pending_t *pending)
     INIT_LIST_HEAD(&(pending->lst));
 }
 
+static inline int valid_signal(uint64_t sig)
+{
+    return sig <= NUM_SIGNALS ? 1 : 0; 
+}
+
 /* Signal mask definitions */
 #define rt_sigmask(sig) sigmask(sig)
 
@@ -301,7 +335,10 @@ void nk_signal_force_specific(uint64_t signal); /* Optimized for SIGSTOP and SIG
 
 /* Processing Signals */
 int nk_signal_get(); /* Gets pending signals for current process */
+int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_act);
 
+/* Initializing signal state */
+int nk_signal_init_task_state(nk_signal_task_state **state_ptr);
 
 #ifdef __cplusplus
 }

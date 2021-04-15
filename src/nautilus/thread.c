@@ -62,34 +62,6 @@ extern void nk_thread_switch(nk_thread_t*);
 extern void nk_thread_entry(void *);
 static struct nk_tls tls_keys[TLS_MAX_KEYS];
 
-
-void sig_hand_hello(int sig_num)
-{
-    THREAD_INFO("Hello World from signal %d.\n", sig_num);
-
-} 
-
-#ifdef NAUT_CONFIG_PROCESSES
-nk_signal_action_t sig_act_table_entry = {
-.handler = sig_hand_hello,
-.mask = {0},
-.signal_flags = 0,
-};
-
-nk_signal_handler_table_t global_sig_table = {
-.count = 1,
-.handlers[0 ... 63] = &sig_act_table_entry,
-.lock = 0,
-};
-
-nk_signal_descriptor_t sig_desc = {
-    .count = 1, /* Use counter */
-    .curr_target = 0, /* Last thread to receive signal */
-};
-#endif
-
-
-
 /****** SEE BELOW FOR EXTERNAL THREAD INTERFACE ********/
 
 
@@ -400,10 +372,10 @@ nk_thread_create (nk_thread_fun_t fun,
 #ifdef NAUT_CONFIG_PROCESSES
     // a thread will not belong to a process by default
     t->process = NULL;
-    t->signal_handler = &global_sig_table;
-    t->signal_descriptor = &sig_desc;
-    INIT_LIST_HEAD(&(t->signals_pending.lst));
-    spinlock_init(&t->signal_handler->lock);
+    if (nk_signal_init_task_state(&t->signal_state)) {
+        THREAD_ERROR("Failed to initialize signal state :(\n");
+        return -1;
+    }
 #endif
     
     t->fun = fun;
