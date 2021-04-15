@@ -118,6 +118,11 @@ void set_current_blocked(nk_signal_set_t *newset)
 
 /************ HELPERS FOR SENDING SIGNALS *************/
 
+static inline int sig_handler_ignored(void *handler, uint64_t sig) 
+{
+    return handler == IGNORE_SIG || (handler == DEFAULT_SIG && sig_kernel_ignore(sig));    
+}
+
 static int sig_ignored(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_forced)
 {
     /* Blocked signals are not ignored. Race condition with unblocking */
@@ -138,8 +143,7 @@ static int sig_ignored(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_fo
     /* TODO MAC: Case where we only send kernel signals (unimplemented) */
 
     /* Check if signal is ignored */
-    return (signal_handler == IGNORE_SIG ||
-            (signal_handler == DEFAULT_SIG && sig_kernel_ignore(signal)));
+    return sig_handler_ignored(signal_handler, signal);
 }
 
 static int prepare_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t is_forced) {
@@ -296,7 +300,7 @@ int send_signal(uint64_t signal, nk_signal_info_t *signal_info, nk_thread_t *sig
         is_forced = 1;
     }// else if (has_si_pid_and_uid(signal_info)) { /* complicated case, skip for now */
     
-    SIGNAL_DEBUG("Signal is_forced: &lu\n", is_forced);
+    SIGNAL_DEBUG("Signal is_forced: %lu\n", is_forced);
     return __send_signal(signal, signal_info, signal_dest, dest_type, is_forced);
 }
 
@@ -382,6 +386,33 @@ still_pending:
 		//sig_info->si_uid = 0;
 	}
 }
+
+/*
+ * Remove signals in mask from the pending set and queue.
+ * Returns 1 if any signals were found.
+ *
+ * All callers must be holding the siglock!!
+ */
+static void flush_sigqueue_mask(nk_signal_set_t *mask, nk_signal_pending_t *s)
+{
+	nk_signal_queue_t *q, *n;
+	nk_signal_set_t m;
+
+	sigandsets(&m, mask, &s->signal);
+	if (sigisemptyset(&m)) {
+		return;
+    }
+
+	sigandnsets(&s->signal, &s->signal, mask);
+	list_for_each_entry_safe(q, n, &s->lst, lst) {
+		if (sigismember(mask, q->signal_info.signal_num)) {
+			list_del_init(&q->lst);
+			__sigqueue_free(q);
+		}
+	}
+}
+
+
 
 int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_info_t *sig_info)
 {
@@ -712,3 +743,59 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
     release_sig_hand_lock(sig_hand, flags);
     return ret;
 }
+
+int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_act)
+{
+    nk_thread_t *thread = get_cur_thread();
+    nk_process_t *p = thread->process; 
+    
+	nk_signal_action_t *k;
+	nk_signal_set_t mask;
+
+	if (!valid_signal(sig) || sig < 1 || (act && sig_kernel_only(sig))) {
+		return -1;
+    }
+
+	k = &thread->signal_state->signal_handler->handlers[sig-1];
+
+    uint8_t irq_state = acquire_sig_hand_lock(thread->signal_state->signal_handler);
+	if (old_act) {
+		*old_act = *k;
+    }
+
+    //TODO MAC: I have no clue what this is :)
+	//sigaction_compat_abi(act, oact);
+
+	if (act) {
+		sigdelsetmask(&act->mask,
+			      sigmask(NKSIGKILL) | sigmask(NKSIGSTOP));
+		*k = *act;
+		/*
+		 * POSIX 3.3.1.3:
+		 *  "Setting a signal action to SIG_IGN for a signal that is
+		 *   pending shall cause the pending signal to be discarded,
+		 *   whether or not it is blocked."
+		 *
+		 *  "Setting a signal action to SIG_DFL for a signal that is
+		 *   pending and whose default action is to ignore the signal
+		 *   (for example, SIGCHLD), shall cause the pending signal to
+		 *   be discarded, whether or not it is blocked"
+		 */
+        nk_signal_handler_t hand = thread->signal_state->signal_handler->handlers[sig-1].handler;
+		if (sig_handler_ignored(hand, sig)) {
+			sigemptyset(&mask);
+			sigaddset(&mask, sig);
+			flush_sigqueue_mask(&mask, &thread->signal_state->signal_descriptor->shared_pending);
+            if (p) {
+                SIGNAL_ERROR("Sig action not implemented for processes!\n");
+                /* TODO MAC: if process, iterate through each thread and clear queues */
+			    //for_each_thread(p, t)
+				  //  flush_sigqueue_mask(&mask, &t->pending);
+            }
+		}
+	}
+
+	release_sig_hand_lock(thread->signal_state->signal_handler, irq_state);
+	return 0;
+}
+

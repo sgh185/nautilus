@@ -271,6 +271,11 @@ static inline void init_sigpending(nk_signal_pending_t *pending)
     INIT_LIST_HEAD(&(pending->lst));
 }
 
+static inline int valid_signal(uint64_t sig)
+{
+    return sig <= NUM_SIGNALS ? 1 : 0; 
+}
+
 /* Signal mask definitions */
 #define rt_sigmask(sig) sigmask(sig)
 
@@ -330,6 +335,7 @@ void nk_signal_force_specific(uint64_t signal); /* Optimized for SIGSTOP and SIG
 
 /* Processing Signals */
 int nk_signal_get(); /* Gets pending signals for current process */
+int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_act);
 
 /* Initializing signal state */
 int nk_signal_init_task_state(nk_signal_task_state **state_ptr);
