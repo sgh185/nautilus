@@ -10,7 +10,9 @@ void nk_carat_instrument_malloc(void *ptr, uint64_t size) ;
 void nk_carat_instrument_calloc(void *ptr, uint64_t size_of_element, uint64_t num_elements) ;
 void nk_carat_instrument_realloc(void *ptr, uint64_t size, void *old_address) ;
 void nk_carat_instrument_free(void *ptr) ;
-void nk_carat_instrument_escapes(void *ptr) ;
+void nk_carat_instrument_escapes(void *ptr) ; 
+void nk_carat_guard_address(void *memory_address, int is_write) ;
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size) ;
 void _nk_carat_globals_compiler_target(void) ;
 
 
@@ -51,6 +53,8 @@ static void _framework_persist_function_signatures(void)
         nk_carat_instrument_realloc(NULL, 0, NULL);
         nk_carat_instrument_free(NULL);
         nk_carat_instrument_escapes(NULL);
+        nk_carat_guard_address(NULL, 0) ;
+        nk_carat_guard_callee_stack(0) ;
         _nk_carat_globals_compiler_target();
     }
 

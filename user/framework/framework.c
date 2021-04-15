@@ -88,6 +88,18 @@ void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_guard_address(void *memory_address, int is_write) {
+    __nk_func_table[NK_CARAT_GENERIC_PROTECT](memory_address, is_write);
+}
+
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
+    __nk_func_table[NK_CARAT_STACK_PROTECT](stack_frame_size);
+}
+
+
+#if 0
 /*
  * WE NEED TO HANDLE THE ACCESS SIZE
  */
@@ -95,3 +107,6 @@ __attribute__((noinline, used, annotate("nocarat")))
 int nk_carat_check_protection(void *ptr, int is_write) {
     return __nk_func_table[NK_CARAT_CHECK_PROTECTION](ptr, is_write);
 }
+#endif
+
+
