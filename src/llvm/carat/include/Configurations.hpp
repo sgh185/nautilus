@@ -167,6 +167,8 @@ extern cl::opt<bool> NoEscapes;
 
 extern cl::opt<bool> NoProtections;
 
+extern cl::opt<bool> NoRestrictions;
+
 extern cl::opt<bool> NoVerify;
 
 extern cl::opt<bool> InitExit;

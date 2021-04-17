@@ -39,6 +39,12 @@ RestrictionsHandler::RestrictionsHandler(Module *M) : M(M) {}
 void RestrictionsHandler::AnalyzeAllCalls(void)
 {
     /*
+     * Check command line arguments
+     */
+    if (NoRestrictions) return;
+
+
+    /*
      * TOP --- Find ALL indirect calls and calls to external
      * functions across the entire module via visitor
      */
@@ -53,6 +59,12 @@ void RestrictionsHandler::AnalyzeAllCalls(void)
 
 void RestrictionsHandler::PrintAnalysis(void)
 {
+    /*
+     * Check command line arguments
+     */
+    if (NoRestrictions) return;
+    
+
     /*
      * Print @this->IndirectCalls
      */

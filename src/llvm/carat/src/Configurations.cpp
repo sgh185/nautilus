@@ -136,6 +136,12 @@ cl::opt<bool> NoProtections(
     cl::desc("No protection check instrumentation")
 );
 
+cl::opt<bool> NoRestrictions(
+    "fno-restrictions",
+    cl::init(false),
+    cl::desc("No restrictions analysis/instrumentation")
+);
+
 cl::opt<bool> NoVerify(
     "fno-verify",
     cl::init(false),
