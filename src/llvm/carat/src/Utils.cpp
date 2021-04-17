@@ -94,6 +94,7 @@ IRBuilder<> Utils::GetBuilder(
     return Builder;
 }
 
+
 IRBuilder<> Utils::GetBuilder(
     Function *F, 
     BasicBlock *InsertionPoint
@@ -122,19 +123,33 @@ bool Utils::IsInstrumentable(Function &F)
     /*
      * Skip instrumention in functions upholding any of the 
      * following conditions:
-     * 1) A "malloc" or "free" (KernelAllocMethodsToIDs)
+     * 1) A memory allocator method (kernel or user)
      * 2) Any CARAT method (CARATMethods)
      * 3) Annotated (AnnotatedFunctions)
      * 3) LLVM intrinsics
      * 4) Other empty functions (pure assembly stubs, etc.)
      */ 
+
+    /*
+     * Fetch the right memory allocator map
+     */ 
+    std::unordered_map<Function *, AllocID> MapToUse = 
+        (InstrumentingUserCode) ?
+        (UserAllocMethodsToIDs) :
+        (KernelAllocMethodsToIDs) ;
+
+
+    /*
+     * Perform check
+     */
     if (false
-        || (KernelAllocMethodsToIDs.find(&F) != KernelAllocMethodsToIDs.end()) 
+        || (MapToUse.find(&F) != MapToUse.end()) 
         || (CARATMethods.find(&F) != CARATMethods.end()) 
         || (AnnotatedFunctions.find(&F) != AnnotatedFunctions.end()) 
         || (F.isIntrinsic()) 
         || (F.empty()))
         return false;
+
 
     return true;
 }
@@ -399,4 +414,37 @@ void Utils::VetAllocMethods(void)
 
 
     return;
+}
+
+
+void Utils::SetInstrumentationMetadata(
+    Instruction *I,
+    const std::string MDTypeString,
+    const std::string MDLiteral
+)
+{
+    /*  
+     * Build metadata node using @MDTypeString
+     */ 
+    MDNode *TheNode = 
+        MDNode::get(
+            I->getContext(),
+            MDString::get(
+                I->getContext(), 
+                MDTypeString
+            )
+        );  
+
+
+    /*  
+     * Set metadata with @MDLiteral
+     */ 
+    I->setMetadata(
+        MDLiteral,
+        TheNode
+    );
+
+
+    return;
+
 }

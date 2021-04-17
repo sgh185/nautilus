@@ -90,4 +90,14 @@ namespace Utils
     bool Verify(Module &M);
 
     void VetAllocMethods(void);
+
+
+    /*
+     * Metadata handlers
+     */ 
+    void Utils::SetInstrumentationMetadata(
+        Instruction *I,
+        const std::string MDTypeString,
+        const std::string MDLiteral
+    );
 } 
