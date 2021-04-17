@@ -606,7 +606,8 @@ init (unsigned long mbd,
     init_syscall_table();
 #endif
     
-    nk_launch_shell("root-shell",0,script,0);
+    // nk_launch_shell("root-shell",0,script,0);
+    nk_launch_shell("root-shell",0,0,0);
 
     runtime_init();
 
