@@ -27,6 +27,7 @@
  */
 
 #include "autoconf.h"
+#include "./include/Restrictions.hpp"
 
 #if NAUT_CONFIG_USE_NOELLE
 #include "./include/Protections.hpp"
@@ -143,6 +144,15 @@ struct CAT : public ModulePass
         /*
          * --- Perform all CARAT instrumentation on the code ---
          */ 
+
+        /*
+         * Analysis on prototype restrictions
+         */
+        RestrictionsHandler RH = RestrictionsHandler(&M);
+        RH.AnalyzeAllCalls();
+        RH.PrintAnalysis();
+
+
 #if NAUT_CONFIG_USE_NOELLE
         if (!NoProtections)
         {

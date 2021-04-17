@@ -1,6 +1,7 @@
 # Sources
 set(CATPassSrc 
   CatPass.cpp
+  src/Restrictions.cpp
   src/Allocation.cpp
   src/Escapes.cpp
   src/Protections.cpp
