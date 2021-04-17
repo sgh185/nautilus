@@ -277,7 +277,12 @@ std::vector<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo 
     /*
      * Set up builder
      */
-    llvm::IRBuilder<> Builder{GI->InjectionLocation};
+
+    llvm::IRBuilder<> Builder = 
+        Utils::GetBuilder(
+            GI->InjectionLocation->getFunction(),
+            GI->InjectionLocation
+        );
 
 
     /*
@@ -313,7 +318,11 @@ void ProtectionsInjector::_doTheInject(void)
         /*
          * Set up builder
          */
-        llvm::IRBuilder<> Builder{GI->InjectionLocation};
+        llvm::IRBuilder<> Builder = 
+            Utils::GetBuilder(
+                GI->InjectionLocation->getFunction(),
+                GI->InjectionLocation
+            );
 
 
         /*
