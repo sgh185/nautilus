@@ -627,7 +627,7 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 */
 	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
 	if (res) {
-		panic("Tried to make an illegal memory access! \n");
+		panic("Tried to make an illegal memory access with %p! \n", memory_address);
 	}
 
 	return;
