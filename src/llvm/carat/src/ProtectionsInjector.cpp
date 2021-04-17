@@ -42,7 +42,6 @@ ProtectionsInjector::ProtectionsInjector(
     Function *ProtectionsMethod
 ) : F(F), DFR(DFR), NonCanonical(NonCanonical), ProtectionsMethod(ProtectionsMethod), noelle(noelle) 
 {
-   
     /*
      * Set new state from NOELLE
      */ 
@@ -135,6 +134,10 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
         errs() << "Found an intrinsic! Instrumenting for now ... \n" 
                << I << "\n";
 
+
+        /*
+         * APRIL, 2021 --- NOT HANDLING INTRINSICS --- REVISIT
+         */ 
         return;
     }
 
@@ -171,7 +174,9 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
                 &I,
                 NonCanonical, // TODO: change to the stack pointer location during the function call
                 true, /* IsWrite */
-                CARATNamesToMethods[CARAT_STACK_GUARD] 
+                CARATNamesToMethods[CARAT_STACK_GUARD],
+                "protect", /* Metadata type */
+                "non.opt.call.guard" /* Metadata attached to injection */
             );
 
         nonOptimizedGuard++;
@@ -183,7 +188,9 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
                 First,
                 NonCanonical, // TODO: change to the stack pointer location during the function call
                 true, /* IsWrite */ 
-                CARATNamesToMethods[CARAT_STACK_GUARD]
+                CARATNamesToMethods[CARAT_STACK_GUARD],
+                "protect", /* Metadata type */
+                "opt.call.guard" /* Metadata attached to injection */
             );
 
         callGuardOpt++;
@@ -286,7 +293,6 @@ std::vector<Value *> ProtectionsInjector::_buildGenericProtectionArgs(GuardInfo 
     /*
      * Build the call args
      */
-    errs() << "PointerToGuard: " << *(GI->PointerToGuard) << "\n";
     std::vector<Value *> CallArgs = {
         VoidPointerToGuard,
         Builder.getInt32(GI->IsWrite)
@@ -321,16 +327,24 @@ void ProtectionsInjector::_doTheInject(void)
 
 
         /*
-         * Inject the call instruction based on the selected args
+         * Inject the call instruction(s) based on the selected
+         * args and set metadata for each call
          */
-        errs() << "FTI: " << FTI->getName() << "\n";
-        errs() << "CallArgs: \n";
-        for (auto Element : CallArgs) errs() << "\t" << *Element << "\n";
-        CallInst *Instrumentation = 
-              Builder.CreateCall(
-                  FTI, 
-                  ArrayRef<Value *>(CallArgs)
-              );  
+        for (auto N = 0 ; N < GI->NumInjections ; N++)
+        {
+            CallInst *Instrumentation = 
+                Builder.CreateCall(
+                    FTI, 
+                    ArrayRef<Value *>(CallArgs)
+                );  
+
+            Utils::SetInstrumentationMetadata(
+                Instrumentation,
+                GI->MDTypeString,
+                GI->MDLiteral
+            );
+        }
+
     }
 
 
@@ -419,7 +433,9 @@ bool ProtectionsInjector::_optimizeForLoopInvariance(
                 InjectionLocation,
                 PointerOfMemoryInstruction, 
                 IsWrite,
-                CARATNamesToMethods[CARAT_PROTECT]
+                CARATNamesToMethods[CARAT_PROTECT],
+                "protect", /* Metadata type */
+                "loop.ivt.guard" /* Metadata attached to injection */
             );
 
         loopInvariantGuard++;
@@ -491,7 +507,10 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
                 InjectionLocation,
                 StartAddress,
                 IsWrite,
-                CARATNamesToMethods[CARAT_PROTECT]
+                CARATNamesToMethods[CARAT_PROTECT],
+                "protect", /* Metadata type */
+                "iv.scev.guard", /* Metadata attached to injection */
+                2 /* Need 2 injections for IV/SCEV guards --- FIX */
             );
 
         scalarEvolutionGuard++;
@@ -654,7 +673,9 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
                     inst,
                     PointerOfMemoryInstruction, 
                     isWrite,
-                    CARATNamesToMethods[CARAT_PROTECT]
+                    CARATNamesToMethods[CARAT_PROTECT],
+                    "protect", /* Metadata type */
+                    "non.opt.mem.guard" /* Metadata attached to injection */
                 );
 
             nonOptimizedGuard++;

@@ -37,18 +37,41 @@
 class GuardInfo 
 {
 
+    /*
+     * TOP --- Packaging the information necessary to build and inject guards
+     */
+
 public:
+
+    /*
+     * Constructors
+     */
     GuardInfo(
         Instruction *IL,
         Value *PTG,
         bool IW,
-        Function *FTI
-    ) : InjectionLocation(IL), PointerToGuard(PTG), IsWrite(IW), FunctionToInject(FTI) {};
+        Function *FTI,
+        const std::string MDTS,
+        const std::string MDL,
+        unsigned NI=1
+    ) : InjectionLocation(IL), 
+        PointerToGuard(PTG), 
+        IsWrite(IW), 
+        FunctionToInject(FTI),
+        MDTypeString(MDTS),
+        MDLiteral(MDL),
+        NumInjections(NI) {};
 
+
+    /*
+     * Public state
+     */
     Instruction *InjectionLocation;
     Value *PointerToGuard;
     bool IsWrite; /* i.e. store=TRUE, load=FALSE */
     Function *FunctionToInject;
+    const std::string MDTypeString, MDLiteral;
+    unsigned NumInjections;
 
 };
 

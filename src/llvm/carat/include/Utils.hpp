@@ -95,7 +95,7 @@ namespace Utils
     /*
      * Metadata handlers
      */ 
-    void Utils::SetInstrumentationMetadata(
+    void SetInstrumentationMetadata(
         Instruction *I,
         const std::string MDTypeString,
         const std::string MDLiteral
