@@ -26,6 +26,8 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
+#pragma once
+
 #include "Utils.hpp"
 
 using namespace llvm;
@@ -73,6 +75,7 @@ private:
      * Passed state
      */ 
     Module *M;
+    
     Function *Target;
     
 
@@ -80,6 +83,7 @@ private:
      * Analysis state
      */ 
     uint64_t NextGlobalID=0;
+
     std::unordered_map<GlobalValue *, 
                        std::pair<uint64_t, uint64_t>> Globals; /* [global : {size, ID}] */
     
@@ -92,7 +96,9 @@ private:
     /*
      * Private methods
      */ 
-    void _getAllNecessaryInstructions();
-    void _getAllGlobals();
+    void _getAllNecessaryInstructions(void);
+
+    void _getAllGlobals(void);
+
     bool _isGlobalInstrumentable(GlobalValue &Global);
 };

@@ -26,6 +26,8 @@
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
 
+#pragma once
+
 #include "Allocation.hpp"
 
 using namespace llvm;
@@ -44,7 +46,7 @@ public:
     /*
      * Drivers
      */ 
-    void Inject();
+    void Inject(void);
 
 
 private:
@@ -64,6 +66,6 @@ private:
     /*
      * Analysis state
      */ 
-    void _getAllNecessaryInstructions();
+    void _getAllNecessaryInstructions(void);
 
 };

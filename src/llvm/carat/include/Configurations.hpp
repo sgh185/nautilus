@@ -25,6 +25,8 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "LICENSE.txt".
  */
+ 
+#pragma once
 
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
@@ -42,6 +44,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"

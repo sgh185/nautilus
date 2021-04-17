@@ -34,6 +34,8 @@
  * transform. Split into two namespaces for clarity.
  */
 
+#pragma once
+
 #include "Configurations.hpp"
 
 using namespace llvm;
