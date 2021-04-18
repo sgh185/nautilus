@@ -69,8 +69,6 @@ public:
      */ 
     void AnalyzeAllCalls(void);
 
-    void IdentifyAllEscapingPointersViaCall(void);
-
     void PinAllEscapingPointers(void);
 
     void PrintAnalysis(void);
@@ -91,7 +89,9 @@ private:
 
 
     /*
-     * Analysis state --- per function
+     * Analysis state --- per function. Why have so much state? 
+     * Mostly for debugging but also because I didn't engineer 
+     * this right, piss off.
      */ 
     std::unordered_map<
         Function *,
@@ -111,12 +111,12 @@ private:
     std::unordered_map<
         Function *,
         std::unordered_set<CallInst *>
-    > TrackedCallsAffectingMemory; /* Tracked = (Indirect | External function) */
+    > TrackedCallsMayAffectingMemory; /* Tracked = (Indirect | External function) */
 
-    std::unordered_map<
-        Value *, /* [key] Pointer that's escaping */
-        CallInst * /* [val] External function call by which [key] is escaping */
-    > PointersEscapingViaExternalFunctionCalls;
+    std::unordered_map< /* Not per function state b/c why not */
+        CallInst * /* [key] External function call by which [val(s)] is escaping */
+        std::unordered_set<Value *>, /* [val] Pointer(s) that's escaping */
+    > PointersEscapingViaTrackedCalls;
 
 
     /*

@@ -106,10 +106,10 @@ void RestrictionsHandler::PrintAnalysis(void)
 
 
     /*
-     * Print @this->TrackedCallsAffectingMemory
+     * Print @this->TrackedCallsMayAffectingMemory
      */
-    errs() << "--- TrackedCallsAffectingMemory ---\n";
-    for (auto const &[F, Calls] : TrackedCallsAffectingMemory)
+    errs() << "--- TrackedCallsMayAffectingMemory ---\n";
+    for (auto const &[F, Calls] : TrackedCallsMayAffectingMemory)
     {
         errs() << "\n" << F->getName() << "\n";
 
@@ -209,7 +209,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      * - readnone
      * - nocapture (suspicious, but keeping for now ...)
      */
-    bool MayModifyMemory = false;
+    std::unordered_set<Value *> EscapingOperands;
     for (unsigned ArgNo = 0 ; ArgNo < I.getNumArgOperands() ; ArgNo++)
     {
         /*
@@ -223,18 +223,27 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
         /*
          * No positive attribute analysis, so check operand type manually, 
          * look for a possible pointer type passed in the argument. 
+         * 
          * Essentially, may contain pointer type = may modify arg memory
+         *
+         * Track the corresponding operand as escaping for later processing
          */
         Value *Operand = I.getArgOperand(ArgNo);
-        MayModifyMemory |= _mayContainPointerType(Operand->getType());
+        bool MayModifyMemory |= _mayContainPointerType(Operand->getType());
+        if (MayModifyMemory) EscapingOperands.insert(Operand);
     }
 
 
     /*
-     * Track the instruction accordingly
+     * Track the instruction accordingly --- FIX
      */
-    if (!MayModifyMemory) TrackedCallsNotAffectingMemory[Parent].insert(&I);
-    else TrackedCallsAffectingMemory[Parent].insert(&I);
+    if (!(EscapingOperands.size())) TrackedCallsNotAffectingMemory[Parent].insert(&I);
+    else 
+    {
+        TrackedCallsMayAffectingMemory[Parent].insert(&I);
+        for (auto Operand : EscapingOperands)
+            PointersEscapingViaTrackedCalls[&I].insert(Operand);
+    }
 
 
     return;
