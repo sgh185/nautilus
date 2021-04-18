@@ -639,6 +639,67 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	return;
 }
 
+
+/*
+ * =================== Extra Instrumentation Methods ===================  
+ */ 
+
+/*
+ * Explicitly pin a pointer/address in memory
+ */ 
+void nk_carat_pin_address(void *address)
+{
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
+	/*
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY(the_context);
+
+
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF(the_context);
+
+
+    /*
+     * Check if @memory_address is tracked --- if it's not
+     * we don't have to update state
+     *
+     * TODO --- Prove this logic 
+     */ 
+    allocation_entry *entry = 
+        _carat_find_allocation_entry(
+            the_context,
+            address 
+        );
+
+    if (!entry) return;
+
+
+    /*
+     * Set the pin status flag to true
+     */ 
+    entry->is_pinned = true;
+
+
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON(the_context);
+
+
+    return;
+}
+
+
 /*
  * Utility to get %rsp
  */ 

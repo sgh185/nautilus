@@ -353,6 +353,7 @@ void nk_carat_instrument_escapes(void *escaping_address);
  */ 
 void _carat_process_escape_window(nk_carat_context *the_context);
 
+
 /*
  * =================== Protection Handling Methods ===================  
  */ 
@@ -370,4 +371,16 @@ void nk_carat_guard_address(void *memory_address, int is_write);
  * Make sure the stack has enough space to grow to support this guarded call instruction. 
  */
 void nk_carat_guard_callee_stack(uint64_t stack_frame_size);
+
+
+/*
+ * =================== Extra Instrumentation Methods ===================  
+ */ 
+
+/*
+ * Explicitly pin a pointer/address in memory
+ */ 
+void nk_carat_pin_address(void *address);
+
+
 
