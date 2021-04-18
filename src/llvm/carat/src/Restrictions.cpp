@@ -63,7 +63,7 @@ void RestrictionsHandler::PrintAnalysis(void)
      * Check command line arguments
      */
     if (NoRestrictions) return;
-    
+
 
     /*
      * Print @this->IndirectCalls
@@ -92,6 +92,32 @@ void RestrictionsHandler::PrintAnalysis(void)
     }
 
 
+    /*
+     * Print @this->TrackedCallsNotAffectingMemory
+     */
+    errs() << "--- TrackedCallsNotAffectingMemory ---\n";
+    for (auto const &[F, Calls] : TrackedCallsNotAffectingMemory)
+    {
+        errs() << "\n" << F->getName() << "\n";
+
+        for (auto Call : Calls)
+            errs() << "\t" << *Call << "\n";
+    }
+
+
+    /*
+     * Print @this->TrackedCallsAffectingMemory
+     */
+    errs() << "--- TrackedCallsAffectingMemory ---\n";
+    for (auto const &[F, Calls] : TrackedCallsAffectingMemory)
+    {
+        errs() << "\n" << F->getName() << "\n";
+
+        for (auto Call : Calls)
+            errs() << "\t" << *Call << "\n";
+    }
+
+
     return;
 }
 
@@ -111,7 +137,10 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
     Function *Callee = I.getCalledFunction();
 
 
-    // errs() << I << "\n";
+    /*
+     * Fetch parent/caller
+     */
+    Function *Parent = I.getFunction();
 
 
     /*
@@ -127,7 +156,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
     bool AnalyzeArguments = false;
     if (I.isIndirectCall()) /* <Condition 1.> */
     {
-        IndirectCalls[I.getFunction()].insert(&I);
+        IndirectCalls[Parent].insert(&I);
         AnalyzeArguments |= true;
     }
     else if (
@@ -138,7 +167,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
         && !(Callee->isIntrinsic())
     ) /* <Condition 2.> */
     {
-        ExternalFunctionCalls[I.getFunction()].insert(&I);
+        ExternalFunctionCalls[Parent].insert(&I);
         AnalyzeArguments |= true;
     }
 
@@ -148,8 +177,163 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      */
     if (!AnalyzeArguments) return;
 
-    // ...
+    
+    /*
+     * Understand how @I interacts with memory and its args. This
+     * can be accomplished by analyzing the attributes assigned to
+     * the function signature and each argument.
+     * 
+     * First, analyze call instructions that can be identifed to 
+     * only either read memory or not interact with memory
+     */
+    if (I.onlyReadsMemory()) 
+    {
+        TrackedCallsNotAffectingMemory[Parent].insert(&I);
+        return;
+    }
+
+
+    /*
+     * If this determination can't be made, examine each operand
+     * of the call inst and/or arguments of the callee separately
+     *
+     * NOTE --- Check the following attributes for each argument:
+     * - readonly
+     * - readnone
+     * - nocapture (suspicious, but keeping for now ...)
+     */
+    bool MayModifyMemory = false;
+    for (unsigned ArgNo = 0 ; ArgNo < I.getNumArgOperands() ; ArgNo++)
+    {
+        /*
+         * Check if next argument only reads/does not interact with memory
+         */
+        if (false
+            || I.onlyReadsMemory(ArgNo)
+            || I.doesNotCapture(ArgNo)) continue;
+
+
+        /*
+         * No positive attribute analysis, so check operand type manually, 
+         * look for a possible pointer type passed in the argument. 
+         * Essentially, may contain pointer type = may modify arg memory
+         */
+        Value *Operand = I.getArgOperand(ArgNo);
+        MayModifyMemory |= _mayContainPointerType(Operand->getType());
+    }
+
+
+    /*
+     * Track the instruction accordingly
+     */
+    if (!MayModifyMemory) TrackedCallsNotAffectingMemory[Parent].insert(&I);
+    else TrackedCallsAffectingMemory[Parent].insert(&I);
+
 
     return;
+}
+
+
+/*
+ * ---------- Private methods ----------
+ */
+bool RestrictionsHandler::_mayContainPointerType(Type *T)
+{
+    /*
+     * TOP --- Compute if @T contains a pointer type
+     * - Pointer/vector of pointer types
+     * - Struct with reducible types that are pointers/vector of 
+     *   pointer types
+     * - Array with pointer type, or struct with 
+     */
+     
+    /*
+     * Reduce @T to a scalar type --- assert no nested vector types
+     */
+    Type *ScalarType = T->getScalarType();
+    assert(
+        true 
+        && !(ScalarType->isVectorTy())
+        && "_mayContainPointerType: Nested vector type! Can't handle!"
+    );
+
+
+    /*
+     * @T does not contain a pointer type if it's an 
+     * integer, FP, function, or void type
+     */
+    if (false
+        || T->isIntOrIntVectorTy()
+        || T->isFPOrFPVectorTy()
+        || T->isFunctionTy()
+        || T->isVoidTy()) return false;
+
+
+    /*
+     * @T is definitely a pointer type if LLVM can tell at face value
+     */
+    if (T->isPtrOrPtrVectorTy()) return true;
+
+
+    /*
+     * At this point, use the scalar type for further analysis, where
+     * the only types handled from here on are aggregate types
+     */ 
+    assert(
+        true 
+        && !(ScalarType->isAggregateType())
+        && "_mayContainPointerType: Non-aggregate type in further analysis!"
+    );
+
+
+    /*
+     * Parse through ONLY struct and array types based on TypeID
+     */
+    Type::TypeID TID = ScalarType->getTypeID();
+    
+    
+    /*
+     * Recursively find possible pointer member types
+     */
+    switch (TID)
+    {
+        /*
+         * Fetch struct type, loop through all element types, recurse
+         */ 
+        case Type::StructTyID:
+        {
+            bool MayContainPointerType = false;
+            StructType *StructTy = cast<StructType>(ScalarType);
+            for (auto ElementTy : StructTy->elements()) 
+                MayContainPointerType |= _mayContainPointerType(ElementTy);
+            
+            return MayContainPointerType;
+        }
+
+
+        /*
+         * Fetch array type, recurse on element type
+         */ 
+        case Type::ArrayTyID:
+        {
+            ArrayType *ArrayTy = cast<ArrayType>(ScalarType);
+            Type *ElementTy = ArrayTy->getElementType();
+            return _mayContainPointerType(ElementTy);
+        }
+
+
+        /*
+         * Otherwise, abort
+         */ 
+        default:
+        {
+            errs() << "_mayContainPointerType: Cannot handle type: "
+                   << *ScalarType << "...\n";
+            abort();            
+        }
+    }
+
+
+    return false; /* Unlikely */
 }
 

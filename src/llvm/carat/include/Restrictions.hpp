@@ -104,8 +104,24 @@ private:
     > ExternalFunctionCalls;
 
     std::unordered_map<
+        Function *,
+        std::unordered_set<CallInst *>
+    > TrackedCallsNotAffectingMemory; /* Tracked = (Indirect | External function) */
+
+    std::unordered_map<
+        Function *,
+        std::unordered_set<CallInst *>
+    > TrackedCallsAffectingMemory; /* Tracked = (Indirect | External function) */
+
+    std::unordered_map<
         Value *, /* [key] Pointer that's escaping */
         CallInst * /* [val] External function call by which [key] is escaping */
     > PointersEscapingViaExternalFunctionCalls;
 
+
+    /*
+     * Private methods
+     */
+    bool _mayContainPointerType(Type *T);
+    
 };

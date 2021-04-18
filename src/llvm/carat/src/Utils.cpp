@@ -324,7 +324,6 @@ uint64_t Utils::CalculateObjectSize(
                    << *ObjectType << "...\n";
             abort();            
         }
-
     }
 
     
