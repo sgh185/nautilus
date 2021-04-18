@@ -8,10 +8,10 @@ uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence) {
   if (fd <= 2) {
     DEBUG(
         "WARNING: lseek may not be properly implemented for std(in,out,err)\n");
-    return 0;
+    return -1;
   }
-  uint64_t ret;
-  ret = (uint64_t)nk_fs_seek((struct nk_fs_open_file_state*)fd, (off_t)position,
-                             (off_t)whence);
-  return ret;
+  nk_process_t* current_process = GET_PROC();
+  struct nk_fs_open_file_state* nk_fd =
+      fd_to_nk_fs(&current_process->syscall_state.fd_table, fd);
+  return (uint64_t)nk_fs_seek(nk_fd, (off_t)position, (off_t)whence);
 }
