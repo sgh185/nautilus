@@ -64,11 +64,13 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 
 	/*
 	 * Save the address (@address) and the size (@allocation_size), 
-	 * build a new escapes map for the new allocation_entry object
+	 * build a new escapes map for the new allocation_entry object,
+     * set the pin status to the default (false=not pinned)
 	 */ 
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
 	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
+    new_entry->is_pinned = false;
 
 
 	/*
@@ -104,6 +106,7 @@ int _carat_does_alias(void *query_address, void *alloc_address, uint64_t allocat
 	int within_range = (true
 						&& (query_address_int >= allocation_range_start) 
 						&& (query_address_int < allocation_range_end));
+
 
 	return within_range;
 }
@@ -186,6 +189,18 @@ allocation_entry * _carat_find_allocation_entry(
 	 * "prospective_entry" is the correct allocation_entry object! Return it
 	 */ 
 	return prospective_entry;
+}
+
+
+/*
+ * Utility to determine if an address/allocation entry is pinned in memory
+ *
+ * NOTE --- Why is this a utility when it's so simple? Expected to expand 
+ * or modify this method soon.
+ */ 
+bool _is_pinned(allocation_entry *entry)
+{
+    return entry->is_pinned;
 }
 
 
@@ -528,10 +543,6 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	uint64_t num_entries = FETCH_TOTAL_ESCAPES(the_context);
 	void ***the_escape_window = FETCH_ESCAPE_WINDOW(the_context);
 
-#if 0
-	uint64_t num_entries = global_carat_context.total_escape_entries;
-	void ***the_escape_window = global_carat_context.escape_window;
-#endif
 
 	/*
 	 * Build a set of escapes that are already processed --- if we encounter
@@ -593,11 +604,6 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	 * Reset the global escapes counter
 	 */ 
     RESET_ESCAPE_WINDOW(the_context);
-
-
-#if 0
-	global_carat_context.total_escape_entries = 0;
-#endif
 
 
 	return;

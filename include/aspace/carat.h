@@ -191,7 +191,7 @@ typedef carat_context nk_carat_context;
 typedef struct allocation_entry_t { 
 
     /*
-     * Pointer to the allocation, size of allocation
+     * Allocation info (pointer, size) 
      */ 
     void *pointer; 
     uint64_t size;
@@ -201,6 +201,12 @@ typedef struct allocation_entry_t {
      * allocation, the pointer -> void **
      */ 
     nk_carat_escape_set *escapes_set;
+
+    /*
+     * Pin status
+     */ 
+    bool is_pinned;
+
 
 } allocation_entry;
 

@@ -287,6 +287,14 @@ allocation_entry * _carat_find_allocation_entry(
     void *address
 );
 
+
+/*
+ * Determines if an address/allocation entry tracked by the runtime 
+ * tables is pinned in memory
+ */ 
+bool _is_pinned(allocation_entry *entry);
+
+
 /*
  * Statistics --- obvious
  */
