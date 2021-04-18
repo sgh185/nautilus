@@ -184,9 +184,16 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      * the function signature and each argument.
      * 
      * First, analyze call instructions that can be identifed to 
-     * only either read memory or not interact with memory
+     * only either read memory or not interact with memory.
+     *
+     * CAVEAT --- Certain functions are backstopped b/c they are 
+     * arbitrarily difficult to analyze (e.g. printf, since it's 
+     * a variadic function) but we (users) know their semantics.
+     * TODO --- Implement properly
      */
-    if (I.onlyReadsMemory()) 
+    if (false
+        || I.onlyReadsMemory()
+        || (Callee && (Callee->getName() == "printf")) /* FIX */) 
     {
         TrackedCallsNotAffectingMemory[Parent].insert(&I);
         return;
