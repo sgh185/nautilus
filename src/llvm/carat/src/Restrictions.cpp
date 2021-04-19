@@ -46,14 +46,18 @@ void RestrictionsHandler::AnalyzeAllCalls(void)
 
     /*
      * TOP --- Find ALL indirect calls and calls to external
-     * functions across the entire module via visitor
+     * functions across the entire function via visitor
      */
-    for (auto &F : *M) 
-        if (Utils::IsInstrumentable(F))
-            this->visit(&F);
+    this->visit(&F);
 
 
     return;
+}
+
+
+void RestrictionsHandler::PinAllEscapingPointers(void)
+{
+
 }
 
 
@@ -65,57 +69,39 @@ void RestrictionsHandler::PrintAnalysis(void)
     if (NoRestrictions) return;
 
 
+    errs() << F->getName() << "\n";
+
+
     /*
      * Print @this->IndirectCalls
      */
     errs() << "--- IndirectCalls ---\n";
-    for (auto const &[F, Calls] : IndirectCalls)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
-
+    for (auto Call : IndirectCalls)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
      * Print @this->ExternalFunctionCalls
      */
     errs() << "--- ExternalFunctionCalls ---\n";
-    for (auto const &[F, Calls] : ExternalFunctionCalls)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    for (auto Call : ExternalFunctionCalls)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
      * Print @this->TrackedCallsNotAffectingMemory
      */
     errs() << "--- TrackedCallsNotAffectingMemory ---\n";
-    for (auto const &[F, Calls] : TrackedCallsNotAffectingMemory)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    for (auto Call : TrackedCallsNotAffectingMemory)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
      * Print @this->TrackedCallsMayAffectingMemory
      */
     errs() << "--- TrackedCallsMayAffectingMemory ---\n";
-    for (auto const &[F, Calls] : TrackedCallsMayAffectingMemory)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    for (auto Call : TrackedCallsMayAffectingMemory)
+        errs() << "\t" << *Call << "\n";
 
 
     return;

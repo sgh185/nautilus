@@ -61,7 +61,7 @@ public:
     /*
      * Constructors
      */ 
-    RestrictionsHandler(Module *M);
+    RestrictionsHandler(Function *F);
 
 
     /*
@@ -85,7 +85,7 @@ private:
     /*
      * Passed state
      */ 
-    Module *M;
+    Function *F;
 
 
     /*
@@ -93,27 +93,15 @@ private:
      * Mostly for debugging but also because I didn't engineer 
      * this right, piss off.
      */ 
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > IndirectCalls;
+    std::unordered_set<CallInst *> IndirectCalls;
+    
+    std::unordered_set<CallInst *> ExternalFunctionCalls;
+
+    std::unordered_set<CallInst *> TrackedCallsNotAffectingMemory; /* Tracked = (Indirect | External function) */
+
+    std::unordered_set<CallInst *> TrackedCallsMayAffectingMemory; /* Tracked = (Indirect | External function) */
 
     std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > ExternalFunctionCalls;
-
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > TrackedCallsNotAffectingMemory; /* Tracked = (Indirect | External function) */
-
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > TrackedCallsMayAffectingMemory; /* Tracked = (Indirect | External function) */
-
-    std::unordered_map< /* Not per function state b/c why not */
         CallInst * /* [key] External function call by which [val(s)] is escaping */
         std::unordered_set<Value *>, /* [val] Pointer(s) that's escaping */
     > PointersEscapingViaTrackedCalls;
