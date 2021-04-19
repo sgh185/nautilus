@@ -21,8 +21,12 @@ void _nk_carat_globals_compiler_target(void) ;
 /*
  * Compiler target to insert globals
  */ 
-__attribute__((constructor, noinline, optnone, used, annotate("nocarat")))
+__attribute__((constructor, optnone, noinline, used, annotate("nocarat")))
 void _nk_carat_globals_compiler_target(void) {
+    /*
+     * HACK
+     */ 
+    rand();
     return;
 }
 
