@@ -290,7 +290,7 @@ bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
      * the symbol with size 0 and no classification (not O, F, etc.)
      * 
      * 3) 
-     * We cannot instrument the global carat context itself
+     * We cannot instrument the LLVM constructor tracking array (for user code)
      * 
      * 4)
      * We cannot instrument the global pointer (that points to
@@ -299,7 +299,7 @@ bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
     if (false
         || Global.hasPrivateLinkage()
         || !(Global.hasExactDefinition())
-        || (Global.getName() == "global_carat_context")
+        || (Global.getName() == "llvm.global_ctors") /* HACK */
         || (Global.getName() == "non_canonical")) return false;
 
 
