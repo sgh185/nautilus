@@ -527,7 +527,10 @@ static void * (*__nk_func_table[])() = {
     [NK_CARAT_INSTRUMENT_FREE] = (void * (*)()) nk_carat_instrument_free,
     [NK_CARAT_INSTRUMENT_ESCAPE] = (void * (*)()) nk_carat_instrument_escapes,
     [NK_CARAT_GENERIC_PROTECT] = (void * (*)()) nk_carat_guard_address,
-    [NK_CARAT_STACK_PROTECT] = (void * (*)()) nk_carat_guard_callee_stack
+    [NK_CARAT_STACK_PROTECT] = (void * (*)()) nk_carat_guard_callee_stack,
+    [NK_MALLOC] = (void * (*)()) kmem_malloc,
+    [NK_FREE] = (void * (*)()) kmem_free,
+    [NK_REALLOC] = (void * (*)()) kmem_realloc,
 };
 
 int 

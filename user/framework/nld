@@ -17,7 +17,17 @@ CRTBE_DIR=/usr/lib/gcc/x86_64-redhat-linux/8
 OUT_FLAG=$(echo "$*" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
 
-make framework -C $DIRNAME
+SNIPPED_ARGS=$*
+
+# To make a better system for this
+if [[ $* != *-nkmalloc* ]]; then
+  rm $DIRNAME/framework.o
+  make framework -C $DIRNAME
+else
+  rm $DIRNAME/framework.o
+  make framework FRAMEWORK_FLAGS=-DUSE_NK_MALLOC -C $DIRNAME
+  SNIPPED_ARGS=$(echo $SNIPPED_ARGS | sed 's/-nkmalloc//')
+fi
 
 if [[ $* != *-nokarat* ]]; then
   USER_OBJ=target.o
@@ -47,7 +57,7 @@ if [[ $* != *-nokarat* ]]; then
 else
   echo "Called with -nokarat"
   set -x
-  SNIPPED_ARGS=$(echo $* | sed 's/-nokarat//')
+  SNIPPED_ARGS=$(echo $SNIPPED_ARGS | sed 's/-nokarat//')
   ld -r $SNIPPED_ARGS $DIRNAME/glue.o $DIRNAME/framework.o -o target.o
 fi
 
