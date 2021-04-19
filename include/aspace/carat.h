@@ -205,7 +205,7 @@ typedef struct allocation_entry_t {
     /*
      * Pin status
      */ 
-    bool is_pinned;
+    int is_pinned;
 
 
 } allocation_entry;
