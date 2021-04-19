@@ -156,6 +156,30 @@ continue_context_switch:
     movq %rax, %gs:0x0  /* make it the new current thread */
     movq (%rax), %rsp   /* load its stack pointer */
 
+check_pending_signals:
+#if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
+    /* Enable interrupts? */
+    //movq %gs:0x0, %rax
+    pushq %rdi
+    pushq %rsi
+    pushq %rax
+    movq 32(%rax), %rdi
+    testq %rdi, %rdi
+    jz no_pending_signals /* No work to do, just return */
+    /* Need to restore regs (or just pass top of stack to do_notify_resume) */
+    movq %rdi, %rsi
+    //movq %rsp, %rdi
+    movq 0x0(%rax), %rdi
+    callq do_notify_resume
+    /* Disable interrupts? */
+    /* jump back to need resched to check all this again? */
+
+no_pending_signals:
+    popq %rax
+    popq %rsi
+    popq %rdi
+#endif /* if not enabled, just fall through like usual */
+
 #ifdef NAUT_CONFIG_FPU_SAVE
     /* Restore the FPRs */
     movzwq 16(%rax), %rbx
