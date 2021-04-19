@@ -380,7 +380,11 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size);
 /*
  * Explicitly pin a pointer/address in memory
  */ 
-void nk_carat_pin_address(void *address);
+void nk_carat_pin_pointer(void *address);
 
 
+/*
+ * Explicitly pin the pointer/address stored within an escape 
+ */ 
+void nk_carat_pin_escaped_pointer(void *escape);
 

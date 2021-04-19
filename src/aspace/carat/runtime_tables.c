@@ -289,6 +289,21 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
     return;
 }
 
+#if 0
+thread 1:
+malloc --- successful
+instrument_malloc
+- interrupted in here
+
+thread 2:
+malloc --- successful
+instrument_malloc --- return immediately
+...
+carat_move
+
+thread 1:
+#endif
+
 
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
@@ -601,7 +616,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	DHQ(missed_escapes_counter);
 	DS("\n");
 	/*
-	 * Reset the global escapes counter
+	 * Reset the escapes counter for @the_context
 	 */ 
     RESET_ESCAPE_WINDOW(the_context);
 
@@ -647,7 +662,8 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 /*
  * Explicitly pin a pointer/address in memory
  */ 
-void nk_carat_pin_address(void *address)
+NO_CARAT_NO_INLINE
+void nk_carat_pin_pointer(void *address)
 {
     /*
      * Fetch the current thread's carat context 
@@ -694,6 +710,25 @@ void nk_carat_pin_address(void *address)
      * Turn on CARAT upon exit
      */ 
     CARAT_READY_ON(the_context);
+
+
+    return;
+}
+
+
+/*
+ * Explicitly pin the pointer/address stored within an escape 
+ */ 
+NO_CARAT_NO_INLINE
+void nk_carat_pin_escaped_pointer(void *escape)
+{
+    /*
+     * To properly pin the pointer stored within @escape,
+     * simply dereference @escape and pin the casted pointer
+     * to nk_carat_pin_pointer
+     */ 
+    void *escaped_pointer = ((void *) *escape); 
+    nk_carat_pin_pointer(escaped_pointer);
 
 
     return;
