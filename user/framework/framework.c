@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <nautilus/nautilus_exe.h>
 
 
@@ -52,6 +53,31 @@ void __nk_exec_entry(void *in, void **out, void * (**table)())
         : "rax", "rcx"
     );
 }
+
+#ifdef USE_NK_MALLOC
+
+__attribute__((malloc))
+void* malloc(size_t x) {
+    return __nk_func_table[NK_MALLOC](x);
+}
+
+__attribute__((malloc))
+void* calloc(size_t num, size_t size) {
+    const size_t total_size = num * size;
+    void* allocation = __nk_func_table[NK_MALLOC](total_size);
+    memset(allocation, 0, total_size);
+    return allocation;
+}
+
+void free(void* x) {
+    __nk_func_table[NK_FREE](x);
+}
+
+void* realloc(void* p, size_t s) {
+    return __nk_func_table[NK_REALLOC](p, s);
+}
+
+#endif
 
 __attribute__((noinline, used, annotate("nocarat")))
 void * nk_func_table_access(volatile int entry_no, void *arg1, void *arg2) {

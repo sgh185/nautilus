@@ -46,6 +46,9 @@ struct nk_crt_proc_args {
 #define NK_CARAT_STACK_PROTECT 11
 #define NK_CARAT_PIN_DIRECT 12
 #define NK_CARAT_PIN_ESCAPE 13
+#define NK_MALLOC 14
+#define NK_FREE 15
+#define NK_REALLOC 16
 
 
 #ifdef NAUTILUS_EXE
