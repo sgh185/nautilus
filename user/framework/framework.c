@@ -98,6 +98,16 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
     __nk_func_table[NK_CARAT_STACK_PROTECT](stack_frame_size);
 }
 
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_pin_pointer(void *address) {
+    __nk_func_table[NK_CARAT_PIN_DIRECT](address);
+}
+
+__attribute__((noinline, used, annotate("nocarat")))
+void nk_carat_pin_escaped_pointer(void *escape) {
+    __nk_func_table[NK_CARAT_PIN_ESCAPE](escape);
+}
+
 
 #if 0
 /*
