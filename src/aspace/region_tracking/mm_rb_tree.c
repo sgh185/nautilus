@@ -1062,6 +1062,9 @@ mm_struct_t * mm_rb_tree_create() {
     rbtree->super.vptr->update_region = &rb_tree_update_region;
     rbtree->super.vptr->remove = &rb_tree_remove;
     rbtree->super.vptr->contains = &rb_tree_contains;
+    rbtree->super.vptr->next_smallest = &rb_tree_next_smallest_wrap;
+    rbtree->super.vptr->prev_largest = &rb_tree_prev_largest_wrap;
+
     rbtree->super.vptr->destroy = &mm_rb_tree_destroy;
 
     rbtree->NIL = create_rb_NIL();
