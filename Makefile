@@ -805,7 +805,7 @@ karat: ~/CAT/lib/KARAT.so $(LL_NAME) $(BIN_NAME)
 	# Run select loop simplification passes
 	opt -loop-simplify -lcssa -S $(LL_NAME) -o $(LL_SIMPLIFY_NAME)
 	# Run KARAT pass	
-	opt -load $< -karat -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) > karat.out 2>&1 
+	opt -load $< -karat -fno-restrictions -S $(LL_SIMPLIFY_NAME) -o $(OPT_LL_NAME) > karat.out 2>&1 
 
 ifdef NAUT_CONFIG_USE_NOELLE
 noelle_download:  

@@ -46,14 +46,18 @@ void RestrictionsHandler::AnalyzeAllCalls(void)
 
     /*
      * TOP --- Find ALL indirect calls and calls to external
-     * functions across the entire module via visitor
+     * functions across the entire function via visitor
      */
-    for (auto &F : *M) 
-        if (Utils::IsInstrumentable(F))
-            this->visit(&F);
+    this->visit(&F);
 
 
     return;
+}
+
+
+void RestrictionsHandler::PinAllEscapingPointers(void)
+{
+
 }
 
 
@@ -65,57 +69,39 @@ void RestrictionsHandler::PrintAnalysis(void)
     if (NoRestrictions) return;
 
 
+    errs() << F->getName() << "\n";
+
+
     /*
      * Print @this->IndirectCalls
      */
     errs() << "--- IndirectCalls ---\n";
-    for (auto const &[F, Calls] : IndirectCalls)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
-
+    for (auto Call : IndirectCalls)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
      * Print @this->ExternalFunctionCalls
      */
     errs() << "--- ExternalFunctionCalls ---\n";
-    for (auto const &[F, Calls] : ExternalFunctionCalls)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    for (auto Call : ExternalFunctionCalls)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
      * Print @this->TrackedCallsNotAffectingMemory
      */
     errs() << "--- TrackedCallsNotAffectingMemory ---\n";
-    for (auto const &[F, Calls] : TrackedCallsNotAffectingMemory)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    for (auto Call : TrackedCallsNotAffectingMemory)
+        errs() << "\t" << *Call << "\n";
 
 
     /*
-     * Print @this->TrackedCallsAffectingMemory
+     * Print @this->TrackedCallsMayAffectingMemory
      */
-    errs() << "--- TrackedCallsAffectingMemory ---\n";
-    for (auto const &[F, Calls] : TrackedCallsAffectingMemory)
-    {
-        errs() << "\n" << F->getName() << "\n";
-
-        for (auto Call : Calls)
-            errs() << "\t" << *Call << "\n";
-    }
+    errs() << "--- TrackedCallsMayAffectingMemory ---\n";
+    for (auto Call : TrackedCallsMayAffectingMemory)
+        errs() << "\t" << *Call << "\n";
 
 
     return;
@@ -184,9 +170,16 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      * the function signature and each argument.
      * 
      * First, analyze call instructions that can be identifed to 
-     * only either read memory or not interact with memory
+     * only either read memory or not interact with memory.
+     *
+     * CAVEAT --- Certain functions are backstopped b/c they are 
+     * arbitrarily difficult to analyze (e.g. printf, since it's 
+     * a variadic function) but we (users) know their semantics.
+     * TODO --- Implement properly
      */
-    if (I.onlyReadsMemory()) 
+    if (false
+        || I.onlyReadsMemory()
+        || (Callee && (Callee->getName() == "printf")) /* FIX */) 
     {
         TrackedCallsNotAffectingMemory[Parent].insert(&I);
         return;
@@ -202,7 +195,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      * - readnone
      * - nocapture (suspicious, but keeping for now ...)
      */
-    bool MayModifyMemory = false;
+    std::unordered_set<Value *> EscapingOperands;
     for (unsigned ArgNo = 0 ; ArgNo < I.getNumArgOperands() ; ArgNo++)
     {
         /*
@@ -216,18 +209,27 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
         /*
          * No positive attribute analysis, so check operand type manually, 
          * look for a possible pointer type passed in the argument. 
+         * 
          * Essentially, may contain pointer type = may modify arg memory
+         *
+         * Track the corresponding operand as escaping for later processing
          */
         Value *Operand = I.getArgOperand(ArgNo);
-        MayModifyMemory |= _mayContainPointerType(Operand->getType());
+        bool MayModifyMemory |= _mayContainPointerType(Operand->getType());
+        if (MayModifyMemory) EscapingOperands.insert(Operand);
     }
 
 
     /*
-     * Track the instruction accordingly
+     * Track the instruction accordingly --- FIX
      */
-    if (!MayModifyMemory) TrackedCallsNotAffectingMemory[Parent].insert(&I);
-    else TrackedCallsAffectingMemory[Parent].insert(&I);
+    if (!(EscapingOperands.size())) TrackedCallsNotAffectingMemory[Parent].insert(&I);
+    else 
+    {
+        TrackedCallsMayAffectingMemory[Parent].insert(&I);
+        for (auto Operand : EscapingOperands)
+            PointersEscapingViaTrackedCalls[&I].insert(Operand);
+    }
 
 
     return;

@@ -287,6 +287,14 @@ allocation_entry * _carat_find_allocation_entry(
     void *address
 );
 
+
+/*
+ * Determines if an address/allocation entry tracked by the runtime 
+ * tables is pinned in memory
+ */ 
+bool _is_pinned(allocation_entry *entry);
+
+
 /*
  * Statistics --- obvious
  */
@@ -345,6 +353,7 @@ void nk_carat_instrument_escapes(void *escaping_address);
  */ 
 void _carat_process_escape_window(nk_carat_context *the_context);
 
+
 /*
  * =================== Protection Handling Methods ===================  
  */ 
@@ -362,4 +371,20 @@ void nk_carat_guard_address(void *memory_address, int is_write);
  * Make sure the stack has enough space to grow to support this guarded call instruction. 
  */
 void nk_carat_guard_callee_stack(uint64_t stack_frame_size);
+
+
+/*
+ * =================== Extra Instrumentation Methods ===================  
+ */ 
+
+/*
+ * Explicitly pin a pointer/address in memory
+ */ 
+void nk_carat_pin_pointer(void *address);
+
+
+/*
+ * Explicitly pin the pointer/address stored within an escape 
+ */ 
+void nk_carat_pin_escaped_pointer(void *escape);
 

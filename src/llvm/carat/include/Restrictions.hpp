@@ -61,15 +61,13 @@ public:
     /*
      * Constructors
      */ 
-    RestrictionsHandler(Module *M);
+    RestrictionsHandler(Function *F);
 
 
     /*
      * Drivers
      */ 
     void AnalyzeAllCalls(void);
-
-    void IdentifyAllEscapingPointersViaCall(void);
 
     void PinAllEscapingPointers(void);
 
@@ -87,36 +85,26 @@ private:
     /*
      * Passed state
      */ 
-    Module *M;
+    Function *F;
 
 
     /*
-     * Analysis state --- per function
+     * Analysis state --- per function. Why have so much state? 
+     * Mostly for debugging but also because I didn't engineer 
+     * this right, piss off.
      */ 
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > IndirectCalls;
+    std::unordered_set<CallInst *> IndirectCalls;
+    
+    std::unordered_set<CallInst *> ExternalFunctionCalls;
+
+    std::unordered_set<CallInst *> TrackedCallsNotAffectingMemory; /* Tracked = (Indirect | External function) */
+
+    std::unordered_set<CallInst *> TrackedCallsMayAffectingMemory; /* Tracked = (Indirect | External function) */
 
     std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > ExternalFunctionCalls;
-
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > TrackedCallsNotAffectingMemory; /* Tracked = (Indirect | External function) */
-
-    std::unordered_map<
-        Function *,
-        std::unordered_set<CallInst *>
-    > TrackedCallsAffectingMemory; /* Tracked = (Indirect | External function) */
-
-    std::unordered_map<
-        Value *, /* [key] Pointer that's escaping */
-        CallInst * /* [val] External function call by which [key] is escaping */
-    > PointersEscapingViaExternalFunctionCalls;
+        CallInst * /* [key] External function call by which [val(s)] is escaping */
+        std::unordered_set<Value *>, /* [val] Pointer(s) that's escaping */
+    > PointersEscapingViaTrackedCalls;
 
 
     /*

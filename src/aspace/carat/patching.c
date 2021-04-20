@@ -213,6 +213,7 @@ static void _carat_patch_thread_registers(struct nk_thread *t, void *state)
     return;
 }
 
+
 /*
  * Search through all addresses in the thread's stack 
  * and patch any of them that refer to the allocation being moved
@@ -246,6 +247,7 @@ static void _carat_patch_thread_stack(struct nk_thread *t, void *state)
     }
 }
 
+
 /*
  * Patch the stack and the registers for a given thread.
  * This function is passed into and called by nk_sched_map_threads
@@ -256,6 +258,7 @@ static void _carat_patch_thread_registers_and_stack(struct nk_thread *t, void *s
     _carat_patch_thread_registers(t, state);
     _carat_patch_thread_stack(t, state);
 }
+
 
 /*
  * Catches the runtime up before any move happens
@@ -309,7 +312,18 @@ int _move_allocation(
 
     if (!entry) 
     {
-        CARAT_PRINT("CARAT: Cannot find entry\n");
+        CARAT_PRINT("CARAT: Cannot find entry!\n");
+        goto out_bad;
+    }
+
+
+    /*
+     * If @allocation_to_move is pinned according to the fetched
+     * entry, we have to fail --- return -1
+     */
+    if (_is_pinned(entry)) 
+    {
+        CARAT_PRINT("CARAT: Entry and associated address is pinned!\n");
         goto out_bad;
     }
 
@@ -348,7 +362,7 @@ int _move_allocation(
 
 out_bad:
     CARAT_PRINT(
-        "_move_allocation failed: Allocation to move: %p, Allocation target: %p", 
+        "_move_allocation: failed. allocation to move: %p, allocation target: %p", 
         allocation_to_move, 
         allocation_target
     );
@@ -406,7 +420,7 @@ int nk_carat_move_allocation(
 
 out_bad:
     CARAT_PRINT(
-        "nk_carat_move_allocation: Allocation to move: %p, Allocation target: %p", 
+        "nk_carat_move_allocation: faileed. allocation to move: %p, allocation target: %p", 
         allocation_to_move, 
         allocation_target
     );

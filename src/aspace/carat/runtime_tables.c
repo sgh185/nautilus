@@ -64,11 +64,13 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 
 	/*
 	 * Save the address (@address) and the size (@allocation_size), 
-	 * build a new escapes map for the new allocation_entry object
+	 * build a new escapes map for the new allocation_entry object,
+     * set the pin status to the default (false=not pinned)
 	 */ 
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
 	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
+    new_entry->is_pinned = false;
 
 
 	/*
@@ -104,6 +106,7 @@ int _carat_does_alias(void *query_address, void *alloc_address, uint64_t allocat
 	int within_range = (true
 						&& (query_address_int >= allocation_range_start) 
 						&& (query_address_int < allocation_range_end));
+
 
 	return within_range;
 }
@@ -186,6 +189,18 @@ allocation_entry * _carat_find_allocation_entry(
 	 * "prospective_entry" is the correct allocation_entry object! Return it
 	 */ 
 	return prospective_entry;
+}
+
+
+/*
+ * Utility to determine if an address/allocation entry is pinned in memory
+ *
+ * NOTE --- Why is this a utility when it's so simple? Expected to expand 
+ * or modify this method soon.
+ */ 
+bool _is_pinned(allocation_entry *entry)
+{
+    return entry->is_pinned;
 }
 
 
@@ -273,6 +288,21 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
 
     return;
 }
+
+#if 0
+thread 1:
+malloc --- successful
+instrument_malloc
+- interrupted in here
+
+thread 2:
+malloc --- successful
+instrument_malloc --- return immediately
+...
+carat_move
+
+thread 1:
+#endif
 
 
 NO_CARAT_NO_INLINE
@@ -528,10 +558,6 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	uint64_t num_entries = FETCH_TOTAL_ESCAPES(the_context);
 	void ***the_escape_window = FETCH_ESCAPE_WINDOW(the_context);
 
-#if 0
-	uint64_t num_entries = global_carat_context.total_escape_entries;
-	void ***the_escape_window = global_carat_context.escape_window;
-#endif
 
 	/*
 	 * Build a set of escapes that are already processed --- if we encounter
@@ -590,14 +616,9 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	DHQ(missed_escapes_counter);
 	DS("\n");
 	/*
-	 * Reset the global escapes counter
+	 * Reset the escapes counter for @the_context
 	 */ 
     RESET_ESCAPE_WINDOW(the_context);
-
-
-#if 0
-	global_carat_context.total_escape_entries = 0;
-#endif
 
 
 	return;
@@ -632,6 +653,87 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 
 	return;
 }
+
+
+/*
+ * =================== Extra Instrumentation Methods ===================  
+ */ 
+
+/*
+ * Explicitly pin a pointer/address in memory
+ */ 
+NO_CARAT_NO_INLINE
+void nk_carat_pin_pointer(void *address)
+{
+    /*
+     * Fetch the current thread's carat context 
+     */ 
+    CHECK_CARAT_BOOTSTRAP_FLAG; 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+
+	/*
+	 * Only proceed if CARAT is ready (from context init) --- NOTE --- any
+	 * allocation before CARAT is ready will NOT be tracked
+	 */
+	CHECK_CARAT_READY(the_context);
+
+
+    /*
+     * Turn off CARAT in order to perform instrumentation
+     */ 
+    CARAT_READY_OFF(the_context);
+
+
+    /*
+     * Check if @memory_address is tracked --- if it's not
+     * we don't have to update state
+     *
+     * TODO --- Prove this logic 
+     */ 
+    allocation_entry *entry = 
+        _carat_find_allocation_entry(
+            the_context,
+            address 
+        );
+
+    if (!entry) return;
+
+
+    /*
+     * Set the pin status flag to true
+     */ 
+    entry->is_pinned = true;
+
+
+    /*
+     * Turn on CARAT upon exit
+     */ 
+    CARAT_READY_ON(the_context);
+
+
+    return;
+}
+
+
+/*
+ * Explicitly pin the pointer/address stored within an escape 
+ */ 
+NO_CARAT_NO_INLINE
+void nk_carat_pin_escaped_pointer(void *escape)
+{
+    /*
+     * To properly pin the pointer stored within @escape,
+     * simply dereference @escape and pin the casted pointer
+     * to nk_carat_pin_pointer
+     */ 
+    void *escaped_pointer = ((void *) *escape); 
+    nk_carat_pin_pointer(escaped_pointer);
+
+
+    return;
+}
+
 
 /*
  * Utility to get %rsp

@@ -148,9 +148,17 @@ struct CAT : public ModulePass
         /*
          * Analysis on prototype restrictions
          */
-        RestrictionsHandler RH = RestrictionsHandler(&M);
-        RH.AnalyzeAllCalls();
-        RH.PrintAnalysis();
+        for (auto &F : M) 
+        {
+            if (Utils::IsInstrumentable(F))
+            {
+                RestrictionsHandler RH = RestrictionsHandler(&F);
+                RH.AnalyzeAllCalls();
+                RH.PrintAnalysis();
+            }
+        }
+
+
 
 
 #if NAUT_CONFIG_USE_NOELLE
