@@ -51,6 +51,7 @@ sig_thread1 (void *in, void **out)
     while (1) {
         if (sig_n >= 2) {
             nk_vc_printf("Thread 1 exiting. Success!\n");
+            sig_n = 0;
             return;
         }
     }

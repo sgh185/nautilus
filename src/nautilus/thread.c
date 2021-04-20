@@ -372,7 +372,7 @@ nk_thread_create (nk_thread_fun_t fun,
 #ifdef NAUT_CONFIG_PROCESSES
     // a thread will not belong to a process by default
     t->process = NULL;
-    if (nk_signal_init_task_state(&t->signal_state)) {
+    if (nk_signal_init_task_state(&t->signal_state, t)) {
         THREAD_ERROR("Failed to initialize signal state :(\n");
         return -1;
     }
