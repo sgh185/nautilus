@@ -127,7 +127,7 @@ static void _update_lru_cache_tracking_list(
      * tracking list, and reinitialize @entry's tracking
      * list node to add to the head of @cache's tracking list
      */ 
-    struct list_node *tracking_list_node = &(entry->tracking_list_node);
+    struct list_head *tracking_list_node = &(entry->tracking_list_node);
     list_del_init(tracking_list_node);
     list_add(
         tracking_list_node,
@@ -170,6 +170,12 @@ static void _evict_entry_from_lru_cache(lru_cache *cache)
      * Delete this entry from @cache's hash table
      */ 
     list_del(&(entry_to_evict->table_node));
+
+
+    /*
+     * Delete this entry from @cache's tracking list
+     */ 
+    list_del(&(entry_to_evict->tracking_list_node));
     
 
     /*
@@ -181,7 +187,7 @@ static void _evict_entry_from_lru_cache(lru_cache *cache)
     /*
      * Decrement @cache's entries stats
      */ 
-    @cache->entry_count -= 1;
+    cache->entry_count -= 1;
 
 
     return;
@@ -214,7 +220,7 @@ unsigned query_lru_cache(
      */
     unsigned is_present = 0;
     lru_cache_entry *iterator;
-    list_for_each(iterator, entry_list, table_node)
+    list_for_each_entry(iterator, entry_list, table_node)
     {
         if (iterator->value == value)
         {
@@ -283,8 +289,8 @@ void add_to_lru_cache(
      */ 
     unsigned index =
         (entry_index == -1) ?
-        (entry_index) :
-        (_hash_for_lru_cache(value)) ;
+        (_hash_for_lru_cache(value)) :
+        (entry_index) ;
 
 
     /*
@@ -331,10 +337,10 @@ void debug_lru_cache(lru_cache *cache)
     nk_vc_printf("hash table:\n");
     for (unsigned i = 0 ; i < LRU_CACHE_SIZE ; i++)
     {
-        nk_vc_printf("%u: ");
+        nk_vc_printf("%u: ", i);
         struct list_head *entry_list = &(cache->entries[i]);
         lru_cache_entry *iterator;
-        list_for_each(iterator, entry_list, table_node) nk_vc_printf("%lu ", iterator->value);
+        list_for_each_entry(iterator, entry_list, table_node) nk_vc_printf("%lu ", iterator->value);
         nk_vc_printf("\n");
     }
 
@@ -345,7 +351,8 @@ void debug_lru_cache(lru_cache *cache)
     nk_vc_printf("tracking list:\n");
     struct list_head *tracking_list = &(cache->tracking_list);
     lru_cache_entry *iterator;
-    list_for_each(iterator, tracking_list, tracking_list_node) nk_vc_printf("%lu ", iterator->value);
+    list_for_each_entry(iterator, tracking_list, tracking_list_node) nk_vc_printf("%lu ", iterator->value);
+    nk_vc_printf("\n");
 
 
     return;
