@@ -396,7 +396,7 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
 
 static int request_permission(void * state, void * address, int is_write) {
 
-    nk_aspace_carat_t *carat = (nk_aspace_carat_t *) (((nk_aspace_t *) state)->state);
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 

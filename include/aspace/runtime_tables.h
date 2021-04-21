@@ -39,7 +39,6 @@
 #include <aspace/carat.h>
 
 
-
 /*
  * =================== Interfaces for runtime table data structures ===================  
  * 
@@ -292,7 +291,7 @@ allocation_entry * _carat_find_allocation_entry(
  * Determines if an address/allocation entry tracked by the runtime 
  * tables is pinned in memory
  */ 
-bool _is_pinned(allocation_entry *entry);
+int _is_pinned(allocation_entry *entry);
 
 
 /*

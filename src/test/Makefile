@@ -8,6 +8,7 @@ obj-y += futures.o
 obj-y += bsp.o
 obj-y += net_udp_echo.o
 obj-y += test.o
+obj-y += lru_cache_test.o
 
 obj-$(NAUT_CONFIG_ASPACE_CARAT) += skiplist_test.o \
                                    map_test.o

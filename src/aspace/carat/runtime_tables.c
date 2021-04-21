@@ -198,7 +198,7 @@ allocation_entry * _carat_find_allocation_entry(
  * NOTE --- Why is this a utility when it's so simple? Expected to expand 
  * or modify this method soon.
  */ 
-bool _is_pinned(allocation_entry *entry)
+int _is_pinned(allocation_entry *entry)
 {
     return entry->is_pinned;
 }
@@ -646,9 +646,9 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
  	 * Check to see if the requested memory access is valid. 
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
-	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
+	int res = nk_aspace_request_permission(get_cur_thread()->aspace->state, memory_address, is_write);
 	if (res) {
-		panic("Tried to make an illegal memory access with %p! \n", memory_address);
+        panic("Tried to make an illegal memory access with %p! \n", memory_address);
 	}
 
 	return;
@@ -727,7 +727,7 @@ void nk_carat_pin_escaped_pointer(void *escape)
      * simply dereference @escape and pin the casted pointer
      * to nk_carat_pin_pointer
      */ 
-    void *escaped_pointer = ((void *) *escape); 
+    void *escaped_pointer = *((void **) escape); 
     nk_carat_pin_pointer(escaped_pointer);
 
 
