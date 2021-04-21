@@ -82,6 +82,6 @@ int nk_thread_group_delete(nk_thread_group_t *group);
 uint64_t nk_thread_group_get_size(nk_thread_group_t *group);
 
 // return the next thread in the group that passes conditional function
-struct nk_thread *nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t)); 
+struct nk_thread *nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t, void *s), void *state); 
 
 #endif /* _GROUP_H */
