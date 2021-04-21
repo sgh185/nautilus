@@ -132,6 +132,8 @@ void add_to_lru_cache(
     unsigned entry_index /* Default=-1 */
 );
 
+void debug_lru_cache(lru_cache *cache);
+
 
 #ifdef __cplusplus
 }

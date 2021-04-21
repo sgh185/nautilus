@@ -206,7 +206,7 @@ unsigned query_lru_cache(
     /*
      * Fetch the corresponding entry list from @cache->entries
      */ 
-    struct list_head entry_list = cache->entries[index];
+    struct list_head *entry_list = &(cache->entries[index]);
 
 
     /*
@@ -316,5 +316,38 @@ void add_to_lru_cache(
 }
 
 
+void debug_lru_cache(lru_cache *cache)
+{
+    /*
+     * Print statistics
+     */ 
+    nk_vc_printf("---------- debug_lru_cache ----------\n");
+    nk_vc_printf("entry_count: %u\n", cache->entry_count); 
 
+
+    /*
+     * Print hash map as it exists in @cache
+     */ 
+    nk_vc_printf("hash table:\n");
+    for (unsigned i = 0 ; i < LRU_CACHE_SIZE ; i++)
+    {
+        nk_vc_printf("%u: ");
+        struct list_head *entry_list = &(cache->entries[i]);
+        lru_cache_entry *iterator;
+        list_for_each(iterator, entry_list, table_node) nk_vc_printf("%lu ", iterator->value);
+        nk_vc_printf("\n");
+    }
+
+    
+    /*
+     * Print the tracking/LRU list 
+     */ 
+    nk_vc_printf("tracking list:\n");
+    struct list_head *tracking_list = &(cache->tracking_list);
+    lru_cache_entry *iterator;
+    list_for_each(iterator, tracking_list, tracking_list_node) nk_vc_printf("%lu ", iterator->value);
+
+
+    return;
+}
 
