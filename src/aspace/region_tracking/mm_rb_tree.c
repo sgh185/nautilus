@@ -690,8 +690,8 @@ mm_rb_node_t * rb_tree_LUB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
 }
 /*
     find greatest lower bound for key among the elements in tree
-    return tree->NIL if key is larger than all elements in the tree
-    AKA, no upper bound
+    return tree->NIL if key is samller than all elements in the tree
+    AKA, no lower bound
     Note: this helper function differs from prev_largest because this is NOT strict lower bound
 */
 mm_rb_node_t * rb_tree_GLB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
