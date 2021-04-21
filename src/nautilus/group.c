@@ -558,3 +558,20 @@ uint64_t
 nk_thread_group_get_size(nk_thread_group_t *group) {
   return group->group_size;
 }
+
+// gets the next thread in the thread group that passes condition
+struct nk_thread *
+nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t)) 
+{
+    struct list_head *l;
+    group_member_t *member;
+    for (int i = 0; i < MAX_CPU_NUM; i++) {
+        l = &g->group_member_array[i];
+        list_for_each(member, l, group_member_node) {
+            if (cond_function(member->thread)) {
+               return member->thread;
+            }
+        }
+    }
+    return NULL;
+}
