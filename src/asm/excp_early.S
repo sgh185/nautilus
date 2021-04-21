@@ -199,10 +199,13 @@ skip_cat_entry:
 is_pending_work:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
     /* Enable interrupts? */
+    pushq %rdi
+    pushq %rsi
+    pushq %rax 
     movq %gs:0x0, %rax
     movq 32(%rax), %rdi
     testq %rdi, %rdi
-    jz thr_return /* No work to do, just return */
+    jz skip_signal_delivery /* No work to do, just return */
     /* Need to restore regs (or just pass top of stack to do_notify_resume */
     movq %rdi, %rsi
     //movq %rsp, %rdi
@@ -210,6 +213,11 @@ is_pending_work:
     callq do_notify_resume
     /* Disable interrupts? */
     /* jump back to need resched to check all this again? */
+
+skip_signal_delivery:
+    popq %rax
+    popq %rsi
+    popq %rdi 
 #endif /* if not enabled, just fall through like usual */
 
 thr_return:

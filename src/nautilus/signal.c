@@ -198,10 +198,155 @@ static void copy_siginfo(nk_signal_info_t *dst, nk_signal_info_t *src)
     memcpy(dst, src, sizeof(*src));
 }
 
-static void complete_signal(uint64_t signal, nk_thread_t *siganl_dest, uint64_t dest_type)
+/*
+ * RIPPED DIRECTLY FROM LINUX SOURCE CODE (source/kernel/signal.c line #973)
+ *
+ * Test if t wants to take SIG.  After we've checked all threads with this,
+ * it's equivalent to finding no threads not blocking SIG.  Any threads not
+ * blocking SIG were ruled out because they are not running and already
+ * have pending signals.  Such threads will dequeue from the shared queue
+ * as soon as they're available, so putting the signal on the shared queue
+ * will be equivalent to sending it to one such thread.
+ */
+static inline int wants_signal(uint64_t sig, nk_thread_t *t)
+{
+	if (sigismember(&t->signal_state->blocked, sig)) {
+		return false;
+    }
+
+	if (t->status == NK_THR_EXITED) {
+		return false;
+    }
+
+	if (sig == NKSIGKILL) {
+		return true;
+    }
+
+	if (t->status == NK_THR_SUSPENDED) {
+		return false;
+    }
+
+	return (t->status == NK_THR_RUNNING) || !(t->num_sigs);
+}
+
+/*
+ * Yanked directly from Linux source (source/kernel/signal.c Line #760)
+ * 
+ * Tell a process that it has a new active signal..
+ *
+ * NOTE! we rely on the previous spin_lock to
+ * lock interrupts for us! We can only be called with
+ * "siglock" held, and the local interrupt must
+ * have been disabled when that got acquired!
+ *
+ * No need to set need_resched since signal event passing
+ * goes through ->blocked
+ */
+void signal_wake_up_thread(nk_thread_t *t)
+{
+    /* TODO MAC: How do we notify threads in process that a signal is pending? */
+	//set_tsk_thread_flag(t, TIF_SIGPENDING);
+	
+	/*
+	 * TASK_WAKEKILL also means wake it up in the stopped/traced/killable
+	 * case. We don't check t->state here because there is a race with it
+	 * executing another processor and just now entering stopped state.
+	 * By using wake_up_state, we ensure the process will wake up and
+	 * handle its death signal.
+	 */
+
+    /* TODO MAC: This is probably wrong. Consult w/ Peter */
+	if (t->num_wait > 0) {
+		nk_sched_awaken(t, t->current_cpu);
+    } else if (t->status == NK_THR_RUNNING) {
+        nk_sched_kick_cpu(t->current_cpu);
+    }
+}
+
+static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t dest_type)
 {
     /*TODO MAC: do some complicated work with choosing the right thread to deliver it to */
- 
+    nk_signal_descriptor_t *signal_desc = signal_dest->signal_state->signal_descriptor; 
+    nk_thread_t *t;
+
+    /*
+     * Determine which thread to send signal to.
+     *
+     * In main case, we send to main thread
+     */
+    if (wants_signal(signal, signal_dest))
+		t = signal_dest;
+	else if ((dest_type == SIG_DEST_TYPE_THREAD) || (nk_thread_group_get_size(signal_dest->process->t_group) <= 1))
+		/*
+		 * There is just one thread and it does not need to be woken.
+		 * It will dequeue unblocked signals before it runs again.
+		 */
+		return;
+	else {
+		/*
+		 * Otherwise try to find a suitable thread.
+		 */
+		t = signal_desc->curr_target;
+        /* 
+         * TODO MAC: No current way to iterate through thread group. Should add this soon
+         * Do nothing for now :) simply return early
+         */
+        SIGNAL_ERROR("UNIMPLEMENTED PORTION OF complete_signal()! Results may be incorrect.\n");		
+        return;
+        #if 0
+        while (!wants_signal(signal, t)) {
+			t = next_thread(t);
+			if (t == signal_desc->curr_target)
+				/*
+				 * No thread needs to be woken.
+				 * Any eligible threads will see
+				 * the signal in the queue soon.
+				 */
+				return;
+		}
+		signal_desc->curr_target = t;
+        #endif
+	}
+
+	/*
+     * TODO MAC: Implement fatal signals!  
+	 * Found a killable thread.  If the signal will be fatal,
+	 * then start taking the whole group down immediately.
+	 */
+    #if 0
+	if (sig_fatal(p, sig) &&
+	    !(signal_desc->flags & SIGNAL_GROUP_EXIT) &&
+	    !sigismember(&t->real_blocked, sig) &&
+	    (sig == SIGKILL || !p->ptrace)) {
+		/*
+		 * This signal will be fatal to the whole group.
+		 */
+		if (!sig_kernel_coredump(sig)) {
+			/*
+			 * Start a group exit and wake everybody up.
+			 * This way we don't have other threads
+			 * running and doing things after a slower
+			 * thread has the fatal signal pending.
+			 */
+			signal_desc->flags = SIGNAL_GROUP_EXIT;
+			signal_desc->group_exit_code = sig;
+			signal_desc->group_stop_count = 0;
+			t = p;
+			do {
+				task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+				sigaddset(&t->pending.signal, SIGKILL);
+				signal_wake_up(t, 1);
+			} while_each_thread(p, t);
+			return;
+		}
+	}
+    #endif
+
+	/*
+	 * The signal is already in the shared-pending queue.
+	 * Tell the chosen thread to wake up and dequeue it.
+	 */
+	signal_wake_up_thread(t); 
     return;
 }
 
@@ -654,7 +799,7 @@ void __attribute__((noinline)) do_notify_resume(uint64_t rsp, uint64_t num_sigs)
 
 
 /*************** Initializing Signal State *****************/
-int nk_signal_init_task_state(nk_signal_task_state **state_ptr) {
+int nk_signal_init_task_state(nk_signal_task_state **state_ptr, nk_thread_t *t) {
     /* TODO MAC: Might want to use a different malloc? */
     nk_signal_task_state *state = (nk_signal_task_state *) kmem_sys_mallocz(sizeof(nk_signal_task_state));
     if (!state) {
@@ -689,6 +834,7 @@ int nk_signal_init_task_state(nk_signal_task_state **state_ptr) {
     /* Set all fields in task struct */
     state->signal_handler = handler;
     state->signal_descriptor = desc;
+    state->signal_descriptor->curr_target = t;
     state->blocked.sig[0] = 0;
     state->real_blocked.sig[0] = 0;
     init_sigpending(&state->signals_pending); 
