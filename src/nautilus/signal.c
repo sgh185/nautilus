@@ -152,14 +152,14 @@ static int prepare_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t is
 
     /* TODO MAC: These things are unimplemented, but we will need them in future */
     #if 0
-    if (0 sig_desc->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) {
+    if (0 && sig_desc->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) {
         if (!(signal->flags & SIGNAL_GROUP_EXIT)) {
             return signal == NKSIGKILL
     } else if (sig_kernel_stop_mask(signal)) {
         /* This is a stop signal */
         /* For each thread, remove SIGCONT from sig queues */
         return -1;
-    } else if (0 signal == NKSIGCONT ) {
+    } else if (0 && signal == NKSIGCONT ) {
         /* Sig cont, remove all sig stops from queues and wake threads */
         /* Also do some complicated stuff for notifying parents */
         return -1;
@@ -255,12 +255,23 @@ void signal_wake_up_thread(nk_thread_t *t)
 	 * handle its death signal.
 	 */
 
-    /* TODO MAC: This is probably wrong. Consult w/ Peter */
-	if (t->num_wait > 0) {
-		nk_sched_awaken(t, t->current_cpu);
-    } else if (t->status == NK_THR_RUNNING) {
+    /* TODO MAC: This is probably wrong. Consult w/ Peter */ 
+    /* Introduces race condition: t->current_cpu (what cpu it's on)
+     *                            lock thread
+     *                            if (t->status == NK_THR_INIT || EXIT) -> ERROR
+     *                                          == RUNNING || SUSPENDED -> kick cpu
+     *                                          == WAITING -> Throw in unimpl(), fix later
+     *                                                        
+     */
+    spin_lock(&t->lock);
+	if (t->status == NK_THR_INIT || t->status == NK_THR_EXITED) {
+        SIGNAL_ERROR("Failed to wake up thread.\n");
+    } else if (t->status == NK_THR_RUNNING || t->status == NK_THR_SUSPENDED) {
         nk_sched_kick_cpu(t->current_cpu);
+    } else if (t->status == NK_THR_WAITING) {
+        SIGNAL_ERROR("Waking threads on wait queue is unimplemented!");
     }
+    spin_unlock(&t->lock);
 }
 
 static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t dest_type)
@@ -567,7 +578,7 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
     int sig = next_signal(pending, sig_mask);
 
 	if (sig) {
-        /* Don't currently handle notifiers... skip 
+        /* TODO MAC: Don't currently handle notifiers... skip 
 		if (current->notifier) {
 			if (sigismember(current->notifier_mask, sig)) {
 				if (!(current->notifier)(current->notifier_data)) {
