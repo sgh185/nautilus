@@ -646,8 +646,9 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
  	 * Check to see if the requested memory access is valid. 
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
-	int res = nk_aspace_request_permission(get_cur_thread()->aspace->state, memory_address, is_write);
+	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
 	if (res) {
+        nk_vc_printf("res: %d\n", res);
         panic("Tried to make an illegal memory access with %p! \n", memory_address);
 	}
 
