@@ -236,6 +236,16 @@ static inline int wants_signal(uint64_t sig, nk_thread_t *t)
 	return (t->status == NK_THR_RUNNING) || !(t->num_sigs);
 }
 
+static inline int map_wants_signal(nk_thread_t *t, void *state)
+{
+    uint64_t sig = *(uint64_t*)state;
+    if (wants_signal(sig, t)) {
+        *((nk_thread_t**)state) = t;
+        return 1;
+    }
+    return 0; 
+}
+
 /*
  * Yanked directly from Linux source (source/kernel/signal.c Line #760)
  * 
@@ -303,27 +313,22 @@ static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t 
 	else {
 		/*
 		 * Otherwise try to find a suitable thread.
+		 * State starts as a uint64_t, but will be
+		 * set to a nk_thread_t * by map_wants_signal().
 		 */
 		t = signal_desc->curr_target;
-        /* 
-         * TODO MAC: No current way to iterate through thread group. Should add this soon
-         * Do nothing for now :) simply return early
-         */
-        SIGNAL_ERROR("UNIMPLEMENTED PORTION OF complete_signal()! Results may be incorrect.\n");		
-        return;
-        #if 0
-        while (!wants_signal(signal, t)) {
-			t = next_thread(t);
-			if (t == signal_desc->curr_target)
-				/*
-				 * No thread needs to be woken.
-				 * Any eligible threads will see
-				 * the signal in the queue soon.
-				 */
-				return;
+        uint64_t state = signal;
+        nk_thread_group_map(t->process->t_group, map_wants_signal, (void*)&state, GROUP_MAP_EARLY_RET);
+        t = (nk_thread_t *)state;
+		if (t == (nk_thread_t*)signal) {
+			/*
+			 * No thread needs to be woken.
+			 * Any eligible threads will see
+			 * the signal in the queue soon.
+			 */
+			return;
 		}
 		signal_desc->curr_target = t;
-        #endif
 	}
 
 	/*

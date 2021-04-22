@@ -559,9 +559,9 @@ nk_thread_group_get_size(nk_thread_group_t *group) {
   return group->group_size;
 }
 
-// gets the next thread in the thread group that passes condition
-struct nk_thread *
-nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t, void *s), void *state) 
+// maps a function to all threads within a group
+int
+nk_thread_group_map(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t, void *s), void *state, uint64_t flags) 
 {
     struct list_head *l;
     group_member_t *member;
@@ -569,11 +569,11 @@ nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_t
         l = &g->group_member_array[i];
         list_for_each_entry(member, l, group_member_node) {
             DEBUG("find_next(): testing thread %p.\n", member->thread);            
-            if (cond_function(member->thread, state)) {
-                DEBUG("find_next(): returning thread %p.\n", member->thread);            
-                return member->thread;
+            if (cond_function(member->thread, state) && (flags & GROUP_MAP_EARLY_RET)) {
+                DEBUG("find_next(): returning early.\n");            
+                return 0;
             }
         }
     }
-    return NULL;
+    return 0;
 }
