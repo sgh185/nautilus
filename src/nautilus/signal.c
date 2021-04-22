@@ -30,18 +30,25 @@
 
 
 /* DEBUG, INFO, ERROR PRINTS */
-//#ifndef NAUT_CONFIG_DEBUG_PROCESSES
-#if 1
+#if NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...)
 #endif
+
 #define SIGNAL_INFO(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
-//#define SIGNAL_DEBUG(fmt, args...) DEBUG_PRINT("signal: " fmt, ##args)
-#define SIGNAL_DEBUG(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
+#define SIGNAL_DEBUG(fmt, args...) DEBUG_PRINT("signal: " fmt, ##args)
 #define SIGNAL_WARN(fmt, args...)  WARN_PRINT("signal: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
 
+/* Deep debug */
+#define SIGNAL_D_DEBUG 0
+
+#if SIGNAL_D_DEBUG
+#define SIGNAL_DEEP_DEBUG SIGNAL_INFO
+#else
+#define SIGNAL_DEEP_DEBUG
+#endif 
 
 /* Global structures
  * TODO MAC: Move to a different file
@@ -50,7 +57,7 @@
 /* Used for testing */
 void sig_hand_hello(int sig_num)
 {
-    SIGNAL_INFO("Hello World from signal %d.\n", sig_num);
+    nk_vc_printf("Hello World from signal %d.\n", sig_num);
 
 } 
 
@@ -712,16 +719,20 @@ void __attribute__((noinline)) __sighand_wrapper(uint64_t signal, nk_signal_info
 static int __attribute__ ((noinline)) setup_rt_frame(uint64_t signal, nk_signal_action_t *sig_act, nk_signal_info_t *sig_info, uint64_t rsp)
 {
     /* For debugging purposes, print out what the original iframe looks like */
+    #if SIGNAL_D_DEBUG
     SIGNAL_DEBUG("Dumping out saved regs at rsp.\n");
     nk_dump_mem((void*)rsp, sizeof(struct nk_regs));
+    #endif
 
     /* Copy iframe to our current frame */ 
     struct nk_regs this_frame;
     memcpy(&this_frame, (void *)rsp, sizeof(struct nk_regs));
 
     /* For debugging... print our copied frame */
-    SIGNAL_DEBUG("Dumping out saved regs in this frame.\n");
+    #if SIGNAL_D_DEBUG
+    SIGNAL_DEEP_DEBUG("Dumping out saved regs in this frame.\n");
     nk_dump_mem(&this_frame, sizeof(struct nk_regs));  
+    #endif
 
     /* We will return to a signal handler wrapper which will call the handler */ 
     /* This might not work for other compilers... we'll see */
@@ -736,8 +747,10 @@ static int __attribute__ ((noinline)) setup_rt_frame(uint64_t signal, nk_signal_
     //this_frame.rsi = (uint64_t)0xDEADBEEF01234567UL;
 
     /* For debugging... see what our current copied iframe looks like */
+    #if SIGNAL_D_DEBUG
     SIGNAL_DEBUG("Dumping out saved regs after modification.\n");
     nk_dump_mem(&this_frame, sizeof(struct nk_regs));  
+    #endif
 
     /* set new stack ptr, pop regs, and iret */
     asm volatile("movq %0, %%rsp; \n"
