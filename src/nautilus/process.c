@@ -532,7 +532,7 @@ int nk_process_destroy(nk_process_t *p) {
   nk_thread_t *me = get_cur_thread();
   if (me->process == nk_process_current()) {
     // Prevent self from dying when sending exit signals
-    PROCESS_DEBUG("Not handling process destroy properly.\n"); 
+    PROCESS_ERROR("Not handling process destroy properly.\n"); 
     destroying_curr_process = 1;
   }
 
@@ -541,26 +541,29 @@ int nk_process_destroy(nk_process_t *p) {
   if (nk_alloc_destroy(alloc)) {
     PROCESS_ERROR("Failed to destroy allocator for process %p (name: %s)\n", p, p->name);
   } 
+
   // TODO MAC: Send exit signal to all process threads
   // Will break until we implement this
  
   // delete thread group (may need to wait until all threads exit)
   nk_thread_group_delete(p->t_group);
 
-  // tear down aspace
-  nk_aspace_destroy(p->aspace);
-
   // unmap executable
-  nk_unload_exec(p->exe);
+  nk_unload_exec(p->exe); 
 
   // free heap and exit (this might be wrong)
   // The threads we create use different stacks than they start with (thread->stack != curr_stack)
   // Calling thread exit may not free the appropriate stack
   free(p->heap_begin);
- 
+
+  // If we're part of the current process, we need to exit instead of destroying aspace  
   if (destroying_curr_process) { 
     nk_thread_exit((void *)0);
   }
+  
+  // tear down aspace
+  nk_aspace_destroy(p->aspace);
+ 
   return 0;
 }
 
