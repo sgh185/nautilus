@@ -198,7 +198,6 @@ ENTRY(nk_thread_switch_exit_helper)
     // Need to align the stack pointer to the same as other thread_switch entrypoints congruent to 16 bytes
     subq $8, %rsp
 	
-	subq $8, %rsp
 	// At this point, we are racing with the reaper on a different core,
 	// which might take away our stack.  However, we have interrupts
 	// off locally, so as long as *we* don't use the stack, we should be OK

@@ -360,7 +360,14 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   envs = copy_argv_or_envp(envp, envc, envp_len, &stack_ptr);  
 
   // create a new allocator
-  nk_alloc_t *alloc = NULL; //nk_alloc_create("dumb", "proc-alloc");
+  //nk_alloc_t *alloc = NULL; //nk_alloc_create("dumb", "proc-alloc");
+  nk_alloc_t *alloc = 0;
+  if(strcmp(aspace_type,"carat")) {
+  	nk_alloc_t *alloc = nk_alloc_create("dumb","proc_alloc");
+  }
+  else{
+  	nk_alloc_t *alloc = nk_alloc_create("cs213","proc-alloc");
+  }
 
   // ensure that lock has been initialized to 0
   spinlock_init(&(p->lock));
@@ -373,6 +380,8 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
 
   // release process_info lock, no global state left to modify
   _UNLOCK_PROCESS_INFO(p_info);
+
+  p->allocator = alloc;
 
   // name process
   snprintf(p->name, MAX_PROCESS_NAME, "p-%ul-%s", p->pid, exe_name);

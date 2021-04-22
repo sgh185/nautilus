@@ -27,7 +27,7 @@ uint64_t sys_exit(uint64_t exit_status) {
      uint64_t time_duration = apic_cycles_to_realtime(apic,ending_cycles-starting_cycles);
 
      nk_vc_printf("Benchmark %s finished!\nThe totle # of cycles measured in internal nautilus is %llu, and the time duration is %llu", benchmarkName,ending_cycles-starting_cycles,time_duration);
-
+     fflush((void*)1UL);
      starting_cycles = 0;
      ending_cycles = 0;
      parsec_started = 0;
