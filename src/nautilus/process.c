@@ -379,8 +379,6 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
 
 
 /* External Functions */
-// in the future, we'll create an allocator for the process as well
-// path or name, argc, argv, envp, addr space type, 
 int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **proc_struct) {
   // Fetch current process info
   process_info *p_info = get_process_info();
@@ -398,21 +396,20 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   }
   memset(p, 0, sizeof(nk_process_t));
  
-  // set parent process if current thread is part of a process
-  // use parent process aspace if it exists
-  nk_aspace_t *addr_space;
-  void *stack_addr = NULL;
+  // associate parent process if it exists
   p->parent = NULL;
   nk_thread_t *curr_thread = get_cur_thread();
   if (curr_thread->process) {
     p->parent = curr_thread->process;
-    addr_space = p->parent->aspace;
-  } else { // no parent? create new aspace
-    if (create_process_aspace(p, aspace_type, exe_name, &addr_space, &stack_addr) || !addr_space) {
-      PROCESS_ERROR("failed to create process address space\n");
-      free(p);
-      return -1;
-    }
+  }
+
+  // create process address space
+  nk_aspace_t *addr_space;
+  void *stack_addr = NULL;
+  if (create_process_aspace(p, aspace_type, exe_name, &addr_space, &stack_addr) || !addr_space) {
+    PROCESS_ERROR("failed to create process address space\n");
+    free(p);
+    return -1;
   }
   PROCESS_INFO("Created address space\n"); 
 
@@ -432,6 +429,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   // create a new allocator
   nk_alloc_t *alloc = 0;
   if (strcmp(aspace_type, "carat")) {
+    /* TODO: Karat is not ready for allocator yet. Add later. */
     // nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
   } else {
     nk_alloc_t *alloc = nk_alloc_create("cs213", "proc-alloc"); 
@@ -462,14 +460,14 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   p->heap_begin = 0; 
   p->heap_end = 0; 
 
-  // for now, set arg vars to NULL. Eventually we want to put them into addr space
+  // set arg and envp info
   p->argc = argc;
   p->argv_virt = (char**)(PSTACK_START + PSTACK_SIZE - ((uint64_t)stack_addr - (uint64_t)args));
   p->argv = args;
   p->envc = envc;
   p->envp = envs;
 
-  // create thread group (empty for now)
+  // create thread group (empty for now, first thread added when run() is called)
   p->t_group = nk_thread_group_create(p->name);
   if (!(p->t_group)) {
     PROCESS_ERROR("Failed to create thread group\n");
