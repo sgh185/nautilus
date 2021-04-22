@@ -151,7 +151,7 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
   return *stack_addr;
 }
 
-
+#define _CARAT_PROCESS 1
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_DEBUG("Entering process wrapper.\n");
@@ -160,6 +160,28 @@ void __nk_process_wrapper(void *i, void **o) {
   // TODO MAC: May need to acquire lock
   nk_thread_t *me = get_cur_thread();
   me->process = p;
+
+
+#if _CARAT_PROCESS
+
+  /*
+   * Add the process' thread stack to the process address space
+   */ 
+  nk_aspace_t *process_aspace = p->aspace;
+  nk_aspace_region_t r_stack;
+  r_stack.va_start = me->stack; // (void *)PSTACK_START;
+  r_stack.pa_start = me->stack;
+  r_stack.len_bytes = (uint64_t)(me->stack_size); 
+  r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  
+  if (nk_aspace_add_region(process_aspace, &r_stack)) {
+    PROCESS_ERROR("failed to add initial process aspace stack region\n");
+    nk_aspace_destroy(process_aspace);
+    return;
+  }
+
+#endif
+
 
   //set virtual console so we can print to shell
   me->vc = p->vc; 
@@ -234,7 +256,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
 
   // add stack to address space
   nk_aspace_region_t r_stack;
-  r_stack.va_start = (void *)PSTACK_START;
+  r_stack.va_start = p_addr_start; // (void *)PSTACK_START;
   r_stack.pa_start = p_addr_start;
   r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
   r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
@@ -275,7 +297,6 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   uint64_t exe_end_addr = (uint64_t)p->exe->blob + p->exe->blob_size;
   
 
-#define _CARAT_PROCESS 1
 #if _CARAT_PROCESS
 
   nk_aspace_characteristics_t aspace_chars;
@@ -348,7 +369,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   if (new_aspace) {
     *new_aspace = addr_space;
   }
-
+  
   if (stack) {
     *stack = p_addr_start + PSTACK_SIZE;
   }
@@ -411,7 +432,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
   // create a new allocator
   nk_alloc_t *alloc = 0;
   if (strcmp(aspace_type, "carat")) {
-    nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
+    // nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
   } else {
     nk_alloc_t *alloc = nk_alloc_create("cs213", "proc-alloc"); 
   }
