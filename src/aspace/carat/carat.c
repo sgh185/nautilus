@@ -661,9 +661,11 @@ static int get_characteristics(nk_aspace_characteristics_t *c)
 {   
     /**
      * CARAT has alignment and granuarity of ??
+     *
+     * Set to finest possible granularity
      * */
-    c->alignment = 0;
-    c->granularity = 0;
+    c->alignment = 1;
+    c->granularity = 1;
     return 0;
 }
 
