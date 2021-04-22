@@ -50,7 +50,7 @@ extern "C" {
 /*
  * ---------- Definitions ---------
  */ 
-#define LRU_CACHE_SIZE 32 
+#define LRU_CACHE_SIZE 31 
 
 
 typedef struct {

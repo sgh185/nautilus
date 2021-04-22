@@ -227,39 +227,85 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }
   memset(p_addr_start, 0, PSTACK_SIZE);
+ 
+
+#define _ADD_STACK 0
+#if _ADD_STACK
+
+  // add stack to address space
+  nk_aspace_region_t r_stack;
+  r_stack.va_start = (void *)PSTACK_START;
+  r_stack.pa_start = p_addr_start;
+  r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
+  r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
   
-  // // add stack to address space
-  // nk_aspace_region_t r_stack;
-  // r_stack.va_start = (void *)PSTACK_START;
-  // r_stack.pa_start = p_addr_start;
-  // r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
-  // r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  if (nk_aspace_add_region(addr_space, &r_stack)) {
+    PROCESS_ERROR("failed to add initial process aspace stack region\n");
+    nk_aspace_destroy(addr_space);
+    free(p_addr_start);
+    return -1;
+  }
 
-  // if (nk_aspace_add_region(addr_space, &r_stack)) {
-  //   PROCESS_ERROR("failed to add initial process aspace stack region\n");
-  //   nk_aspace_destroy(addr_space);
-  //   free(p_addr_start);
-  //   return -1;
-  // }
+#endif
 
-  // // add kernel to address space
-  // nk_aspace_region_t r_kernel;
-  // r_kernel.va_start = (void *)KERNEL_ADDRESS_START;
-  // r_kernel.pa_start = (void *)KERNEL_ADDRESS_START;
-  // r_kernel.len_bytes = KERNEL_MEMORY_SIZE; 
-  // r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_EAGER;
 
-  // if (nk_aspace_add_region(addr_space, &r_kernel)) {
-  //   PROCESS_ERROR("failed to add initial process aspace stack region\n");
-  //   nk_aspace_destroy(addr_space);
-  //   return -1;
-  // }
-  
+#define _ADD_KERNEL 0
+#if _ADD_KERNEL
+
+  // add kernel to address space
+  nk_aspace_region_t r_kernel;
+  r_kernel.va_start = (void *)KERNEL_ADDRESS_START;
+  r_kernel.pa_start = (void *)KERNEL_ADDRESS_START;
+  r_kernel.len_bytes = KERNEL_MEMORY_SIZE; 
+  r_kernel.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+  if (nk_aspace_add_region(addr_space, &r_kernel)) {
+    PROCESS_ERROR("failed to add initial process aspace stack region\n");
+    nk_aspace_destroy(addr_space);
+    return -1;
+  }
+
+#endif
+
+
   // load executable into memory
   p->exe = nk_load_exec(exe_name);
 
   // map executable in address space if it's not (entirely) within first 4GB of memory
   uint64_t exe_end_addr = (uint64_t)p->exe->blob + p->exe->blob_size;
+  
+
+#define _CARAT_PROCESS 1
+#if _CARAT_PROCESS
+
+  nk_aspace_characteristics_t aspace_chars;
+  if (nk_aspace_query(aspace_type, &aspace_chars)) {
+    nk_unload_exec(p->exe);
+    free(p);
+    nk_aspace_destroy(addr_space);
+    return -1;
+  }
+
+  nk_aspace_region_t r_exe;
+
+  r_exe.va_start = p->exe->blob;
+  r_exe.pa_start = p->exe->blob;
+  r_exe.len_bytes = p->exe->blob_size + (p->exe->blob_size % aspace_chars.granularity);
+
+  r_exe.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_EAGER;
+
+  if (nk_aspace_add_region(addr_space, &r_exe)) {
+    PROCESS_ERROR("failed to add initial process aspace exe region\n");
+    nk_unload_exec(p->exe);
+    free(p);
+    nk_aspace_destroy(addr_space);
+    return -1;
+  }
+
+  // mm_show(addr_space->mm);
+
+#else
+  
   if (((uint64_t)p->exe->blob > KERNEL_MEMORY_SIZE) || (exe_end_addr > KERNEL_MEMORY_SIZE)) {
 
     nk_aspace_characteristics_t aspace_chars;
@@ -295,6 +341,9 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
       return -1;
     }
   }
+
+#endif
+
 
   if (new_aspace) {
     *new_aspace = addr_space;

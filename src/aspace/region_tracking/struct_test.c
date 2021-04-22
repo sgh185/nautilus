@@ -4,7 +4,7 @@
 #include <nautilus/random.h>
 #include <nautilus/nautilus.h>
 
-#ifndef NAUT_CONFIG_DEBUG_ASPACE_PAGING
+#ifndef NAUT_CONFIG_DEBUG_ASPACE_REGION_TRACKING
 #undef DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...) 
 #endif

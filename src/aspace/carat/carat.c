@@ -396,12 +396,14 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
 
 static int request_permission(void * state, void * address, int is_write) {
 
+    DEBUG("in request_permission carat space\n");
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 
     nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
-
+    
+    
     if (region == NULL) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -428,7 +430,7 @@ static int request_permission(void * state, void * address, int is_write) {
 
 
 	if (!is_legal_access) {
-		return -1;
+		return -2;
 	}
 
     /* 
@@ -646,6 +648,7 @@ static nk_aspace_interface_t carat_interface = {
     .remove_region = remove_region,
     .protect_region = protect_region,
     .protection_check = protection_check,
+    .request_permission = request_permission,
     .move_region = move_region,
     .defragment_region = defragment_region,
     .switch_from = switch_from,
@@ -658,9 +661,11 @@ static int get_characteristics(nk_aspace_characteristics_t *c)
 {   
     /**
      * CARAT has alignment and granuarity of ??
+     *
+     * Set to finest possible granularity
      * */
-    c->alignment = 0;
-    c->granularity = 0;
+    c->alignment = 1;
+    c->granularity = 1;
     return 0;
 }
 
@@ -779,122 +784,122 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
         goto test_fail;
     }
 
-    nk_aspace_region_t carat_r0, carat_r1, carat_r2, carat_r3, carat_r4;
-    // create a 1-1 region mapping all of physical memory
-    // so that the kernel can work when that thread is active
-    carat_r0.va_start = 0;
-    carat_r0.pa_start = 0;
-    carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
-    // set protections for kernel
-    // use EAGER to tell paging implementation that it needs to build all these PTs right now
-    carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    // nk_aspace_region_t carat_r0, carat_r1, carat_r2, carat_r3, carat_r4;
+    // // create a 1-1 region mapping all of physical memory
+    // // so that the kernel can work when that thread is active
+    // carat_r0.va_start = 0;
+    // carat_r0.pa_start = 0;
+    // carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+    // // set protections for kernel
+    // // use EAGER to tell paging implementation that it needs to build all these PTs right now
+    // carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
-    // now add the region
-    if (nk_aspace_add_region(carat_aspace, &carat_r0)) {
-        nk_vc_printf("failed! to add initial eager region to address space\n");
-        goto test_fail;
-    }
+    // // now add the region
+    // if (nk_aspace_add_region(carat_aspace, &carat_r0)) {
+    //     nk_vc_printf("failed! to add initial eager region to address space\n");
+    //     goto test_fail;
+    // }
 
-    // should not add region successfully due to overlapping
-    carat_r1 = carat_r0;
-    if (!nk_aspace_add_region(carat_aspace, &carat_r1)) {
-        nk_vc_printf("Failed! check overlap\n");
-        goto test_fail;
-    }
+    // // should not add region successfully due to overlapping
+    // carat_r1 = carat_r0;
+    // if (!nk_aspace_add_region(carat_aspace, &carat_r1)) {
+    //     nk_vc_printf("Failed! check overlap\n");
+    //     goto test_fail;
+    // }
 
-    // should not add region successfully due to VA != PA for CARAT
-    carat_r1.va_start = (void *) 0x200000000UL;
-    if (!nk_aspace_add_region(carat_aspace, &carat_r1)) {
-        nk_vc_printf("Failed! check CARAT region validness\n");
-        goto test_fail;
-    }
+    // // should not add region successfully due to VA != PA for CARAT
+    // carat_r1.va_start = (void *) 0x200000000UL;
+    // if (!nk_aspace_add_region(carat_aspace, &carat_r1)) {
+    //     nk_vc_printf("Failed! check CARAT region validness\n");
+    //     goto test_fail;
+    // }
 
-    // should add region successfully
-    carat_r1.pa_start = carat_r1.va_start;
-    if (nk_aspace_add_region(carat_aspace, &carat_r1)) {
-        nk_vc_printf("Failed! to add second initial eager region to address space\n");
-        goto test_fail;
-    }
+    // // should add region successfully
+    // carat_r1.pa_start = carat_r1.va_start;
+    // if (nk_aspace_add_region(carat_aspace, &carat_r1)) {
+    //     nk_vc_printf("Failed! to add second initial eager region to address space\n");
+    //     goto test_fail;
+    // }
 
-    // should not remove region successfully due to pinnned region
-    if (!nk_aspace_remove_region(carat_aspace, &carat_r1)) {
-        nk_vc_printf("Failed! Should not remove pinned region\n");
-        goto test_fail;
-    }
+    // // should not remove region successfully due to pinnned region
+    // if (!nk_aspace_remove_region(carat_aspace, &carat_r1)) {
+    //     nk_vc_printf("Failed! Should not remove pinned region\n");
+    //     goto test_fail;
+    // }
 
-    // should add region sucessfully
-    carat_r2 = carat_r0;
-    carat_r2.va_start = carat_r2.pa_start = (void *) 0x300000000UL;
-    carat_r2.protect.flags = NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
-    if (nk_aspace_add_region(carat_aspace, &carat_r2)) {
-        nk_vc_printf("failed! to add initial eager region to address space\n");
-        goto test_fail;
-    }
+    // // should add region sucessfully
+    // carat_r2 = carat_r0;
+    // carat_r2.va_start = carat_r2.pa_start = (void *) 0x300000000UL;
+    // carat_r2.protect.flags = NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    // if (nk_aspace_add_region(carat_aspace, &carat_r2)) {
+    //     nk_vc_printf("failed! to add initial eager region to address space\n");
+    //     goto test_fail;
+    // }
 
-    // should pass protection check
-    if (nk_aspace_protection_check(carat_aspace, &carat_r2)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should pass protection check
+    // if (nk_aspace_protection_check(carat_aspace, &carat_r2)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to partial overlap
-    carat_r3 = carat_r2;
-    carat_r3.va_start = carat_r3.pa_start = carat_r2.va_start + 0x80000000UL;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to partial overlap
+    // carat_r3 = carat_r2;
+    // carat_r3.va_start = carat_r3.pa_start = carat_r2.va_start + 0x80000000UL;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to partial overlap
-    carat_r3.va_start = carat_r3.pa_start = carat_r1.va_start + 0x80000000UL;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to partial overlap
+    // carat_r3.va_start = carat_r3.pa_start = carat_r1.va_start + 0x80000000UL;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to no overlapped region
-    carat_r3.va_start = carat_r3.pa_start = carat_r2.va_start + 0x100000000UL;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to no overlapped region
+    // carat_r3.va_start = carat_r3.pa_start = carat_r2.va_start + 0x100000000UL;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r3)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should pass protection check, subset, permission good
-    carat_r4 = carat_r2;
-    carat_r4.va_start = carat_r4.pa_start = carat_r2.va_start + 0x80000000UL;
-    carat_r4.len_bytes = 0x20000000UL;
-    if (nk_aspace_protection_check(carat_aspace, &carat_r4)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should pass protection check, subset, permission good
+    // carat_r4 = carat_r2;
+    // carat_r4.va_start = carat_r4.pa_start = carat_r2.va_start + 0x80000000UL;
+    // carat_r4.len_bytes = 0x20000000UL;
+    // if (nk_aspace_protection_check(carat_aspace, &carat_r4)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to no read permission
-    carat_r4.protect.flags = NK_ASPACE_READ | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to no read permission
+    // carat_r4.protect.flags = NK_ASPACE_READ | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to no write permission
-    carat_r4.protect.flags = NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to no write permission
+    // carat_r4.protect.flags = NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to no exec permission
-    carat_r4.protect.flags = NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to no exec permission
+    // carat_r4.protect.flags = NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
-    // should not pass protection check due to user access
-    carat_r4.protect.flags = NK_ASPACE_PIN | NK_ASPACE_EAGER;
-    if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
-        nk_vc_printf("failed! protection check\n");
-        goto test_fail;
-    }
+    // // should not pass protection check due to user access
+    // carat_r4.protect.flags = NK_ASPACE_PIN | NK_ASPACE_EAGER;
+    // if (!nk_aspace_protection_check(carat_aspace, &carat_r4)) {
+    //     nk_vc_printf("failed! protection check\n");
+    //     goto test_fail;
+    // }
 
     /**
      *  Test case for get_permission
@@ -903,7 +908,36 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
     // if (nk_aspace_protection_check(carat_aspace, , &prot) || prot.flags != carat_r0.protect.flags) {
     //     nk_vc_printf("failed! protection check\n");
     //     goto test_fail;
-    // }
+    // }  
+
+    nk_aspace_region_t reg_bec, reg_bc2;
+    
+    reg_bec.va_start = (void *) 0x00000000bec00000;
+    reg_bec.pa_start = (void *) 0x00000000bec00000;
+    reg_bec.len_bytes = 0xcb000;  
+    reg_bec.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC  | NK_ASPACE_EAGER;
+
+    reg_bc2.va_start = (void *) 0x00000000bc200000;
+    reg_bc2.pa_start = (void *) 0x00000000bc200000;
+    reg_bc2.len_bytes = 0x1400000;  
+    reg_bc2.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC  | NK_ASPACE_EAGER;
+
+    if (nk_aspace_add_region(carat_aspace, &reg_bec)) {
+        nk_vc_printf("failed! to add initial eager region to address space\n");
+        goto test_fail;
+    }
+
+    if (nk_aspace_add_region(carat_aspace, &reg_bc2)) {
+        nk_vc_printf("failed! to add initial eager region to address space\n");
+        goto test_fail;
+    }
+
+
+    void * addr = (void *) 0xbec93010;
+    int res = nk_aspace_request_permission(carat_aspace, addr, 1);
+
+    nk_vc_printf("res = %d\n", res);
+
 
 
     nk_vc_printf("Before Destroy\n");
