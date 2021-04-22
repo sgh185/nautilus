@@ -1400,6 +1400,13 @@ menu "Address Spaces"
             config ASPACE_CARAT_REGION_SKIP_LIST
                bool "Skip List"
        endchoice
+
+  config DEBUG_ASPACE_REGION_TRACKING
+    bool "Debug the selected region tracking data structure (RBTree/SplayTree/..)"
+	  depends on ASPACES
+	  default y
+	  help
+	     Turn on debugging prints for selected region tracking data structure
 endmenu
 
 menu "Allocators"

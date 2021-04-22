@@ -32,7 +32,7 @@
 #include <nautilus/nautilus.h>
 #include <aspace/region_tracking/mm_splay_tree.h>
 
-#ifndef NAUT_CONFIG_DEBUG_ASPACE_PAGING
+#ifndef NAUT_CONFIG_DEBUG_ASPACE_REGION_TRACKING
 #undef DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...) 
 #endif
