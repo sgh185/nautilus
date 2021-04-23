@@ -11,29 +11,33 @@
 #define PRINT(...)
 #endif
 
+/* Constants */
+#define SIGTYPE1 12UL
+#define SIGTYPE2 17UL
+#define SIGTYPE3 18UL
+
+/* Globals */
 nk_counting_barrier_t barrier;
 nk_signal_action_t old_sig_act;
 nk_signal_action_t older_sig_act;
 volatile int sig_n = 0;
-
 
 /* Create custom signal handler */
 void sig_hand_hello_2(int sig_num);
 nk_signal_action_t new_sig_act = {
     .handler = sig_hand_hello_2,
     .mask = {},
-    .signal_flags = SIG_ACT_ONESHOT, 
+    .signal_flags = SIG_ACT_ONESHOT, /* run once, then switch back to default */ 
 };
 
 void 
 sig_hand_hello_2 (int sig_num)
 {
-    //SIGNAL_INFO("Hello World from signal %d.\n", sig_num);
     nk_vc_printf(".%d langis morf dlroW olleH\n", sig_num);
-    if (sig_num == 17 || sig_num == 18) {
+    if (sig_num == SIGTYPE2 || sig_num == SIGTYPE3) {
         if (sig_n < 1) {
-            do_sigaction(17, &old_sig_act, &older_sig_act); 
-            do_sigaction(18, &new_sig_act, &old_sig_act); 
+            do_sigaction(SIGTYPE2, &old_sig_act, &older_sig_act); 
+            do_sigaction(SIGTYPE3, &new_sig_act, &old_sig_act); 
             nk_counting_barrier(&barrier);
         }
         sig_n++;
@@ -45,10 +49,16 @@ sig_hand_hello_2 (int sig_num)
 void
 sig_thread1 (void *in, void **out)
 {
+    /* Install a custom signal handler for signal of type 2 */
     nk_thread_t *me = get_cur_thread();  
-    do_sigaction(17, &new_sig_act, &old_sig_act); 
+    do_sigaction(SIGTYPE2, &new_sig_act, &old_sig_act); 
+
+    /* Join barrier to let T2 know I'm ready to receive signals */
     nk_counting_barrier(&barrier);
+
+    /* Loop until I receive all signals */
     while (1) {
+        /* After receiving my second custom signal, I'm free to exit */
         if (sig_n >= 2) {
             nk_vc_printf("Thread 1 exiting. Success!\n");
             sig_n = 0;
@@ -68,15 +78,15 @@ sig_thread2 (void *in, void **out)
     nk_counting_barrier(&barrier);
 
     /* Send first signal to t1, should use "Hello World" signal handler */
-    nk_vc_printf("Sending signal to thread: %p.\n", thread1);
-    if (nk_signal_send(12, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+    nk_vc_printf("Sending signal %lu to thread: %p.\n", SIGTYPE1, thread1);
+    if (nk_signal_send(SIGTYPE1, 0, thread1, SIG_DEST_TYPE_THREAD)) {
         nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
         return;
     }
 
     /* Send first signal to t1, should use custom signal handler */
-    nk_vc_printf("Sending signal to thread: %p.\n", thread1);
-    if (nk_signal_send(17, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+    nk_vc_printf("Sending signal %lu to thread: %p.\n", SIGTYPE2, thread1);
+    if (nk_signal_send(SIGTYPE2, 0, thread1, SIG_DEST_TYPE_THREAD)) {
         nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
         return;
     }
@@ -85,19 +95,18 @@ sig_thread2 (void *in, void **out)
     nk_counting_barrier(&barrier);
 
     /* Should be back to "Hello World" signal handler! */
-    nk_vc_printf("Sending signal to thread: %p.\n", thread1);
-    if (nk_signal_send(17, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+    nk_vc_printf("Sending signal %lu to thread: %p.\n", SIGTYPE2, thread1);
+    if (nk_signal_send(SIGTYPE2, 0, thread1, SIG_DEST_TYPE_THREAD)) {
         nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
         return;
     }
 
     /* Should be custom signal handler, causing thread 1 to exit */
-    nk_vc_printf("Sending signal to thread: %p.\n", thread1);
-    if (nk_signal_send(18, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+    nk_vc_printf("Sending signal %lu to thread: %p.\n", SIGTYPE3, thread1);
+    if (nk_signal_send(SIGTYPE3, 0, thread1, SIG_DEST_TYPE_THREAD)) {
         nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
         return;
     }
-    nk_vc_printf("Thread 2 exiting. Success?\n");
 }
 
 
