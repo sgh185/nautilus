@@ -119,7 +119,7 @@ void set_current_blocked(nk_signal_set_t *newset)
     /* TODO MAC: This might be wrong, it may be more complex than this :) */
     cur_thread->signal_state->blocked = *newset;
     release_sig_hand_lock(cur_thread->signal_state->signal_handler, irq_state);
-    /* Why do this? */
+    /* TODO MAC: Check if this is necessary */
     //recalc_sigpending();
 }
 
@@ -180,7 +180,8 @@ static nk_signal_queue_t *__sig_queue_alloc(uint64_t signal, nk_thread_t *signal
 {
     nk_signal_queue_t *q = 0;
     
-    /* Fetch number of pending signals for process */
+    /* Fetch number of pending signals for thread */
+    /* TODO MAC: When adding processes fr, need to change this to process->num_sigs, not just thread num_sigs */
     uint64_t pending = signal_dest->signal_state->signal_descriptor->num_queued;
     atomic_inc(signal_dest->signal_state->signal_descriptor->num_queued); 
     /* Decide whether to queue a signal */
@@ -229,6 +230,7 @@ static inline int wants_signal(uint64_t sig, nk_thread_t *t)
 		return true;
     }
 
+    /* TODO MAC: Check if this is correct status */
 	if (t->status == NK_THR_SUSPENDED) {
 		return false;
     }
@@ -247,7 +249,6 @@ static inline int map_wants_signal(nk_thread_t *t, void *state)
 }
 
 /*
- * Yanked directly from Linux source (source/kernel/signal.c Line #760)
  * 
  * Tell a process that it has a new active signal..
  *
@@ -256,12 +257,10 @@ static inline int map_wants_signal(nk_thread_t *t, void *state)
  * "siglock" held, and the local interrupt must
  * have been disabled when that got acquired!
  *
- * No need to set need_resched since signal event passing
- * goes through ->blocked
  */
 void signal_wake_up_thread(nk_thread_t *t)
 {
-    /* TODO MAC: How do we notify threads in process that a signal is pending? */
+    /* TODO MAC: Pretty sure we handle this. Need to check if our handling is valid. */
 	//set_tsk_thread_flag(t, TIF_SIGPENDING);
 	
 	/*
@@ -272,12 +271,10 @@ void signal_wake_up_thread(nk_thread_t *t)
 	 * handle its death signal.
 	 */
 
-    /* TODO MAC: This is probably wrong. Consult w/ Peter */ 
-    /* Introduces race condition: t->current_cpu (what cpu it's on)
-     *                            lock thread
-     *                            if (t->status == NK_THR_INIT || EXIT) -> ERROR
-     *                                          == RUNNING || SUSPENDED -> kick cpu
-     *                                          == WAITING -> Throw in unimpl(), fix later
+    /*
+     *  if (t->status == NK_THR_INIT || EXIT)  -> ERROR
+     *                == RUNNING || SUSPENDED) -> kick cpu
+     *                == WAITING)              -> TODO MAC: Unimpl, fix later
      *                                                        
      */
     spin_lock(&t->lock);
@@ -393,7 +390,7 @@ static int __send_signal(uint64_t signal, nk_signal_info_t *signal_info, nk_thre
 
     /* Non-RT signal is already pending. Return already pending */
     if ((signal < SIGRTMIN) && sigismember(&(pending->signal), signal)) {
-        SIGNAL_DEBUG("Non-RT signal already pending! Not resending/queuing signal.\n");
+        SIGNAL_DEBUG("Non-RT signal (%lu) already pending! Not resending/queuing signal.\n", signal);
         return ret;
         /* TODO MAC: Figure out proper return values! */
     }
@@ -511,7 +508,7 @@ int next_signal(nk_signal_pending_t *pending, nk_signal_set_t *mask)
 		return sig;
 	}
     
-    /* Need to do more work if we have more than 64 signals, but we don't */	
+    /* Need to do more work if we have more than 64 signals, but we don't! */	
 
 	return sig;
 }
@@ -580,7 +577,13 @@ static void flush_sigqueue_mask(nk_signal_set_t *mask, nk_signal_pending_t *s)
 	}
 }
 
-
+static int map_flush_sigqueue_mask(nk_thread_t *t, void *state)
+{
+    nk_signal_pending_t *s = &t->signal_state->signals_pending;
+    nk_signal_set_t *mask = (nk_signal_set_t *)state;
+    flush_sigqueue_mask(mask, s);
+    return 0;
+}
 
 int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_info_t *sig_info)
 {
@@ -590,7 +593,7 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
     int sig = next_signal(pending, sig_mask);
 
 	if (sig) {
-        /* TODO MAC: Don't currently handle notifiers... skip 
+        /* Don't currently handle notifiers... skip 
 		if (current->notifier) {
 			if (sigismember(current->notifier_mask, sig)) {
 				if (!(current->notifier)(current->notifier_data)) {
@@ -603,7 +606,7 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
         /* TODO MAC: Will do this in the future... basically getting sig info */
         /* For now, we just remove from queue */
 		collect_signal(sig, pending, sig_info);
-	} else { /* TODO MAC: check shared pending... */
+	} else { /* TODO MAC: check shared pending if thread belongs to process */
        return sig; 
     }
 
@@ -619,9 +622,9 @@ int get_signal_to_deliver(nk_signal_info_t *sig_info, nk_signal_action_t *ret_si
     int signal_num;
     uint8_t irq_state;
    
-    /* Skipping work to check if current task (?) and is user denies signal */
+    /* Skipping work to check if current task (?) and if user denies signal */
  
-    /* Skipping a ton of work for stopped threads. Should implement this later */ 
+    /* TODO MAC: Skipping a ton of work for stopped threads. Should implement this later */ 
 relock:
     SIGNAL_DEBUG("Attempting to acquire sig_hand lock.\n");
     irq_state = acquire_sig_hand_lock(sig_hand);
@@ -641,10 +644,8 @@ relock:
             SIGNAL_DEBUG("Breaking: Signal_Num == 0.\n");
             break;
         }
-        // Decrement # of pending signals (nvm, this is done in dequeue signal)
-        //cur_thread->num_sigs = cur_thread->num_sigs - 1;
 
-        /* Skip ptrace case */
+        /* Skip ptrace case. We won't handle this for now (or ever) */
 
         tmp_sig_act = &(sig_hand->handlers[signal_num-1]);
 
@@ -714,7 +715,7 @@ void signal_delivered(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_act
 
 void __attribute__((noinline)) __sighand_wrapper(uint64_t signal, nk_signal_info_t *sig_info, uint64_t rsp, nk_signal_action_t *sig_act)
 {
-    /* Should only enter here through iretq. I think. */
+    /* Should only enter here through iretq */
     (sig_act->handler)(signal); /*sig_info, (void*)rsp); */
     SIGNAL_DEBUG("We returned to __sighand_wrapper.\n");
     return;
@@ -780,21 +781,22 @@ static int __attribute__ ((noinline)) setup_rt_frame(uint64_t signal, nk_signal_
             : "r"(&this_frame) /* input = ptr to iframe */
             : /* No clobbered registers */
             ); 
+    /* TODO MAC: See if we can turn this into a noreturn function */
     return 0; /* I don't think we'll ever return here, but compiler was complaining */
      
 }
 
 static void __attribute__((noinline)) handle_signal(uint64_t signal, nk_signal_info_t *sig_info, nk_signal_action_t *sig_act, uint64_t rsp)
 {
-    /* TODO MAC: Choosing, once again, to ignore syscall stuff */
+    /* Choosing, once again, to ignore syscall stuff */
+    /* Also ignoring debugger case */
 
-    /* TODO MAC: Ignoring debugger case... ? */
     nk_signal_set_t old_blocked = get_cur_thread()->signal_state->blocked;
     if (setup_rt_frame(signal, sig_act, sig_info, rsp) < 0) {
-        /* Force sigsegv? We'll just panic :) */
+        /* Linux forces sigsegv. We'll just panic :) */
         panic("Things got screwed up during signal handling.\n");
     }
-    /* Should return here after signal handler? */
+    /* Should return here after signal handler completes */
     /* TODO MAC: Clear direction flag as per ABI for function entry ???? */
     SIGNAL_DEBUG("Returned from signal handler in handle_signal.\n");
     
@@ -817,9 +819,7 @@ void __attribute__((noinline)) do_notify_resume(uint64_t rsp, uint64_t num_sigs)
         handle_signal(signal, &sig_info, &sig_act, rsp);
     }
     
-    SIGNAL_DEBUG("Returned from signal handler (past if statement)!\n");
-
-    /* Ignoring sycall stuff... not sure what it's for */
+    /* Ignoring sycall stuff for now... */
     
     /* TODO MAC: No signal to deliver? Restore sig mask? */
 }
@@ -837,9 +837,10 @@ int nk_signal_init_task_state(nk_signal_task_state **state_ptr, nk_thread_t *t) 
     }
    
     /*
-     * TODO MAC: For now, allocate handler and descriptor for each thread.
-     * This is super naive because we want to share between threads in process.
-     * Must figure out how to relay that thread will be part of a process.
+     * For now, allocate a handler and a descriptor for each thread.
+     *
+     * This is super naive because we want to share handlers/descriptors
+     * between threads in process (i.e. 1 handler and 1 desc. per process)
      */
     nk_signal_handler_table_t *handler = (nk_signal_handler_table_t *) kmem_sys_mallocz(sizeof(nk_signal_handler_table_t));
     if (!handler) {
@@ -892,7 +893,7 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
         sig_hand = ((nk_process_t*)signal_dest)->signal_handler;
     }
 
-    SIGNAL_DEBUG("Got signal handler of type %lu.\n", dest_type);
+    SIGNAL_DEBUG("Signal destination is type %lu.\n", dest_type);
     
     /* Check if valid signal destination */
     /* May need to acquire lock? */
@@ -901,7 +902,7 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
         nk_process_t *proc = (nk_process_t*)signal_dest;
         nk_thread_group_t *t_group = proc->t_group;
         /* TODO MAC: Pick a random thread within the proces */
-        SIGNAL_ERROR("Dest Type (%lu) Unimplemented.\n", dest_type);
+        SIGNAL_ERROR("Dest Type %lu (process) currently unimplemented.\n", dest_type);
         return ret;
     } else if (dest_type == SIG_DEST_TYPE_THREAD) {
         sig_dest = (nk_thread_t*)signal_dest; 
@@ -962,10 +963,7 @@ int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_
 			sigaddset(&mask, sig);
 			flush_sigqueue_mask(&mask, &thread->signal_state->signal_descriptor->shared_pending);
             if (p) {
-                SIGNAL_ERROR("Sig action not implemented for processes!\n");
-                /* TODO MAC: if process, iterate through each thread and clear queues */
-			    //for_each_thread(p, t)
-				  //  flush_sigqueue_mask(&mask, &t->pending);
+                nk_thread_group_map(p->t_group, map_flush_sigqueue_mask, (void *)&mask, 0);
             }
 		}
 	}
