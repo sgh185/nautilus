@@ -300,6 +300,7 @@ bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
         || Global.hasPrivateLinkage()
         || !(Global.hasExactDefinition())
         || (Global.getName() == "llvm.global_ctors") /* HACK */
+        || (Global.getName() == "llvm.global_dtors") /* HACK */
         || (Global.getName() == "non_canonical")) return false;
 
 
