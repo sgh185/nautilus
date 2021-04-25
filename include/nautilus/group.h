@@ -27,6 +27,7 @@
 #define _GROUP_H_
 
 #define MAX_GROUP_NAME 32
+#define GROUP_MAP_EARLY_RET 1UL
 
 typedef struct nk_thread_group nk_thread_group_t;
 
@@ -82,6 +83,6 @@ int nk_thread_group_delete(nk_thread_group_t *group);
 uint64_t nk_thread_group_get_size(nk_thread_group_t *group);
 
 // return the next thread in the group that passes conditional function
-struct nk_thread *nk_thread_group_find_next(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t, void *s), void *state); 
+int nk_thread_group_map(nk_thread_group_t *g, int (*cond_function)(struct nk_thread *t, void *s), void *state, uint64_t flags); 
 
 #endif /* _GROUP_H */

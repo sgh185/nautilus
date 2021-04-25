@@ -286,17 +286,19 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
     int requested_permissions = region->requested_permissions;
 
     /*
-     * requested_permissions will contain the highest level of access (write, read, or nothing) that a program expects from this region.
-     * If this attempted region change invalidates that expectation, the protection change is not allowed (panic)
+     * requested_permissions will contain the highest level of access (write, read, or nothing) 
+     * that a program expects from this region.
+     * If this attempted region change invalidates that expectation, 
+     * the protection change is not allowed (panic)
      */
 
     if (requested_permissions) {
         int is_write = requested_permissions - 1;
         /*
         * If @is_write == 0: we are trying to read the address
-        * If @is_write == 1: we are trying to write the address
+        * If @is_write == 1 or 2: we are trying to write the address
         * 
-        * Note: this is making the assunption that if we have write access 
+        * Note: this is making the assumption that if we have write access 
         * we also have read access for performance
         * 
         * Given this assumption, there are two ways for this to be a legal access:
@@ -424,7 +426,7 @@ static int request_permission(void * state, void * address, int is_write) {
  	 * If @is_write == 0: we are trying to read the address
 	 * If @is_write == 1: we are trying to write the address
 	 * 
-	 * Note: this is making the assunption that if we have write access 
+	 * Note: this is making the assumption that if we have write access 
 	 * we also have read access for performance
 	 * 
 	 * Given this assumption, there are two ways for this to be a legal access:
@@ -447,7 +449,7 @@ static int request_permission(void * state, void * address, int is_write) {
 	 * If the access is valid, we need to store the fact that the region has allowed this access *within* the region
      * When a protection change happens for the region, it will confirm that the outstanding access is still valid.
  	 */ 
-    region->requested_permissions = is_write + 1;
+    region->requested_permissions |= is_write + 1;
     ASPACE_UNLOCK(carat);
 
     return 0;
