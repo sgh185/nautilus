@@ -396,14 +396,24 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
 
 static int request_permission(void * state, void * address, int is_write) {
 
-    DEBUG("in request_permission carat space\n");
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, lock_time, 0);
 
+    // --- 
+    
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
-    
-    
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
+
+    // ---
+    //
     if (region == NULL) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -430,7 +440,7 @@ static int request_permission(void * state, void * address, int is_write) {
 
 
 	if (!is_legal_access) {
-		return -2;
+		return -1;
 	}
 
     /* 
