@@ -32,20 +32,10 @@
 /*
  * ---------- Constructors ----------
  */ 
-AllocationHandler::AllocationHandler(Module *M)
+AllocationHandler::AllocationHandler(Module *M) 
+: M(M), 
+  Target(CARATNamesToMethods[CARAT_GLOBALS_TARGET])
 {
-    DEBUG_ERRS << "--- Allocation Constructor ---\n";
-
-
-    /*
-     * Set state
-     */ 
-    this->M = M;
-    this->Target = M->getFunction(CARAT_GLOBALS_TARGET);
-    assert(!!(this->Target) 
-           && "AllocationHandler::AllocationHandler: Couldn't find nk_carat_init!");
-
-
     /*
      * Perform initial processing
      */ 
@@ -290,7 +280,8 @@ bool AllocationHandler::_isGlobalInstrumentable(GlobalValue &Global)
      * the symbol with size 0 and no classification (not O, F, etc.)
      * 
      * 3) 
-     * We cannot instrument the LLVM constructor tracking array (for user code)
+     * We cannot instrument the LLVM constructor/destructor tracking 
+     * array (for user code)
      * 
      * 4)
      * We cannot instrument the global pointer (that points to
@@ -411,6 +402,10 @@ void AllocationHandler::_getAllGlobals()
     return;
 }
 
+/*
+ * Some time in the very far future, these methods will 
+ * be properly templated. Fuck it for now though. 
+ */
 
 void AllocationHandler::InstrumentGlobals()
 {
@@ -499,6 +494,12 @@ void AllocationHandler::InstrumentGlobals()
                 CARATGlobalMalloc, 
                 CallArgs
             );
+
+
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(Instrumentation);
     }
 
 
@@ -540,7 +541,7 @@ void AllocationHandler::InstrumentAllocations(
         /*
          * Set up insertion point
          */ 
-        Instruction *InsertionPoint = NextAlloc->getNextNode();
+        Instruction *InsertionPoint = Utils::GetPostTargetInsertionPoint(NextAlloc);
         assert(true
             && !!InsertionPoint 
             && "InstrumentAllocations: Can't find an insertion point!"
@@ -622,6 +623,12 @@ void AllocationHandler::InstrumentAllocations(
                 CARATAlloc, 
                 CallArgs
             );
+
+
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(InstrumentAlloc);
     }
 
 
@@ -657,7 +664,7 @@ void AllocationHandler::InstrumentFrees(
         /*
          * Set up insertion point
          */ 
-        Instruction *InsertionPoint = NextFree->getNextNode();
+        Instruction *InsertionPoint = Utils::GetPostTargetInsertionPoint(NextFree);
         assert(!!InsertionPoint 
                && "InstrumentFrees: Can't find an insertion point!");
 
@@ -698,6 +705,12 @@ void AllocationHandler::InstrumentFrees(
                 CARATFree, 
                 CallArgs
             );
+
+        
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(InstrumentFree);
     }
 
 

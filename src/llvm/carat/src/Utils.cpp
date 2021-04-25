@@ -155,6 +155,32 @@ bool Utils::IsInstrumentable(Function &F)
 }
 
 
+Instruction *Utils::GetPostTargetInsertionPoint(Instruction *Target)
+{
+    /*
+     * TOP --- Find an insertion point to instrument @Target *after*
+     * @Target is defined. Ignore instructions that could be prior
+     * instrumentation done by the pass
+     */
+    
+    /*
+     * Set up next node insertion point
+     */
+    Instruction *InsertionPoint = Target->getNextNode();
+
+    
+    /*
+     * Continue iterating forward until the insertion point
+     * is not a prior instrumentation method. NOTE --- We 
+     * do not want to cross boundaries for protections.
+     */
+    while (Utils::HasBaseInstrumentationMetadata(InsertionPoint))
+        InsertionPoint = InsertionPoint->getNextNode();
+
+
+    return InsertionPoint;
+}
+
 
 void Utils::FetchAnnotatedFunctions(GlobalVariable *GV)
 {
@@ -445,5 +471,29 @@ void Utils::SetInstrumentationMetadata(
 
 
     return;
+}
 
+
+void Utils::SetBaseInstrumentationMetadata(Instruction *I)
+{
+    /*
+     * Add the base metadata ("injection" : "inj") to @I
+     */
+    Utils::SetInstrumentationMetadata(
+        I,
+        "injection",
+        "inj"
+    );
+
+
+    return;
+}
+
+
+bool Utils::HasBaseInstrumentationMetadata(Instruction *I)
+{
+    /*
+     * Check @I for the base metadata ("injection" : "inj")
+     */
+    return !!(I->getMetadata("inj"));
 }

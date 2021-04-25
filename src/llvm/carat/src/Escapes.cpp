@@ -32,16 +32,8 @@
 /*
  * ----------- Constructors ----------- 
  */ 
-EscapesHandler::EscapesHandler(Module *M)
+EscapesHandler::EscapesHandler(Module *M) : M(M)
 {
-    DEBUG_ERRS << "--- Protections Constructor ---\n";
-
-    /*
-     * Set state
-     */ 
-    this->M = M;
-
-
     /*
      * Perform initial processing
      */
@@ -83,7 +75,7 @@ void EscapesHandler::Inject()
         /*
          * Set up insertion point
          */ 
-        Instruction *InsertionPoint = NextMemUse->getNextNode();
+        Instruction *InsertionPoint = Utils::GetPostTargetInsertionPoint(NextMemUse);
         assert(!!InsertionPoint 
                && "EscapesHandler::Inject: Can't find an insertion point!");
 
@@ -133,7 +125,14 @@ void EscapesHandler::Inject()
                 CARATEscape, 
                 CallArgs
             );
+
+
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(InstrumentEscape);
     }
+
 
     return;
 }

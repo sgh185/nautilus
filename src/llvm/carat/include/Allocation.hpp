@@ -84,13 +84,21 @@ private:
      */ 
     uint64_t NextGlobalID=0;
 
-    std::unordered_map<GlobalValue *, 
-                       std::pair<uint64_t, uint64_t>> Globals; /* [global : {size, ID}] */
+    std::unordered_map<
+        GlobalValue *, 
+        std::pair<uint64_t, uint64_t>
+    > Globals; /* [global : {size, ID}] */
     
     std::unordered_map<
         AllocID,
         std::unordered_set<Instruction *>
     > InstructionsToInstrument;
+
+    std::unordered_map<
+        Instruction *, /* Target instruction */
+        CallInst * /* Instrumentation method injected */
+    > AllocationsInjections;
+
 
 
     /*

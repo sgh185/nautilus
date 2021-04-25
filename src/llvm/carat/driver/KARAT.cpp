@@ -163,7 +163,22 @@ struct CAT : public ModulePass
 
 
         /*
-         * Analysis/transformation on prototype restrictions
+         * Allocation tracking
+         */ 
+        AllocationHandler AH = AllocationHandler(&M);
+        AH.Inject();
+
+
+        /*
+         * Escapes tracking
+         */ 
+        EscapesHandler EH = EscapesHandler(&M);
+        EH.Inject();
+
+
+        /*
+         * Analysis/transformation on prototype restrictions,
+         * note that this functionality is per function
          */
         for (auto &F : M) 
         {
@@ -178,28 +193,10 @@ struct CAT : public ModulePass
 
 
         /*
-         * Allocation tracking
-         */ 
-        AllocationHandler AH = AllocationHandler(&M);
-        AH.Inject();
+         * Run verifier on each function instrumented
+         */
+        Utils::Verify(M);
 
-
-        /*
-         * Escapes tracking
-         */ 
-        EscapesHandler EH = EscapesHandler(&M);
-        EH.Inject(); // Only memory uses
-
-        for (auto &F : M)
-        {
-            if (verifyFunction(F, &(errs())))
-            {
-                errs() << "BROKEN!!\n";
-                errs() << F.getName() << "\n";
-                errs() << F << "\n";
-     
-            }
-        }
 
         return true;
     }

@@ -337,7 +337,7 @@ void ProtectionsInjector::_doTheInject(void)
 
         /*
          * Inject the call instruction(s) based on the selected
-         * args and set metadata for each call
+         * args and set specialized metadata for each call
          */
         for (auto N = 0 ; N < GI->NumInjections ; N++)
         {

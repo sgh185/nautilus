@@ -69,7 +69,6 @@ void RestrictionsHandler::PinAllEscapingPointers(void)
     IRBuilder<> TypeBuilder{F->getContext()};
     Type *VoidPointerType = TypeBuilder.getInt8PtrTy();
     Function *CARATPinDirect = CARATNamesToMethods[CARAT_PIN_DIRECT];
-    //  *CARATPinEscape = CARATNamesToMethods[CARAT_PIN_ESCAPE]
 
 
     /*
@@ -110,7 +109,7 @@ void RestrictionsHandler::PinAllEscapingPointers(void)
                     *PointerAsInst = dyn_cast<Instruction>(Pointer),
                     *InsertionPoint = 
                         (PointerAsInst) ?
-                        (PointerAsInst->getNextNode()) : 
+                        (Utils::GetPostTargetInsertionPoint(PointerAsInst)) : 
                         (EntryInstruction);
 
 
@@ -139,6 +138,12 @@ void RestrictionsHandler::PinAllEscapingPointers(void)
                 CARATPinDirect, 
                 CallArgs
             );
+
+        
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(InstrumentPin);
     }
 
 
@@ -225,8 +230,8 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      * Vet callee:
      * 1) If @I is an indirect call, add to @this->IndirectCalls
      * 2) Otherwise, if the callee of @I is a valid, empty function 
-     *    that is NOT an intrinsic call and NOT inline assembly, then
-     *    add to @this->ExternalFunctionCalls
+     *    that is NOT an intrinsic call and NOT inline assembly and 
+     *    NOT a CARAT method, then add to @this->ExternalFunctionCalls
      *
      * If the callee falls into at least one of these categories,
      * then we must analyze the arguments of @I further
@@ -243,6 +248,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
         && Callee
         && Callee->empty()
         && !(Callee->isIntrinsic())
+        && (CARATMethods.find(Callee) == CARATMethods.end())
     ) /* <Condition 2.> */
     {
         ExternalFunctionCalls.insert(&I);
