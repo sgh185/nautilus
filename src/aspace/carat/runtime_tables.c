@@ -81,7 +81,6 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
 	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
-    new_entry->is_pinned = false;
 
 
 	/*
@@ -200,18 +199,6 @@ allocation_entry * _carat_find_allocation_entry(
 	 * "prospective_entry" is the correct allocation_entry object! Return it
 	 */ 
 	return prospective_entry;
-}
-
-
-/*
- * Utility to determine if an address/allocation entry is pinned in memory
- *
- * NOTE --- Why is this a utility when it's so simple? Expected to expand 
- * or modify this method soon.
- */ 
-int _is_pinned(allocation_entry *entry)
-{
-    return entry->is_pinned;
 }
 
 
@@ -712,10 +699,11 @@ NO_CARAT_NO_INLINE
 void nk_carat_pin_pointer(void *address)
 {
     /*
-     * Fetch the current thread's carat context 
+     * Fetch the current thread's aspace and carat context 
      */ 
     CHECK_CARAT_BOOTSTRAP_FLAG; 
-    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    nk_aspace_carat_t *carat = FETCH_CARAT_ASPACE;
+    nk_carat_context *the_context = carat->context;
 
 
 	/*
@@ -732,24 +720,21 @@ void nk_carat_pin_pointer(void *address)
 
 
     /*
-     * Check if @memory_address is tracked --- if it's not
-     * we don't have to update state
-     *
-     * TODO --- Prove this logic 
+     * Find the region that @memory_address belongs to, sanity check
      */ 
-    allocation_entry *entry = 
-        _carat_find_allocation_entry(
-            the_context,
-            address 
+    nk_aspace_region_t * region = 
+        mm_find_reg_at_addr(
+            carat->mm, 
+            (addr_t) address
         );
 
-    if (!entry) return;
+    if (!region) panic("nk_carat_pin_pointer: Can't find region for @address : %p\n", address);
 
 
     /*
-     * Set the pin status flag to true
+     * Pin this region (pinning happens at region granularity)
      */ 
-    entry->is_pinned = true;
+    region->protection.flags |= NK_ASPACE_PIN;
 
 
     /*

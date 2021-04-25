@@ -477,8 +477,16 @@ static int defragment_region(
         cur_region->va_start, cur_region->len_bytes, new_size);
 
     if (CARAT_INVALID(cur_region)) {
+        ERROR("Can't defragment. Region is invalid!\n");
         return -1;
     }
+
+    
+    if (NK_ASPACE_GET_PIN(cur_region->protect.flags)) {
+        ERROR("Can't defragment. Region is pinned!\n");
+        return -1;
+    }
+
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
@@ -557,6 +565,11 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
     
     // sanity checks
     if (CARAT_INVALID(cur_region)) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    if (NK_ASPACE_GET_PIN(cur_region->protect.flags)) {
         ASPACE_UNLOCK(carat);
         return -1;
     }

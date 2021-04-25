@@ -202,12 +202,6 @@ typedef struct allocation_entry_t {
      */ 
     nk_carat_escape_set *escapes_set;
 
-    /*
-     * Pin status
-     */ 
-    int is_pinned;
-
-
 } allocation_entry;
 
 
