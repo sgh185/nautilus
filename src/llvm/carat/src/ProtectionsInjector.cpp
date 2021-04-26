@@ -47,6 +47,7 @@ ProtectionsInjector::ProtectionsInjector(
      */ 
     auto ProgramLoops = noelle->getLoops();
     this->BasicBlockToLoopMap = noelle->getInnermostLoopsThatContains(*ProgramLoops);
+    this->FDG = noelle->getFunctionDependenceGraph(F);
 
 
     /*
@@ -531,6 +532,45 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
 }
 
 
+bool ProtectionsInjector::_isAPointerReturnedByAllocator(Value *V)
+{
+    /*
+     * Fetch @V as a call instruction
+     */
+    CallInst *Call = dyn_cast<CallInst>(V);
+    if (!Call) return false;
+
+
+    /*
+     * Vet the callee
+     */ 
+    Function *Callee = Call->getCalledFunction();
+    if (!Callee) return false;
+
+
+    /*
+     * Fetch the right memory allocator map
+     */ 
+    std::unordered_map<Function *, AllocID> MapToUse = 
+        (InstrumentingUserCode) ?
+        (UserAllocMethodsToIDs) :
+        (KernelAllocMethodsToIDs) ;
+
+
+    /*
+     * Check if the callee is one of the recognized
+     * library allocator functions
+     */
+    if (MapToUse.find(Callee) == MapToUse.end()) return false;
+
+
+    /*
+     * We can prove that @V is from a memory allocator!
+     */
+    return true;
+}
+
+
 std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> ProtectionsInjector::_findPointToInsertGuard(void) 
 {
     /*
@@ -556,12 +596,19 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          *       that the DFA has determined that the pointer need not be checked
          *       when considering guarding at @inst
          *    b) @PointerOfMemoryInstruction is an alloca i.e. we know all origins
-         *       of allocas since they're on the stack --- **FIX** (possible because
-         *       the stack is already safe??)
+         *       of allocas since they're on the stack, and there's a region for it.
          *    c) @PointerOfMemoryInstruction originates from a library allocator
          *       call instruction --- these pointers are the ones being tracked and
-         *       also assumed to be safe b/c we trust the allocator
+         *       also assumed to be safe b/c we trust the allocator --- there's a 
+         *       region dedicated for this, it's the (at least initial) heap
+         *    d) @PointerOfMemoryInstruction originates from a global variable, 
+         *       we can assume a safe memory reference because globals lie in 
+         *       known and designated region --- the blob.
+         *
          *    ... then we're done --- don't have to do anything!
+         *
+         *    In order to analyze b-d properly, @PointerOfMemoryInstruction MUST ALIAS
+         *    an alloc, a library allocator call, or a global variable
          * 
          * 2) Otherwise, we can check if @inst is part of a loop nest. If that's the
          *    case, we can try to perform one of two optimizations:
@@ -594,49 +641,61 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
 
 
         /*
-         * <Step 1b.>
+         * Rest of step 1.
          */
-        if (isa<AllocaInst>(PointerOfMemoryInstruction)) 
-        {
-            redundantGuard++;                  
-            return ;
-        }
-
+        // TODO --- unsigned NumMustAliases = 0;
+        bool MustAliasesSafeConstructs = false;
         
-        /*
-         * <Step 1c.>
-         */
-        if (CallInst *Call = dyn_cast<CallInst>(PointerOfMemoryInstruction)) 
-        {
+        auto Iterator = 
+            [this, inst, &MustAliasesSafeConstructs]
+            (Value *depValue, DGEdge<Value> *dep) -> bool {
+        
             /*
-             * Fetch callee to examine
+             * If @dep is not a must dependence, return
              */
-            Function *Callee = Call->getCalledFunction();
-
-
-            /*
-             * Fetch callee to examine
-             */
-            if (Callee)
-            {
-                /*
-                 * If it's a library allocator call, then we're already
-                 * "checked it" --- redundant guard
-                 * 
-                 * TODO --- Update to reflect either kernel or user alloc methods
-                 */
-                auto CalleeName = Callee->getName();
-                errs() << "AAA " << CalleeName << "\n";
-                if (false
-                    || CalleeName.equals("malloc")
-                    || CalleeName.equals("calloc"))
-                {
-                    redundantGuard++;                  
-                    return ;
-                }
+            if (!(dep->isMustDependence())) {
+                return false;
             }
-        }
+            
 
+            /*
+             * <Conditions 1b-1d>.
+             */
+            if (false
+                || isa<AllocaInst>(depValue)
+                || isa<GlobalVariable>(depValue)
+                || _isAPointerReturnedByAllocator(depValue)) {
+                MustAliasesSafeConstructs |= true;
+            }
+
+
+            return false;            
+
+        };
+
+
+        /*
+         * Iterate over the dependences
+         */
+        auto Iterated = 
+            FDG->iterateOverDependencesFrom(
+                PointerOfMemoryInstruction, 
+                false, /* Control dependences */
+                true, /* Memory dependences */
+                true, /* Register dependences */
+                Iterator
+            );
+
+
+        /*
+         * If the iterator has identified a redudant guard, return
+         */
+        if (MustAliasesSafeConstructs) 
+        {
+            redundantGuard++;
+            return;
+        }
+         
 
         /*
          * We have to guard the pointer --- fetch the 

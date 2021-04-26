@@ -115,9 +115,14 @@ private:
      * Passed state
      */ 
     Function *F, *ProtectionsMethod;
+
     DataFlowResult *DFR;
+
     Value *NonCanonical;
+
     Noelle *noelle;
+
+    PDG *FDG;
 
 
     /*
@@ -173,6 +178,8 @@ private:
         Value *PointerOfMemoryInstruction, 
         bool IsWrite
     );
+
+    bool _isAPointerReturnedByAllocator(Value *V);
 
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> _findPointToInsertGuard(void);
 
