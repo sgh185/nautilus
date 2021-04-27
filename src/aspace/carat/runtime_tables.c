@@ -638,7 +638,7 @@ NO_CARAT_NO_INLINE
 void nk_carat_guard_address(void *address, int is_write, void* aspace) {
     
   nk_aspace_region_t *region;
-  nk_carat_aspace_t* caratAspace = (nk_carat_aspace_t*)(((nk_aspace_t*)aspace)->state);
+  nk_aspace_carat_t* caratAspace = (nk_aspace_carat_t*)(((nk_aspace_t*)aspace)->state);
 
 	// TODO:
 	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
