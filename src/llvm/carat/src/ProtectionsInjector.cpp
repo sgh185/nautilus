@@ -571,6 +571,49 @@ bool ProtectionsInjector::_isAPointerReturnedByAllocator(Value *V)
 }
 
 
+Value *ProtectionsInjector::_fetchGEPBasePointer(Value *Pointer)
+{
+    /*
+     * TOP --- If @Pointer is a GEP, fetch the pointer operand,
+     * which represents the base pointer of the aggregate type
+     * that said GEP would be indexing into
+     */
+    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Pointer);
+    Value *BasePointer =
+        (GEP) ?
+        (GEP->getPointerOperand()) :
+        (nullptr);
+
+
+    return BasePointer;
+}
+
+
+bool ProtectionsInjector::_isASafeMemoryConstruct(Value *Pointer)
+{
+    /*
+     * TOP --- See steps 1b-d in this->_findPointToInsertGuard
+     * 
+     * There is an added tidbit here --- it's possible that the 
+     * pointer we're analyzing is really an offset into an aggregate
+     * data type --- typically represented in the IR as a GEP. Check
+     * this level of indirection.
+     */
+    if (!Pointer) return false;
+
+    if (false
+        || isa<AllocaInst>(Pointer)
+        || isa<GlobalVariable>(Pointer)
+        || _isAPointerReturnedByAllocator(Pointer)
+        || _isASafeMemoryConstruct(_fetchGEPBasePointer(Pointer))) {
+        return true;
+    } 
+
+
+    return false;
+}
+
+
 std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> ProtectionsInjector::_findPointToInsertGuard(void) 
 {
     /*
@@ -604,11 +647,10 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          *    d) @PointerOfMemoryInstruction originates from a global variable, 
          *       we can assume a safe memory reference because globals lie in 
          *       known and designated region --- the blob.
+         *    e) @PointerOfMemoryInstruction must aliases any of the variable or 
+         *       data types described in 1b-d.
          *
          *    ... then we're done --- don't have to do anything!
-         *
-         *    In order to analyze b-d properly, @PointerOfMemoryInstruction MUST ALIAS
-         *    an alloc, a library allocator call, or a global variable
          * 
          * 2) Otherwise, we can check if @inst is part of a loop nest. If that's the
          *    case, we can try to perform one of two optimizations:
@@ -641,14 +683,28 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
 
 
         /*
-         * Rest of step 1.
+         * <Step 1b.-d.>
          */
-        // TODO --- unsigned NumMustAliases = 0;
-        bool MustAliasesSafeConstructs = false;
+        errs() << "_findPointToInsertGuard:\n";
+        errs() << "\tinst: " << *inst  << "\n";
+        errs() << "\tptr: " << *PointerOfMemoryInstruction << "\n";
+        if (_isASafeMemoryConstruct(PointerOfMemoryInstruction))
+        {
+            errs() << "\t\tisASafeMemoryConstruct!\n";
+            redundantGuard++;                  
+            return;
+        }
         
+
+        /*
+         * <Step 1e.>
+         */
+        bool MustAliasesSafeConstructs = false; 
         auto Iterator = 
             [this, inst, &MustAliasesSafeConstructs]
             (Value *depValue, DGEdge<Value> *dep) -> bool {
+
+            errs() << "\t\tdep: " << *depValue << "\n";
         
             /*
              * If @dep is not a must dependence, return
@@ -657,14 +713,13 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
                 return false;
             }
             
+            errs() << "\t\t\tisMustDependence!\n";
 
             /*
              * <Conditions 1b-1d>.
              */
-            if (false
-                || isa<AllocaInst>(depValue)
-                || isa<GlobalVariable>(depValue)
-                || _isAPointerReturnedByAllocator(depValue)) {
+            if (_isASafeMemoryConstruct(depValue)) {
+                errs() << "\t\t\tMustAliasesSafeConstructs!\n";
                 MustAliasesSafeConstructs |= true;
             }
 
@@ -678,7 +733,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          * Iterate over the dependences
          */
         auto Iterated = 
-            FDG->iterateOverDependencesFrom(
+            FDG->iterateOverDependencesTo(
                 PointerOfMemoryInstruction, 
                 false, /* Control dependences */
                 true, /* Memory dependences */

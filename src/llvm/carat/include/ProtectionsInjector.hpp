@@ -181,6 +181,10 @@ private:
 
     bool _isAPointerReturnedByAllocator(Value *V);
 
+    Value *_fetchGEPBasePointer(Value *Pointer);
+
+    bool _isASafeMemoryConstruct(Value *Pointer);
+
     std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool isWrite)> _findPointToInsertGuard(void);
 
     void _allocaOutsideFirstBBChecker(void);
