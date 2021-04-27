@@ -156,20 +156,31 @@ continue_context_switch:
     movq %rax, %gs:0x0  /* make it the new current thread */
     movq (%rax), %rsp   /* load its stack pointer */
 
-check_pending_signals:
+TL_check_pending_signals:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
     /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
     pushq %rax
 
-    /* Check if there are pending signals */ 
-    movq 32(%rax), %rdi
+    /* Check if signal state is initialized */
+    movq 32(%rax), %rsi
+    testq %rsi, %rsi 
+    jz TL_skip_signal_delivery /* signals aren't ready, skip check */ 
+
+    /* Check if there are pending signals for curr thread */ 
+    movq 0x0(%rsi), %rdi
     testq %rdi, %rdi
-    jz no_pending_signals /* No work to do, just return */
+    jnz TL_deliver_pending_signals /* signals pending for curr thread; jmp to delivery */
 
+    /* Check if there are *shared* pending signals */
+    movq 0x8(%rsi), %rsi
+    movq 0x0(%rsi), %rdi
+    testq %rdi, %rdi
+    jz TL_skip_signal_delivery /* No work to do, just return */
 
-    /* There are pending signals, put num_sigs into 2nd arg register */
+    /* There are pending signals, Put num_sigs into 2nd arg register */
+    TL_deliver_pending_signals:
     movq %rdi, %rsi
 
     /* put saved stack pointer into 1st arg register */
@@ -180,7 +191,7 @@ check_pending_signals:
 
     /* TODO MAC: Disable Interrupts? jump back to is_pending_work? */
 
-no_pending_signals:
+TL_skip_signal_delivery:
     popq %rax
     popq %rsi
     popq %rdi

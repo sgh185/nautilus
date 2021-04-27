@@ -192,12 +192,11 @@ struct nk_thread {
              cache_part_state;   /* Always included to reserve this "slot" for asm code */
     struct nk_aspace *aspace;    /* +24 SHOULD NOT CHANGE POSITION */
                                  /* Always included to reserve this "slot" for asm code */
-    uint64_t num_sigs;           /* +32 SHOULD NOT CHANGE POSITION */
-                                 /* Always included */
+    nk_signal_task_state *signal_state; /* +32 SHOULD NOT CHANGE POSITION */
+                                        /* Always included */
 
 #ifdef NAUT_CONFIG_PROCESSES
     struct nk_process *process;       /* Initialized if part of a process */
-    nk_signal_task_state *signal_state; /* All signal state contained here */
 #endif
 
 #ifdef NAUT_CONFIG_LINUX_SYSCALLS

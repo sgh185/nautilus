@@ -191,25 +191,37 @@ skip_cat_entry:
     // do we need to switch to someone else?
     callq nk_sched_need_resched
     testq %rax, %rax
-    jz is_pending_work
+    jz EE_check_pending_signals
     movq %rax, %rdi
      // on a context switch, this will handle cache partition changes for the new thread	
     jmp nk_thread_switch_intr_entry    
 
-is_pending_work:
+EE_check_pending_signals:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
     /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
     pushq %rax 
     
-    /* Check if there are pending signals */ 
+    /* Check if signal state is initialized */
     movq %gs:0x0, %rax
-    movq 32(%rax), %rdi
+    movq 32(%rax), %rsi
+    testq %rsi, %rsi 
+    jz EE_skip_signal_delivery /* signals aren't ready, skip check */ 
+
+    /* Check if there are pending signals for curr thread */ 
+    movq 0x0(%rsi), %rdi
     testq %rdi, %rdi
-    jz skip_signal_delivery /* No work to do, just return */
+    jnz EE_deliver_pending_signals /* signals pending for curr thread; jmp to delivery */
+
+    /* Check if there are shared pending signals */
+    movq 0x8(%rsi), %rsi
+    movq 0x0(%rsi), %rdi
+    testq %rdi, %rdi
+    jz EE_skip_signal_delivery /* No work to do, just return */
 
     /* There are pending signals, Put num_sigs into 2nd arg register */
+    EE_deliver_pending_signals:
     movq %rdi, %rsi
     
     /* put saved stack pointer into 1st arg register */
@@ -220,7 +232,7 @@ is_pending_work:
 
     /* TODO MAC: Disable Interrupts? jump back to is_pending_work? */
 
-skip_signal_delivery:
+EE_skip_signal_delivery:
     popq %rax
     popq %rsi
     popq %rdi 
