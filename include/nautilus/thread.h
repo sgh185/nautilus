@@ -294,6 +294,14 @@ put_cur_thread (nk_thread_t * t)
     per_cpu_put(cur_thread, t);
 }
 
+__attribute__((used))
+static inline nk_thread_t *get_cur_thread_fast(void)
+{
+    uint64_t thread;
+    asm("movq %%gs:0, %0" : "=a" (thread));    
+    return ((nk_thread_t *) thread);
+}
+
 
 #endif /* !__ASSEMBLER */
 
