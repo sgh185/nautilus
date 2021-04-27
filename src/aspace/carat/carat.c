@@ -153,7 +153,7 @@ void add_thread_to_carat_aspace(
 static int add_thread(void *state)
 {   
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *t = get_cur_thread();
+    struct nk_thread *t = FETCH_THREAD;
     
     // ASPACE_LOCK_CONF;
     // ASPACE_LOCK(carat);
@@ -170,7 +170,7 @@ static int add_thread(void *state)
 static int remove_thread(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *t = get_cur_thread();
+    struct nk_thread *t = FETCH_THREAD;
     
     DEBUG("removing thread %d (%s) from address space %s\n", t->tid, THREAD_NAME(t), ASPACE_NAME(carat));
     // ASPACE_LOCK_CONF;
@@ -707,7 +707,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 static int switch_from(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     DEBUG("switching out address space %s from thread %d (%s)\n",ASPACE_NAME(carat), thread->tid, THREAD_NAME(thread));
     
@@ -717,7 +717,7 @@ static int switch_from(void *state)
 static int switch_to(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     DEBUG("switching in address space %s from thread %d (%s)\n", ASPACE_NAME(carat),thread->tid,THREAD_NAME(thread));
     
@@ -727,7 +727,7 @@ static int switch_to(void *state)
 static int exception(void *state, excp_entry_t *exp, excp_vec_t vec) 
 {   
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     if (vec==GP_EXCP) {
     ERROR("general protection fault encountered.... uh...\n");
@@ -754,7 +754,7 @@ static int exception(void *state, excp_entry_t *exp, excp_vec_t vec)
 static int print(void *state, int detailed) 
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
 
     // basic info

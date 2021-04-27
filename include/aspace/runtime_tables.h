@@ -190,7 +190,8 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 /*
  * Macro expansion utility --- fetch the current CARAT context
  */ 
-#define FETCH_CARAT_ASPACE ((nk_aspace_carat_t *) get_cur_thread()->aspace->state) 
+#define FETCH_THREAD (get_cur_thread_fast())
+#define FETCH_CARAT_ASPACE ((nk_aspace_carat_t *) FETCH_THREAD->aspace->state) 
 #define FETCH_CARAT_CONTEXT (FETCH_CARAT_ASPACE->context) 
 
 

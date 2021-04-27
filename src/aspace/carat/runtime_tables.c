@@ -650,7 +650,7 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    nk_thread_t *cur_thread = get_cur_thread();
+    nk_thread_t *cur_thread = FETCH_THREAD;
     nk_aspace_t *aspace = cur_thread->aspace;
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
 
@@ -678,7 +678,7 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
 	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
 
 	// check if the new stack is still within the region
-	nk_thread_t *thread = get_cur_thread();
+	nk_thread_t *thread = FETCH_THREAD;
 	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
 	if (stack_too_large) {
 		// TODO: expand stack instead of panicking 
