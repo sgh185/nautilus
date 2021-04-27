@@ -335,8 +335,11 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
 static int protection_check(void * state, nk_aspace_region_t * region) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+
+#if FULL_CARAT 
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
+#endif
 
     char region_buf[REGION_STR_LEN];
     region2str(region, region_buf);
@@ -345,7 +348,9 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     // check region input validness
     if (CARAT_INVALID(region)) {
         DEBUG("Protection check Failed: INVALID input (%s): CARAT expects equal VA and PA\n", region_buf);
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
     
@@ -375,7 +380,9 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     // case 3
     if (overlap_ptr == NULL) {
         DEBUG("Protection check NOT passed! No overalapping region!\n");
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
 
@@ -386,38 +393,122 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     ) { 
         
         DEBUG("Protection check passed! contained by %s\n", region_buf);
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return 0;
     }
 
     // case 2
     DEBUG("Protection check NOT passed! overlapped region = %s\n", region_buf);
-    ASPACE_UNLOCK(carat);
+#if FULL_CARAT
+        ASPACE_UNLOCK(carat);
+#endif
     return -1;
 }
 
 static int request_permission(void * state, void * address, int is_write) {
 
+    /*
+     * Fetch the CARAT aspace
+     */ 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    nk_aspace_region_t *region;
 
+
+    /*
+     * Set up profiling
+     *
+     * NOTE: "// ---" denotes a profiling section
+     */ 
     CARAT_PROFILE_INIT_TIMING_VAR(0);
+
     
+    /*
+     * Perform "cached" checks --- check @address against the 
+     * initial stack and the initial executable blo
+     */ 
     // ---
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
+
+    /*
+     * First, fetch the cached stack and blob
+     */ 
+    nk_aspace_region_t *stack = carat->initial_stack,
+                       *blob = carat->initial_blob;
+
+
+    /*
+     * Check @address against the stack
+     */ 
+    if (false
+        || (address >= stack->va_start)
+        || (address < (stack->va_start + stack->len_bytes))) 
+    {
+        region = stack;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
+
+
+    /*
+     * Check @address against the blob
+     */ 
+    else if (
+        false
+        || (address < blob->va_start)
+        || (address > (blob->va_start + blob->len_bytes))
+    )
+    { 
+        region = blob;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
+
+
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+    // ---
+
+   
+    /*
+     * *Optional* lock on the aspace in order to search
+     * the region. NOTE --- This is current ***OFF*** in
+     * order to boost performance. We can also prove that 
+     * locking is not necessary for this method
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(0, 0);
+#if FULL_CARAT
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, lock_time, 0);
-
-    // --- 
-    
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
-
+#endif
+    CARAT_PROFILE_STOP_COMMIT_RESET(0, lock_time, 0);
     // ---
-    //
-    if (region == NULL) {
+    
+
+    /*
+     * The cached checks have failed --- find the region 
+     * that @address belongs to by walking through the 
+     * region data structure
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
+    // ---
+
+
+    /*
+     * Perform processing on the region to understand if 
+     * @address and @is_write combination is legal
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    if (!region) {
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
 
@@ -442,15 +533,29 @@ static int request_permission(void * state, void * address, int is_write) {
 
 
 	if (!is_legal_access) {
+#if FULL_CARAT
+        ASPACE_UNLOCK(carat);
+#endif
 		return -1;
 	}
+    
+    
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, process_permissions_time, 0);
+    //---
+
 
     /* 
 	 * If the access is valid, we need to store the fact that the region has allowed this access *within* the region
      * When a protection change happens for the region, it will confirm that the outstanding access is still valid.
  	 */ 
+set_request_permissions:
     region->requested_permissions |= is_write + 1;
+
+
+#if FULL_CARAT
     ASPACE_UNLOCK(carat);
+#endif
+    
 
     return 0;
 }

@@ -29,6 +29,7 @@
 #include <nautilus/thread.h>
 #include <nautilus/printk.h>
 #include <nautilus/nautilus_exe.h>
+#include <aspace/carat.h>
 
 #ifndef NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
@@ -180,6 +181,14 @@ void __nk_process_wrapper(void *i, void **o) {
     return;
   }
 
+
+  /*
+   * Cache the process' thread stack to the internal carat aspace
+   */ 
+  nk_aspace_carat_t *carat = ((nk_aspace_carat_t *) process_aspace->state);
+  carat->initial_stack = &r_stack; 
+
+
 #endif
 
 
@@ -322,6 +331,14 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     nk_aspace_destroy(addr_space);
     return -1;
   }
+
+
+  /*
+   * Cache the blob to the internal carat aspace
+   */ 
+  nk_aspace_carat_t *carat = ((nk_aspace_carat_t *) addr_space->state);
+  carat->initial_blob = &r_exe; 
+
 
   // mm_show(addr_space->mm);
 

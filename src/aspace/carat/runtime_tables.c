@@ -36,7 +36,9 @@ protections_profile global_protections_profile = {
     .cur_thread_time = 0,
     .region_find_time = 0,
     .lock_time = 0,
-    .request_permission_time = 0
+    .request_permission_time = 0,
+    .process_permissions_time = 0,
+    .cache_check_time = 0
 };
 
 
@@ -649,12 +651,12 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 */
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     nk_thread_t *cur_thread = get_cur_thread();
+    nk_aspace_t *aspace = cur_thread->aspace;
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
 
-    // ---
-    
+
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
+    int res = nk_aspace_request_permission(aspace, memory_address, is_write);
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
 
     if (res) {
@@ -734,7 +736,7 @@ void nk_carat_pin_pointer(void *address)
     /*
      * Pin this region (pinning happens at region granularity)
      */ 
-    region->protection.flags |= NK_ASPACE_PIN;
+    region->protect.flags |= NK_ASPACE_PIN;
 
 
     /*
@@ -984,6 +986,18 @@ static int handle_protections_profile(char *buf, void *priv)
         "average lock_time: %lu\n", 
         global_protections_profile.lock_time / global_protections_profile.guard_address_calls
     );
+   
+    nk_vc_printf(
+        "average process_permissions_time: %lu\n", 
+        global_protections_profile.process_permissions_time / global_protections_profile.guard_address_calls
+    );
+
+    nk_vc_printf(
+        "average cache_check_time: %lu\n", 
+        global_protections_profile.cache_check_time / global_protections_profile.guard_address_calls
+    );
+
+ 
 
 
     return 0;

@@ -121,6 +121,10 @@
  * Interface for 5. can be found in ___FILL IN LATER___ 
  */ 
 
+
+#define FULL_CARAT 0
+
+
 /*
  * Typedefs for CARAT data structures
  */ 
@@ -250,7 +254,19 @@ typedef struct nk_aspace_carat {
     spinlock_t  lock;
 
 
+    /*
+     * Data structure containing regions
+     */
     mm_struct_t * mm;
+
+
+    /*
+     * Quick references to initial stack and blob
+     */ 
+    nk_aspace_region_t *initial_stack ;
+    nk_aspace_region_t *initial_blob ;
+
+
 
     // Your characteristics
     nk_aspace_characteristics_t chars;
@@ -258,6 +274,7 @@ typedef struct nk_aspace_carat {
     //We may need the list of threads
     //   struct list_head threads;
     nk_aspace_carat_thread_t threads;
+
 
 } nk_aspace_carat_t;
 
@@ -285,7 +302,9 @@ typedef struct {
     uint64_t cur_thread_time ;
     uint64_t region_find_time ;
     uint64_t lock_time ;
-    uint64_t request_permission_time;
+    uint64_t request_permission_time ;
+    uint64_t process_permissions_time ;
+    uint64_t cache_check_time;
 
 } protections_profile ;
 
