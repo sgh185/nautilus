@@ -225,6 +225,10 @@ void __nk_process_wrapper(void *i, void **o) {
   nk_aspace_move_thread(p->aspace);
   PROCESS_DEBUG("Sucessfully swapped to process aspace\n");
 
+  // Set process signal state to the starting thread's signal state
+  p->signal_descriptor = me->signal_state->signal_descriptor;
+  p->signal_handler = me->signal_state->signal_handler;
+
   // Start execution of process executable.
   PROCESS_DEBUG("Starting executable at addr %p with %lu args\n", exe, argc);
   struct nk_crt_proc_args proc_args;
