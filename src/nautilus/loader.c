@@ -533,6 +533,7 @@ static void * (*__nk_func_table[])() = {
     [NK_MALLOC] = (void * (*)()) kmem_malloc,
     [NK_FREE] = (void * (*)()) kmem_free,
     [NK_REALLOC] = (void * (*)()) kmem_realloc,
+    [NK_ASPACE_PTR] = 0,
 };
 
 int 
