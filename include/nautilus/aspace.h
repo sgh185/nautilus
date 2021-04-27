@@ -80,7 +80,7 @@ typedef struct nk_aspace_region {
     void       *pa_start;
     uint64_t    len_bytes;
     nk_aspace_protection_t  protect;
-    int         requested_permissions; // 0 == no permissions requested, 1 == read, 2 == write
+    int         requested_permissions; // 0 == no permissions requested, 1 == read, 2 == write, 3 == read and write
 } nk_aspace_region_t;
 
 

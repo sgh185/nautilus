@@ -317,17 +317,6 @@ int _move_allocation(
     }
 
 
-    /*
-     * If @allocation_to_move is pinned according to the fetched
-     * entry, we have to fail --- return -1
-     */
-    if (_is_pinned(entry)) 
-    {
-        CARAT_PRINT("CARAT: Entry and associated address is pinned!\n");
-        goto out_bad;
-    }
-
-
 	/*
      * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
      * to use the address of @allocation_target

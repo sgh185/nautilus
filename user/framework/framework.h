@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-
+#include "profile.h"
 
 /*
  * Function signatures for instrumentation methods
@@ -23,12 +23,22 @@ void _nk_carat_globals_compiler_target(void) ;
  */ 
 __attribute__((constructor, optnone, noinline, used, annotate("nocarat")))
 void _nk_carat_globals_compiler_target(void) {
+    BACKSTOP;
     /*
      * HACK
      */ 
     rand();
     return;
 }
+
+
+#if 0
+__attribute__((destructor, optnone, noinline, used, annotate("nocarat")))
+void _profile_output(void)
+{
+    return ;
+}
+#endif
 
 
 /*

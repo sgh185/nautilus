@@ -93,7 +93,7 @@ enum AllocID
 
 
 /*
- * Constants
+ * Constants --- disgusting
  */
 extern
 const std::string CARAT_MALLOC,
@@ -106,6 +106,7 @@ const std::string CARAT_MALLOC,
                   CARAT_GLOBALS_TARGET,
                   CARAT_STACK_GUARD,
                   CARAT_PROTECT,
+                  CARAT_PIN_DIRECT,
                   KERNEL_MALLOC,
                   ASPACE_MALLOC,
                   KERNEL_FREE,

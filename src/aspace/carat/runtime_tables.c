@@ -29,6 +29,19 @@
 #include <aspace/runtime_tables.h>
 
 
+
+protections_profile global_protections_profile = {
+    .guard_address_calls = 0,
+    .guard_stack_calls = 0,
+    .cur_thread_time = 0,
+    .region_find_time = 0,
+    .lock_time = 0,
+    .request_permission_time = 0,
+    .process_permissions_time = 0,
+    .cache_check_time = 0
+};
+
+
 /*
  * =================== Setting Necessary Global State ===================
  */ 
@@ -70,7 +83,6 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
 	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
-    new_entry->is_pinned = false;
 
 
 	/*
@@ -189,18 +201,6 @@ allocation_entry * _carat_find_allocation_entry(
 	 * "prospective_entry" is the correct allocation_entry object! Return it
 	 */ 
 	return prospective_entry;
-}
-
-
-/*
- * Utility to determine if an address/allocation entry is pinned in memory
- *
- * NOTE --- Why is this a utility when it's so simple? Expected to expand 
- * or modify this method soon.
- */ 
-int _is_pinned(allocation_entry *entry)
-{
-    return entry->is_pinned;
 }
 
 
@@ -641,19 +641,53 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
 	// How is the instrumentation supposed to work? Does the order matter (i.e. guard then escape, or vice versa)? 
 	// Should we merge the guard and escape together for loads/stores that belong in the escapes-to-instrument set and the guards-to-inject set?
-	
+
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_address_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+
 	/*
  	 * Check to see if the requested memory access is valid. 
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
-	int res = nk_aspace_request_permission(get_cur_thread()->aspace, memory_address, is_write);
-	if (res) {
-        nk_vc_printf("res: %d\n", res);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    nk_thread_t *cur_thread = FETCH_THREAD;
+    nk_aspace_t *aspace = cur_thread->aspace;
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
+
+
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    int res = nk_aspace_request_permission(aspace, memory_address, is_write);
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
+
+    if (res) {
         panic("Tried to make an illegal memory access with %p! \n", memory_address);
 	}
 
 	return;
 }
+
+
+/*
+ * Instrumentation for call instructions
+ * Make sure the stack has enough space to grow to support this guarded call instruction. 
+ */
+NO_CARAT_NO_INLINE
+void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
+
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_stack_calls);
+	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
+
+	// check if the new stack is still within the region
+	nk_thread_t *thread = FETCH_THREAD;
+	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
+	if (stack_too_large) {
+		// TODO: expand stack instead of panicking 
+		panic("Stack has grown outside of valid memory! \n");
+	}
+
+	return;
+}
+
 
 
 /*
@@ -667,10 +701,11 @@ NO_CARAT_NO_INLINE
 void nk_carat_pin_pointer(void *address)
 {
     /*
-     * Fetch the current thread's carat context 
+     * Fetch the current thread's aspace and carat context 
      */ 
     CHECK_CARAT_BOOTSTRAP_FLAG; 
-    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    nk_aspace_carat_t *carat = FETCH_CARAT_ASPACE;
+    nk_carat_context *the_context = carat->context;
 
 
 	/*
@@ -687,24 +722,21 @@ void nk_carat_pin_pointer(void *address)
 
 
     /*
-     * Check if @memory_address is tracked --- if it's not
-     * we don't have to update state
-     *
-     * TODO --- Prove this logic 
+     * Find the region that @memory_address belongs to, sanity check
      */ 
-    allocation_entry *entry = 
-        _carat_find_allocation_entry(
-            the_context,
-            address 
+    nk_aspace_region_t * region = 
+        mm_find_reg_at_addr(
+            carat->mm, 
+            (addr_t) address
         );
 
-    if (!entry) return;
+    if (!region) panic("nk_carat_pin_pointer: Can't find region for @address : %p\n", address);
 
 
     /*
-     * Set the pin status flag to true
+     * Pin this region (pinning happens at region granularity)
      */ 
-    entry->is_pinned = true;
+    region->protect.flags |= NK_ASPACE_PIN;
 
 
     /*
@@ -747,28 +779,6 @@ uint64_t _carat_get_rsp()
 	return rsp;
 }
     
-
-/*
- * Instrumentation for call instructions
- * Make sure the stack has enough space to grow to support this guarded call instruction. 
- */
-NO_CARAT_NO_INLINE
-void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
-
-	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
-
-	// check if the new stack is still within the region
-	nk_thread_t *thread = get_cur_thread();
-	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
-	if (stack_too_large) {
-		// TODO: expand stack instead of panicking 
-		panic("Stack has grown outside of valid memory! \n");
-	}
-
-	return;
-}
-
-
 
 /*
  * =================== Initilization Methods ===================
@@ -940,3 +950,63 @@ nk_carat_context * initialize_new_carat_context(void)
 	return new_context;
 }
 
+
+/*
+ * ---------- Profiling ----------
+ */ 
+
+/* 
+ * Shell command handler
+ */
+NO_CARAT
+static int handle_protections_profile(char *buf, void *priv)
+{
+    nk_vc_printf("---handle_protections_profile---\n");
+    
+    nk_vc_printf("guard_address_calls: %lu\n", global_protections_profile.guard_address_calls);
+    
+    nk_vc_printf("guard_stack_calls: %lu\n", global_protections_profile.guard_stack_calls);
+
+    nk_vc_printf(
+        "average request_permission_time: %lu\n", 
+        global_protections_profile.request_permission_time / global_protections_profile.guard_address_calls
+    );
+
+    nk_vc_printf(
+        "average cur_thread_time: %lu\n", 
+        global_protections_profile.cur_thread_time / global_protections_profile.guard_address_calls
+    );
+
+    nk_vc_printf(
+        "average region_find_time: %lu\n", 
+        global_protections_profile.region_find_time / global_protections_profile.guard_address_calls
+    );
+
+    nk_vc_printf(
+        "average lock_time: %lu\n", 
+        global_protections_profile.lock_time / global_protections_profile.guard_address_calls
+    );
+   
+    nk_vc_printf(
+        "average process_permissions_time: %lu\n", 
+        global_protections_profile.process_permissions_time / global_protections_profile.guard_address_calls
+    );
+
+    nk_vc_printf(
+        "average cache_check_time: %lu\n", 
+        global_protections_profile.cache_check_time / global_protections_profile.guard_address_calls
+    );
+
+ 
+
+
+    return 0;
+}
+
+static struct shell_cmd_impl handle_protections_profile_impl = {
+    .cmd = "protection_profile",
+    .help_str = "profile on protections methods",
+    .handler = handle_protections_profile,
+};
+
+nk_register_shell_cmd(handle_protections_profile_impl);

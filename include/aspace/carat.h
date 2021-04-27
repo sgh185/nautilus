@@ -121,6 +121,10 @@
  * Interface for 5. can be found in ___FILL IN LATER___ 
  */ 
 
+
+#define FULL_CARAT 0
+
+
 /*
  * Typedefs for CARAT data structures
  */ 
@@ -202,12 +206,6 @@ typedef struct allocation_entry_t {
      */ 
     nk_carat_escape_set *escapes_set;
 
-    /*
-     * Pin status
-     */ 
-    int is_pinned;
-
-
 } allocation_entry;
 
 
@@ -256,7 +254,19 @@ typedef struct nk_aspace_carat {
     spinlock_t  lock;
 
 
+    /*
+     * Data structure containing regions
+     */
     mm_struct_t * mm;
+
+
+    /*
+     * Quick references to initial stack and blob
+     */ 
+    nk_aspace_region_t *initial_stack ;
+    nk_aspace_region_t *initial_blob ;
+
+
 
     // Your characteristics
     nk_aspace_characteristics_t chars;
@@ -264,6 +274,7 @@ typedef struct nk_aspace_carat {
     //We may need the list of threads
     //   struct list_head threads;
     nk_aspace_carat_thread_t threads;
+
 
 } nk_aspace_carat_t;
 
@@ -280,3 +291,53 @@ void add_thread_to_carat_aspace(
     nk_thread_t *t
 );
     
+
+/*
+ * =================== Profiling State ===================
+ */ 
+typedef struct {
+    
+    uint64_t guard_address_calls ;
+    uint64_t guard_stack_calls ;
+    uint64_t cur_thread_time ;
+    uint64_t region_find_time ;
+    uint64_t lock_time ;
+    uint64_t request_permission_time ;
+    uint64_t process_permissions_time ;
+    uint64_t cache_check_time;
+
+} protections_profile ;
+
+
+extern protections_profile global_protections_profile;
+
+
+/*
+ * Profiling helpers, assume the existence of a 
+ * "global_protections_profile" kernel object 
+ */ 
+#define CARAT_DO_PROFILE 1
+
+#define CARAT_PROFILE_INIT_TIMING_VAR(level) uint64_t _carat_profile_timing_##level = 0
+
+#define CARAT_PROFILE_RESET_TIMING_VAR(do_task, level) \
+    if (do_task) { _carat_profile_timing_##level = 0 ; }
+
+#define CARAT_PROFILE_INCR(do_task, field) \
+    if (do_task) { global_protections_profile.field += 1; }
+
+#define CARAT_PROFILE_START_TIMING(do_task, level) \
+    if (do_task) { _carat_profile_timing_##level = rdtsc(); }
+
+#define CARAT_PROFILE_STOP_TIMING(do_task, level) \
+    if (do_task) { _carat_profile_timing_##level = rdtsc() - _carat_profile_timing_##level; }
+
+#define CARAT_PROFILE_COMMIT_TIME(do_task, field, level) \
+    if (do_task) { global_protections_profile.field += _carat_profile_timing_##level ; }
+ 
+#define CARAT_PROFILE_STOP_COMMIT_RESET(do_task, field, level) \
+    CARAT_PROFILE_STOP_TIMING(do_task, level); \
+    CARAT_PROFILE_COMMIT_TIME(do_task, field, level); \
+    CARAT_PROFILE_RESET_TIMING_VAR(do_task, level); 
+
+

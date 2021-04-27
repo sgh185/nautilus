@@ -68,6 +68,8 @@ namespace Utils
 
     bool IsInstrumentable(Function &F);
 
+    Instruction *GetPostTargetInsertionPoint(Instruction *Target);
+
 
     /*
      * Attribute handling
@@ -102,4 +104,9 @@ namespace Utils
         const std::string MDTypeString,
         const std::string MDLiteral
     );
+
+    void SetBaseInstrumentationMetadata(Instruction *I);
+
+    bool HasBaseInstrumentationMetadata(Instruction *I);
+
 } 

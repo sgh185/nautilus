@@ -30,7 +30,7 @@
 /*
  * ---------- Constructors ----------
  */ 
-RestrictionsHandler::RestrictionsHandler(Module *M) : M(M) {}
+RestrictionsHandler::RestrictionsHandler(Function *F) : F(F) {}
 
 
 /*
@@ -48,7 +48,7 @@ void RestrictionsHandler::AnalyzeAllCalls(void)
      * TOP --- Find ALL indirect calls and calls to external
      * functions across the entire function via visitor
      */
-    this->visit(&F);
+    this->visit(F);
 
 
     return;
@@ -57,7 +57,97 @@ void RestrictionsHandler::AnalyzeAllCalls(void)
 
 void RestrictionsHandler::PinAllEscapingPointers(void)
 {
+    /*
+     * Check command line arguments
+     */
+    if (NoRestrictions) return;
 
+
+    /*
+     * Setup
+     */
+    IRBuilder<> TypeBuilder{F->getContext()};
+    Type *VoidPointerType = TypeBuilder.getInt8PtrTy();
+    Function *CARATPinDirect = CARATNamesToMethods[CARAT_PIN_DIRECT];
+
+
+    /*
+     * Pin all escaping pointers with restrictions
+     */
+    for (auto &Entry : PointersEscapingViaTrackedCalls)
+    {
+        /*
+         * Fetch the pointer to instrument
+         */
+        Value *Pointer = Entry.first;
+
+
+        /*
+         * Sanity check the type of the pointer --- if it's 
+         * not a face-value pointer type, abort
+         *
+         * NOTE --- This can occur if the type has an "underlying"
+         * pointer type (i.e. struct element, etc.). This is NOT
+         * currently handled in the pass. TODO --- Handle this.
+         */
+        assert (
+            true 
+            && Pointer->getType()->isPointerTy()
+            && "PinAllEscapingPointers: Not currently handling non-face-value pointer types!"
+        );
+
+        
+        /*
+         * Prepare instrumentation --- find the insertion point.
+         * 1) If the pointer is not the result of an instruction, 
+         *    (i.e. an argument, a direct inttoptr, etc.), then 
+         *    set the injection point to the entry instruction of
+         *    @this->F.
+         * 2) Otherwise, set to the adjacent, next instruction.
+         */
+        Instruction *EntryInstruction = F->getEntryBlock().getFirstNonPHI(),
+                    *PointerAsInst = dyn_cast<Instruction>(Pointer),
+                    *InsertionPoint = 
+                        (PointerAsInst) ?
+                        (Utils::GetPostTargetInsertionPoint(PointerAsInst)) : 
+                        (EntryInstruction);
+
+
+        /*
+         * Set up builder
+         */
+        IRBuilder<> Builder = Utils::GetBuilder(F, InsertionPoint);
+
+
+        /*
+         * Cast the argument (pointer) to a i8* type, set up call
+         * arguments and perform the injection
+         */
+        Value *PointerCast = 
+            Builder.CreatePointerCast(
+                Pointer, 
+                VoidPointerType
+            );
+
+        ArrayRef<Value *> CallArgs = {
+            PointerCast
+        };
+
+        CallInst *InstrumentPin = 
+            Builder.CreateCall(
+                CARATPinDirect, 
+                CallArgs
+            );
+
+        
+        /*
+         * Add metadata to injection
+         */
+        Utils::SetBaseInstrumentationMetadata(InstrumentPin);
+    }
+
+
+    return;
 }
 
 
@@ -69,7 +159,7 @@ void RestrictionsHandler::PrintAnalysis(void)
     if (NoRestrictions) return;
 
 
-    errs() << F->getName() << "\n";
+    errs() << "\n\n" << F->getName() << "\n";
 
 
     /*
@@ -103,6 +193,19 @@ void RestrictionsHandler::PrintAnalysis(void)
     for (auto Call : TrackedCallsMayAffectingMemory)
         errs() << "\t" << *Call << "\n";
 
+    
+    /*
+     * Print @this->PointersEscapingViaTrackedCalls
+     */
+    errs() << "--- PointersEscapingViaTrackedCalls ---\n";
+    for (auto const &[Pointer, Calls] : PointersEscapingViaTrackedCalls)
+    {
+        errs() << *Pointer << "\n";
+
+        for (auto Call : Calls)
+            errs() << "\t" << *Call << "\n";
+    }
+
 
     return;
 }
@@ -124,17 +227,11 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
 
 
     /*
-     * Fetch parent/caller
-     */
-    Function *Parent = I.getFunction();
-
-
-    /*
      * Vet callee:
      * 1) If @I is an indirect call, add to @this->IndirectCalls
      * 2) Otherwise, if the callee of @I is a valid, empty function 
-     *    that is NOT an intrinsic call and NOT inline assembly, then
-     *    add to @this->ExternalFunctionCalls
+     *    that is NOT an intrinsic call and NOT inline assembly and 
+     *    NOT a CARAT method, then add to @this->ExternalFunctionCalls
      *
      * If the callee falls into at least one of these categories,
      * then we must analyze the arguments of @I further
@@ -142,7 +239,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
     bool AnalyzeArguments = false;
     if (I.isIndirectCall()) /* <Condition 1.> */
     {
-        IndirectCalls[Parent].insert(&I);
+        IndirectCalls.insert(&I);
         AnalyzeArguments |= true;
     }
     else if (
@@ -151,9 +248,10 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
         && Callee
         && Callee->empty()
         && !(Callee->isIntrinsic())
+        && (CARATMethods.find(Callee) == CARATMethods.end())
     ) /* <Condition 2.> */
     {
-        ExternalFunctionCalls[Parent].insert(&I);
+        ExternalFunctionCalls.insert(&I);
         AnalyzeArguments |= true;
     }
 
@@ -179,9 +277,9 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
      */
     if (false
         || I.onlyReadsMemory()
-        || (Callee && (Callee->getName() == "printf")) /* FIX */) 
+        || (Callee && (Callee->getName() == "printf"))) /* FIX */
     {
-        TrackedCallsNotAffectingMemory[Parent].insert(&I);
+        TrackedCallsNotAffectingMemory.insert(&I);
         return;
     }
 
@@ -199,11 +297,22 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
     for (unsigned ArgNo = 0 ; ArgNo < I.getNumArgOperands() ; ArgNo++)
     {
         /*
-         * Check if next argument only reads/does not interact with memory
+         * Fetch the argument operand
+         */
+        Value *Operand = I.getArgOperand(ArgNo);
+
+
+        /*
+         * Check if next argument only reads/does not interact with memory,
+         * or if it will belong directly on the stack. NOTE --- stack args
+         * can be ignored since CARAT will not directly handle the stack.
+         *
+         * TODO --- Confirm stack condition
          */
         if (false
             || I.onlyReadsMemory(ArgNo)
-            || I.doesNotCapture(ArgNo)) continue;
+            || I.doesNotCapture(ArgNo)
+            || isa<AllocaInst>(Operand)) continue;
 
 
         /*
@@ -214,8 +323,7 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
          *
          * Track the corresponding operand as escaping for later processing
          */
-        Value *Operand = I.getArgOperand(ArgNo);
-        bool MayModifyMemory |= _mayContainPointerType(Operand->getType());
+        bool MayModifyMemory = _mayContainPointerType(Operand->getType());
         if (MayModifyMemory) EscapingOperands.insert(Operand);
     }
 
@@ -223,12 +331,12 @@ void RestrictionsHandler::visitCallInst(CallInst &I)
     /*
      * Track the instruction accordingly --- FIX
      */
-    if (!(EscapingOperands.size())) TrackedCallsNotAffectingMemory[Parent].insert(&I);
+    if (!(EscapingOperands.size())) TrackedCallsNotAffectingMemory.insert(&I);
     else 
     {
-        TrackedCallsMayAffectingMemory[Parent].insert(&I);
+        TrackedCallsMayAffectingMemory.insert(&I);
         for (auto Operand : EscapingOperands)
-            PointersEscapingViaTrackedCalls[&I].insert(Operand);
+            PointersEscapingViaTrackedCalls[Operand].insert(&I);
     }
 
 

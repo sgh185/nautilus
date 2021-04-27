@@ -62,9 +62,14 @@ private:
      */ 
     std::unordered_set<Instruction *> MemUses;
 
+    std::unordered_map<
+        Instruction *, /* Target instruction */
+        CallInst * /* Instrumentation method injected */
+    > EscapesInjections;
+
 
     /*
-     * Analysis state
+     * Private methods
      */ 
     void _getAllNecessaryInstructions(void);
 

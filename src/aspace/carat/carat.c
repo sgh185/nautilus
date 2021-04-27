@@ -153,7 +153,7 @@ void add_thread_to_carat_aspace(
 static int add_thread(void *state)
 {   
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *t = get_cur_thread();
+    struct nk_thread *t = FETCH_THREAD;
     
     // ASPACE_LOCK_CONF;
     // ASPACE_LOCK(carat);
@@ -170,7 +170,7 @@ static int add_thread(void *state)
 static int remove_thread(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *t = get_cur_thread();
+    struct nk_thread *t = FETCH_THREAD;
     
     DEBUG("removing thread %d (%s) from address space %s\n", t->tid, THREAD_NAME(t), ASPACE_NAME(carat));
     // ASPACE_LOCK_CONF;
@@ -286,17 +286,19 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
     int requested_permissions = region->requested_permissions;
 
     /*
-     * requested_permissions will contain the highest level of access (write, read, or nothing) that a program expects from this region.
-     * If this attempted region change invalidates that expectation, the protection change is not allowed (panic)
+     * requested_permissions will contain the highest level of access (write, read, or nothing) 
+     * that a program expects from this region.
+     * If this attempted region change invalidates that expectation, 
+     * the protection change is not allowed (panic)
      */
 
     if (requested_permissions) {
         int is_write = requested_permissions - 1;
         /*
         * If @is_write == 0: we are trying to read the address
-        * If @is_write == 1: we are trying to write the address
+        * If @is_write == 1 or 2: we are trying to write the address
         * 
-        * Note: this is making the assunption that if we have write access 
+        * Note: this is making the assumption that if we have write access 
         * we also have read access for performance
         * 
         * Given this assumption, there are two ways for this to be a legal access:
@@ -333,8 +335,11 @@ static int protect_region(void *state, nk_aspace_region_t *region, nk_aspace_pro
 static int protection_check(void * state, nk_aspace_region_t * region) {
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+
+#if FULL_CARAT 
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
+#endif
 
     char region_buf[REGION_STR_LEN];
     region2str(region, region_buf);
@@ -343,7 +348,9 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     // check region input validness
     if (CARAT_INVALID(region)) {
         DEBUG("Protection check Failed: INVALID input (%s): CARAT expects equal VA and PA\n", region_buf);
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
     
@@ -373,7 +380,9 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     // case 3
     if (overlap_ptr == NULL) {
         DEBUG("Protection check NOT passed! No overalapping region!\n");
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
 
@@ -384,28 +393,122 @@ static int protection_check(void * state, nk_aspace_region_t * region) {
     ) { 
         
         DEBUG("Protection check passed! contained by %s\n", region_buf);
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return 0;
     }
 
     // case 2
     DEBUG("Protection check NOT passed! overlapped region = %s\n", region_buf);
-    ASPACE_UNLOCK(carat);
+#if FULL_CARAT
+        ASPACE_UNLOCK(carat);
+#endif
     return -1;
 }
 
 static int request_permission(void * state, void * address, int is_write) {
 
-    DEBUG("in request_permission carat space\n");
+    /*
+     * Fetch the CARAT aspace
+     */ 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    nk_aspace_region_t *region;
+
+
+    /*
+     * Set up profiling
+     *
+     * NOTE: "// ---" denotes a profiling section
+     */ 
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+
+    
+    /*
+     * Perform "cached" checks --- check @address against the 
+     * initial stack and the initial executable blo
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
+
+    /*
+     * First, fetch the cached stack and blob
+     */ 
+    nk_aspace_region_t *stack = carat->initial_stack,
+                       *blob = carat->initial_blob;
+
+
+    /*
+     * Check @address against the stack
+     */ 
+    if (false
+        || (address >= stack->va_start)
+        || (address < (stack->va_start + stack->len_bytes))) 
+    {
+        region = stack;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
+
+
+    /*
+     * Check @address against the blob
+     */ 
+    else if (
+        false
+        || (address < blob->va_start)
+        || (address > (blob->va_start + blob->len_bytes))
+    )
+    { 
+        region = blob;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
+
+
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+    // ---
+
+   
+    /*
+     * *Optional* lock on the aspace in order to search
+     * the region. NOTE --- This is current ***OFF*** in
+     * order to boost performance. We can also prove that 
+     * locking is not necessary for this method
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(0, 0);
+#if FULL_CARAT
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
+#endif
+    CARAT_PROFILE_STOP_COMMIT_RESET(0, lock_time, 0);
+    // ---
+    
 
-    nk_aspace_region_t * region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
-    
-    
-    if (region == NULL) {
+    /*
+     * The cached checks have failed --- find the region 
+     * that @address belongs to by walking through the 
+     * region data structure
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
+    // ---
+
+
+    /*
+     * Perform processing on the region to understand if 
+     * @address and @is_write combination is legal
+     */ 
+    // ---
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    if (!region) {
+#if FULL_CARAT
         ASPACE_UNLOCK(carat);
+#endif
         return -1;
     }
 
@@ -414,7 +517,7 @@ static int request_permission(void * state, void * address, int is_write) {
  	 * If @is_write == 0: we are trying to read the address
 	 * If @is_write == 1: we are trying to write the address
 	 * 
-	 * Note: this is making the assunption that if we have write access 
+	 * Note: this is making the assumption that if we have write access 
 	 * we also have read access for performance
 	 * 
 	 * Given this assumption, there are two ways for this to be a legal access:
@@ -430,15 +533,29 @@ static int request_permission(void * state, void * address, int is_write) {
 
 
 	if (!is_legal_access) {
-		return -2;
+#if FULL_CARAT
+        ASPACE_UNLOCK(carat);
+#endif
+		return -1;
 	}
+    
+    
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, process_permissions_time, 0);
+    //---
+
 
     /* 
 	 * If the access is valid, we need to store the fact that the region has allowed this access *within* the region
      * When a protection change happens for the region, it will confirm that the outstanding access is still valid.
  	 */ 
-    region->requested_permissions = is_write + 1;
+set_request_permissions:
+    region->requested_permissions |= is_write + 1;
+
+
+#if FULL_CARAT
     ASPACE_UNLOCK(carat);
+#endif
+    
 
     return 0;
 }
@@ -465,8 +582,16 @@ static int defragment_region(
         cur_region->va_start, cur_region->len_bytes, new_size);
 
     if (CARAT_INVALID(cur_region)) {
+        ERROR("Can't defragment. Region is invalid!\n");
         return -1;
     }
+
+    
+    if (NK_ASPACE_GET_PIN(cur_region->protect.flags)) {
+        ERROR("Can't defragment. Region is pinned!\n");
+        return -1;
+    }
+
 
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
@@ -549,6 +674,11 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         return -1;
     }
 
+    if (NK_ASPACE_GET_PIN(cur_region->protect.flags)) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
     if (CARAT_INVALID(new_region)) {
         ASPACE_UNLOCK(carat);
         return -1;
@@ -577,7 +707,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 static int switch_from(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     DEBUG("switching out address space %s from thread %d (%s)\n",ASPACE_NAME(carat), thread->tid, THREAD_NAME(thread));
     
@@ -587,7 +717,7 @@ static int switch_from(void *state)
 static int switch_to(void *state)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     DEBUG("switching in address space %s from thread %d (%s)\n", ASPACE_NAME(carat),thread->tid,THREAD_NAME(thread));
     
@@ -597,7 +727,7 @@ static int switch_to(void *state)
 static int exception(void *state, excp_entry_t *exp, excp_vec_t vec) 
 {   
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
     if (vec==GP_EXCP) {
     ERROR("general protection fault encountered.... uh...\n");
@@ -624,7 +754,7 @@ static int exception(void *state, excp_entry_t *exp, excp_vec_t vec)
 static int print(void *state, int detailed) 
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
-    struct nk_thread *thread = get_cur_thread();
+    struct nk_thread *thread = FETCH_THREAD;
     
 
     // basic info

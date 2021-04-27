@@ -102,8 +102,8 @@ private:
     std::unordered_set<CallInst *> TrackedCallsMayAffectingMemory; /* Tracked = (Indirect | External function) */
 
     std::unordered_map<
-        CallInst * /* [key] External function call by which [val(s)] is escaping */
-        std::unordered_set<Value *>, /* [val] Pointer(s) that's escaping */
+        Value *, /* [key] Pointer that's escaping */
+        std::unordered_set<CallInst *> /* [val] External function call(s) by which [key] is escaping */
     > PointersEscapingViaTrackedCalls;
 
 

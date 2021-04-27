@@ -144,23 +144,6 @@ struct CAT : public ModulePass
         /*
          * --- Perform all CARAT instrumentation on the code ---
          */ 
-
-        /*
-         * Analysis on prototype restrictions
-         */
-        for (auto &F : M) 
-        {
-            if (Utils::IsInstrumentable(F))
-            {
-                RestrictionsHandler RH = RestrictionsHandler(&F);
-                RH.AnalyzeAllCalls();
-                RH.PrintAnalysis();
-            }
-        }
-
-
-
-
 #if NAUT_CONFIG_USE_NOELLE
         if (!NoProtections)
         {
@@ -190,7 +173,29 @@ struct CAT : public ModulePass
          * Escapes tracking
          */ 
         EscapesHandler EH = EscapesHandler(&M);
-        EH.Inject(); // Only memory uses
+        EH.Inject();
+
+
+        /*
+         * Analysis/transformation on prototype restrictions,
+         * note that this functionality is per function
+         */
+        for (auto &F : M) 
+        {
+            if (Utils::IsInstrumentable(F))
+            {
+                RestrictionsHandler RH = RestrictionsHandler(&F);
+                RH.AnalyzeAllCalls();
+                RH.PinAllEscapingPointers();
+                RH.PrintAnalysis();
+            }
+        }
+
+
+        /*
+         * Run verifier on each function instrumented
+         */
+        Utils::Verify(M);
 
 
         return true;
