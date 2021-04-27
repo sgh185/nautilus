@@ -560,6 +560,8 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
 
     DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %p and %p\n", exec, exec->blob, start, in, out);
 
+    __nk_func_table[NK_ASPACE_PTR] = get_cur_thread()->aspace;
+
     int rc =  start(in, out, __nk_func_table);
 
     DEBUG("Executable %p has returned with rc=%d and *out=%p\n", exec, rc, out ? *out : 0);

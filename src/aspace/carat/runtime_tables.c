@@ -635,7 +635,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
  * do nothing
  */
 NO_CARAT_NO_INLINE
-void nk_carat_guard_address(void *memory_address, int is_write) {
+void nk_carat_guard_address(void *memory_address, int is_write, void* aspace) {
 
 	// TODO:
 	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
@@ -650,13 +650,12 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    nk_thread_t *cur_thread = FETCH_THREAD;
-    nk_aspace_t *aspace = cur_thread->aspace;
+
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
 
 
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    int res = nk_aspace_request_permission(aspace, memory_address, is_write);
+    int res = nk_aspace_request_permission((nk_aspace_t *) aspace, memory_address, is_write);
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
 
     if (res) {

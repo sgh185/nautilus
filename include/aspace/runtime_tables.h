@@ -365,7 +365,7 @@ void _carat_process_escape_window(nk_carat_context *the_context);
  * is determined to be illegal, panic. Otherwise, 
  * do nothing
  */
-void nk_carat_guard_address(void *memory_address, int is_write);
+void nk_carat_guard_address(void *memory_address, int is_write, void* aspace);
 
 /*
  * Instrumentation for call instructions
