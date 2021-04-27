@@ -198,21 +198,27 @@ skip_cat_entry:
 
 is_pending_work:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
-    /* Enable interrupts? */
+    /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
     pushq %rax 
+    
+    /* Check if there are pending signals */ 
     movq %gs:0x0, %rax
     movq 32(%rax), %rdi
     testq %rdi, %rdi
     jz skip_signal_delivery /* No work to do, just return */
-    /* Need to restore regs (or just pass top of stack to do_notify_resume */
+
+    /* There are pending signals, Put num_sigs into 2nd arg register */
     movq %rdi, %rsi
-    //movq %rsp, %rdi
+    
+    /* put saved stack pointer into 1st arg register */
     movq 0x0(%rax), %rdi
-    callq do_notify_resume
-    /* Disable interrupts? */
-    /* jump back to need resched to check all this again? */
+    
+    /* jump into C code, will return here later */
+    callq do_notify_resume 
+
+    /* TODO MAC: Disable Interrupts? jump back to is_pending_work? */
 
 skip_signal_delivery:
     popq %rax

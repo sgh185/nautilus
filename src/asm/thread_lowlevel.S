@@ -158,21 +158,27 @@ continue_context_switch:
 
 check_pending_signals:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
-    /* Enable interrupts? */
-    //movq %gs:0x0, %rax
+    /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
     pushq %rax
+
+    /* Check if there are pending signals */ 
     movq 32(%rax), %rdi
     testq %rdi, %rdi
     jz no_pending_signals /* No work to do, just return */
-    /* Need to restore regs (or just pass top of stack to do_notify_resume) */
+
+
+    /* There are pending signals, put num_sigs into 2nd arg register */
     movq %rdi, %rsi
-    //movq %rsp, %rdi
+
+    /* put saved stack pointer into 1st arg register */
     movq 0x0(%rax), %rdi
+
+    /* Jump into C code, will return here later */
     callq do_notify_resume
-    /* Disable interrupts? */
-    /* jump back to need resched to check all this again? */
+
+    /* TODO MAC: Disable Interrupts? jump back to is_pending_work? */
 
 no_pending_signals:
     popq %rax
