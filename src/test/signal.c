@@ -213,6 +213,33 @@ handle_sigtest3 (char * buf, void * priv)
     return 0;
 }
 
+/* Create a process and send it a signal */
+static int
+handle_sigtest4 (char * buf, void * priv)
+{
+    nk_process_t *p1;
+ 
+    if (nk_process_create("/hello.exe", NULL, NULL, "paging", &p1)) {
+        nk_vc_printf("handle_proctest1: Failed to create new process\n");
+        return -1;
+    }
+    if (nk_process_run(p1, 0)) {
+        nk_vc_printf("handle_proctest1: Failed to run process\n");
+        return -1;
+    }
+    nk_sleep(1000000);    
+ 
+    /* Send a fatal signal to p1 */
+    nk_vc_printf("Sending fatal signal %lu to process: %p.\n", SIGTYPE4, p1);
+    if (nk_signal_send(SIGTYPE4, 0, p1, SIG_DEST_TYPE_PROCESS)) {
+        nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
+        return -1;
+    }
+  
+    return 0;
+}
+
+
 /* Define shell command structs */
 static struct shell_cmd_impl signal_test_impl = {
   .cmd      = "sigtest",
@@ -232,7 +259,14 @@ static struct shell_cmd_impl signal_test_impl3 = {
   .handler  = handle_sigtest3,
 };
 
+static struct shell_cmd_impl signal_test_impl4 = {
+  .cmd      = "sigtest4",
+  .help_str = "sigtest4",
+  .handler  = handle_sigtest4,
+};
+
 /* Register command with shell */
 nk_register_shell_cmd(signal_test_impl);
 nk_register_shell_cmd(signal_test_impl2);
 nk_register_shell_cmd(signal_test_impl3);
+nk_register_shell_cmd(signal_test_impl4);
