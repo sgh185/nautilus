@@ -39,7 +39,11 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     nk_aspace_region_t heap_expand;
-    heap_expand.va_start = new_heap; //(void*)HEAP_BOT;
+    #if 1
+    heap_expand.va_start = new_heap;
+    #else
+    heap_expand.va_start = (void*)HEAP_BOT;
+    #endif
     heap_expand.pa_start = new_heap;
     heap_expand.len_bytes = HEAP_SIZE_INCREMENT;
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
