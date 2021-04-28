@@ -113,6 +113,17 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp,
                      (nk_thread_id_t*)&thread, bound_cpu);
     // TODO: there seem to be other things missing here (such as the vc)
     thread->process = process;
+    #ifdef NAUT_CONFIG_PROCESSES /* TODO: Change this to signal conditional compilation */
+    if (thread->signal_state) {
+        /* allocated w/ sys allocator, should free w/ it too */
+        kmem_sys_free(thread->signal_state->signal_descriptor);
+        kmem_sys_free(thread->signal_state->signal_handler);
+        
+        /* All threads within a process share a descriptor and handler table */
+        thread->signal_state->signal_descriptor = process->signal_descriptor;
+        thread->signal_state->signal_handler = process->signal_handler;
+    }
+    #endif
   }
 
   if (clone_flags & CLONE_CHILD_SETTID) {

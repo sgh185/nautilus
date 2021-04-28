@@ -156,25 +156,42 @@ continue_context_switch:
     movq %rax, %gs:0x0  /* make it the new current thread */
     movq (%rax), %rsp   /* load its stack pointer */
 
-check_pending_signals:
+TL_check_pending_signals:
 #if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
-    /* Enable interrupts? */
-    //movq %gs:0x0, %rax
+    /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
     pushq %rax
-    movq 32(%rax), %rdi
-    testq %rdi, %rdi
-    jz no_pending_signals /* No work to do, just return */
-    /* Need to restore regs (or just pass top of stack to do_notify_resume) */
-    movq %rdi, %rsi
-    //movq %rsp, %rdi
-    movq 0x0(%rax), %rdi
-    callq do_notify_resume
-    /* Disable interrupts? */
-    /* jump back to need resched to check all this again? */
 
-no_pending_signals:
+    /* Check if signal state is initialized */
+    movq 32(%rax), %rsi
+    testq %rsi, %rsi 
+    jz TL_skip_signal_delivery /* signals aren't ready, skip check */ 
+
+    /* Check if there are pending signals for curr thread */ 
+    movq 0x0(%rsi), %rdi
+    testq %rdi, %rdi
+    jnz TL_deliver_pending_signals /* signals pending for curr thread; jmp to delivery */
+
+    /* Check if there are *shared* pending signals */
+    movq 0x8(%rsi), %rsi
+    movq 0x0(%rsi), %rdi
+    testq %rdi, %rdi
+    jz TL_skip_signal_delivery /* No work to do, just return */
+
+    /* There are pending signals, Put num_sigs into 2nd arg register */
+    TL_deliver_pending_signals:
+    movq %rdi, %rsi
+
+    /* put saved stack pointer into 1st arg register */
+    movq 0x0(%rax), %rdi
+
+    /* Jump into C code, will return here later */
+    callq do_notify_resume
+
+    /* TODO MAC: Disable Interrupts? jump back to is_pending_work? */
+
+TL_skip_signal_delivery:
     popq %rax
     popq %rsi
     popq %rdi

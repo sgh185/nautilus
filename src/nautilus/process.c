@@ -37,9 +37,12 @@
 #endif
 #define PROCESS_INFO(fmt, args...) INFO_PRINT("process: " fmt, ##args)
 #define PROCESS_ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
-#define PROCESS_DEBUG(fmt, args...) DEBUG_PRINT("process: " fmt, ##args)
+#define PROCESS_DEBUG(fmt, args...) INFO_PRINT("process: " fmt, ##args)
 #define PROCESS_WARN(fmt, args...)  WARN_PRINT("process: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
+
+/* Carat vs Paging Macros */
+#define _CARAT_PROCESS 1
 
 /* Macros for locking and unlocking processs */
 #define _LOCK_PROCESS(proc) spin_lock(&(proc->lock))
@@ -152,7 +155,6 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
   return *stack_addr;
 }
 
-#define _CARAT_PROCESS 1
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_DEBUG("Entering process wrapper.\n");
@@ -220,6 +222,10 @@ void __nk_process_wrapper(void *i, void **o) {
     nk_thread_exit((void *)-1);
   } 
  
+  // Set process signal state to the starting thread's signal state
+  p->signal_descriptor = me->signal_state->signal_descriptor;
+  p->signal_handler = me->signal_state->signal_handler;
+
   // Move thread into process address space
   PROCESS_DEBUG("Moving thread into process aspace. Aspace addr: %p, Process addr %p\n", p->aspace, p);
   nk_aspace_move_thread(p->aspace);
@@ -260,12 +266,11 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   memset(p_addr_start, 0, PSTACK_SIZE);
  
 
-#define _ADD_STACK 0
-#if _ADD_STACK
+#if _CARAT_PROCESS == 0
 
   // add stack to address space
   nk_aspace_region_t r_stack;
-  r_stack.va_start = p_addr_start; // (void *)PSTACK_START;
+  r_stack.va_start = (void *)PSTACK_START;
   r_stack.pa_start = p_addr_start;
   r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
   r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
@@ -277,11 +282,6 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }
 
-#endif
-
-
-#define _ADD_KERNEL 0
-#if _ADD_KERNEL
 
   // add kernel to address space
   nk_aspace_region_t r_kernel;
@@ -449,7 +449,7 @@ int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_t
     /* TODO: Karat is not ready for allocator yet. Add later. */
     // nk_alloc_t *alloc = nk_alloc_create("dumb", "proc-alloc");
   } else {
-    nk_alloc_t *alloc = nk_alloc_create("cs213", "proc-alloc"); 
+    //nk_alloc_t *alloc = nk_alloc_create("cs213", "proc-alloc"); 
   }
 
   // ensure that lock has been initialized to 0

@@ -30,14 +30,14 @@
 
 
 /* DEBUG, INFO, ERROR PRINTS */
-#if NAUT_CONFIG_DEBUG_PROCESSES
+#ifndef NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...)
 #endif
 
 #define SIGNAL_INFO(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
-#define SIGNAL_DEBUG(fmt, args...) DEBUG_PRINT("signal: " fmt, ##args)
+#define SIGNAL_DEBUG(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_WARN(fmt, args...)  WARN_PRINT("signal: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
 
@@ -73,6 +73,7 @@ nk_signal_handler_table_t nk_signal_global_handler_table = {
 };
 
 nk_signal_descriptor_t nk_signal_global_descriptor = {
+    .num_shared_sigs = 0,
     .count = 1, /* Use counter */
     .live = 1, /* TODO MAC: Not sure if we should initialize to 1 */
     /* TODO MAC: Add wait_queue init (for now we do it elsewhere) */
@@ -97,6 +98,9 @@ nk_signal_handler_table_t global_sig_table = {
 /* Signal Macros */
 #define GET_SIGNALS_PENDING(dest) (dest)->signal_state->signals_pending
 #define GET_SHARED_PENDING(dest) (dest)->signal_state->signal_descriptor->shared_pending
+#define GET_NUM_SIGS(dest) (dest)->signal_state->num_sigs
+#define GET_NUM_SHARED_SIGS(dest) (dest)->signal_state->signal_descriptor->num_shared_sigs
+#define GET_NUM_QUEUED(dest) (dest)->signal_state->signal_descriptor->num_queued
 
 static inline nk_signal_handler_t idx_sig_hand(nk_thread_t *dst, uint64_t signum)
 {
@@ -181,11 +185,11 @@ static nk_signal_queue_t *__sig_queue_alloc(uint64_t signal, nk_thread_t *signal
     nk_signal_queue_t *q = 0;
     
     /* Fetch number of pending signals for thread */
-    /* TODO MAC: When adding processes fr, need to change this to process->num_sigs, not just thread num_sigs */
-    uint64_t pending = signal_dest->signal_state->signal_descriptor->num_queued;
-    atomic_inc(signal_dest->signal_state->signal_descriptor->num_queued); 
+    /* TODO MAC: When adding processes fr, need to change this to process->num_sigs, not just thread num_sigs */  
+    atomic_inc(GET_NUM_QUEUED(signal_dest)); 
+    
     /* Decide whether to queue a signal */
-    if (must_q || (pending <= RLIMIT_SIGPENDING)) {
+    if (must_q || (GET_NUM_QUEUED(signal_dest) <= RLIMIT_SIGPENDING)) {
         /* TODO MAC: Should I use kmem alloc? */
         q = (nk_signal_queue_t*)kmem_sys_mallocz(sizeof(nk_signal_queue_t));
     } else {
@@ -193,7 +197,7 @@ static nk_signal_queue_t *__sig_queue_alloc(uint64_t signal, nk_thread_t *signal
     }
 
     if (!q) {
-        atomic_dec(signal_dest->signal_state->signal_descriptor->num_queued); 
+        atomic_dec(GET_NUM_QUEUED(signal_dest)); 
     } else {
         INIT_LIST_HEAD(&(q->lst));
         q->flags = 0;
@@ -235,7 +239,7 @@ static inline int wants_signal(uint64_t sig, nk_thread_t *t)
 		return false;
     }
 
-	return (t->status == NK_THR_RUNNING) || !(t->num_sigs);
+	return (t->status == NK_THR_RUNNING) || !(t->signal_state->num_sigs);
 }
 
 static inline int map_wants_signal(nk_thread_t *t, void *state)
@@ -386,7 +390,7 @@ static int __send_signal(uint64_t signal, nk_signal_info_t *signal_info, nk_thre
 
     /* if sending to thread, get signals pending. Else, shared pending. */
     //pending = dest_type ? &GET_SIGNALS_PENDING(signal_dest) : &GET_SHARED_PENDING(signal_dest);
-    pending = dest_type ? &GET_SIGNALS_PENDING(signal_dest) : &GET_SIGNALS_PENDING(signal_dest);
+    pending = dest_type ? &GET_SIGNALS_PENDING(signal_dest) : &GET_SHARED_PENDING(signal_dest);
 
     /* Non-RT signal is already pending. Return already pending */
     if ((signal < SIGRTMIN) && sigismember(&(pending->signal), signal)) {
@@ -411,7 +415,11 @@ static int __send_signal(uint64_t signal, nk_signal_info_t *signal_info, nk_thre
     if (q) {
         SIGNAL_DEBUG("Allocated sig queue.\n");
         list_add_tail(&(q->lst), &(pending->lst));
-        atomic_inc(signal_dest->num_sigs);
+        if (dest_type) {
+            atomic_inc(GET_NUM_SIGS(signal_dest));
+        } else {
+            atomic_inc(GET_NUM_SHARED_SIGS(signal_dest));
+        }
         /* Should we create sig info? */
         switch ((uint64_t)signal_info) {
         case (uint64_t)SEND_SIGNAL_NO_INFO:
@@ -513,10 +521,17 @@ int next_signal(nk_signal_pending_t *pending, nk_signal_set_t *mask)
 	return sig;
 }
 
-static void __sigqueue_free(nk_signal_queue_t *q)
+static void __sigqueue_free(nk_signal_queue_t *q, uint64_t dest_type)
 {
     nk_thread_t *me = get_cur_thread();
-	atomic_dec(me->num_sigs);
+    if (dest_type) { /* Dest == Thread, so dec num_sigs */
+        SIGNAL_DEBUG("Atomically decrementing num_sigs!.\n");
+	    atomic_dec(GET_NUM_SIGS(me));
+    } else { /* Dest == Process, so dec num_shared_sigs */
+        SIGNAL_DEBUG("Atomically decrementing num_shared_sigs!.\n");
+	    atomic_dec(GET_NUM_SHARED_SIGS(me));
+    }
+	atomic_dec(GET_NUM_QUEUED(me)); /* num_queued is shared between thread/process */
 	kmem_free(q);
 }
 
@@ -537,7 +552,7 @@ static void collect_signal(int sig, nk_signal_pending_t *pending, nk_signal_info
 still_pending:
 		list_del_init(&first->lst);
 		copy_siginfo(sig_info, &first->signal_info);
-		__sigqueue_free(first);
+		__sigqueue_free(first, pending->dest_type);
 	} else {
 		/*
 		 * Ok, it wasn't in the queue.  This must be
@@ -572,7 +587,8 @@ static void flush_sigqueue_mask(nk_signal_set_t *mask, nk_signal_pending_t *s)
 	list_for_each_entry_safe(q, n, &s->lst, lst) {
 		if (sigismember(mask, q->signal_info.signal_num)) {
 			list_del_init(&q->lst);
-			__sigqueue_free(q);
+            SIGNAL_DEBUG("Calling sigqueue free from flush_sigqueue_mask()\n");
+			__sigqueue_free(q, s->dest_type);
 		}
 	}
 }
@@ -588,7 +604,7 @@ static int map_flush_sigqueue_mask(nk_thread_t *t, void *state)
 int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_info_t *sig_info)
 {
     
-    nk_signal_pending_t *pending = &(thread->signal_state->signals_pending);
+    nk_signal_pending_t *pending = &GET_SIGNALS_PENDING(thread);
 
     int sig = next_signal(pending, sig_mask);
 
@@ -606,8 +622,13 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
         /* TODO MAC: Will do this in the future... basically getting sig info */
         /* For now, we just remove from queue */
 		collect_signal(sig, pending, sig_info);
-	} else { /* TODO MAC: check shared pending if thread belongs to process */
-       return sig; 
+	} else { 
+        pending = &GET_SHARED_PENDING(thread); 
+        sig = next_signal(pending, sig_mask);
+        if (sig) {
+            /* TODO MAC: handle notifiers eventually? */
+            collect_signal(sig, pending, sig_info);
+        }
     }
 
 
@@ -862,12 +883,14 @@ int nk_signal_init_task_state(nk_signal_task_state **state_ptr, nk_thread_t *t) 
     memcpy(desc, &nk_signal_global_descriptor, sizeof(nk_signal_global_descriptor)); 
     
     /* Set all fields in task struct */
+    state->num_sigs = 0;
     state->signal_handler = handler;
     state->signal_descriptor = desc;
     state->signal_descriptor->curr_target = t;
     state->blocked.sig[0] = 0;
     state->real_blocked.sig[0] = 0;
-    init_sigpending(&state->signals_pending); 
+    init_sigpending(&state->signals_pending, SIG_DEST_TYPE_THREAD); 
+    init_sigpending(&state->signal_descriptor->shared_pending, SIG_DEST_TYPE_PROCESS); 
 
     /* Return by reference */
     if (!state_ptr) {
@@ -900,10 +923,11 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
     nk_thread_t *sig_dest;
     if (dest_type == SIG_DEST_TYPE_PROCESS) {
         nk_process_t *proc = (nk_process_t*)signal_dest;
-        nk_thread_group_t *t_group = proc->t_group;
-        /* TODO MAC: Pick a random thread within the proces */
-        SIGNAL_ERROR("Dest Type %lu (process) currently unimplemented.\n", dest_type);
-        return ret;
+        /* Pick a thread from group. We'll just pick curr_target */
+        /* TODO MAC: Maybe pick a random thread? */
+        sig_dest = proc->signal_descriptor->curr_target;
+        //SIGNAL_ERROR("Dest Type %lu (process) currently unimplemented.\n", dest_type);
+        SIGNAL_DEBUG("Signal destination type: SIG_DEST_TYPE_PROCESS.\n");
     } else if (dest_type == SIG_DEST_TYPE_THREAD) {
         sig_dest = (nk_thread_t*)signal_dest; 
         SIGNAL_DEBUG("Signal destination type: SIG_DEST_TYPE_THREAD.\n");
@@ -915,7 +939,7 @@ int nk_signal_send(uint64_t signal, nk_signal_info_t *signal_info, void *signal_
     /* TODO MAC: Should probably check if the destination exists */
     flags = acquire_sig_hand_lock(sig_hand);
     SIGNAL_DEBUG("Acquired signal handler lock of handler: %p.\n", sig_hand);
-    ret = send_signal(signal, signal_info, signal_dest, dest_type);
+    ret = send_signal(signal, signal_info, sig_dest, dest_type);
     release_sig_hand_lock(sig_hand, flags);
     return ret;
 }

@@ -19,6 +19,12 @@
     passed_tests++;                \
   }
 
+#if 1
+#define _PROCESS_ASPACE_TYPE "carat"
+#else
+#define _PROCESS_ASPACE_TYPE "paging"
+#endif
+
 extern void syscall_test_main();
 
 static int passed_tests;
@@ -210,7 +216,7 @@ static int handle_exec(char* buf, void* priv) {
   char omp_threads[64] = {0};
   sprintf((char*)&omp_threads, "OMP_NUM_THREADS=%d", nk_get_num_cpus());
   char* envp[] = {(char*)&omp_threads, "OMP_DISPLAY_ENV=\"TRUE\"", NULL};
-  if (nk_process_create(argv[1], argv + 1, envp, "carat", &process)) {
+  if (nk_process_create(argv[1], argv + 1, envp, _PROCESS_ASPACE_TYPE, &process)) {
     nk_vc_printf("Failed to create new process\n");
     return -1;
   }

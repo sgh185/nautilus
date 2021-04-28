@@ -110,6 +110,7 @@ typedef struct signal_queue {
 typedef struct signal_pending {
     struct list_head lst;
     nk_signal_set_t signal;
+    uint64_t dest_type;
 } nk_signal_pending_t;
 
 
@@ -139,6 +140,9 @@ typedef struct ksignal {
 
 /* Signal descriptor (lives inside of thread struct) */
 typedef struct signal_descriptor {
+    uint64_t num_shared_sigs; /* +0  SHOULD NOT CHANGE POSITION */
+
+    /* Rest of state, position independent */
     uint64_t count; /* Use counter */
     uint64_t live; /* Live threads within process */
     struct nk_wait_queue *wait_child_exit; /* for processes sleeping in wait4() */
@@ -159,10 +163,13 @@ typedef struct signal_descriptor {
  * Cleanly stores all signal state for threads/processes/tgroups 
  */
 typedef struct signal_task_state {
+    uint64_t num_sigs;                          /* +0  SHOULD NOT CHANGE POSITION */
+    nk_signal_descriptor_t *signal_descriptor;  /* +8  SHOULD NOT CHANGE POSITION */
+
+    
     /* For signal handling, shared state w/ processes and groups */
     /* TODO MAC: Figure out how to properly do this :) */
     nk_signal_handler_table_t *signal_handler;
-    nk_signal_descriptor_t *signal_descriptor;
     
     /* For individual thread signal handling */
     nk_signal_set_t blocked;
@@ -265,10 +272,11 @@ static inline void siginitsetinv(nk_signal_set_t *set, uint64_t mask)
     set->sig[0] = ~mask;
 }
 
-static inline void init_sigpending(nk_signal_pending_t *pending)
+static inline void init_sigpending(nk_signal_pending_t *pending, uint64_t dest_type)
 {
     sigemptyset(&(pending->signal));
     INIT_LIST_HEAD(&(pending->lst));
+    pending->dest_type = dest_type;
 }
 
 static inline int valid_signal(uint64_t sig)

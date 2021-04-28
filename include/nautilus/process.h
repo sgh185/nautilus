@@ -163,6 +163,7 @@ typedef struct nk_process {
   // signal handling info
   nk_signal_handler_table_t *signal_handler;
   nk_signal_descriptor_t *signal_descriptor;
+
   /* 
    * Might add notifier fields later
    * Notifier fields are used by device
