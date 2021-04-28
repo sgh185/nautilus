@@ -1,0 +1,71 @@
+Annotated: nk_carat_pin_escaped_pointer
+Annotated: nk_carat_pin_pointer
+Annotated: nk_carat_guard_callee_stack
+Annotated: nk_carat_guard_address
+Annotated: nk_carat_instrument_escapes
+Annotated: nk_carat_instrument_realloc
+Annotated: _framework_persist_function_signatures
+Annotated: nk_carat_instrument_malloc
+Annotated: _nk_carat_globals_compiler_target
+Annotated: nk_carat_instrument_global
+Annotated: nk_carat_instrument_calloc
+Annotated: __nk_exec_entry
+Annotated: nk_carat_instrument_free
+Annotated: nk_func_table_access
+Fetching nk_carat_pin_pointer ... 
+Fetching nk_carat_guard_address ... 
+Fetching nk_carat_instrument_global ... 
+Fetching nk_carat_instrument_escapes ... 
+Fetching nk_carat_instrument_free ... 
+Fetching nk_carat_instrument_calloc ... 
+Fetching _nk_carat_globals_compiler_target ... 
+Fetching nk_carat_instrument_realloc ... 
+Fetching nk_carat_guard_callee_stack ... 
+Fetching nk_carat_instrument_malloc ... 
+Fetching free ... 
+Fetching realloc ... 
+Fetching calloc ... 
+Fetching malloc ... 
+Now intrinsics!
+llvm.lifetime.start.p0i8
+llvm.lifetime.end.p0i8
+Vetting malloc ...
+Vetting calloc ...
+Vetting free ...
+Vetting realloc ...
+
+
+_Unwind_ForcedUnwind
+--- IndirectCalls ---
+--- ExternalFunctionCalls ---
+--- TrackedCallsNotAffectingMemory ---
+--- TrackedCallsMayAffectingMemory ---
+--- PointersEscapingViaTrackedCalls ---
+
+
+_Unwind_GetCFA
+--- IndirectCalls ---
+--- ExternalFunctionCalls ---
+--- TrackedCallsNotAffectingMemory ---
+--- TrackedCallsMayAffectingMemory ---
+--- PointersEscapingViaTrackedCalls ---
+
+
+_Unwind_Resume
+--- IndirectCalls ---
+--- ExternalFunctionCalls ---
+	  %1 = tail call i32 @puts(i8* getelementptr inbounds ([28 x i8], [28 x i8]* @str, i64 0, i64 0))
+--- TrackedCallsNotAffectingMemory ---
+	  %1 = tail call i32 @puts(i8* getelementptr inbounds ([28 x i8], [28 x i8]* @str, i64 0, i64 0))
+--- TrackedCallsMayAffectingMemory ---
+--- PointersEscapingViaTrackedCalls ---
+
+
+__unordtf2
+--- IndirectCalls ---
+--- ExternalFunctionCalls ---
+	  %1 = tail call i32 @puts(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @str.4, i64 0, i64 0))
+--- TrackedCallsNotAffectingMemory ---
+	  %1 = tail call i32 @puts(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @str.4, i64 0, i64 0))
+--- TrackedCallsMayAffectingMemory ---
+--- PointersEscapingViaTrackedCalls ---
