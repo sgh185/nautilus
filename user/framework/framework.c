@@ -123,12 +123,41 @@ void nk_carat_instrument_escapes(void *ptr) {
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
-void nk_carat_guard_address(void *memory_address, int is_write) {
+void nk_carat_guard_address(void *address, int is_write) {
     BACKSTOP;
     // when the aspace is sus
-    nk_aspace_t *aspace =  (nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR];
+    nk_aspace_t* aspace = ((nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR]);
+    nk_aspace_carat_t *caratAspace =  (nk_aspace_carat_t*)(aspace->state);
+    
+    nk_aspace_region_t *stack = caratAspace->initial_stack,
+                       *blob = caratAspace->initial_blob,
+                       *region = NULL;
 
-    __nk_func_table[NK_CARAT_GENERIC_PROTECT](memory_address, is_write, aspace);
+    
+    /*
+     * Check @address against the stack
+     */ 
+    if ( (address >= stack->va_start)
+        || (address < (stack->va_start + stack->len_bytes))) 
+    {
+        region = stack;
+        region->requested_permissions |= is_write + 1;
+        return;
+    }
+
+
+    /*
+     * Check @address against the blob
+     */ 
+    else if ((address < blob->va_start)
+        || (address > (blob->va_start + blob->len_bytes))
+    )
+    { 
+        region = blob;
+        region->requested_permissions |= is_write + 1;
+        return;
+    }
+    __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write, (void*)aspace);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
