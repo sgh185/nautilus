@@ -64,8 +64,7 @@ void sig_hand_hello(int sig_num)
 nk_signal_handler_table_t nk_signal_global_handler_table = {
     .count = 1,
     .handlers[0 ... 63] = {
-        //.handler = DEFAULT_SIG,
-        .handler = sig_hand_hello,
+        //.handler = sig_hand_hello,
         .mask = {0},
         .signal_flags = 0,
     },
@@ -264,9 +263,6 @@ static inline int map_wants_signal(nk_thread_t *t, void *state)
  */
 void signal_wake_up_thread(nk_thread_t *t)
 {
-    /* TODO MAC: Pretty sure we handle this. Need to check if our handling is valid. */
-	//set_tsk_thread_flag(t, TIF_SIGPENDING);
-	
 	/*
 	 * TASK_WAKEKILL also means wake it up in the stopped/traced/killable
 	 * case. We don't check t->state here because there is a race with it
@@ -281,6 +277,13 @@ void signal_wake_up_thread(nk_thread_t *t)
      *                == WAITING)              -> TODO MAC: Unimpl, fix later
      *                                                        
      */
+
+    /* TODO MAC:
+     * On sigkill, threads should be forced to wake up regardless of t->status
+     * We can implement this by adding a void *state argument. If state == 1,
+     * we know sigkill is happening and we must wake thread regardless
+     */
+
     spin_lock(&t->lock);
 	if (t->status == NK_THR_INIT || t->status == NK_THR_EXITED) {
         SIGNAL_ERROR("Failed to wake up thread.\n");
@@ -290,6 +293,15 @@ void signal_wake_up_thread(nk_thread_t *t)
         SIGNAL_ERROR("Waking threads on wait queue is unimplemented!");
     }
     spin_unlock(&t->lock);
+}
+
+static int map_sig_kill(nk_thread_t *t, void *state)
+{
+    /* TODO MAC: Not sure what this does, but might be important later */
+    //task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+	sigaddset(&t->signal_state->signals_pending.signal, NKSIGKILL);
+	signal_wake_up_thread(t); 
+    return 0;
 }
 
 static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t dest_type)
@@ -303,14 +315,16 @@ static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t 
      *
      * In main case, we send to main thread
      */
-    if (wants_signal(signal, signal_dest))
+    if (wants_signal(signal, signal_dest)) {
 		t = signal_dest;
-	else if ((dest_type == SIG_DEST_TYPE_THREAD) || (nk_thread_group_get_size(signal_dest->process->t_group) <= 1))
+    }
+	else if ((dest_type == SIG_DEST_TYPE_THREAD) || (nk_thread_group_get_size(signal_dest->process->t_group) <= 1)) {
 		/*
 		 * There is just one thread and it does not need to be woken.
 		 * It will dequeue unblocked signals before it runs again.
 		 */
 		return;
+    }
 	else {
 		/*
 		 * Otherwise try to find a suitable thread.
@@ -333,19 +347,17 @@ static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t 
 	}
 
 	/*
-     * TODO MAC: Implement fatal signals!  
 	 * Found a killable thread.  If the signal will be fatal,
 	 * then start taking the whole group down immediately.
 	 */
-    #if 0
-	if (sig_fatal(p, sig) &&
+	if (sig_fatal(signal_dest, signal) &&
 	    !(signal_desc->flags & SIGNAL_GROUP_EXIT) &&
-	    !sigismember(&t->real_blocked, sig) &&
-	    (sig == SIGKILL || !p->ptrace)) {
+	    !sigismember(&t->signal_state->real_blocked, signal) &&
+	    (signal == NKSIGKILL)) {
 		/*
 		 * This signal will be fatal to the whole group.
 		 */
-		if (!sig_kernel_coredump(sig)) {
+		if (!sig_kernel_coredump(signal)) { /* should never happen in Nautilus */
 			/*
 			 * Start a group exit and wake everybody up.
 			 * This way we don't have other threads
@@ -353,18 +365,16 @@ static void complete_signal(uint64_t signal, nk_thread_t *signal_dest, uint64_t 
 			 * thread has the fatal signal pending.
 			 */
 			signal_desc->flags = SIGNAL_GROUP_EXIT;
-			signal_desc->group_exit_code = sig;
+			signal_desc->group_exit_code = signal;
 			signal_desc->group_stop_count = 0;
-			t = p;
-			do {
-				task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
-				sigaddset(&t->pending.signal, SIGKILL);
-				signal_wake_up(t, 1);
-			} while_each_thread(p, t);
+			t = signal_dest;
+            /* Map sigkill to all threads in process */
+            if (t->process) {
+                nk_thread_group_map(t->process->t_group, map_sig_kill, 0, 0);
+            }
 			return;
 		}
 	}
-    #endif
 
 	/*
 	 * The signal is already in the shared-pending queue.
@@ -635,6 +645,39 @@ int dequeue_signal(nk_thread_t *thread, nk_signal_set_t *sig_mask, nk_signal_inf
 	return sig;
 }
 
+/* If true, all threads except ->group_exit_task have pending SIGKILL */
+static inline int signal_group_exit(nk_signal_descriptor_t *sig_desc)
+{
+	return	(sig_desc->flags & SIGNAL_GROUP_EXIT) ||
+		    (sig_desc->group_exit_task != NULL);
+}
+
+void
+do_signal_group_exit(nk_thread_t *me, uint64_t exit_code) {
+    nk_signal_descriptor_t *sig_desc = me->signal_state->signal_descriptor;
+    uint8_t irq_state;
+ 
+    if (signal_group_exit(sig_desc)) {
+       exit_code = sig_desc->group_exit_code;
+    } else if (me->process) { /* TODO MAC: Might need to check t_group->size > 1 */ 
+        irq_state = acquire_sig_hand_lock(me->signal_state->signal_handler);
+        if (signal_group_exit(sig_desc)) {
+            /* Another thread beat us to acquiring lock, we'll just exit */
+            exit_code = sig_desc->group_exit_code;
+        }
+        else {
+            sig_desc->group_exit_code = exit_code;
+            sig_desc->flags = SIGNAL_GROUP_EXIT;
+			sig_desc->group_stop_count = 0;
+            nk_thread_group_map(me->process->t_group, map_sig_kill, 0, 0);
+        } 
+        release_sig_hand_lock(me->signal_state->signal_handler, irq_state); 
+    }
+    SIGNAL_INFO("Thread %p about to exit from fatal signal.\n", me);
+    nk_thread_exit((void *)exit_code);
+    /* TODO MAC: Add compiler annotation for noreturn function */
+}
+
 int get_signal_to_deliver(nk_signal_info_t *sig_info, nk_signal_action_t *ret_sig_act, uint64_t rsp)
 {
     nk_thread_t *cur_thread = get_cur_thread();
@@ -705,9 +748,10 @@ relock:
         }
 
         /* All other signals are fatal. */
-        /* TODO MAC: Implement fatal signals! */
-    
-        SIGNAL_ERROR("Fatal signals are unimplemented!\n");
+        release_sig_hand_lock(sig_hand, irq_state);
+        do_signal_group_exit(cur_thread, signal_num); 
+        /* Should not reach here, noreturn function */
+        /* TODO MAC: Add compiler annotation to indicate that this is unreachable */
     } 
 
     /* End of loop, all other cases reach this point */

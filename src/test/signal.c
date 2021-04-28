@@ -16,6 +16,7 @@
 #define SIGTYPE1 12UL
 #define SIGTYPE2 17UL
 #define SIGTYPE3 18UL
+#define SIGTYPE4 9UL
 
 /* Globals */
 nk_counting_barrier_t barrier;
@@ -29,6 +30,13 @@ nk_signal_action_t new_sig_act = {
     .handler = sig_hand_hello_2,
     .mask = {},
     .signal_flags = SIG_ACT_ONESHOT, /* run once, then switch back to default */ 
+};
+
+/* Default sig kill handler */
+nk_signal_action_t sig_kill_act = {
+    .handler = DEFAULT_SIG,
+    .mask = {},
+    .signal_flags = 0, 
 };
 
 void 
@@ -110,6 +118,19 @@ sig_thread2 (void *in, void **out)
     }
 }
 
+/* Thread that will receive exit signal */
+void
+sig_thread3 (void *in, void **out)
+{
+    uint64_t x = 0;
+    while (1) {
+        if (!(x%1000000)) {
+            nk_vc_printf("sig_thread3: x (%lu) % 10000 = 0!\n", x);
+        }
+        x++;
+    }
+
+}
 
 // create two threads, have 1 thread signal the other
 static int
@@ -166,6 +187,33 @@ handle_sigtest2 (char * buf, void * priv)
     return 0;
 }
 
+/* Test if fatal signals work for threads */
+static int
+handle_sigtest3 (char * buf, void * priv)
+{
+    nk_thread_t *thread1 = 0;
+
+    if (nk_thread_create(sig_thread3, 0, 0, 0, 0, (void **)&thread1, -1)) {
+        nk_vc_printf("handle_sigtest: Failed to create new thread\n");
+        return -1;
+    }
+    if (nk_thread_run(thread1)) {
+        nk_vc_printf("handle_sigtest: Failed to run thread 1\n");
+        return -1;
+    }
+
+    //do_sigaction(SIGTYPE4, &sig_kill_act, &old_sig_act); 
+    
+    /* Send a signal to thread1 */
+    nk_vc_printf("Sending fatal signal %lu to thread1: %p.\n", SIGTYPE4, thread1);
+    if (nk_signal_send(SIGTYPE4, 0, thread1, SIG_DEST_TYPE_THREAD)) {
+        nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
+        return -1;
+    }
+    return 0;
+}
+
+/* Define shell command structs */
 static struct shell_cmd_impl signal_test_impl = {
   .cmd      = "sigtest",
   .help_str = "sigtest",
@@ -178,5 +226,13 @@ static struct shell_cmd_impl signal_test_impl2 = {
   .handler  = handle_sigtest2,
 };
 
+static struct shell_cmd_impl signal_test_impl3 = {
+  .cmd      = "sigtest3",
+  .help_str = "sigtest3",
+  .handler  = handle_sigtest3,
+};
+
+/* Register command with shell */
 nk_register_shell_cmd(signal_test_impl);
 nk_register_shell_cmd(signal_test_impl2);
+nk_register_shell_cmd(signal_test_impl3);
