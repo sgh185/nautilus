@@ -49,6 +49,7 @@ struct nk_crt_proc_args {
 #define NK_MALLOC 14
 #define NK_FREE 15
 #define NK_REALLOC 16
+#define NK_ASPACE_PTR 17
 
 
 #ifdef NAUTILUS_EXE

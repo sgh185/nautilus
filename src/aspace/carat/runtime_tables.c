@@ -635,7 +635,10 @@ void _carat_process_escape_window(nk_carat_context *the_context)
  * do nothing
  */
 NO_CARAT_NO_INLINE
-void nk_carat_guard_address(void *memory_address, int is_write) {
+void nk_carat_guard_address(void *address, int is_write, void* aspace) {
+    
+  nk_aspace_region_t *region;
+  nk_aspace_carat_t* caratAspace = (nk_aspace_carat_t*)(((nk_aspace_t*)aspace)->state);
 
 	// TODO:
 	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
@@ -650,19 +653,55 @@ void nk_carat_guard_address(void *memory_address, int is_write) {
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    nk_thread_t *cur_thread = FETCH_THREAD;
-    nk_aspace_t *aspace = cur_thread->aspace;
+
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
 
-
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    int res = nk_aspace_request_permission(aspace, memory_address, is_write);
+    
+    
+  /*
+     * First, fetch the cached stack and blob
+     */ 
+    nk_aspace_region_t *stack = caratAspace->initial_stack,
+                       *blob = caratAspace->initial_blob;
+
+
+    /*
+     * Check @address against the stack
+     */ 
+    if (false
+        || (address >= stack->va_start)
+        || (address < (stack->va_start + stack->len_bytes))) 
+    {
+        region = stack;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        region->requested_permissions |= is_write + 1;
+        return;
+    }
+
+
+    /*
+     * Check @address against the blob
+     */ 
+    else if (
+        false
+        || (address < blob->va_start)
+        || (address > (blob->va_start + blob->len_bytes))
+    )
+    { 
+        region = blob;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        region->requested_permissions |= is_write + 1;
+        return;
+    }
+
+
+    int res = nk_aspace_request_permission((nk_aspace_t *) aspace, address, is_write);
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
 
     if (res) {
-        panic("Tried to make an illegal memory access with %p! \n", memory_address);
+        panic("Tried to make an illegal memory access with %p! \n", address);
 	}
-
 	return;
 }
 

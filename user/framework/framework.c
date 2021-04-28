@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <nautilus/nautilus_exe.h>
+#include "aspace.h"
 #include "profile.h"
 
 // Space for the signature of the final binary. Set by nsign after final link.
@@ -124,7 +125,10 @@ void nk_carat_instrument_escapes(void *ptr) {
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_guard_address(void *memory_address, int is_write) {
     BACKSTOP;
-    __nk_func_table[NK_CARAT_GENERIC_PROTECT](memory_address, is_write);
+    // when the aspace is sus
+    nk_aspace_t *aspace =  (nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR];
+
+    __nk_func_table[NK_CARAT_GENERIC_PROTECT](memory_address, is_write, aspace);
 }
 
 __attribute__((noinline, used, annotate("nocarat")))

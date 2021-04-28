@@ -432,41 +432,7 @@ static int request_permission(void * state, void * address, int is_write) {
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
 
 
-    /*
-     * First, fetch the cached stack and blob
-     */ 
-    nk_aspace_region_t *stack = carat->initial_stack,
-                       *blob = carat->initial_blob;
-
-
-    /*
-     * Check @address against the stack
-     */ 
-    if (false
-        || (address >= stack->va_start)
-        || (address < (stack->va_start + stack->len_bytes))) 
-    {
-        region = stack;
-        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
-        goto set_request_permissions;
-    }
-
-
-    /*
-     * Check @address against the blob
-     */ 
-    else if (
-        false
-        || (address < blob->va_start)
-        || (address > (blob->va_start + blob->len_bytes))
-    )
-    { 
-        region = blob;
-        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
-        goto set_request_permissions;
-    }
-
-
+    
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
     // ---
 
