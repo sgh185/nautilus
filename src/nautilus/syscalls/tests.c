@@ -19,7 +19,7 @@
     passed_tests++;                \
   }
 
-#if 0
+#if 1
 #define _PROCESS_ASPACE_TYPE "carat"
 #else
 #define _PROCESS_ASPACE_TYPE "paging"

@@ -42,7 +42,7 @@
 #define ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
 
 /* Carat vs Paging Macros */
-#define _CARAT_PROCESS 0
+#define _CARAT_PROCESS 1
 
 /* Macros for locking and unlocking processs */
 #define _LOCK_PROCESS(proc) spin_lock(&(proc->lock))
