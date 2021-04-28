@@ -387,12 +387,33 @@ bool ProtectionsInjector::_optimizeForLoopInvariance(
 
 
     /*
+     * Fetch @PointerOfMemoryInstruction as an instruction
+     */
+    Instruction *PointerAsInst = dyn_cast<Instruction>(PointerOfMemoryInstruction);
+
+
+    /*
      * Walk up the loop nest until @PointerOfMemoryInstruction to determine 
      * the outermost loop of which PointerOfMemoryInstruction is a loop 
      * invariant. 
      */
     while (NextLoop) 
     {
+        /*
+         * If @PointerOfMemoryInstruction is defined within the 
+         * next loop, it can't be hoisted out of the loop without
+         * a proper LICM --- FIX. This is the farthest we can hoist.
+         * 
+         * HACK, TODO
+         */
+        bool IsInLoop = false;
+        if (PointerAsInst) {
+            if (NextLoopStructure->isIncluded(PointerAsInst)) {
+                IsInLoop = true;
+            }
+        }
+
+
         /*
          * Fetch the invariant manager of the next loop 
          */
@@ -403,8 +424,14 @@ bool ProtectionsInjector::_optimizeForLoopInvariance(
          * If @PointerOfMemoryInstruction is not a loop invariant
          * of this loop, we cannot iterate anymore --- break and 
          * determine if the guard can actually be hoisted
+         * 
+         * Essentially, we continue if we can hoist
          */ 
-        if (!(Manager->isLoopInvariant(PointerOfMemoryInstruction))) break;
+        if (false
+            || !(Manager->isLoopInvariant(PointerOfMemoryInstruction))
+            || (IsInLoop)) {
+            break;
+        }
 
 
         /*
@@ -577,10 +604,15 @@ Value *ProtectionsInjector::_fetchGEPBasePointer(Value *Pointer)
      * TOP --- If @Pointer is a GEP, fetch the pointer operand,
      * which represents the base pointer of the aggregate type
      * that said GEP would be indexing into
+     * 
+     * NOTE --- This GEP must be safe! We must understand that 
+     * the indexing operation is inbounds, otherwise send a 
+     * nullptr back.
      */
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Pointer);
+
     Value *BasePointer =
-        (GEP) ?
+        (GEP && (GEP->isInBounds())) ?
         (GEP->getPointerOperand()) :
         (nullptr);
 
