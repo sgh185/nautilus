@@ -30,14 +30,14 @@
 
 
 /* DEBUG, INFO, ERROR PRINTS */
-#if NAUT_CONFIG_DEBUG_PROCESSES
+#ifndef NAUT_CONFIG_DEBUG_PROCESSES
 #undef  DEBUG_PRINT
 #define DEBUG_PRINT(fmt, args...)
 #endif
 
 #define SIGNAL_INFO(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
-#define SIGNAL_DEBUG(fmt, args...) DEBUG_PRINT("signal: " fmt, ##args)
+#define SIGNAL_DEBUG(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_WARN(fmt, args...)  WARN_PRINT("signal: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
 
@@ -525,8 +525,10 @@ static void __sigqueue_free(nk_signal_queue_t *q, uint64_t dest_type)
 {
     nk_thread_t *me = get_cur_thread();
     if (dest_type) { /* Dest == Thread, so dec num_sigs */
+        SIGNAL_DEBUG("Atomically decrementing num_sigs!.\n");
 	    atomic_dec(GET_NUM_SIGS(me));
     } else { /* Dest == Process, so dec num_shared_sigs */
+        SIGNAL_DEBUG("Atomically decrementing num_shared_sigs!.\n");
 	    atomic_dec(GET_NUM_SHARED_SIGS(me));
     }
 	atomic_dec(GET_NUM_QUEUED(me)); /* num_queued is shared between thread/process */
@@ -585,6 +587,7 @@ static void flush_sigqueue_mask(nk_signal_set_t *mask, nk_signal_pending_t *s)
 	list_for_each_entry_safe(q, n, &s->lst, lst) {
 		if (sigismember(mask, q->signal_info.signal_num)) {
 			list_del_init(&q->lst);
+            SIGNAL_DEBUG("Calling sigqueue free from flush_sigqueue_mask()\n");
 			__sigqueue_free(q, s->dest_type);
 		}
 	}
@@ -887,7 +890,7 @@ int nk_signal_init_task_state(nk_signal_task_state **state_ptr, nk_thread_t *t) 
     state->blocked.sig[0] = 0;
     state->real_blocked.sig[0] = 0;
     init_sigpending(&state->signals_pending, SIG_DEST_TYPE_THREAD); 
-    init_sigpending(&state->signal_descriptor->shared_pending, SIG_DEST_TYPE_THREAD); 
+    init_sigpending(&state->signal_descriptor->shared_pending, SIG_DEST_TYPE_PROCESS); 
 
     /* Return by reference */
     if (!state_ptr) {

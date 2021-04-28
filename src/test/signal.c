@@ -2,6 +2,7 @@
 #include <nautilus/process.h>
 #include <nautilus/shell.h>
 #include <nautilus/barrier.h>
+#include <nautilus/timer.h>
 
 #define DO_PRINT 1
 
@@ -139,10 +140,43 @@ handle_sigtest (char * buf, void * priv)
     return 0;
 }
 
+/* Create a process and send it a signal */
+static int
+handle_sigtest2 (char * buf, void * priv)
+{
+    nk_process_t *p1;
+ 
+    if (nk_process_create("/hello.exe", NULL, NULL, "paging", &p1)) {
+        nk_vc_printf("handle_proctest1: Failed to create new process\n");
+        return -1;
+    }
+    if (nk_process_run(p1, 0)) {
+        nk_vc_printf("handle_proctest1: Failed to run process\n");
+        return -1;
+    }
+    nk_sleep(1000000);    
+ 
+    /* Send a signal to p1 */
+    nk_vc_printf("Sending signal %lu to process: %p.\n", SIGTYPE1, p1);
+    if (nk_signal_send(SIGTYPE1, 0, p1, SIG_DEST_TYPE_PROCESS)) {
+        nk_vc_printf("Couldn't send signal. Sigtest failed.\n");
+        return -1;
+    }
+  
+    return 0;
+}
+
 static struct shell_cmd_impl signal_test_impl = {
   .cmd      = "sigtest",
   .help_str = "sigtest",
   .handler  = handle_sigtest,
 };
 
+static struct shell_cmd_impl signal_test_impl2 = {
+  .cmd      = "sigtest2",
+  .help_str = "sigtest2",
+  .handler  = handle_sigtest2,
+};
+
 nk_register_shell_cmd(signal_test_impl);
+nk_register_shell_cmd(signal_test_impl2);
