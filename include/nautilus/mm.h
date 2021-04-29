@@ -96,6 +96,12 @@ void kmem_add_memory(struct mem_region * mem, ulong_t base_addr, size_t size);
 // this the range of heap addresses used by the boot allocator [low,high)
 void kmem_inform_boot_allocation(void *low, void *high);
 
+
+
+
+
+
+  
 // These functions operate either the system memory allocator (if the
 // allocator interface is disabled) or the allocator that is currently
 // in scope (if the allocator interface is enabled.)
@@ -114,8 +120,10 @@ void   kmem_free(void * addr);
 void * kmem_sys_malloc_specific(size_t size, int cpu, int zero);
 void * kmem_sys_malloc(size_t size);
 void * kmem_sys_mallocz(size_t size);
+void * kmem_sys_malloc_restrict(size_t size, addr_t lb, addr_t ub);
 void * kmem_sys_realloc_specific(void * ptr, size_t size, int cpu);
 void * kmem_sys_realloc(void * ptr, size_t size);
+int    kmem_sys_realloc_in_place(void *ptr, size_t new_size, size_t *actual_new_size);
 void   kmem_sys_free(void * addr);
 
 // Support functions for garbage collection

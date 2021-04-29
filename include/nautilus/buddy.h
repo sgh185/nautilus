@@ -48,7 +48,12 @@ struct buddy_mempool {
 struct buddy_mempool * buddy_init(ulong_t base_addr, ulong_t pool_order, ulong_t min_order);
 
 void buddy_free(struct buddy_mempool * mp, void * addr, ulong_t order);
-void * buddy_alloc(struct buddy_mempool * mp, ulong_t order);
+void * buddy_alloc(struct buddy_mempool * mp, ulong_t order, addr_t lb, addr_t ub);
+//
+// Attempt to expand/contract the allocation at orig from old_order to new_order
+// return 0 on success
+//
+int  buddy_resize(struct buddy_mempool * mp, addr_t block, ulong_t old_order, ulong_t new_order, ulong_t *resulting_new_order);
 
 int  buddy_sanity_check(struct buddy_mempool *mp);
 
