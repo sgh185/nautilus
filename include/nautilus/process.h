@@ -209,13 +209,23 @@ int nk_process_name(nk_process_id_t proc, char *name);
 
 nk_process_t *nk_process_current();
 
+/*
+ * Called to force a process to exit
+ */
+int nk_process_destroy(nk_process_t *p);
+
+/*
+ * Called by exiting threads to determine whether
+ * they should destroy remaining process state.
+ */
+int nk_process_exit( void );
+
 // called at boot time
 int nk_process_init();
 
 /*
 int nk_process_exec();
 
-int nk_process_destroy();
 
 int nk_process_find_by_name();
 

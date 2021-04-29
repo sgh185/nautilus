@@ -37,7 +37,7 @@
 
 #define SIGNAL_INFO(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
 #define SIGNAL_ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
-#define SIGNAL_DEBUG(fmt, args...) INFO_PRINT("signal: " fmt, ##args)
+#define SIGNAL_DEBUG(fmt, args...) DEBUG_PRINT("signal: " fmt, ##args)
 #define SIGNAL_WARN(fmt, args...)  WARN_PRINT("signal: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("signal: " fmt, ##args)
 
@@ -1038,5 +1038,46 @@ int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_
 
 	release_sig_hand_lock(thread->signal_state->signal_handler, irq_state);
 	return 0;
+}
+
+int
+nk_signal_destroy_state(struct nk_thread *t)
+{
+    if (t->signal_state) {
+        /* Acquire lock and decrement ref count */
+        nk_signal_handler_table_t *hand = t->signal_state->signal_handler;
+        uint8_t irq_state = acquire_sig_hand_lock(hand);
+        atomic_dec(hand->count);
+        if (hand->count == 0) { /* t is the last thread using handler/descriptor */
+            SIGNAL_DEBUG("Refcount 0, freeing all signal state for thread: %p\n", t);
+            /* TODO MAC: We *COULD* be leaking state if pending queue
+             * isn't empty at this point. However, we're skipping that
+             * for now.
+             */
+            free(t->signal_state->signal_descriptor);
+        
+            /* 
+             * Before we release lock, we need to set signal state to 0.
+             * This is to prevent signal delivery in case t receives
+             * an interrupt. This shouldn't happen, but lets be safe.
+             */
+            free(t->signal_state);
+            t->signal_state = 0;
+            release_sig_hand_lock(hand, irq_state); 
+            free(hand);
+            return 0;
+        } else {
+            /* 
+             * If someone else is still using descriptor/handler, we 
+             * just free t's private state, release the lock, and ret.
+             */
+            SIGNAL_DEBUG("Refcount != 0, only freeing private signal state for thread: %p\n", t);
+            free(t->signal_state);
+            t->signal_state = 0;
+            release_sig_hand_lock(hand, irq_state); 
+            return 0;
+        }
+    }
+    return 0;
 }
 

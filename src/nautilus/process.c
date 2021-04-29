@@ -37,7 +37,7 @@
 #endif
 #define PROCESS_INFO(fmt, args...) INFO_PRINT("process: " fmt, ##args)
 #define PROCESS_ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
-#define PROCESS_DEBUG(fmt, args...) INFO_PRINT("process: " fmt, ##args)
+#define PROCESS_DEBUG(fmt, args...) DEBUG_PRINT("process: " fmt, ##args)
 #define PROCESS_WARN(fmt, args...)  WARN_PRINT("process: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
 
@@ -55,12 +55,12 @@ process_info* get_process_info() {
   return &global_process_info;
 }
 
-void add_to_process_list(nk_process_t *p) {
+static void add_to_process_list(nk_process_t *p) {
   struct list_head p_list = get_process_info()->process_list;
   list_add_tail(&(p->process_node), &p_list);
 }
 
-int get_new_pid(process_info *p_info) {
+static int get_new_pid(process_info *p_info) {
   int pid_map_ind;
   do {
     pid_map_ind = p_info->next_pid % MAX_PID;
@@ -70,11 +70,11 @@ int get_new_pid(process_info *p_info) {
   return pid_map_ind;
 }
 
-void free_pid(process_info *p_info, uint64_t old_pid) {
+static void free_pid(process_info *p_info, uint64_t old_pid) {
   (p_info->used_pids)[old_pid].val = 0;
 }
 
-void count_and_len(char **arr, uint64_t *count, uint64_t *len) {
+static void count_and_len(char **arr, uint64_t *count, uint64_t *len) {
   *len = 0;
   *count = 0;
   if (arr) {
@@ -109,7 +109,7 @@ void count_and_len(char **arr, uint64_t *count, uint64_t *len) {
  * |  (Point to Env Strings above) |
  * |_______________________________|<------------- Ptr to here used as stack ptr and returned by function
  */
-char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack_addr) {
+static char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack_addr) {
   if (arr) {
     // make room for array of characters on stack
     char *stack_arr;
@@ -152,7 +152,7 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
   return *stack_addr;
 }
 
-void __nk_process_wrapper(void *i, void **o) {
+static void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_DEBUG("Entering process wrapper.\n");
   
@@ -216,7 +216,6 @@ void __nk_process_wrapper(void *i, void **o) {
   // Associate allocator with process thread
   if (nk_alloc_set_associated(p->allocator)) {
     PROCESS_ERROR("Failed to associate process with allocator\n");
-    nk_thread_exit((void *)-1);
   } 
  
   // Set process signal state to the starting thread's signal state
@@ -238,7 +237,7 @@ void __nk_process_wrapper(void *i, void **o) {
   PROCESS_INFO("Got past start exec crt\n");
 }
 
-int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace, void **stack) {
+static int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk_aspace_t **new_aspace, void **stack) {
   // Check if the desired aspace implementation exists
   nk_aspace_characteristics_t c;
   if (nk_aspace_query(aspace_type, &c)) {
@@ -391,6 +390,52 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   return 0;
 }
 
+static int teardown_process_state(nk_process_t *p)
+{
+  /* 
+   * TODO MAC: THIS ALL ASSUMES THE PROCESS WAS CREATED WITHIN THE BASE ASPACE!
+   *           IF PROCESS WAS SPAWNED WITHIN A DIFFERENT ASPACE, THIS CODE
+   *           WILL BREAK! WE SHOULD FIX THIS SOON.
+   */
+
+  /* TODO MAC: aspace destroy not fully implemented. Allow destroy to occur when it's done. */
+  if (0 && nk_aspace_destroy(p->aspace)) {
+    PROCESS_ERROR("Failed to destroy process aspace.\n");
+  }
+
+  /* Free process allocator. */ 
+  if (p->allocator && nk_alloc_destroy(p->allocator)) {
+    PROCESS_ERROR("Failed to destroy allocator for process %p (name: %s)\n", p, p->name);
+  }
+
+  /* delete process thread group */
+  if (p->t_group && nk_thread_group_delete(p->t_group)) {
+    PROCESS_ERROR("Failed to destroy thread group for process %p (name: %s)\n", p, p->name);
+  }
+
+  /* unmap process executable */
+  if (p->exe && nk_unload_exec(p->exe)) {
+    PROCESS_ERROR("Failed to unmap executable for process %p (name: %s)\n", p, p->name);
+  }
+
+#ifdef NAUT_CONFIG_LINUX_SYSCALLS
+  /* TODO MAC: Free the process heap (may be more complicated than this. Ask Aaron. */
+  if (p->heap_begin) {
+    free(p->heap_begin);
+  }
+  
+  /* TODO MAC: Free rest of syscall state */
+  
+#endif
+
+  process_info *pi = get_process_info();
+  _LOCK_PROCESS_INFO(pi);
+  free_pid(pi, p->pid);
+  _UNLOCK_PROCESS_INFO(pi);
+  return 0;
+  
+}
+
 
 /* External Functions */
 int nk_process_create(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **proc_struct) {
@@ -524,7 +569,6 @@ int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_ty
   }
   if (nk_process_run(*p, target_cpu)) {
     PROCESS_ERROR("failed to run new process\n");
-    //nk_process_destroy(*p);
     return -1;
   }
   return 0;
@@ -536,47 +580,79 @@ nk_process_t *nk_process_current() {
   return t->process;
 }
 
+/*
+ * Called on a process to force it (and its threads) to exit.
+ * Basically the same as sending NKSIGKILL to a process.
+ */
 int nk_process_destroy(nk_process_t *p) {
-  // destroy allocator, unmap executable, destroy thread_group,  destroy stack, destroy heap, and tear down aspace 
-  
-  // We must be careful if we're part of the current process
-  int destroying_curr_process = 0;
-  nk_thread_t *me = get_cur_thread();
-  if (me->process == nk_process_current()) {
-    // Prevent self from dying when sending exit signals
-    PROCESS_ERROR("Not handling process destroy properly.\n"); 
-    destroying_curr_process = 1;
+  if (nk_thread_group_get_size(p->t_group) > 0) {
+    return nk_signal_send(NKSIGKILL, 0, p, SIG_DEST_TYPE_PROCESS);
+  } else {
+    /* Acquire process lock */
+    uint8_t irq_state = spin_lock_irq_save(&(p->lock));
+
+    /* Tear down process state */
+    int ret = teardown_process_state(p);
+
+    /* Unlock, free, and return */ 
+    spin_unlock_irq_restore(&(p->lock), irq_state);
+    /* TODO MAC: Should we free process struct on teardown failure? */
+    free(p); 
+    return ret; 
   }
+}
 
-  // Destroy process allocator
-  nk_alloc_t *alloc = p->allocator;
-  if (nk_alloc_destroy(alloc)) {
-    PROCESS_ERROR("Failed to destroy allocator for process %p (name: %s)\n", p, p->name);
-  } 
 
-  // TODO MAC: Send exit signal to all process threads
-  // Will break until we implement this
- 
-  // delete thread group (may need to wait until all threads exit)
-  nk_thread_group_delete(p->t_group);
+/* 
+ * Used by exiting process threads to tear down process state.
+ */
+int nk_process_exit()
+{
+  /* Threads should only tear down process if they're the last thread left in the group */
+  nk_process_t *me = nk_process_current();
 
-  // unmap executable
-  nk_unload_exec(p->exe); 
+  /* 
+   * Acquire process lock and disable local interrupts.
+   * Must disable local interrupts to avoid race condition.
+   */
+  uint8_t irq_state = spin_lock_irq_save(&(me->lock));
 
-  // free heap and exit (this might be wrong)
-  // The threads we create use different stacks than they start with (thread->stack != curr_stack)
-  // Calling thread exit may not free the appropriate stack
-  free(p->heap_begin);
+  /* Exit the thread group */
+  nk_thread_group_leave(me->t_group);
 
-  // If we're part of the current process, we need to exit instead of destroying aspace  
-  if (destroying_curr_process) { 
-    nk_thread_exit((void *)0);
+  /* Check if I was the last thread to leave the group */
+  if (nk_thread_group_get_size(me->t_group)) {
+    /* Not the last thread. Let someone else handle process clean up. */
+    spin_unlock_irq_restore(&(me->lock), irq_state);
+    return 0;
   }
   
-  // tear down aspace
-  nk_aspace_destroy(p->aspace);
- 
-  return 0;
+  /* 
+   * TODO MAC: THIS ALL ASSUMES THE PROCESS WAS CREATED WITHIN THE BASE ASPACE!
+   *           IF PROCESS WAS SPAWNED WITHIN A DIFFERENT ASPACE, THIS CODE
+   *           WILL BREAK! WE SHOULD FIX THIS SOON.
+   */
+
+  /* 
+   * I was the last thread. Tear down the process state! 
+   * All process state was allocated in the base aspace.
+   * We should start by switching back to base and
+   * destroying the process' aspace.
+   */
+  if (nk_aspace_move_thread(NULL)) {
+    spin_unlock_irq_restore(&(me->lock), irq_state);
+    PROCESS_ERROR("Failed to switch back to base address space. Exiting early.\n"); 
+    return -1;
+  }
+  
+  /* We're back in base aspace. Go back to sys allocator */
+  nk_alloc_set_associated(NULL); 
+  
+  /* Teardown remaining process state, unlock, and return */
+  int ret = teardown_process_state(me); 
+  spin_unlock_irq_restore(&(me->lock), irq_state);
+  free(me);
+  return ret;
 }
 
 // add this right after loader init
