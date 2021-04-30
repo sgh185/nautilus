@@ -1995,7 +1995,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Expected to fail as the expanded region will overlap with next_region
      * */
-    if (!nk_aspace_resize_region(mas, &target_region, LEN_16MB,0, actual_size)) {
+    if (!nk_aspace_resize_region(mas, &target_region, LEN_16MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("Extend region target_region"
                     REGION_FORMAT
@@ -2016,7 +2016,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test expanding earger region
      * */
-    if (nk_aspace_resize_region(mas, &next_region, LEN_16MB,0, actual_size)) {
+    if (nk_aspace_resize_region(mas, &next_region, LEN_16MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region next_region"
                     REGION_FORMAT
@@ -2038,7 +2038,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test shrinking lazy region
      * */
-    if (nk_aspace_resize_region(mas, &target_region, LEN_2MB + LEN_16KB,0, actual_size)) {
+    if (nk_aspace_resize_region(mas, &target_region, LEN_2MB + LEN_16KB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT

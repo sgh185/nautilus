@@ -1419,28 +1419,30 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
     // }
     uint64_t* VA2 = NULL;
     uint64_t* VA3 = NULL;
+    uint64_t len = LEN_1MB;
 
-    uint64_t* VA1 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
+
+    uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
     // uint64_t* VA1 = kmem_sys_malloc_restrict(LEN_1MB, LEN_1MB * 3, LEN_1MB * 4);
-    VA2 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
-    VA3 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
+    VA2 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    VA3 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
 
     
 
     carat_r1.va_start = VA1;
     carat_r1.pa_start = VA1;
-    carat_r1.len_bytes = LEN_16KB;
+    carat_r1.len_bytes = len;
     carat_r1.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC  | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
     carat_r2.va_start = VA2;
     carat_r2.pa_start = VA2;
-    carat_r2.len_bytes = LEN_16KB,
+    carat_r2.len_bytes = len,
     carat_r2.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
     	
 
     carat_r3.va_start = VA3;
     carat_r3.pa_start = VA3;
-    carat_r3.len_bytes = LEN_16KB,
+    carat_r3.len_bytes = len;
     carat_r3.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
     nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
