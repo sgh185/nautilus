@@ -5,8 +5,6 @@
 #define SYSCALL_NAME "sys_brk"
 #include "impl_preamble.h"
 
-#define _PROCESS_ASPACE_CARAT 1
-
 #define HEAP_BOT \
   (void*)0x10000000000UL /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
@@ -41,7 +39,7 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     nk_aspace_region_t heap_expand;
-    #if _PROCESS_ASPACE_CARAT
+    #ifdef NAUT_CONFIG_CARAT_PROCESS
     heap_expand.va_start = new_heap;
     #else
     heap_expand.va_start = (void*)HEAP_BOT;

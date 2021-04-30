@@ -41,9 +41,6 @@
 #define PROCESS_WARN(fmt, args...)  WARN_PRINT("process: " fmt, ##args)
 #define ERROR(fmt, args...) ERROR_PRINT("process: " fmt, ##args)
 
-/* Carat vs Paging Macros */
-#define _CARAT_PROCESS 1
-
 /* Macros for locking and unlocking processs */
 #define _LOCK_PROCESS(proc) spin_lock(&(proc->lock))
 #define _UNLOCK_PROCESS(proc) spin_unlock(&(proc->lock))
@@ -165,7 +162,7 @@ void __nk_process_wrapper(void *i, void **o) {
   me->process = p;
 
 
-#if _CARAT_PROCESS
+#ifdef NAUT_CONFIG_CARAT_PROCESS
 
   /*
    * Add the process' thread stack to the process address space
@@ -266,7 +263,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   memset(p_addr_start, 0, PSTACK_SIZE);
  
 
-#if _CARAT_PROCESS == 0
+#ifndef NAUT_CONFIG_CARAT_PROCESS
 
   // add stack to address space
   nk_aspace_region_t r_stack;
@@ -306,7 +303,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
   uint64_t exe_end_addr = (uint64_t)p->exe->blob + p->exe->blob_size;
   
 
-#if _CARAT_PROCESS
+#if NAUT_CONFIG_CARAT_PROCESS
 
   nk_aspace_characteristics_t aspace_chars;
   if (nk_aspace_query(aspace_type, &aspace_chars)) {

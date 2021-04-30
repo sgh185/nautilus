@@ -275,6 +275,13 @@ config PROCESSES
     help
       Enable processes
 
+config CARAT_PROCESS
+    bool "Use CARAT process instead of paging"
+    depends on PROCESSES
+    default n
+    help
+      Use CARAT for processes
+
 config LINUX_SYSCALLS
     bool "Enable support for Linux syscall emulation"
     depends on PROCESSES
