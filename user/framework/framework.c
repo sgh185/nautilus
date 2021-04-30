@@ -1,9 +1,24 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <nautilus/nautilus_exe.h>
 #include "aspace.h"
 #include "profile.h"
+
+
+/*
+ * ---------- Profiling ----------
+ */ 
+
+static inline uint64_t __attribute__((always_inline))
+rdtsc (void)
+{
+  uint32_t lo, hi; 
+  asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
+  return lo | ((uint64_t)(hi) << 32);
+}
+
 
 // Space for the signature of the final binary. Set by nsign after final link.
 __attribute__((section(".naut_secure"))) unsigned char __NAUT_SIGNATURE[16];
@@ -122,9 +137,29 @@ void nk_carat_instrument_escapes(void *ptr) {
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
 }
 
+
+// ---
+static uint64_t total_time = 0;
+static uint64_t num_calls = 0;
+#define TIMING 1
+
+__attribute__((destructor, used, optnone, noinline, annotate("nocarat")))
+void results(void)
+{
+    /*
+     * HACK
+     */
+    rand();
+    printf("results: %lu\n", total_time / num_calls);
+    fflush(stdout);
+    return;
+}
+
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_guard_address(void *address, int is_write) {
     BACKSTOP;
+
+    
     // when the aspace is sus
     nk_aspace_t* aspace = ((nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR]);
     nk_aspace_carat_t *caratAspace =  (nk_aspace_carat_t*)(aspace->state);
@@ -132,6 +167,11 @@ void nk_carat_guard_address(void *address, int is_write) {
     nk_aspace_region_t *stack = caratAspace->initial_stack,
                        *blob = caratAspace->initial_blob,
                        *region = NULL;
+
+#if TIMING
+    uint64_t timing_start = rdtsc();
+    num_calls++;
+#endif
 
     
     /*
@@ -142,6 +182,9 @@ void nk_carat_guard_address(void *address, int is_write) {
     {
         region = stack;
         region->requested_permissions |= is_write + 1;
+#if TIMING
+        total_time += rdtsc() - timing_start;
+#endif
         return;
     }
 
@@ -155,10 +198,22 @@ void nk_carat_guard_address(void *address, int is_write) {
     { 
         region = blob;
         region->requested_permissions |= is_write + 1;
+#if TIMING
+        total_time += rdtsc() - timing_start;
+#endif
         return;
     }
+
+
     __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write, (void*)aspace);
+
+#if TIMING
+    total_time += rdtsc() - timing_start;
+#endif
+
 }
+
+
 
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
@@ -176,5 +231,8 @@ void nk_carat_pin_escaped_pointer(void *escape) {
     BACKSTOP;
     __nk_func_table[NK_CARAT_PIN_ESCAPE](escape);
 }
+
+
+
 
 
