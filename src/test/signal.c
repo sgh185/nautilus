@@ -12,6 +12,12 @@
 #define PRINT(...)
 #endif
 
+#ifdef NAUT_CONFIG_CARAT_PROCESS
+#define _PROCESS_ASPACE_TYPE "carat"
+#else
+#define _PROCESS_ASPACE_TYPE "paging"
+#endif
+
 /* Constants */
 #define SIGTYPE1 12UL
 #define SIGTYPE2 17UL
@@ -217,9 +223,27 @@ handle_sigtest3 (char * buf, void * priv)
 static int
 handle_sigtest4 (char * buf, void * priv)
 {
+
+    int argc = 0;
+    char* argv[64] = {0};
+    char* argp = buf;
+    argv[0] = buf;
+    for (argc = 1; argc < 64; argc++) {
+        while (*argp != ' ' && *argp != 0) {
+            argp++;
+        }
+        if (*argp == 0) {
+            break;
+        }
+        *argp = 0;
+        argp++;
+        argv[argc] = argp;
+    }
+
     nk_process_t *p1;
  
-    if (nk_process_create("/hello.exe", NULL, NULL, "paging", &p1)) {
+    nk_vc_printf("Starting process: %s\n", argv[1]);
+    if (nk_process_create(argv[1], argv + 1, NULL, _PROCESS_ASPACE_TYPE, &p1)) {
         nk_vc_printf("handle_proctest1: Failed to create new process\n");
         return -1;
     }
