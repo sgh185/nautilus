@@ -1382,13 +1382,6 @@ menu "Address Spaces"
 	  default y
 	  help
 	     This is the CARAT address space abstraction.
-
-  config CARAT_PROFILE
-    bool "Enable profiling for CARAT aspace"
-    depends on ASPACE_CARAT
-    default n
-    help
-      Turns on profiling for CARAT Aspace
 	     
 	config DEBUG_ASPACE_CARAT
 	  bool "Debug the CARAT address space abstraction"
@@ -1414,6 +1407,13 @@ menu "Address Spaces"
             config ASPACE_CARAT_REGION_SKIP_LIST
                bool "Skip List"
        endchoice
+
+  config CARAT_PROFILE
+    bool "Enable profiling for CARAT aspace"
+    depends on ASPACE_CARAT
+    default n
+    help
+      Turns on profiling for CARAT Aspace
 
   config DEBUG_ASPACE_REGION_TRACKING
     bool "Debug the selected region tracking data structure (RBTree/SplayTree/..)"
