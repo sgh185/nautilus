@@ -428,6 +428,7 @@ int buddy_resize(struct buddy_mempool *mp, addr_t block, ulong_t old_order, ulon
 
     if (!(target_offset % (1ULL << new_order))) {
       BUDDY_ERROR("impossible target (target offset=%llx new_order=%lu)\n",target_offset,new_order);
+      BUDDY_ERROR("impossible target (zone_start = %llx block=%llx target=%llx old_order=%lu)\n", zone_start, block ,target,old_order);
       return -1;
     }
     
@@ -441,8 +442,8 @@ int buddy_resize(struct buddy_mempool *mp, addr_t block, ulong_t old_order, ulon
     target_block = 0;
     list_for_each_entry(search_block,list,link) {
       if ((addr_t)search_block==target) {
-	target_block = search_block;
-	break;
+        target_block = search_block;
+        break;
       }
     }
 

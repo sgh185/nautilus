@@ -302,9 +302,9 @@ int  nk_aspace_move_region(nk_aspace_t *aspace, nk_aspace_region_t *cur_region, 
     return 0;
 }
 
-int  nk_aspace_resize_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, int by_force) {
+int  nk_aspace_resize_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size) {
     if (aspace) {
-        BOILERPLATE_LEAVE(aspace, resize_region, region, new_size, by_force);
+        BOILERPLATE_LEAVE(aspace, resize_region, region, new_size, by_force, actual_size);
     } 
     return 0;
 }

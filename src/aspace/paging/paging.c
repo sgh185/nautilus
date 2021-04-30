@@ -905,7 +905,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 //expand or contract the region
 //new_phys, if not zero, means the physical address of the additional part(for expansion)
 //alloc=1 means "allocate the physical memory for me"
-static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force){
+static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size){
 
     if (region == NULL){
         ERROR("input region == NULL\n");
@@ -1970,7 +1970,8 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test expanding lazy region
      * */
-    if (nk_aspace_resize_region(mas, &target_region, LEN_6MB,0)) {
+    uint64_t actual_size;
+    if (nk_aspace_resize_region(mas, &target_region, LEN_6MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT
@@ -1994,7 +1995,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Expected to fail as the expanded region will overlap with next_region
      * */
-    if (!nk_aspace_resize_region(mas, &target_region, LEN_16MB,0)) {
+    if (!nk_aspace_resize_region(mas, &target_region, LEN_16MB,0, actual_size)) {
         test_failed = 1;
         nk_vc_printf("Extend region target_region"
                     REGION_FORMAT
@@ -2015,7 +2016,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test expanding earger region
      * */
-    if (nk_aspace_resize_region(mas, &next_region, LEN_16MB,0)) {
+    if (nk_aspace_resize_region(mas, &next_region, LEN_16MB,0, actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region next_region"
                     REGION_FORMAT
@@ -2037,7 +2038,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test shrinking lazy region
      * */
-    if (nk_aspace_resize_region(mas, &target_region, LEN_2MB + LEN_16KB,0)) {
+    if (nk_aspace_resize_region(mas, &target_region, LEN_2MB + LEN_16KB,0, actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT

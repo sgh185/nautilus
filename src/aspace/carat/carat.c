@@ -766,7 +766,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 
 
 
-static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force){
+static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size){
     
     DEBUG("resize region " REGION_FORMAT " to size %lx, by_force = %d\n", REGION(region), new_size, by_force);
     
@@ -840,7 +840,31 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
             DEBUG("Overlapped! and we are moving the blocking regions by force!\n");
 
             do {
-                void * move_target_addr = kmem_sys_malloc_specific(next_smallest->len_bytes, my_cpu_id(),0);
+                /**
+                 *  try to move the region away from the new region
+                 * */
+                void * move_target_addr = NULL;
+
+                move_target_addr = kmem_sys_malloc_restrict(
+                                        next_smallest->len_bytes,
+                                        (addr_t) new_region.va_start + new_region.len_bytes, /* lower bound */
+                                        -1ULL                                                  /* upper bound */
+                                    );
+
+                if (move_target_addr == NULL) {
+                    move_target_addr = kmem_sys_malloc_restrict(
+                                        next_smallest->len_bytes,
+                                        0,                          /* lower bound */
+                                        (addr_t) new_region.va_start        /* upper bound */
+                                    );
+                    if (move_target_addr == NULL) {
+                        ERROR("cannot move" REGION_FORMAT " way from " REGION_FORMAT, REGION(next_smallest), REGION(&new_region));
+                        ASPACE_UNLOCK(carat);
+                        return -1;
+                    }
+                }
+
+                
 
                 DEBUG("succeeded allocating the move away target region\n");
 
@@ -852,12 +876,13 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                     .requested_permissions = next_smallest->requested_permissions
                 };
 
-                memcpy(move_target_addr, next_smallest->va_start, next_smallest->len_bytes);
 
+                memcpy(move_target_addr, next_smallest->va_start, next_smallest->len_bytes);
                 /**
                  *  note here we need to unlock before entering move region since move_region also requires the lock.
                  * */
                 void * saved_vastart = next_smallest->va_start;
+
 
                 ASPACE_UNLOCK(carat); 
                 if (move_region(state, next_smallest, &move_target)) {
@@ -865,6 +890,10 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                     ASPACE_UNLOCK(carat);
                     return -1;
                 }
+                /**
+                 *  WARNING: next_smallest points to garbage rn, because move_region deletes the region in data structure 
+                 *      like rb_tree and next_smallest is from the rb_tree.
+                 * */
 
                 /**
                  *  xxxxxxxxxxxxxxx------xxx-----xxxxxxxxx
@@ -877,18 +906,15 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                  * */
                 ASPACE_LOCK(carat);
                 
-                DEBUG("free %p\n", saved_vastart);
+                // DEBUG("free %p\n", saved_vastart);
 
                 kmem_sys_free(saved_vastart);
 
                 
-                DEBUG("succeeded move the blocking region away, starts at %lx with length: %lx\n", move_target_addr,next_smallest->len_bytes);
-
-
-                
+                // DEBUG("succeeded move the blocking region away, starts at %lx with length: %lx\n", move_target_addr, next_smallest->len_bytes);
 
                 next_smallest = mm_get_next_smallest(carat->mm, region);
-                DEBUG("Done:mm_get_next_smallest\n");
+                // DEBUG("Done:mm_get_next_smallest\n");
                 
                 if (next_smallest == NULL) {
                     ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
@@ -922,6 +948,15 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
     /**
      * update
      * */
+    uint64_t actual_size_for_kmem;
+    int res = kmem_sys_realloc_in_place(new_region.va_start, new_region.len_bytes, &actual_size_for_kmem);
+    if (res) {
+        ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
+        return -1;
+    }
+
+    DEBUG("Try to expand to %lx actual size = %lx\n", new_region.len_bytes, actual_size_for_kmem);
+    new_region.len_bytes = actual_size_for_kmem;
 
     uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
     nk_aspace_region_t * target_region = mm_update_region(carat->mm, region, &new_region, check_flag);
@@ -933,6 +968,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
         return -1;
     }
 
+    *actual_size = actual_size_for_kmem;
     mm_show(carat->mm); 
     
     ASPACE_UNLOCK(carat);
@@ -1336,10 +1372,12 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
 
     #define LEN_1KB (0x400UL)
     #define LEN_4KB (0x1000UL)
+    #define LEN_16KB (0x4000UL)
     #define LEN_256KB (0x40000UL)
     #define LEN_512KB (0x80000UL)
 
     #define LEN_1MB (0x100000UL)
+    #define LEN_2MB (0x200000UL)
     #define LEN_4MB (0x400000UL)
     #define LEN_6MB (0x600000UL)
     #define LEN_16MB (0x1000000UL)
@@ -1379,28 +1417,33 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
     //     DEBUG("failed! to add initial eager region to address space\n");
     //     goto test_fail;
     // }
+    uint64_t* VA2 = NULL;
+    uint64_t* VA3 = NULL;
+
+    uint64_t* VA1 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
+    // uint64_t* VA1 = kmem_sys_malloc_restrict(LEN_1MB, LEN_1MB * 3, LEN_1MB * 4);
+    VA2 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
+    VA3 = kmem_sys_malloc_specific(LEN_16KB,my_cpu_id(),0);
+
     
-    uint64_t* VA1 = kmem_malloc_specific(LEN_1MB,my_cpu_id(),0);
-    uint64_t* VA2 = kmem_malloc_specific(LEN_4MB,my_cpu_id(),0);
-    uint64_t* VA3 = kmem_malloc_specific(LEN_1MB,my_cpu_id(),0);
 
     carat_r1.va_start = VA1;
     carat_r1.pa_start = VA1;
-    carat_r1.len_bytes = LEN_1MB;
+    carat_r1.len_bytes = LEN_16KB;
     carat_r1.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC  | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
     carat_r2.va_start = VA2;
     carat_r2.pa_start = VA2;
-    carat_r2.len_bytes = LEN_4MB,
+    carat_r2.len_bytes = LEN_16KB,
     carat_r2.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
     	
 
     carat_r3.va_start = VA3;
     carat_r3.pa_start = VA3;
-    carat_r3.len_bytes = LEN_1MB,
+    carat_r3.len_bytes = LEN_16KB,
     carat_r3.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
-    nk_vc_printf("The VA for region_0 is %p, region_1 %p,and region_2 %p\n",VA1,VA2,VA3);
+    nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
          
     if(nk_aspace_add_region(carat_aspace,&carat_r1)){
 	DEBUG("failed! to add r1 region to address space\n");
@@ -1417,8 +1460,8 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
    
 
     // DEBUG("now resize region_1 starting at %p from length of %lx bytes to %lx bytes\n", carat_r2.va_start, carat_r2.len_bytes, LEN_16MB);
- 
-    if(nk_aspace_resize_region(carat_aspace,&carat_r1,LEN_4GB,1)){
+    uint64_t actual_size;
+    if(nk_aspace_resize_region(carat_aspace,&carat_r2, carat_r2.len_bytes * 2, 1, &actual_size )){
     	nk_vc_printf("Failed to resize the region\n");
 	goto test_fail;
     }

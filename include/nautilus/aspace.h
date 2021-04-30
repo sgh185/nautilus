@@ -101,7 +101,7 @@ typedef struct nk_aspace_interface {
     int    (*protect_region)(void *state, nk_aspace_region_t *region, nk_aspace_protection_t *prot);
     int    (*move_region)(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region);
     // region is both an input and and output
-    int    (*resize_region)(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force);
+    int    (*resize_region)(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size);
     // region is both an input and an output
     // *free_space_start tells us where the free space beings in the region
     int    (*defragment_region)(void *state, nk_aspace_region_t *region, uint64_t new_size, void **free_space_start);
@@ -169,7 +169,7 @@ int          nk_aspace_move_thread(nk_aspace_t *aspace);
 
 int          nk_aspace_add_region(nk_aspace_t *aspace, nk_aspace_region_t *region);
 int          nk_aspace_remove_region(nk_aspace_t *aspace, nk_aspace_region_t *region);
-int          nk_aspace_resize_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, int by_force);
+int          nk_aspace_resize_region(nk_aspace_t *aspace, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size);
 
 /**
      *  Defragmentation illustration
