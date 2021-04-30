@@ -3,9 +3,13 @@
 # This script needs to be extended to automatically
 # find the paths to the crt objects
 
+CMD=""
 if [ $# -eq 0 ]
   then
     echo "No arguments supplied"
+else
+  CMD=$1
+  shift ;
 fi
 
 REALPATH=$(realpath $0)
@@ -14,7 +18,7 @@ DIRNAME=$(dirname $REALPATH)
 CRTGEN_DIR=/usr/lib64/x86_64-linux-gnu
 CRTBE_DIR=/usr/lib/gcc/x86_64-linux-gnu/8
 
-OUT_FLAG=$(echo "$*" | grep -Poe "-o\ .*?(\ |$)")
+OUT_FLAG=$(echo "$@" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
 
 make framework -C $DIRNAME
@@ -25,6 +29,7 @@ if [[ $* != *-nokarat* ]]; then
   BLOB_BC=blob.bc
   BLOB_SIMPLIFY_BC=blob_simplify.ll
   BLOB_OPT_BC=blob_opt.ll
+  FRAMEWORK_LINK_BC=$DIRNAME/framework_link.ll
   KARAT_OUT=karat.out
   BLOB_KOBJ=blob.kobj.o
   LD=ld
@@ -34,18 +39,42 @@ if [[ $* != *-nokarat* ]]; then
 
   set -x
 
-  # ld -r $* $DIRNAME/glue.o $DIRNAME/framework.o -o ${BLOB_OBJ}
-  ld -r $* $DIRNAME/glue.o -o ${BLOB_OBJ} 
+  # Simply link source object files
+  ld -r $@ -o ${BLOB_OBJ} 
 
+  # Extract the bitcode
   ${EXTRACTBC} ${BLOB_OBJ}
   mv ${BLOB_OBJ}.bc ${BLOB_BC}
 
-  # Run select loop simplification passes
+  # Normalize the code for Noelle, run LICM
+  opt -O1 ${BLOB_BC} -o ${BLOB_BC}
+  noelle-enable ${BLOB_BC} ${BLOB_BC} -S -noelle-disable-inliner -noelle-disable-scev-simplification -noelle-disable-whilifier -noelle-disable-loop-distribution
   ${NORM} -S ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
 
-  # Run KARAT pass
-  ${ME} -load ~/CAT/lib/KARAT.so -karat -target-user -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
-  clang -mno-red-zone -fPIC -c ${BLOB_OPT_BC} -o target.o
+  # Link framework bitcode 
+  llvm-link -S ${BLOB_SIMPLIFY_BC} ${FRAMEWORK_LINK_BC} -o ${BLOB_SIMPLIFY_BC} 
+
+  # Run the KARAT pass
+if [[ ${CMD} == "-fall" ]]
+then
+  # KARAT on completely (protections + tracking)
+  ${ME} -load ~/CAT/lib/KARAT.so -karat -target-user -fno-restrictions -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
+
+elif [[ ${CMD} == "-fno-protections" ]]
+then
+  # KARAT on ONLY for tracking, NO protections 
+  ${ME} -load ~/CAT/lib/KARAT.so -karat -target-user -fno-protections -fno-restrictions -S ${BLOB_SIMPLIFY_BC} -o ${BLOB_OPT_BC} &> ${KARAT_OUT}
+
+elif [[ ${CMD} == "-fno-all" ]]
+then
+  # KARAT off completely (pass is not run)
+  cp ${BLOB_SIMPLIFY_BC} ${BLOB_OPT_BC}
+fi 
+
+  # Optimize the transformed bitcode, build target object
+  opt -O3 -S ${BLOB_OPT_BC} -o ${BLOB_OPT_BC}
+  clang -mno-red-zone -fPIC -O3 -c ${BLOB_OPT_BC} -o target.o
+
 else
   echo "Called with -nokarat"
   set -x
@@ -59,7 +88,7 @@ ld -static -pie --no-dynamic-linker \
   -T $DIRNAME/framework.lds -dp -z max-page-size=0x1000 -z relro -z now \
   $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o \
   -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
-  $DIRNAME/framework.o target.o $DIRNAME/framework_low_level.o \
+  $DIRNAME/glue.o $DIRNAME/framework.o target.o $DIRNAME/framework_low_level.o \
   -lm -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
   $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o \
   $OUT_FLAG
