@@ -1382,6 +1382,13 @@ menu "Address Spaces"
 	  default y
 	  help
 	     This is the CARAT address space abstraction.
+
+  config CARAT_PROFILE
+    bool "Enable profiling for CARAT aspace"
+    depends on ASPACE_CARAT
+    default n
+    help
+      Turns on profiling for CARAT Aspace
 	     
 	config DEBUG_ASPACE_CARAT
 	  bool "Debug the CARAT address space abstraction"
