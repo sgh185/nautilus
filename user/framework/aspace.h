@@ -1,3 +1,9 @@
+/*
+ * HACK --- Duplicate aspace.h to skirt type conflicts
+ * between libc and naut_types.h
+ */ 
+
+
 #include <stdint.h>
 
 #define NK_ASPACE_NAME_LEN 32

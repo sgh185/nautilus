@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "profile.h"
 
 /*
@@ -16,6 +17,7 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) ;
 void nk_carat_pin_pointer(void *address) ;
 void nk_carat_pin_escaped_pointer(void *escape) ;
 void _nk_carat_globals_compiler_target(void) ;
+void results(void);
 
 
 /*
@@ -32,14 +34,6 @@ void _nk_carat_globals_compiler_target(void) {
 }
 
 
-#if 0
-__attribute__((destructor, optnone, noinline, used, annotate("nocarat")))
-void _profile_output(void)
-{
-    return ;
-}
-#endif
-
 
 /*
  * HACK --- Link this function instead of the entire framework
@@ -50,7 +44,7 @@ void _profile_output(void)
  *    completely circumvented
  */ 
 __attribute__((optnone, noinline, used, annotate("nocarat")))
-static void _framework_persist_function_signatures(void)
+void _framework_persist_function_signatures(void)
 {
     
 #define _DUMMY_SIZE 16
