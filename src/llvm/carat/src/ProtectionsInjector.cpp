@@ -598,6 +598,32 @@ bool ProtectionsInjector::_isAPointerReturnedByAllocator(Value *V)
 }
 
 
+Value *ProtectionsInjector::_fetchBitCastOperand(Value *Pointer)
+{
+    /*
+     * If @Pointer is actually a bitcast operation, fetch its 
+     * operand to analyze. If @Pointer isn't a bitcast, return
+     * a nullptr
+     */ 
+
+    /*
+     * Attempt to fetch the operand as a bitcast instruction
+     */ 
+    BitCastInst *BCI = dyn_cast<BitCastInst>(Pointer);
+    if (BCI) return BCI->getOperand(0);
+
+
+    /*
+     * Attempt to fetch the operand as a bitcast operator
+     */ 
+    BitCastOperator *BCO = dyn_cast<BitCastOperator>(Pointer);
+    if (BCO) return BCO->getOperand(0);
+
+
+    return nullptr;
+}
+
+
 Value *ProtectionsInjector::_fetchGEPBasePointer(
     Value *Pointer,
     bool CheckInBounds
@@ -639,7 +665,9 @@ bool ProtectionsInjector::_isASafeMemoryConstruct(Value *Pointer)
      * There is an added tidbit here --- it's possible that the 
      * pointer we're analyzing is really an offset into an aggregate
      * data type --- typically represented in the IR as a GEP. Check
-     * this level of indirection.
+     * this level of indirection. We also handle the same level of 
+     * indirection for bitcast instructions, which are designed to 
+     * maintain type-safety in LLVM IR.
      */
     if (!Pointer) return false;
 
@@ -647,6 +675,7 @@ bool ProtectionsInjector::_isASafeMemoryConstruct(Value *Pointer)
         || isa<AllocaInst>(Pointer)
         || isa<GlobalVariable>(Pointer)
         || _isAPointerReturnedByAllocator(Pointer)
+        || _isASafeMemoryConstruct(_fetchBitCastOperand(Pointer))
         || _isASafeMemoryConstruct(_fetchGEPBasePointer(Pointer, true /* Check inbounds*/))) {
         return true;
     } 
@@ -674,7 +703,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          * - @isWrite denotes the characteristic of @inst (i.e. load=FALSE, 
          *   store=TRUE, etc.)
          * 
-         * Several steps to check/perform:
+         * Several steps to check/perform (NOTE --- some of this is ad-hoc b/c deadline):
          * 
          * 1) If @PointerOfMemoryInstruction has already been guarded:
          *    a) @PointerOfMemoryInstruction is in the IN set of @inst, indicating
@@ -695,7 +724,10 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          *    f) @PointerOfMemoryInstruction originates from an inbounds indexed 
          *       location into SOME memory construct which the DFA has determined
          *       need not be checked.
-         *    g) @PointerOfMemoryInstruction must aliases any of the variable or 
+         *    g) @PointerOfMemoryInstruction originates from a bitcast instruction,
+         *       which is designed just to maintain type safety and does not affect
+         *       the value of the pointer.
+         *    h) @PointerOfMemoryInstruction must aliases any of the variable or 
          *       data types described in 1b-d.
          *
          *    ... then we're done --- don't have to do anything!
@@ -761,9 +793,22 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
             return;
         }
 
-        
+
         /*
          * <Step 1g.>
+         */
+        Value *PointerCastOperand = _fetchBitCastOperand(PointerOfMemoryInstruction);
+        if (true
+            && PointerCastOperand
+            && INSetOfI.find(PointerCastOperand) != INSetOfI.end()) 
+        {
+            redundantGuard++;                  
+            return;
+        }
+
+        
+        /*
+         * <Step 1h.>
          */
         bool MustAliasesSafeConstructs = false; 
         auto Iterator = 
