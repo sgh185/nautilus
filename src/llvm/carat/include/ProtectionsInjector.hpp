@@ -181,6 +181,8 @@ private:
 
     bool _isAPointerReturnedByAllocator(Value *V);
 
+    Value *_fetchBitCastOperand(Value *Pointer);
+
     Value *_fetchGEPBasePointer(
         Value *Pointer,
         bool CheckInBounds

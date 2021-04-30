@@ -436,7 +436,13 @@ nk_thread_group_leave(nk_thread_group_t *group) {
 
   spin_unlock(&group->group_lock);
 
-  FREE(leaving_member);
+  /* TODO MAC: Taken out to avoid freeing state we didn't allocate.
+   * Will need to fix later. Basic idea: we alloc in base addr space
+   * and then attempt to free in Carat/Process aspace. Should try to
+   * allocate in carat aspace instead (or free all at once in base
+   * aspace).
+   */
+  //FREE(leaving_member);
 
   thread_group_barrier_leave(&group->group_barrier);
 
