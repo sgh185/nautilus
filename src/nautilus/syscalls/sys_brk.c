@@ -56,6 +56,9 @@ uint64_t sys_brk(const uint64_t brk) {
   } else {
     // Some memory has already been allocated
     if ((void*)brk > current_process->heap_end) {
+#ifdef NAUT_CONFIG_CARAT_PROCESS
+      // TO ADD ASPACE_EXPAND
+#else
       uint64_t new_size =
           HEAP_SIZE_INCREMENT + ((uint64_t)current_process->heap_end -
                                  (uint64_t)current_process->heap_begin);
@@ -65,13 +68,13 @@ uint64_t sys_brk(const uint64_t brk) {
       }
       nk_aspace_region_t heap_expand;
       heap_expand.va_start = new_heap;
+      heap_expand.va_start = current_process->heap_end;
       heap_expand.pa_start = new_heap;
       heap_expand.len_bytes = new_size;
       heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                   NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                   NK_ASPACE_EAGER;
-      if (nk_aspace_move_region(nk_process_current()->aspace,
-                                &current_process->heap_region, &heap_expand)) {
+      if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
         nk_vc_printf("Fail to allocate more heap to aspace\n");
         free(new_heap);
         goto out;
@@ -79,6 +82,7 @@ uint64_t sys_brk(const uint64_t brk) {
       current_process->heap_region = heap_expand;
       current_process->heap_begin = new_heap;
       current_process->heap_end = new_heap + new_size;
+#endif
     }
   }
 

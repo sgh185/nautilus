@@ -10,7 +10,7 @@ uint64_t sys_lseek(uint64_t fd, uint64_t position, uint64_t whence) {
         "WARNING: lseek may not be properly implemented for std(in,out,err)\n");
     return -1;
   }
-  nk_process_t* current_process = GET_PROC();
+  nk_process_t* current_process = syscall_get_proc();
   struct nk_fs_open_file_state* nk_fd =
       fd_to_nk_fs(&current_process->syscall_state.fd_table, fd);
   return (uint64_t)nk_fs_seek(nk_fd, (off_t)position, (off_t)whence);
