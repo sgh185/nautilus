@@ -37,7 +37,6 @@
 #include <nautilus/list.h>
 #include <nautilus/errno.h>
 #include <nautilus/mm.h>
-#include <nautilus/process.h>
 
 #ifdef NAUT_CONFIG_ENABLE_BDWGC
 #include <gc/bdwgc/bdwgc.h>
@@ -622,14 +621,6 @@ void nk_thread_exit (void * retval)
     me->refcount--;
 
     THREAD_DEBUG("Thread %p (tid=%u (%s)) exit complete - invoking scheduler\n", me, me->tid, me->name);
- 
-    #ifdef NAUT_CONFIG_PROCESSES
-    if (me->process) {
-        nk_process_exit();
-    }
-    /* TODO MAC: Eventually move this to own #ifdef for signals */
-    nk_signal_destroy_state(me);
-    #endif
 
     // the scheduler will reenable preemption and release the lock
     nk_sched_exit(&wq->lock);

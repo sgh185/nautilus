@@ -122,7 +122,6 @@ uint64_t sys_clone(uint64_t clone_flags, uint64_t newsp,
         /* All threads within a process share a descriptor and handler table */
         thread->signal_state->signal_descriptor = process->signal_descriptor;
         thread->signal_state->signal_handler = process->signal_handler;
-        atomic_inc(process->signal_handler->count);
     }
     #endif
   }

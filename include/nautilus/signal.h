@@ -349,9 +349,8 @@ void nk_signal_force_specific(uint64_t signal); /* Optimized for SIGSTOP and SIG
 int nk_signal_get(); /* Gets pending signals for current process */
 int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_act);
 
-/* Initializing/destroying signal state */
+/* Initializing signal state */
 int nk_signal_init_task_state(nk_signal_task_state **state_ptr, struct nk_thread *t);
-int nk_signal_destroy_state(struct nk_thread *t);
 
 #ifdef __cplusplus
 }
