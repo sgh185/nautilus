@@ -71,6 +71,7 @@ framework_low_level.o: framework_low_level.S
 
 framework.o : framework.c
 	$(CC) $(CFLAGS)  -I../../include -c framework.c
+	$(CC) -c -S -emit-llvm -O1 -Xclang -disable-llvm-passes -mcmodel=large -fPIC framework_link.c
 
 glue.o : glue.c
 	$(CC) $(CFLAGS) -c glue.c
@@ -113,5 +114,5 @@ nokarat: $(TARGET:.exe=.o) framework
 	$(NSIGN) $(TARGET:.exe=.unsigned) $(TARGET)
 
 clean: 
-	rm -f $(TARGET) *.o *.bc *.ll *.out *.unsigned *.exe 
+	rm -f $(TARGET) *.o .*.bc *.bc *.ll *.out *.unsigned *.exe 
 
