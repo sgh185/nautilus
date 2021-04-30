@@ -118,6 +118,53 @@ IRBuilder<> Utils::GetBuilder(
 }
 
 
+void Utils::InjectStats(Module &M)
+{
+    /*
+     * Fetch the main method
+     */
+    Function *Main = Utils::GetMethod(&M, "main");
+    assert(
+        true
+        && !!Main
+        && "InjectStats: Can't fetch main method!"
+    );
+
+
+    /*
+     * Find the injection location(s) in main by finding
+     * the return instructions in "main"
+     */
+    std::set<Instruction *> InsertionPoints;
+    for (auto &B : *Main)
+        if (isa<ReturnInst>(B.getTerminator()))
+            InsertionPoints.insert(B.getTerminator());
+
+
+    /*
+     * Inject a call to "results()" at each insertion point
+     */
+    Function *StatsFunction = CARATNamesToMethods[USER_STATS];
+    for (auto InsertionPoint : InsertionPoints)
+    {
+        IRBuilder<> Builder = 
+            Utils::GetBuilder(
+                StatsFunction,
+                InsertionPoint
+            );
+
+        Builder.CreateCall(
+            StatsFunction->getFunctionType(),
+            StatsFunction,
+            ArrayRef<Value *>{}
+        );
+    }
+
+
+    return;
+}
+
+
 bool Utils::IsInstrumentable(Function &F)
 {
     /*

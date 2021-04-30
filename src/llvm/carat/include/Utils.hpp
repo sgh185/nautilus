@@ -70,6 +70,8 @@ namespace Utils
 
     Instruction *GetPostTargetInsertionPoint(Instruction *Target);
 
+    void InjectStats(Module &M);
+
 
     /*
      * Attribute handling

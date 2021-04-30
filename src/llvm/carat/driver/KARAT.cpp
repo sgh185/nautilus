@@ -198,6 +198,12 @@ struct CAT : public ModulePass
         Utils::Verify(M);
 
 
+        /*
+         * Add statistics call to the end of main() for user programs
+         */
+        if (InstrumentingUserCode) Utils::InjectStats(M);
+
+
         return true;
     }
 
