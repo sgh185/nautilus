@@ -188,7 +188,7 @@ static  int destroy(void *state)
     DEBUG("p->paging_mm_struct at %p vptr at %p\n", p->paging_mm_struct, p->paging_mm_struct->vptr);
     mm_destory(p->paging_mm_struct);
 
-    DEBUG("destroying allocated pages\n");
+    DEBUG("destroying allocated page tables\n");
     paging_helper_free(p->cr3, 0);
     
 #ifdef NAUT_CONFIG_ASPACE_PAGING_PCID

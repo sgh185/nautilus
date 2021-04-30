@@ -148,7 +148,7 @@ typedef struct signal_descriptor {
     struct nk_wait_queue *wait_child_exit; /* for processes sleeping in wait4() */
     struct nk_thread *curr_target; /* Last thread to receive signal */
     nk_signal_pending_t shared_pending; /* shared pending signals */
-    int group_exit_code;
+    uint64_t group_exit_code;
     struct nk_thread *group_exit_task; /* thread doing the notifying? */
     uint64_t notify_count; /* num threads killed on group exit */
     uint64_t group_stop_count; /* num threads stopped on group stop */
@@ -328,6 +328,10 @@ static inline int valid_signal(uint64_t sig)
 #define sig_kernel_stop(sig)		siginmask(sig, SIG_KERNEL_STOP_MASK)
 #define sig_specific_sicodes(sig)	siginmask(sig, SIG_SPECIFIC_SICODES_MASK)
 
+#define sig_fatal(t, signr) \
+	(!siginmask(signr, SIG_KERNEL_IGNORE_MASK|SIG_KERNEL_STOP_MASK) && \
+	 (t)->signal_state->signal_handler->handlers[(signr)-1].handler == DEFAULT_SIG)
+
 /* Flushing/Modifying Signal State */
 void nk_signal_flush_queue(nk_signal_pending_t *queue); /* Flush pending queue */
 void nk_signal_flush(struct nk_process *process); /* Flush all pending signals */
@@ -345,8 +349,9 @@ void nk_signal_force_specific(uint64_t signal); /* Optimized for SIGSTOP and SIG
 int nk_signal_get(); /* Gets pending signals for current process */
 int do_sigaction(uint64_t sig, nk_signal_action_t *act, nk_signal_action_t *old_act);
 
-/* Initializing signal state */
+/* Initializing/destroying signal state */
 int nk_signal_init_task_state(nk_signal_task_state **state_ptr, struct nk_thread *t);
+int nk_signal_destroy_state(struct nk_thread *t);
 
 #ifdef __cplusplus
 }

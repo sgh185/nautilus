@@ -496,13 +496,15 @@ void kmem_inform_boot_allocation(void *low, void *high)
  *       [IN] size: Amount of memory to allocate in bytes.
  *       [IN] cpu:  affinity cpu (-1 => current cpu)
  *       [IN] zero: Whether to zero the whole allocated block
+ *       [IN] lb:   restrict to [lb,ub) (use 0,-1 for all memory)
+ *       [IN] ub:   restrict to [lb,ub) (use 0,-1 for all memory)
  *
  * Returns:
  *       Success: Pointer to the start of the allocated memory.
  *       Failure: NULL
  */
 static void *
-_kmem_sys_malloc (size_t size, int cpu, int zero)
+_kmem_sys_malloc (size_t size, int cpu, int zero, addr_t lb, addr_t ub)
 {
     NK_GPIO_OUTPUT_MASK(0x20,GPIO_OR);
     int first = 1;
@@ -542,9 +544,17 @@ _kmem_sys_malloc (size_t size, int cpu, int zero)
     list_for_each_entry(reg, &(my_kmem->ordered_regions), mem_ent) {
         struct buddy_mempool * zone = reg->mem->mm_state;
 
+	addr_t zone_start = zone->base_addr;
+	addr_t zone_end = zone->base_addr + (1ULL<<(zone->pool_order));
+
+	if ((ub <= zone_start) || (lb > zone_end)) {
+	  // skip any zone which does not meet the restrictions
+	  continue;
+	}
+	
         /* Allocate memory from the underlying buddy system */
         uint8_t flags = spin_lock_irq_save(&zone->lock);
-        block = buddy_alloc(zone, order);
+        block = buddy_alloc(zone, order, lb, ub);
         spin_unlock_irq_restore(&zone->lock, flags);
 
 	if (block) {
@@ -606,19 +616,23 @@ _kmem_sys_malloc (size_t size, int cpu, int zero)
 
 void *kmem_sys_malloc(size_t size)
 {
-    return _kmem_sys_malloc(size,-1,0);
+  return _kmem_sys_malloc(size,-1,0,0,-1ULL);
 }
 
 void *kmem_sys_mallocz(size_t size)
 {
-    return _kmem_sys_malloc(size,-1,1);
+  return _kmem_sys_malloc(size,-1,1,0,-1ULL);
 }
 
 void *kmem_sys_malloc_specific(size_t size, int cpu, int zero)
 {
-    return _kmem_sys_malloc(size,cpu,zero);
+  return _kmem_sys_malloc(size,cpu,zero,0,-1ULL);
 }
 
+void * kmem_sys_malloc_restrict(size_t size, addr_t lb, addr_t ub)
+{
+  return _kmem_sys_malloc(size,-1,0,lb,ub);
+}
 
 /*
  * This is a *dead simple* implementation of realloc that tries to change the
@@ -666,6 +680,66 @@ void * kmem_sys_realloc(void * ptr, size_t size)
 {
     return kmem_sys_realloc_specific(ptr,size,-1);
 }
+
+
+int    kmem_sys_realloc_in_place(void *addr, size_t new_size, size_t *actual_new_size)
+{
+    struct kmem_block_hdr *hdr;
+    struct buddy_mempool * zone;
+    uint64_t old_order, new_order;
+
+    KMEM_DEBUG("realloc_in_place of address %p to size %lu from:\n", addr, new_size);
+    KMEM_DEBUG_BACKTRACE();
+
+    hdr = block_hash_find_entry(addr);
+
+    if (!hdr) { 
+      KMEM_ERROR("Failed to find entry for block %p in kmem_realloc_in_place()\n",addr);
+      KMEM_ERROR_BACKTRACE();
+      return -1;
+    }
+
+    zone = hdr->zone;
+    old_order = hdr->order;
+
+    if (!zone) {
+      KMEM_ERROR("Cannot find memory zone\n");
+      BACKTRACE(KMEM_ERROR,3);
+      return -1;
+    }
+    
+    new_order = ilog2(roundup_pow_of_two(new_size));
+
+    if (new_order<MIN_ORDER) {
+      KMEM_ERROR("new order is too small\n");
+      BACKTRACE(KMEM_ERROR,3);
+      return -1;
+    }
+
+    KMEM_DEBUG("old order %lu  new order %lu\n", old_order, new_order);
+    
+    /* Return block to the underlying buddy system */
+    uint8_t flags = spin_lock_irq_save(&zone->lock);
+    ulong_t resulting_new_order;
+    kmem_bytes_allocated += (1UL << new_order) - (1UL << old_order);
+    int rc = buddy_resize(zone, (addr_t)addr, old_order,new_order,&resulting_new_order);
+    spin_unlock_irq_restore(&zone->lock, flags);
+
+    if (rc) {
+      KMEM_ERROR("buddy_resize failed\n");
+      return -1;
+    }
+
+    // update header so we can free enough when needed
+    hdr->order = new_order;
+
+    *actual_new_size = (1UL << resulting_new_order);
+
+    KMEM_DEBUG("resize succeeded: addr=0x%lx order=%lu\n",addr,resulting_new_order);
+
+    return 0;
+}
+
 
 /**
  * Frees memory previously allocated with kmem_sys_alloc().
