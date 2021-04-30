@@ -33,6 +33,7 @@
 #include <nautilus/aspace.h>
 #include <nautilus/naut_types.h>
 #include <nautilus/naut_string.h>
+#include <nautilus/nautilus_exe.h>
 #include <nautilus/skiplist.h>
 
 

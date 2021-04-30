@@ -634,42 +634,93 @@ void _carat_process_escape_window(nk_carat_context *the_context)
  * is determined to be illegal, panic. Otherwise, 
  * do nothing
  */
+
+// TODO for nk_carat_guard_address:
+// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
+// How is the instrumentation supposed to work? Does the order matter (i.e. guard then escape, or vice versa)? 
+// Should we merge the guard and escape together for loads/stores that belong in the escapes-to-instrument set and the guards-to-inject set?
+
+#if USER_REGION_CHECK
+
 NO_CARAT_NO_INLINE
 void nk_carat_guard_address(void *address, int is_write, void* aspace) {
     
-	// TODO:
-	// What happens when a particular write (probably a store) is escaped and also needs to be guarded? 
-	// How is the instrumentation supposed to work? Does the order matter (i.e. guard then escape, or vice versa)? 
-	// Should we merge the guard and escape together for loads/stores that belong in the escapes-to-instrument set and the guards-to-inject set?
-
+    /*
+     * Profile
+     */ 
     CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_address_calls);
     CARAT_PROFILE_INIT_TIMING_VAR(0);
+
+    
+    /*
+     * NOTE --- if USER_REGION_CHECK is on, then we do not perform
+     * the cached checks in this method, those will be performed by
+     * the caller of nk_carat_guard_address --- presumably the user
+     * framework method that's performing those checks.
+     */ 
+
 
 	/*
  	 * Check to see if the requested memory access is valid. 
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
-
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
-    
-    
-  /*
-     * First, fetch the cached stack and blob
-     */ 
-    
-
-
     int res = nk_aspace_request_permission((nk_aspace_t *) aspace, address, is_write);
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
 
+
+    /*
+     * Handle failure
+     */ 
     if (res) {
         panic("Tried to make an illegal memory access with %p! \n", address);
 	}
+
+
 	return;
 }
+
+#else
+
+NO_CARAT_NO_INLINE
+void nk_carat_guard_address(void *address, int is_write) {
+    
+    /*
+     * 1. Profile
+     */ 
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_address_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+
+
+    /*
+     * 2. Fetch the current aspace
+     */ 
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    nk_aspace_t *aspace = FETCH_THREAD->aspace;
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
+    
+
+    /*
+ 	 * 3. Check to see if the requested memory access is valid. 
+	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
+	 */
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    int res = nk_aspace_request_permission(aspace, address, is_write);
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
+
+
+    /*
+     * Handle failure
+     */ 
+    if (res) {
+        panic("Tried to make an illegal memory access with %p! \n", address);
+	}
+
+
+	return;
+}
+
+#endif
 
 
 /*
@@ -1009,7 +1060,13 @@ static int handle_protections_profile(char *buf, void *priv)
         global_protections_profile.cache_check_time / global_protections_profile.guard_address_calls
     );
 
- 
+
+    uint64_t start = rdtsc(); 
+    uint64_t interval = rdtsc() - start;
+    nk_vc_printf(
+        "example empty rdtsc interval: %lu\n",
+        interval
+    );
 
 
     return 0;

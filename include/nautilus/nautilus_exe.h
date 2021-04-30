@@ -65,6 +65,12 @@ void* nk_func_table_access(volatile int entry_no, void* arg1, void* arg2);
 
 #define nk_vc_printf(...) nk_func_table_access(NK_VC_PRINTF, __VA_ARGS__)
 
+/*
+ * User framework switches 
+ */
+#define USER_REGION_CHECK 0
+#define USER_TIMING 1
+
 #else
 
 // included from the kernel code

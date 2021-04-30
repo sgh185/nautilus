@@ -139,9 +139,10 @@ void nk_carat_instrument_escapes(void *ptr) {
 
 
 // ---
+#if USER_TIMING
 static uint64_t total_time = 0;
 static uint64_t num_calls = 0;
-#define TIMING 1
+#endif
 
 __attribute__((destructor, used, optnone, noinline, annotate("nocarat")))
 void _results(void)
@@ -150,25 +151,31 @@ void _results(void)
      * HACK
      */
     rand();
+#if USER_TIMING
     printf("results: %lu\n", total_time / num_calls);
     fflush(stdout);
+#endif
     return;
 }
+
 
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_guard_address(void *address, int is_write) {
     BACKSTOP;
-
-    
-    // when the aspace is sus
-    nk_aspace_t* aspace = ((nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR]);
+   
+#if USER_REGION_CHECK
+    /*
+     * Fetch aspace and perform cached checks at user level
+     */ 
+    nk_aspace_t *aspace = ((nk_aspace_t *) __nk_func_table[NK_ASPACE_PTR]);
     nk_aspace_carat_t *caratAspace =  (nk_aspace_carat_t*)(aspace->state);
     
     nk_aspace_region_t *stack = caratAspace->initial_stack,
                        *blob = caratAspace->initial_blob,
                        *region = NULL;
 
-#if TIMING
+
+#if USER_TIMING
     uint64_t timing_start = rdtsc();
     num_calls++;
 #endif
@@ -177,12 +184,13 @@ void nk_carat_guard_address(void *address, int is_write) {
     /*
      * Check @address against the stack
      */ 
-    if ( (address >= stack->va_start)
+    if (false 
+        || (address >= stack->va_start)
         || (address < (stack->va_start + stack->len_bytes))) 
     {
         region = stack;
         region->requested_permissions |= is_write + 1;
-#if TIMING
+#if USER_TIMING
         total_time += rdtsc() - timing_start;
 #endif
         return;
@@ -192,28 +200,34 @@ void nk_carat_guard_address(void *address, int is_write) {
     /*
      * Check @address against the blob
      */ 
-    else if ((address < blob->va_start)
-        || (address > (blob->va_start + blob->len_bytes))
+    else if (
+        false
+        || (address >= blob->va_start)
+        || (address < (blob->va_start + blob->len_bytes))
     )
     { 
         region = blob;
         region->requested_permissions |= is_write + 1;
-#if TIMING
+#if USER_TIMING
         total_time += rdtsc() - timing_start;
 #endif
         return;
     }
 
 
-    __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write, (void*)aspace);
+    __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write, (void *) aspace);
 
-#if TIMING
+#if USER_TIMING
     total_time += rdtsc() - timing_start;
 #endif
 
+#else
+    __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write);
+#endif
+
+    return;
+
 }
-
-
 
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {

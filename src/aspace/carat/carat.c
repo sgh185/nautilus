@@ -428,13 +428,50 @@ static int request_permission(void * state, void * address, int is_write) {
      * Perform "cached" checks --- check @address against the 
      * initial stack and the initial executable blo
      */ 
-    // ---
+    // 1 ---
+#if !USER_REGION_CHECK
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
+
+    /*
+     * First, fetch the cached stack and blob
+     */ 
+    nk_aspace_region_t *stack = carat->initial_stack,
+                       *blob = carat->initial_blob;
+
+
+    /*
+     * Check @address against the stack
+     */ 
+    if (false
+        || (address >= stack->va_start)
+        || (address < (stack->va_start + stack->len_bytes))) 
+    {
+        region = stack;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
+
+
+    /*
+     * Check @address against the blob
+     */ 
+    else if (
+        false
+        || (address < blob->va_start)
+        || (address > (blob->va_start + blob->len_bytes))
+    )
+    { 
+        region = blob;
+        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        goto set_request_permissions;
+    }
 
 
     
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
-    // ---
+#endif
+    // 1 ---
 
    
     /*
@@ -443,14 +480,14 @@ static int request_permission(void * state, void * address, int is_write) {
      * order to boost performance. We can also prove that 
      * locking is not necessary for this method
      */ 
-    // ---
+    // 2 ---
     CARAT_PROFILE_START_TIMING(0, 0);
 #if FULL_CARAT
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 #endif
     CARAT_PROFILE_STOP_COMMIT_RESET(0, lock_time, 0);
-    // ---
+    // 2 ---
     
 
     /*
@@ -458,18 +495,18 @@ static int request_permission(void * state, void * address, int is_write) {
      * that @address belongs to by walking through the 
      * region data structure
      */ 
-    // ---
+    // 3 ---
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
-    // ---
+    // 3 ---
 
 
     /*
      * Perform processing on the region to understand if 
      * @address and @is_write combination is legal
      */ 
-    // ---
+    // 4 ---
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     if (!region) {
 #if FULL_CARAT
@@ -507,7 +544,7 @@ static int request_permission(void * state, void * address, int is_write) {
     
     
     CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, process_permissions_time, 0);
-    //---
+    // 4 ---
 
 
     /* 

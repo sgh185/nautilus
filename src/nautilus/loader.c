@@ -533,7 +533,9 @@ static void * (*__nk_func_table[])() = {
     [NK_MALLOC] = (void * (*)()) kmem_malloc,
     [NK_FREE] = (void * (*)()) kmem_free,
     [NK_REALLOC] = (void * (*)()) kmem_realloc,
+#if USER_REGION_CHECK
     [NK_ASPACE_PTR] = NULL,
+#endif
 };
 
 int 
@@ -560,7 +562,9 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
 
     DEBUG("Starting executable %p loaded at address %p with entry address %p and arguments %p and %p\n", exec, exec->blob, start, in, out);
 
+#if USER_REGION_CHECK
     __nk_func_table[NK_ASPACE_PTR] = (void *) get_cur_thread()->aspace;
+#endif
 
     int rc =  start(in, out, __nk_func_table);
 
