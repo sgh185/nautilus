@@ -17,7 +17,7 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) ;
 void nk_carat_pin_pointer(void *address) ;
 void nk_carat_pin_escaped_pointer(void *escape) ;
 void _nk_carat_globals_compiler_target(void) ;
-void results(void);
+void _results(void);
 
 
 /*
@@ -68,6 +68,7 @@ void _framework_persist_function_signatures(void)
         nk_carat_pin_pointer(NULL) ;
         nk_carat_pin_escaped_pointer(NULL) ;
         _nk_carat_globals_compiler_target();
+        _results();
     }
 
 

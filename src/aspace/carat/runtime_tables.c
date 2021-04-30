@@ -959,6 +959,13 @@ nk_carat_context * initialize_new_carat_context(void)
 /*
  * ---------- Profiling ----------
  */ 
+/* HACK */
+__attribute__((used, optnone, noinline, annotate("nocarat")))
+void _results(void)
+{
+    return;
+}
+
 
 /* 
  * Shell command handler

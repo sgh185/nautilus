@@ -144,7 +144,7 @@ static uint64_t num_calls = 0;
 #define TIMING 1
 
 __attribute__((destructor, used, optnone, noinline, annotate("nocarat")))
-void results(void)
+void _results(void)
 {
     /*
      * HACK
