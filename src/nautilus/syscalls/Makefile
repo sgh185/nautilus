@@ -5,6 +5,7 @@ obj-y += \
 	stubs.o \
 	syscall.o \
 	sys_exit.o \
+	sys_exit_group.o \
 	sys_open.o \
 	sys_write.o \
 	sys_fork.o \

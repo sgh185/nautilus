@@ -275,6 +275,13 @@ config PROCESSES
     help
       Enable processes
 
+config CARAT_PROCESS
+    bool "Use CARAT process instead of paging"
+    depends on PROCESSES
+    default n
+    help
+      Use CARAT for processes
+
 config LINUX_SYSCALLS
     bool "Enable support for Linux syscall emulation"
     depends on PROCESSES
@@ -1375,6 +1382,13 @@ menu "Address Spaces"
 	  default y
 	  help
 	     This is the CARAT address space abstraction.
+
+  config CARAT_PROFILE
+    bool "Enable profiling for CARAT aspace"
+    depends on ASPACE_CARAT
+    default n
+    help
+      Turns on profiling for CARAT Aspace
 	     
 	config DEBUG_ASPACE_CARAT
 	  bool "Debug the CARAT address space abstraction"

@@ -42,7 +42,7 @@ uint64_t sys_fstat(uint64_t fd, uint64_t statbuf_) {
     WARN("Returning mocked fstat data for stdio\n");
     return 0;
   }
-  nk_process_t* current_process = GET_PROC();
+  nk_process_t* current_process = syscall_get_proc();
   struct nk_fs_open_file_state* nk_fd =
       fd_to_nk_fs(&current_process->syscall_state.fd_table, fd);
   ret = nk_fs_fstat(nk_fd, (struct nk_fs_stat*)statbuf_);

@@ -8,7 +8,7 @@
 uint64_t sys_open(uint64_t filename, uint64_t flags, uint64_t mode) {
   DEBUG("open called with %p %p %p\n", filename, flags, mode);
 
-  nk_process_t* current_process = GET_PROC();
+  nk_process_t* current_process = syscall_get_proc();
 
   WARN("Ignoring flags passed to open syscall, granting RW/create permission\n");
 

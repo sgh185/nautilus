@@ -5,8 +5,6 @@
 #define SYSCALL_NAME "sys_brk"
 #include "impl_preamble.h"
 
-#define _PROCESS_ASPACE_CARAT 1
-
 #define HEAP_BOT \
   (void*)0x10000000000UL /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
@@ -23,10 +21,7 @@
 /// segment end.
 uint64_t sys_brk(const uint64_t brk) {
 
-  nk_process_t* current_process = nk_process_current();
-  if (!current_process) {
-    panic("Call to sys_brk out of the context of a process.\n");
-  }
+  nk_process_t* current_process = syscall_get_proc();
 
   DEBUG("Called with brk=%p\n", brk);
 
@@ -41,40 +36,45 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     nk_aspace_region_t heap_expand;
-    #if _PROCESS_ASPACE_CARAT
+#ifdef NAUT_CONFIG_CARAT_PROCESS
     heap_expand.va_start = new_heap;
-    #else
+#else
     heap_expand.va_start = (void*)HEAP_BOT;
-    #endif
+#endif
     heap_expand.pa_start = new_heap;
     heap_expand.len_bytes = HEAP_SIZE_INCREMENT;
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                 NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                 NK_ASPACE_EAGER;
-    if (nk_aspace_add_region(nk_process_current()->aspace, &heap_expand)) {
+    if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
       nk_vc_printf("Fail to allocate initial heap to aspace\n");
       free(new_heap);
       goto out;
     }
     current_process->heap_begin = new_heap;
-    current_process->heap_end =
-        new_heap + HEAP_SIZE_INCREMENT;
+    current_process->heap_end = new_heap + HEAP_SIZE_INCREMENT;
   } else {
     // Some memory has already been allocated
     if ((void*)brk > current_process->heap_end) {
-      uint64_t new_size = HEAP_SIZE_INCREMENT + ((uint64_t)current_process->heap_end - (uint64_t)current_process->heap_begin);
+#ifdef NAUT_CONFIG_CARAT_PROCESS
+      // TO ADD ASPACE_EXPAND
+#else
+      uint64_t new_size =
+          HEAP_SIZE_INCREMENT + ((uint64_t)current_process->heap_end -
+                                 (uint64_t)current_process->heap_begin);
       void* new_heap = malloc(new_size);
       if (!new_heap) {
         goto out;
       }
       nk_aspace_region_t heap_expand;
       heap_expand.va_start = new_heap;
+      heap_expand.va_start = current_process->heap_end;
       heap_expand.pa_start = new_heap;
       heap_expand.len_bytes = new_size;
       heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                   NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                   NK_ASPACE_EAGER;
-      if (nk_aspace_move_region(nk_process_current()->aspace, &current_process->heap_region, &heap_expand)) {
+      if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
         nk_vc_printf("Fail to allocate more heap to aspace\n");
         free(new_heap);
         goto out;
@@ -82,6 +82,7 @@ uint64_t sys_brk(const uint64_t brk) {
       current_process->heap_region = heap_expand;
       current_process->heap_begin = new_heap;
       current_process->heap_end = new_heap + new_size;
+#endif
     }
   }
 

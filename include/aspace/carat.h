@@ -317,7 +317,11 @@ extern protections_profile global_protections_profile;
  * Profiling helpers, assume the existence of a 
  * "global_protections_profile" kernel object 
  */ 
+#ifdef NAUT_CONFIG_CARAT_PROFILE
 #define CARAT_DO_PROFILE 1
+#else
+#define CARAT_DO_PROFILE 0
+#endif
 
 #define CARAT_PROFILE_INIT_TIMING_VAR(level) uint64_t _carat_profile_timing_##level = 0
 

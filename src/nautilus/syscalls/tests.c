@@ -19,7 +19,7 @@
     passed_tests++;                \
   }
 
-#if 1
+#ifdef NAUT_CONFIG_CARAT_PROCESS
 #define _PROCESS_ASPACE_TYPE "carat"
 #else
 #define _PROCESS_ASPACE_TYPE "paging"
