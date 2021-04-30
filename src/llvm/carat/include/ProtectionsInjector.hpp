@@ -181,7 +181,10 @@ private:
 
     bool _isAPointerReturnedByAllocator(Value *V);
 
-    Value *_fetchGEPBasePointer(Value *Pointer);
+    Value *_fetchGEPBasePointer(
+        Value *Pointer,
+        bool CheckInBounds
+    );
 
     bool _isASafeMemoryConstruct(Value *Pointer);
 

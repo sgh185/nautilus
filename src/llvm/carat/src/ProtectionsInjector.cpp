@@ -598,23 +598,33 @@ bool ProtectionsInjector::_isAPointerReturnedByAllocator(Value *V)
 }
 
 
-Value *ProtectionsInjector::_fetchGEPBasePointer(Value *Pointer)
+Value *ProtectionsInjector::_fetchGEPBasePointer(
+    Value *Pointer,
+    bool CheckInBounds
+)
 {
     /*
      * TOP --- If @Pointer is a GEP, fetch the pointer operand,
      * which represents the base pointer of the aggregate type
      * that said GEP would be indexing into
      * 
-     * NOTE --- This GEP must be safe! We must understand that 
-     * the indexing operation is inbounds, otherwise send a 
-     * nullptr back.
+     * Use @CheckInBounds to understand whether or not the GEP
+     * is safe! It must be an "inbounds" index, otherwise, send
+     * back a nullptr
      */
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Pointer);
 
     Value *BasePointer =
-        (GEP && (GEP->isInBounds())) ?
+        (GEP) ?
         (GEP->getPointerOperand()) :
         (nullptr);
+
+    if (true
+        && CheckInBounds
+        && GEP
+        && !(GEP->isInBounds())) {
+        BasePointer = nullptr;
+    }
 
 
     return BasePointer;
@@ -637,7 +647,7 @@ bool ProtectionsInjector::_isASafeMemoryConstruct(Value *Pointer)
         || isa<AllocaInst>(Pointer)
         || isa<GlobalVariable>(Pointer)
         || _isAPointerReturnedByAllocator(Pointer)
-        || _isASafeMemoryConstruct(_fetchGEPBasePointer(Pointer))) {
+        || _isASafeMemoryConstruct(_fetchGEPBasePointer(Pointer, true /* Check inbounds*/))) {
         return true;
     } 
 
@@ -679,7 +689,13 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
          *    d) @PointerOfMemoryInstruction originates from a global variable, 
          *       we can assume a safe memory reference because globals lie in 
          *       known and designated region --- the blob.
-         *    e) @PointerOfMemoryInstruction must aliases any of the variable or 
+         *    e) @PointerOfMemoryInstruction originates from an inbounds indexed 
+         *       location into a SAFE memory construct (i.e. described in steps 
+         *       1b.-1d.) (i.e. analyzing a GEP into an known alloca, global, etc.).
+         *    f) @PointerOfMemoryInstruction originates from an inbounds indexed 
+         *       location into SOME memory construct which the DFA has determined
+         *       need not be checked.
+         *    g) @PointerOfMemoryInstruction must aliases any of the variable or 
          *       data types described in 1b-d.
          *
          *    ... then we're done --- don't have to do anything!
@@ -715,7 +731,7 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
 
 
         /*
-         * <Step 1b.-d.>
+         * <Step 1b.-e.>
          */
         errs() << "_findPointToInsertGuard:\n";
         errs() << "\tinst: " << *inst  << "\n";
@@ -726,10 +742,28 @@ std::function<void (Instruction *inst, Value *pointerOfMemoryInstruction, bool i
             redundantGuard++;                  
             return;
         }
-        
 
+        
         /*
-         * <Step 1e.>
+         * <Step 1f.>
+         */
+        Value *PotentialBasePointer = 
+            _fetchGEPBasePointer(
+                PointerOfMemoryInstruction,
+                true /* Check inbounds */
+            );
+
+        if (true
+            && PotentialBasePointer
+            && INSetOfI.find(PotentialBasePointer) != INSetOfI.end()) 
+        {
+            redundantGuard++;                  
+            return;
+        }
+
+        
+        /*
+         * <Step 1g.>
          */
         bool MustAliasesSafeConstructs = false; 
         auto Iterator = 
