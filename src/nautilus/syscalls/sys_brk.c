@@ -8,7 +8,7 @@
 #define HEAP_BOT \
   (void*)0x10000000000UL /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
-  0x1400000UL /* Heap is increased by a multiple of this amount */
+  0x2000000UL /* Heap is increased by a multiple of this amount */
 
 #ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
@@ -52,13 +52,27 @@ uint64_t sys_brk(const uint64_t brk) {
       goto out;
     }
     current_process->heap_begin = heap_expand.va_start;
-    current_process->heap_end = current_process->heap_begin + HEAP_SIZE_INCREMENT;
+    current_process->heap_end =
+        current_process->heap_begin + HEAP_SIZE_INCREMENT;
+    current_process->heap_region = heap_expand;
   } else {
     // Some memory has already been allocated
-    if ((void*)brk > current_process->heap_end) {
 #ifdef NAUT_CONFIG_CARAT_PROCESS
-      // TO ADD ASPACE_EXPAND
+    if ((void*)brk > current_process->heap_region.va_start +
+                         current_process->heap_region.len_bytes) {
+      nk_aspace_region_t heap_expand = current_process->heap_region;
+      uint64_t actual_size = 0;
+      uint64_t new_size =
+          current_process->heap_region.len_bytes + HEAP_SIZE_INCREMENT;
+      if (nk_aspace_resize_region(current_process->aspace, &heap_expand,
+                                  new_size, 1, &actual_size)) {
+        ERROR("Could not expand region\n");
+        goto out;
+      }
+      heap_expand.len_bytes = actual_size;
+      current_process->heap_region = heap_expand;
 #else
+    if ((void*)brk > current_process->heap_end) {
       void* new_heap = malloc(HEAP_SIZE_INCREMENT);
       if (!new_heap) {
         goto out;
@@ -75,7 +89,8 @@ uint64_t sys_brk(const uint64_t brk) {
         free(new_heap);
         goto out;
       }
-      current_process->heap_end = current_process->heap_end + HEAP_SIZE_INCREMENT;
+      current_process->heap_end =
+          current_process->heap_end + HEAP_SIZE_INCREMENT;
 #endif
     }
   }
