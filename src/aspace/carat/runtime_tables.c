@@ -83,6 +83,7 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
 	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
+	new_entry->contained_escapes = CARAT_ESCAPE_SET_BUILD; 
 
 
 	/*
@@ -611,6 +612,20 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 		 * corresponding entry and continue
 		 */  
 		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
+
+
+		/*
+		 * We have processed the escape, but now we need to find the allocation 
+		 * where that escape is stored (if it exists), and add the offset to that allocation's 
+		 * "contained escapes" set.
+		 */ 
+		allocation_entry *container_for_escape = _carat_find_allocation_entry(the_context, escape_address);
+
+		if (container_for_escape) {
+			uint64_t offset = ((uint64_t) escape_address) - ((uint64_t) container_for_escape->pointer);
+			CARAT_ESCAPE_SET_ADD((container_for_escape->contained_escapes), (void**) offset);
+		}
+
 	}
 	DS("me: ");
 	DHQ(missed_escapes_counter);

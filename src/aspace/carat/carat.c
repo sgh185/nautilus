@@ -626,7 +626,15 @@ static int defragment_region(
      *  Note: we are using the malloc macro defined in mm.h here,
      *      but it's really kmem_malloc which is sperate from Alex's allocator. 
      * */
+
+    /*
+     * Note from Drew - The patching implementation has been adjusted. 
+     * We now *CANNOT* instrument this malloc, as patching will interally 
+     * update the allocation entries 
+     */
+    CARAT_READY_OFF(carat->context);
     void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+    
 
     if (!new_region_chunk) {
       ASPACE_UNLOCK(carat);
@@ -661,6 +669,8 @@ static int defragment_region(
     *cur_region = new_region;
     
     ASPACE_UNLOCK(carat);
+
+    CARAT_READY_ON(carat->context);
     return 0;
 }
 
@@ -838,13 +848,13 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
              * */
 
             DEBUG("Overlapped! and we are moving the blocking regions by force!\n");
-
+            CARAT_READY_OFF(carat->context);
             do {
                 /**
                  *  try to move the region away from the new region
                  * */
                 void * move_target_addr = NULL;
-
+                
                 move_target_addr = kmem_sys_malloc_restrict(
                                         next_smallest->len_bytes,
                                         (addr_t) new_region.va_start + new_region.len_bytes, /* lower bound */
@@ -931,6 +941,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
             
                 DEBUG("hasOverlap = %d\n", hasOverlap);
             }  while (hasOverlap);
+            CARAT_READY_ON(carat->context);
         }
         
         /**
@@ -949,7 +960,9 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
      * update
      * */
     uint64_t actual_size_for_kmem;
+    CARAT_READY_OFF(carat->context);
     int res = kmem_sys_realloc_in_place(new_region.va_start, new_region.len_bytes, &actual_size_for_kmem);
+    CARAT_READY_ON(carat->context);
     if (res) {
         ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
         return -1;
@@ -1421,11 +1434,13 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
     uint64_t* VA3 = NULL;
     uint64_t len = LEN_1MB;
 
-
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *) carat_aspace->state;
+    CARAT_READY_OFF(carat->context);
     uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
     // uint64_t* VA1 = kmem_sys_malloc_restrict(LEN_1MB, LEN_1MB * 3, LEN_1MB * 4);
     VA2 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
     VA3 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    CARAT_READY_ON(carat->context);
 
     
 
