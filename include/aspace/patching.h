@@ -110,6 +110,8 @@ int _carat_patch_escapes(
     void *allocation_target
 );
 
+void _reinstrument_contained_escapes(allocation_entry *new_entry);
+
 /*
  * Upon a move --- "handle_thread" will update each thread's register 
  * and stack state to use @state->allocation_target instead of @state->allocation_to_move
@@ -124,10 +126,11 @@ static void _carat_patch_thread_registers_stack(struct nk_thread *t, void *state
 
 /*
  * DEPRECATED --- Handled by proper/known use of compiler instrumentation
+ * ^just kidding, UNDEPRECATED --- NO LONGER handled by proper/known use of compiler instrumentation
  *
  * Manually performs an update from @entry, pointing it to @allocation_target 
  * by explicitly removing @entry's allocation_entry object and adding an object
  * for @allocation_target
  */ 
-void _carat_update_entry(allocation_entry *old_entry, void* allocation_target);
+allocation_entry *_carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void* allocation_target);
 

@@ -626,7 +626,16 @@ static int defragment_region(
      *  Note: we are using the malloc macro defined in mm.h here,
      *      but it's really kmem_malloc which is sperate from Alex's allocator. 
      * */
+
+    /*
+     * Note from Drew - The patching implementation has been adjusted. 
+     * We now *CANNOT* instrument this malloc, as patching will interally 
+     * update the allocation entries 
+     */
+    CARAT_READY_OFF(carat->context);
     void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+    CARAT_READY_ON(carat->context);
+    
 
     if (!new_region_chunk) {
       ASPACE_UNLOCK(carat);
@@ -661,6 +670,7 @@ static int defragment_region(
     *cur_region = new_region;
     
     ASPACE_UNLOCK(carat);
+
     return 0;
 }
 
@@ -712,7 +722,6 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         ASPACE_UNLOCK(carat);
         return -1;
     }
-
 
     void *free_space_start; // don't care
     // call CARAT runtime
@@ -838,25 +847,28 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
              * */
 
             DEBUG("Overlapped! and we are moving the blocking regions by force!\n");
-
+            
             do {
                 /**
                  *  try to move the region away from the new region
                  * */
                 void * move_target_addr = NULL;
-
+                CARAT_READY_OFF(carat->context);
                 move_target_addr = kmem_sys_malloc_restrict(
                                         next_smallest->len_bytes,
                                         (addr_t) new_region.va_start + new_region.len_bytes, /* lower bound */
                                         -1ULL                                                  /* upper bound */
                                     );
+                CARAT_READY_ON(carat->context);
 
                 if (move_target_addr == NULL) {
+                    CARAT_READY_OFF(carat->context);
                     move_target_addr = kmem_sys_malloc_restrict(
                                         next_smallest->len_bytes,
                                         0,                          /* lower bound */
                                         (addr_t) new_region.va_start        /* upper bound */
                                     );
+                    CARAT_READY_ON(carat->context);
                     if (move_target_addr == NULL) {
                         ERROR("cannot move" REGION_FORMAT " way from " REGION_FORMAT, REGION(next_smallest), REGION(&new_region));
                         ASPACE_UNLOCK(carat);
@@ -908,7 +920,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                 
                 // DEBUG("free %p\n", saved_vastart);
 
-                kmem_sys_free(saved_vastart);
+                kmem_sys_free(saved_vastart); // suspicious 
 
                 
                 // DEBUG("succeeded move the blocking region away, starts at %lx with length: %lx\n", move_target_addr, next_smallest->len_bytes);
@@ -949,7 +961,9 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
      * update
      * */
     uint64_t actual_size_for_kmem;
+    CARAT_READY_OFF(carat->context);
     int res = kmem_sys_realloc_in_place(new_region.va_start, new_region.len_bytes, &actual_size_for_kmem);
+    CARAT_READY_ON(carat->context);
     if (res) {
         ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
         return -1;
@@ -1425,9 +1439,13 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
 
 
     // uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *) carat_aspace->state;
+    CARAT_READY_OFF(carat->context);
     VA1 =  kmem_sys_malloc_restrict(len, LEN_4GB, -1);
     VA2 =  kmem_sys_malloc_restrict(LEN_16MB, LEN_4GB, -1);
     VA3 =  kmem_sys_malloc_restrict(LEN_4MB, LEN_4GB, -1);
+    CARAT_READY_ON(carat->context);
 
     
 
