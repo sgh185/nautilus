@@ -968,7 +968,8 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
         ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
         return -1;
     }
-
+    
+    // ASSERT(actual_size_for_kmem >= new_region.len_bytes);
     DEBUG("Try to expand to %lx actual size = %lx\n", new_region.len_bytes, actual_size_for_kmem);
     new_region.len_bytes = actual_size_for_kmem;
 
@@ -1431,16 +1432,19 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
     //     DEBUG("failed! to add initial eager region to address space\n");
     //     goto test_fail;
     // }
+    uint64_t* VA1 = NULL;
     uint64_t* VA2 = NULL;
     uint64_t* VA3 = NULL;
     uint64_t len = LEN_1MB;
 
+
+    // uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *) carat_aspace->state;
     CARAT_READY_OFF(carat->context);
-    uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
-    // uint64_t* VA1 = kmem_sys_malloc_restrict(LEN_1MB, LEN_1MB * 3, LEN_1MB * 4);
-    VA2 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
-    VA3 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    VA1 =  kmem_sys_malloc_restrict(len, LEN_4GB, -1);
+    VA2 =  kmem_sys_malloc_restrict(LEN_16MB, LEN_4GB, -1);
+    VA3 =  kmem_sys_malloc_restrict(LEN_4MB, LEN_4GB, -1);
     CARAT_READY_ON(carat->context);
 
     
@@ -1452,13 +1456,13 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
 
     carat_r2.va_start = VA2;
     carat_r2.pa_start = VA2;
-    carat_r2.len_bytes = len,
+    carat_r2.len_bytes = LEN_16MB,
     carat_r2.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
     	
 
     carat_r3.va_start = VA3;
     carat_r3.pa_start = VA3;
-    carat_r3.len_bytes = len;
+    carat_r3.len_bytes = LEN_4MB;
     carat_r3.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
 
     nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
