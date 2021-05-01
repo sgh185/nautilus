@@ -464,10 +464,9 @@ void nk_carat_instrument_free(void *address)
 	DHQ(((uint64_t) address));
 	DS("\n");
 	
-	REMOVE_ENTRY (
-        the_context,
-		address,
-		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
+	REMOVE_ENTRY_SILENT (
+    the_context,
+		address
 	);
 
 
