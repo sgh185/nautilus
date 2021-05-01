@@ -634,6 +634,7 @@ static int defragment_region(
      */
     CARAT_READY_OFF(carat->context);
     void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+    CARAT_READY_ON(carat->context);
     
 
     if (!new_region_chunk) {
@@ -670,7 +671,6 @@ static int defragment_region(
     
     ASPACE_UNLOCK(carat);
 
-    CARAT_READY_ON(carat->context);
     return 0;
 }
 
@@ -722,7 +722,6 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         ASPACE_UNLOCK(carat);
         return -1;
     }
-
 
     void *free_space_start; // don't care
     // call CARAT runtime
@@ -848,25 +847,28 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
              * */
 
             DEBUG("Overlapped! and we are moving the blocking regions by force!\n");
-            CARAT_READY_OFF(carat->context);
+            
             do {
                 /**
                  *  try to move the region away from the new region
                  * */
                 void * move_target_addr = NULL;
-                
+                CARAT_READY_OFF(carat->context);
                 move_target_addr = kmem_sys_malloc_restrict(
                                         next_smallest->len_bytes,
                                         (addr_t) new_region.va_start + new_region.len_bytes, /* lower bound */
                                         -1ULL                                                  /* upper bound */
                                     );
+                CARAT_READY_ON(carat->context);
 
                 if (move_target_addr == NULL) {
+                    CARAT_READY_OFF(carat->context);
                     move_target_addr = kmem_sys_malloc_restrict(
                                         next_smallest->len_bytes,
                                         0,                          /* lower bound */
                                         (addr_t) new_region.va_start        /* upper bound */
                                     );
+                    CARAT_READY_ON(carat->context);
                     if (move_target_addr == NULL) {
                         ERROR("cannot move" REGION_FORMAT " way from " REGION_FORMAT, REGION(next_smallest), REGION(&new_region));
                         ASPACE_UNLOCK(carat);
@@ -918,7 +920,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                 
                 // DEBUG("free %p\n", saved_vastart);
 
-                kmem_sys_free(saved_vastart);
+                kmem_sys_free(saved_vastart); // suspicious 
 
                 
                 // DEBUG("succeeded move the blocking region away, starts at %lx with length: %lx\n", move_target_addr, next_smallest->len_bytes);
@@ -941,7 +943,6 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
             
                 DEBUG("hasOverlap = %d\n", hasOverlap);
             }  while (hasOverlap);
-            CARAT_READY_ON(carat->context);
         }
         
         /**
