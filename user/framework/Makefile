@@ -21,11 +21,11 @@ BLOB_KOBJ = blob.kobj.o
 
 //CC = gcc
 
-CC = wllvm
+CC = gclang 
 ME = opt
 FINALCC = clang
 LD = ld
-NLD = ./nld
+NLD = ./nld-noelle-ubuntu
 NSIGN = ./nsign
 EXTRACTBC = extract-bc
 LLVMDIS   = llvm-dis

@@ -21,7 +21,7 @@ CRTBE_DIR=/usr/lib/gcc/x86_64-linux-gnu/8
 OUT_FLAG=$(echo "$@" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
 
-make framework -C $DIRNAME
+make framework CC=gclang++ -C $DIRNAME
 
 if [[ $* != *-nokarat* ]]; then
   USER_OBJ=target.o
@@ -74,7 +74,7 @@ fi
 
   # Optimize the transformed bitcode, build target object
   opt -O3 -S ${BLOB_OPT_BC} -o ${BLOB_OPT_BC}
-  clang -mno-red-zone -fPIC -O3 -c ${BLOB_OPT_BC} -o target.o
+  clang++ -mno-red-zone -fPIC -O3 -c ${BLOB_OPT_BC} -o target.o
 
 else
   echo "Called with -nokarat"
