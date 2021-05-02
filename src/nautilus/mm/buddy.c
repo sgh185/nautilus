@@ -367,15 +367,22 @@ buddy_alloc (struct buddy_mempool *mp, ulong_t order, addr_t lb, addr_t ub)
  * Arguments:
  *       [IN] mp:         Buddy system memory allocator object.
  *       [IN] block:      Block to expand or contract
- *       [IN] old_order:  Previous order
+ *       [IN] old_order:  indicate previous size
+ *       [IN] aligned_order:  order to which block is aligned 
  *       [IN] new_order:  Target order
- *
+ *       [IN] resulting_new_order:  opder that current block aligns to. Will be different if expansion happens for block on the right child.
  * Returns:
  *       Success: returns 0
  *       Failure: returns negative
  */
-int buddy_resize(struct buddy_mempool *mp, addr_t block, ulong_t old_order, ulong_t new_order, ulong_t *resulting_new_order)
-{
+int buddy_resize(
+    struct buddy_mempool *mp, 
+    addr_t block, 
+    ulong_t old_order, 
+    ulong_t aligned_order,
+    ulong_t new_order, 
+    ulong_t *resulting_new_order
+){
     ulong_t j;
     struct list_head *list;
     struct block *search_block;
@@ -406,7 +413,7 @@ int buddy_resize(struct buddy_mempool *mp, addr_t block, ulong_t old_order, ulon
          *  Iteratively expand the block
          * */
         for (j=old_order;j<new_order;j++) {
-            if (buddy_resize(mp, block, j, j+1, resulting_new_order)) {
+            if (buddy_resize(mp, block, j, aligned_order,  j+1, resulting_new_order)) {
                 BUDDY_ERROR("iterative expansion failed at order %lu (target %lu)\n", j+1, *resulting_new_order);
                 return -1;
             }
@@ -431,64 +438,131 @@ int buddy_resize(struct buddy_mempool *mp, addr_t block, ulong_t old_order, ulon
     addr_t zone_start = mp->base_addr;  // probably not needed
     addr_t target = block + (1ULL<<old_order);
     addr_t target_offset = target - zone_start;
-
+    addr_t block_offset = block - zone_start;
     
 
-    if (!(target_offset % (1ULL << new_order))) {
+    // if (!(target_offset % (1ULL << new_order))) {
+    if (block_offset % (1ULL << new_order)) {
         /**
          *  block is the right child of its parent. For now we can't support this case
          * */
-        BUDDY_WARN("impossible target (target offset=%llx new_order=%lu)\n",target_offset,new_order);
+        BUDDY_WARN("impossible target (block_offset=%llx new_order=%lu)\n",block_offset,new_order);
         BUDDY_WARN("impossible target (zone_start = %llx block=%llx target=%llx old_order=%lu)\n", zone_start, block ,target,old_order);
         
-        for (j = old_order; j <= mp->pool_order; j++) {
-            list = &mp->avail[j];
+        addr_t expanded_end = block + (1ULL << new_order);
+        uint64_t cur_allowed_order = old_order;
 
-            if (list_empty(list)) {
-                BUDDY_DEBUG("Skipping order %lu as the list is empty\n",j);
-                continue;
-            }
+        while (target < expanded_end)
+        {
+            /* round down distance to the integer power of 2 */
+            uint64_t distance = expanded_end - target;
+            cur_allowed_order = ilog2(distance);
 
-            target_block = 0;
-            list_for_each_entry(search_block,list,link) {
-                if ((addr_t)search_block==target) {
-                    target_block = search_block;
-                    break;
+            BUDDY_DEBUG("target = %lx expanded_end = %lx\n",target, expanded_end);
+
+            for (j = aligned_order; j <= mp->pool_order; j++) {
+                list = &mp->avail[j];
+
+                if (list_empty(list)) {
+                    BUDDY_DEBUG("Skipping order %lu as the list is empty\n",j);
+                    continue;
                 }
+
+                target_block = 0;
+                list_for_each_entry(search_block,list,link) {
+                    if ((addr_t)search_block==target) {
+                        target_block = search_block;
+                        break;
+                    }
+                }
+
+                if (!target_block) {
+                    BUDDY_DEBUG("NOT MATCHED order = %d\n", j);
+                    continue;
+                }
+
+                list_del_init(&target_block->link);
+                mark_allocated(mp, target_block);
+
+                BUDDY_DEBUG("Found block %p at order %lu\n",target_block,j);
+
+                struct block *buddy_block = NULL;
+
+                /* Trim if a higher order block than necessary was allocated */
+                while (j > cur_allowed_order) {
+                    --j;
+                    buddy_block = (struct block *)((ulong_t)target_block + (1UL << j));
+                    buddy_block->order = j;
+                    mark_available(mp, buddy_block);
+                    BUDDY_DEBUG("Inserted buddy block %p into order %lu\n",buddy_block,j);
+                    list_add(&buddy_block->link, &mp->avail[j]);
+                }
+
+                target_block->order = j;
+
+                break;
             }
 
-            if (!target_block) {
-                BUDDY_DEBUG("NOT MATCHED order = %d\n", j);
-                continue;
+            if (j > mp->pool_order) {
+                /* exhuast all order but didn't find any available block*/
+                BUDDY_ERROR("exhuast all order but didn't find any available block!\n");
+                return -1;
             }
 
-            list_del_init(&target_block->link);
-            mark_allocated(mp, target_block);
-
-            BUDDY_DEBUG("Found block %p at order %lu\n",target_block,j);
-
-            struct block *buddy_block = NULL;
-
-            /* Trim if a higher order block than necessary was allocated */
-            while (j > old_order) {
-                --j;
-                buddy_block = (struct block *)((ulong_t)target_block + (1UL << j));
-                buddy_block->order = j;
-                mark_available(mp, buddy_block);
-                BUDDY_DEBUG("Inserted buddy block %p into order %lu\n",buddy_block,j);
-                list_add(&buddy_block->link, &mp->avail[j]);
-            }
-        
-            target_block->order = j;
-
-            BUDDY_DEBUG("Expand to block %p which is in memory pool %p-%p\n",block,mp->base_addr,mp->base_addr+(1ULL << mp->pool_order));
-            
-            *resulting_new_order = new_order;
-            return 0;
+            target = target + (1UL << j);
         }
         
-        BUDDY_ERROR("Try to cross the boundary, but still no block found!\n");
-        return -1;
+        *resulting_new_order = aligned_order;
+
+        return 0;
+        // for (j = old_order; j <= mp->pool_order; j++) {
+        //     list = &mp->avail[j];
+
+        //     if (list_empty(list)) {
+        //         BUDDY_DEBUG("Skipping order %lu as the list is empty\n",j);
+        //         continue;
+        //     }
+
+        //     target_block = 0;
+        //     list_for_each_entry(search_block,list,link) {
+        //         if ((addr_t)search_block==target) {
+        //             target_block = search_block;
+        //             break;
+        //         }
+        //     }
+
+        //     if (!target_block) {
+        //         BUDDY_DEBUG("NOT MATCHED order = %d\n", j);
+        //         continue;
+        //     }
+
+        //     list_del_init(&target_block->link);
+        //     mark_allocated(mp, target_block);
+
+        //     BUDDY_DEBUG("Found block %p at order %lu\n",target_block,j);
+
+        //     struct block *buddy_block = NULL;
+
+        //     /* Trim if a higher order block than necessary was allocated */
+        //     while (j > old_order) {
+        //         --j;
+        //         buddy_block = (struct block *)((ulong_t)target_block + (1UL << j));
+        //         buddy_block->order = j;
+        //         mark_available(mp, buddy_block);
+        //         BUDDY_DEBUG("Inserted buddy block %p into order %lu\n",buddy_block,j);
+        //         list_add(&buddy_block->link, &mp->avail[j]);
+        //     }
+        
+        //     target_block->order = j;
+
+        //     BUDDY_DEBUG("Expand to block %p which is in memory pool %p-%p\n",block,mp->base_addr,mp->base_addr+(1ULL << mp->pool_order));
+            
+        //     *resulting_new_order = j;
+        //     return 0;
+        // }
+        
+        // BUDDY_ERROR("Try to cross the boundary, but still no block found!\n");
+        // return -1;
     }
     
     list = &mp->avail[old_order];

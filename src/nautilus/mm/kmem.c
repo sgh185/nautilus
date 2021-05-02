@@ -108,10 +108,12 @@ static struct list_head glob_zone_list;
  */
 struct kmem_block_hdr {
     void *   addr;   /* address of block */
-    uint64_t order;  /* order of the block allocated from buddy system */
+    uint64_t order;  /* order of the block allocated from buddy system indicating the size of the block */
                      /* order>=MIN_ORDER => in use, safe to examine */
                      /* order==0 => unallocated header */
                      /* order==1 => allocation in progress, unsafe */
+    uint64_t aligned_order;     /* The order that addr is aligned to (when first allocated). used for expansion for right child  */
+                                /* the order will differ from order  */
     struct buddy_mempool * zone; /* zone to which this block belongs */
     uint64_t flags;  /* flags for this allocated block */
 } __packed __attribute((aligned(8)));
@@ -574,6 +576,7 @@ _kmem_sys_malloc (size_t size, int cpu, int zero, addr_t lb, addr_t ub)
 	    // force a software barrier here, since our next write must come last
 	    __asm__ __volatile__ ("" :::"memory");
 	    hdr->order = order; // allocation complete
+        hdr->aligned_order = order;
             break;
         }
         
@@ -722,7 +725,7 @@ int    kmem_sys_realloc_in_place(void *addr, size_t new_size, size_t *actual_new
     uint8_t flags = spin_lock_irq_save(&zone->lock);
     ulong_t resulting_new_order;
     kmem_bytes_allocated += (1UL << new_order) - (1UL << old_order);
-    int rc = buddy_resize(zone, (addr_t)addr, old_order,new_order,&resulting_new_order);
+    int rc = buddy_resize(zone, (addr_t)addr, old_order, hdr->aligned_order, new_order,&resulting_new_order);
     spin_unlock_irq_restore(&zone->lock, flags);
 
     if (rc) {
@@ -732,8 +735,9 @@ int    kmem_sys_realloc_in_place(void *addr, size_t new_size, size_t *actual_new
 
     // update header so we can free enough when needed
     hdr->order = new_order;
+    hdr->aligned_order = resulting_new_order;
 
-    *actual_new_size = (1UL << resulting_new_order);
+    *actual_new_size = (1UL << new_order);
 
     KMEM_DEBUG("resize succeeded: addr=0x%lx order=%lu\n",addr,resulting_new_order);
 
