@@ -1481,15 +1481,22 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
     }
    
 
+    nk_aspace_region_t * toExpand = &carat_r2;
+
     // DEBUG("now resize region_1 starting at %p from length of %lx bytes to %lx bytes\n", carat_r2.va_start, carat_r2.len_bytes, LEN_16MB);
-    uint64_t actual_size;
-    if(nk_aspace_resize_region(carat_aspace,&carat_r2, carat_r2.len_bytes * 2, 1, &actual_size )){
-    	nk_vc_printf("Failed to resize the region\n");
-	goto test_fail;
+    
+    for (int i = 0; i < 2; i++) {
+        uint64_t actual_size;
+        if(nk_aspace_resize_region(carat_aspace, toExpand, toExpand->len_bytes * 2, 1, &actual_size )){
+            nk_vc_printf("Failed to resize the region\n");
+            goto test_fail;
+        }
+
+        DEBUG("Resize succeeded!\n"); 
+
+        toExpand->len_bytes = actual_size;
     }
-
-    DEBUG("Resize succeeded!\n"); 
-
+    
     nk_vc_printf("Before Destroy\n");
     //nk_aspace_destroy(carat_aspace);
 
