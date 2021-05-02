@@ -790,6 +790,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
 
     if (region->len_bytes == new_size) {
         // size equal nothing to do
+        ASPACE_UNLOCK(carat);
         return 0;
     }
 
@@ -899,7 +900,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
                 ASPACE_UNLOCK(carat); 
                 if (move_region(state, next_smallest, &move_target)) {
                     ERROR("Fail to move region from "REGION_FORMAT" to "REGION_FORMAT"\n", REGION(next_smallest), REGION(&move_target) );
-                    ASPACE_UNLOCK(carat);
+                    // move_region calls ASPACE_UNLOCK, so we don't need to do it before this return
                     return -1;
                 }
                 /**
@@ -966,6 +967,7 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
     CARAT_READY_ON(carat->context);
     if (res) {
         ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
+        ASPACE_UNLOCK(carat);
         return -1;
     }
     
