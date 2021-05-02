@@ -114,7 +114,7 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
      * NOTE --- We are instrumenting all indirect calls
      * because we have no idea what to do about this
      */ 
-    if (!Callee) 
+    if (I.isIndirectCall()) 
     {
         errs() << "Found an indirect call! Instrumenting for now ... \n" 
                << I << "\n";
@@ -129,16 +129,16 @@ void ProtectionsInjector::visitCallInst(CallInst &I)
      * (i.e. llvm.lifetime, etc.) should be ignored. For
      * now, we are instrumenting ALL intrinsics as a 
      * conservative approach
+     * 
+     * APRIL, 2021 --- NOT HANDLING INTRINSICS --- REVISIT
+     * 
+     * Must ignore inline assembly
      */  
-    if (Callee->isIntrinsic())
+    if (false
+        || I.isInlineAsm() 
+        || (Callee && (Callee->isIntrinsic())))
     {
-        errs() << "Found an intrinsic! Instrumenting for now ... \n" 
-               << I << "\n";
-
-
-        /*
-         * APRIL, 2021 --- NOT HANDLING INTRINSICS --- REVISIT
-         */ 
+        errs() << "visitCallInst: Can't handle instrinsics or inline assembly\n";
         return;
     }
 
@@ -499,10 +499,22 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
 
 
     /*
-     * Setup --- fetch the loop structure and IV manager for @NestedLoop
+     * Check if @NestedLoop has a known compile time trip count --- if it 
+     * doesn't, then we cannot compute the end address of the hoisted guard
+     */
+    if (!(NestedLoop->doesHaveCompileTimeKnownTripCount())) {
+        errs() << "_optimizeForInductionVariableAnalysis: No compile time trip count!\n";
+        return false;
+    }
+
+
+    /*
+     * Setup --- fetch the loop structure and IV manager for @NestedLoop,
+     * fetch the compile time trip count
      */
     LoopStructure *NestedLoopStructure = NestedLoop->getLoopStructure();
     InductionVariableManager *IVManager = NestedLoop->getInductionVariableManager();
+    uint64_t TripCount = NestedLoop->getCompileTimeTripCount();
 
 
     /*
@@ -527,32 +539,116 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
      * At this point, we know that the computation of @PointerOfMemoryInstruction
      * depends on a bounded scalar evolution --- which means that the guard can be
      * hoisted outside the loop where the boundaries used in the check can range from
-     * start to end (low to high??) address of the scalar evolution
+     * start to end address of the scalar evolution
      * 
-     * FIX --- Currently using a non-canonical address for the start address and not 
-     *         checking the end addresss
+     * Compute this start and end address from the induction variable
      */
     bool Hoisted = false;
-    Value *StartAddress = NonCanonical; /* FIX */
-    if (StartAddress)
-    {
-        BasicBlock *PreHeader = NestedLoopStructure->getPreHeader();
-        Instruction *InjectionLocation = PreHeader->getTerminator();
+    InductionVariable *IV = 
+        IVManager->getInductionVariable(
+            *NestedLoopStructure,
+            PointerOfMemoryInstructionAsInst
+        );
 
-        InjectionLocations[I] = 
-            new GuardInfo(
-                InjectionLocation,
+    assert(
+        true
+        && !!IV
+        && "_optimizeForInductionVariableAnalysis: Invalid induction variable object!"
+    );
+
+
+    /*
+     * Fetch the start address and step value from the IV
+     */
+    Value *StartAddress = IV->getStartValue(),
+          *StepValue = IV->getSingleComputedStepValue();
+
+
+    /*
+     * Check if the start address and step value are valid
+     */
+    if (false
+        || !StartAddress
+        || !StepValue) return false;
+
+    errs() << "StartAddress: " << *StartAddress << "\n";
+    errs() << "StepValue: " << *StepValue << "\n";
+
+
+    /*
+     * Compute ONLY (Step * TripCount) + StartAddress and inject 
+     * this into the preheader of the loop directly --- HACK
+     * 
+     * First, set up injection locations and builders
+     */
+    BasicBlock *PreHeader = NestedLoopStructure->getPreHeader();
+    Instruction *InjectionLocation = PreHeader->getTerminator();
+    llvm::IRBuilder<> Builder = 
+        Utils::GetBuilder(
+            InjectionLocation->getFunction(),
+            InjectionLocation
+        );
+
+    
+    /*
+     * Compute Offset = Step * TripCount
+     */
+    Value *Offset = 
+        Builder.CreateMul(
+            StepValue,
+            Builder.getInt64(TripCount)
+        );
+
+    
+    /*
+     * Compute EndAddress = Offset + StartAddress, and
+     * cast it back to a pointer type
+     */
+    Value *EndAddressVal = 
+        Builder.CreateAdd(
+            Offset,
+            Builder.CreatePtrToInt(
                 StartAddress,
-                IsWrite,
-                CARATNamesToMethods[CARAT_PROTECT],
-                "protect", /* Metadata type */
-                "iv.scev.guard", /* Metadata attached to injection */
-                2 /* Need 2 injections for IV/SCEV guards --- FIX */
-            );
+                Builder.getInt64Ty()
+            )
+        );
 
-        scalarEvolutionGuard++;
-        Hoisted |= true;
-    }
+    Value *EndAddress =
+        Builder.CreateIntToPtr(
+            EndAddressVal,
+            StartAddress->getType()
+        );
+
+
+
+    /*
+     * Set up GuardInfo packages
+     */
+    InjectionLocations[I] = 
+        new GuardInfo(
+            InjectionLocation,
+            StartAddress,
+            IsWrite,
+            CARATNamesToMethods[CARAT_PROTECT],
+            "protect", /* Metadata type */
+            "iv.scev.guard.start", /* Metadata attached to injection */
+            1
+        );
+
+    InjectionLocations[I] = 
+        new GuardInfo(
+            InjectionLocation,
+            EndAddress,
+            IsWrite,
+            CARATNamesToMethods[CARAT_PROTECT],
+            "protect", /* Metadata type */
+            "iv.scev.guard.end", /* Metadata attached to injection */
+            1
+        );
+
+
+    scalarEvolutionGuard++;
+    Hoisted |= true;
 
 
     return Hoisted;
