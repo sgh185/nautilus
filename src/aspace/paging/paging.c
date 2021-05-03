@@ -937,16 +937,8 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
         return align_check;
     }
 
-
-    /**
-     *  TODO: change the udpate_region here
-     * 
-     * */
-    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
-    nk_aspace_region_t * target_region = mm_update_region(p->paging_mm_struct, region, &new_region, check_flag);
-
-    if (target_region == NULL){
-        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+    nk_aspace_region_t * matched_region = mm_contains(p->paging_mm_struct, region, all_eq_flag);
+    if (matched_region == NULL) {
         ASPACE_UNLOCK(p);
         return -1;
     }
@@ -955,14 +947,47 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
     //enlarging
     if(old_size < new_size){
 
+        int hasOverlap = 0;
+
         DEBUG("enlarging the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
         
+        /**
+         *  next_smallest == NULL if carat->mm doesn't contain region
+         *  next_smallest == region if region is the largest in the carat->mm
+         * */
+       	nk_aspace_region_t * next_smallest = mm_get_next_smallest(p->paging_mm_struct, region);
+        
+        if (next_smallest == NULL) {
+            ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
+            ASPACE_UNLOCK(p);
+            return -1;
+        }
+        
+        if (next_smallest != region) {
+            hasOverlap = overlap_helper(&new_region, next_smallest);
+        }
+
+        if (hasOverlap && !by_force) {
+            ERROR("The region "REGION_FORMAT" cannot update length to %lx due to existed overlapping regiong" REGION_FORMAT "\n", 
+                    REGION(region), 
+                    new_size,
+                    REGION(next_smallest)
+                );
+            ASPACE_UNLOCK(p);
+            return -1;
+        } 
+        else if (hasOverlap && by_force) 
+        {   
+            ERROR("No suport for paging to expand by force!\n");
+            ASPACE_UNLOCK(p);
+            return -1;
+        }
         //drill if this is an eager region
-        if (NK_ASPACE_GET_EAGER(target_region->protect.flags)) {
+        if (NK_ASPACE_GET_EAGER(new_region.protect.flags)) {
 
             // DRILL THE PAGE TABLES HERE
             DEBUG("eager region, drilling!\n");
-            int ret = eager_drill_wrapper_with_offset(p, target_region, old_size);
+            int ret = eager_drill_wrapper_with_offset(p, &new_region, old_size);
 
             if (ret < 0) {
                 ERROR("eager drilling of expanded region fails!\n");
@@ -976,7 +1001,8 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
             DEBUG("lazy drilling!\n");
         }
     }
-    else{
+    else
+    {
         DEBUG("Shrinking the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
         //free for the abandon Physical addresses?
         // DEBUG("truncating the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
@@ -985,6 +1011,17 @@ static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_s
     }
 
     uint64_t diff = old_size > new_size ? old_size - new_size : new_size - old_size;
+    
+    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
+    nk_aspace_region_t * target_region = mm_update_region(p->paging_mm_struct, region, &new_region, check_flag);
+
+    if (target_region == NULL){
+        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+        ASPACE_UNLOCK(p);
+        return -1;
+    }
+
+    
     clear_cache(p, region, THRESH);
 
     ASPACE_UNLOCK(p);
