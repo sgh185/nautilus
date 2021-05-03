@@ -23,6 +23,7 @@
 /// creating one if it doesn't exist. If param brk is non-zero, return the
 /// requested segment end if possible, or otherwise return the current program
 /// segment end.
+__attribute__((used, annotate("nocarat")))
 uint64_t sys_brk(const uint64_t brk) {
 
   nk_process_t* current_process = syscall_get_proc();
@@ -37,9 +38,10 @@ uint64_t sys_brk(const uint64_t brk) {
     // the blob
 
     // TODO: assuming that we are a single-threaded process right now
+    ERROR("blob start: %p, stack start: %p, max: %p\n", current_process->exe->blob, get_cur_thread()->stack, MAX(current_process->exe->blob, get_cur_thread()->stack));
     void* new_heap = kmem_sys_malloc_restrict(
-        HEAP_SIZE_INCREMENT, MAX(current_process->exe, get_cur_thread()->stack),
-        ~(0UL)); // TODO: maybe eventually turn off carat for this
+        HEAP_SIZE_INCREMENT, (addr_t)MAX(current_process->exe->blob, get_cur_thread()->stack),
+        0x0000000800000000); // TODO: maybe eventually turn off carat for this
     if (!new_heap) {
       // Something terrible has happened. This may not be the correct response,
       // but the program will fail anyway.
@@ -80,6 +82,7 @@ uint64_t sys_brk(const uint64_t brk) {
         goto out;
       }
       heap_expand.len_bytes = actual_size;
+      current_process->heap_end = current_process->heap_begin + actual_size;
       current_process->heap_region = heap_expand;
 #else
     if ((void*)brk > current_process->heap_end) {
