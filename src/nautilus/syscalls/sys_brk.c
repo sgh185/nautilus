@@ -29,18 +29,12 @@ uint64_t sys_brk(const uint64_t brk) {
 
   if (current_process->heap_end == 0) {
     // This is the first call to brk.
-    // We must place the heap ahead of the blob so that it doesn't expand into the blob
+    // We must place the heap ahead of the blob so that it doesn't expand into
+    // the blob
 
-    // Hey Aaron/Michael, how's it going? What's crack-a-lackin? Here's what we *should* do:
-      // 1. First, find the end of the blob
-      // 2. Next, malloc_restrict the heap after blob end
-      // 3. Finally, cry
-    // Unfortunately, here's what we are actually doing:
-      // 1. malloc_restrict the heap in this hard coded location
-      // 2. Finally, cry a lot
-
-    void * heap_location_hack = 0x0000000200000000;
-    void* new_heap = kmem_sys_malloc_restrict(HEAP_SIZE_INCREMENT, heap_location_hack, -1); // TODO: maybe eventually turn off carat for this
+    void* new_heap = kmem_sys_malloc_restrict(
+        HEAP_SIZE_INCREMENT, nk_process_current()->exe,
+        ~(0UL)); // TODO: maybe eventually turn off carat for this
     if (!new_heap) {
       // Something terrible has happened. This may not be the correct response,
       // but the program will fail anyway.
