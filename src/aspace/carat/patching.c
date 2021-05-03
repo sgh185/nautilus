@@ -47,6 +47,9 @@ int _carat_patch_escapes(
      * Iterate over the escapes of @entry --- NOTE --- the iteration 
      * macro provides a variable "val," indicating the current element 
      */ 
+    if(entry->escapes_set == NULL) {
+        return 0;
+    }
     CARAT_ESCAPES_SET_ITERATE((entry->escapes_set))
     {
         /*
@@ -93,6 +96,9 @@ void _reinstrument_contained_escapes(allocation_entry *new_entry) {
      * Iterate over the contained_escapes of @new_entry --- NOTE --- the iteration 
      * macro provides a variable "val," indicating the current element 
      */ 
+    if (new_entry->contained_escapes == NULL) {
+        return;
+    }
     CARAT_ESCAPES_SET_ITERATE((new_entry->contained_escapes))
     {
         /*
@@ -607,6 +613,10 @@ static void _print_table(nk_carat_context *the_context)
     CARAT_ALLOCATION_MAP_ITERATE(the_context)
     {        
         allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        uint64_t num_escapes = 0;
+        if (the_entry->escapes_set != NULL) {
+            num_escapes = CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set);
+        }
 		nk_vc_printf(
             "%p : (%p : %p --- (ptr: %p, len: %lu), es : %d)\n", 
 			iterator, 
@@ -614,7 +624,7 @@ static void _print_table(nk_carat_context *the_context)
 			the_entry, 
 			the_entry->pointer, 
 			the_entry->size,
-            CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set)
+            num_escapes
         );
     }
     
