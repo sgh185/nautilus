@@ -14,6 +14,10 @@
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
+#ifndef MAX
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
+
 /// @param brk The process's requested new max data segment address, or zero.
 /// @return If param brk is 0, returns the beginning of the data segment,
 /// creating one if it doesn't exist. If param brk is non-zero, return the
@@ -32,8 +36,9 @@ uint64_t sys_brk(const uint64_t brk) {
     // We must place the heap ahead of the blob so that it doesn't expand into
     // the blob
 
+    // TODO: assuming that we are a single-threaded process right now
     void* new_heap = kmem_sys_malloc_restrict(
-        HEAP_SIZE_INCREMENT, nk_process_current()->exe,
+        HEAP_SIZE_INCREMENT, MAX(current_process->exe, get_cur_thread()->stack),
         ~(0UL)); // TODO: maybe eventually turn off carat for this
     if (!new_heap) {
       // Something terrible has happened. This may not be the correct response,
