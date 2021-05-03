@@ -1487,7 +1487,7 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
 
     // DEBUG("now resize region_1 starting at %p from length of %lx bytes to %lx bytes\n", carat_r2.va_start, carat_r2.len_bytes, LEN_16MB);
     
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         uint64_t actual_size;
         if(nk_aspace_resize_region(carat_aspace, toExpand, toExpand->len_bytes * 2, 1, &actual_size )){
             nk_vc_printf("Failed to resize the region\n");
@@ -1498,7 +1498,24 @@ static int CARAT_Resize_sanity(char *_buf, void* _priv){
 
         toExpand->len_bytes = actual_size;
     }
+
+    kmem_sys_free(VA1);
+    kmem_sys_free(VA2);
+    kmem_sys_free(VA3);
+    nk_vc_printf("Free all regions\n");
+
+    CARAT_READY_OFF(carat->context);
+    VA1 =  kmem_sys_malloc_restrict(len, LEN_4GB, -1);
+    VA2 =  kmem_sys_malloc_restrict(LEN_16MB, LEN_4GB, -1);
+    VA3 =  kmem_sys_malloc_restrict(LEN_4MB, LEN_4GB, -1);
+    CARAT_READY_ON(carat->context);
+
+    nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
     
+    kmem_sys_free(VA1);
+    kmem_sys_free(VA2);
+    kmem_sys_free(VA3);
+
     nk_vc_printf("Before Destroy\n");
     //nk_aspace_destroy(carat_aspace);
 

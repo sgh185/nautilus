@@ -763,6 +763,7 @@ kmem_sys_free (void * addr)
     struct kmem_block_hdr *hdr;
     struct buddy_mempool * zone;
     uint64_t order;
+    uint64_t aligned_order;
 
     KMEM_DEBUG("free of address %p from:\n", addr);
     KMEM_DEBUG_BACKTRACE();
@@ -793,7 +794,7 @@ kmem_sys_free (void * addr)
 
     zone = hdr->zone;
     order = hdr->order;
-
+    aligned_order = hdr->aligned_order;
     // Sanity check things here
     // this will in some cases catch a double free that is causing a
     // race on the header
@@ -809,7 +810,17 @@ kmem_sys_free (void * addr)
     /* Return block to the underlying buddy system */
     uint8_t flags = spin_lock_irq_save(&zone->lock);
     kmem_bytes_allocated -= (1UL << order);
-    buddy_free(zone, addr, order);
+    
+    if (aligned_order != order) {
+        /* case where expansion happens for the right child */
+        unaligned_buddy_free(zone, addr, order, aligned_order);
+
+    } else {
+        buddy_free(zone, addr, order);
+    }
+
+    
+
     spin_unlock_irq_restore(&zone->lock, flags);
     KMEM_DEBUG("free succeeded: addr=0x%lx order=%lu\n",addr,order);
     block_hash_free_entry(hdr);

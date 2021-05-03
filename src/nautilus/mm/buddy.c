@@ -515,54 +515,7 @@ int buddy_resize(
         *resulting_new_order = aligned_order;
 
         return 0;
-        // for (j = old_order; j <= mp->pool_order; j++) {
-        //     list = &mp->avail[j];
 
-        //     if (list_empty(list)) {
-        //         BUDDY_DEBUG("Skipping order %lu as the list is empty\n",j);
-        //         continue;
-        //     }
-
-        //     target_block = 0;
-        //     list_for_each_entry(search_block,list,link) {
-        //         if ((addr_t)search_block==target) {
-        //             target_block = search_block;
-        //             break;
-        //         }
-        //     }
-
-        //     if (!target_block) {
-        //         BUDDY_DEBUG("NOT MATCHED order = %d\n", j);
-        //         continue;
-        //     }
-
-        //     list_del_init(&target_block->link);
-        //     mark_allocated(mp, target_block);
-
-        //     BUDDY_DEBUG("Found block %p at order %lu\n",target_block,j);
-
-        //     struct block *buddy_block = NULL;
-
-        //     /* Trim if a higher order block than necessary was allocated */
-        //     while (j > old_order) {
-        //         --j;
-        //         buddy_block = (struct block *)((ulong_t)target_block + (1UL << j));
-        //         buddy_block->order = j;
-        //         mark_available(mp, buddy_block);
-        //         BUDDY_DEBUG("Inserted buddy block %p into order %lu\n",buddy_block,j);
-        //         list_add(&buddy_block->link, &mp->avail[j]);
-        //     }
-        
-        //     target_block->order = j;
-
-        //     BUDDY_DEBUG("Expand to block %p which is in memory pool %p-%p\n",block,mp->base_addr,mp->base_addr+(1ULL << mp->pool_order));
-            
-        //     *resulting_new_order = j;
-        //     return 0;
-        // }
-        
-        // BUDDY_ERROR("Try to cross the boundary, but still no block found!\n");
-        // return -1;
     }
     
     list = &mp->avail[old_order];
@@ -596,6 +549,56 @@ int buddy_resize(
     *resulting_new_order = new_order;
       
     return 0;
+}
+
+void unaligned_buddy_free(
+    //!    Buddy system memory allocator object.
+    struct buddy_mempool *  mp,
+    //!  Address of memory block to free.
+    void *        addr,
+    //! Size of the memory block (2^order bytes).
+    ulong_t order,
+    //! Order to which addr is aligned to 
+    ulong_t aligned_order
+) {
+    addr_t addrToFree = (addr_t) addr; 
+    addr_t addrEnd = addrToFree + (1UL << order);
+    addr_t zone_start = mp->base_addr;
+    /**
+     *  most naive approach
+     * */
+    // while( addrToFree < addrEnd ) {
+    //     buddy_free(mp, (void *) addrToFree, aligned_order);
+    //     addrToFree += (1UL << aligned_order);
+    // }
+
+    while( addrToFree < addrEnd ) {
+        uint64_t orderToFree = aligned_order;
+        uint64_t start_offset = addrToFree - zone_start;
+
+        int correct_aligned = 0;
+        int can_expand = 0;
+        
+        do
+        {
+            correct_aligned = !(start_offset % (1UL << (orderToFree + 1)));
+            can_expand = (addrToFree + (1UL << orderToFree)) < addrEnd;
+            
+            BUDDY_DEBUG("correct_aligned = %d, can_expand = %d\n", correct_aligned,can_expand);
+
+            if (correct_aligned && can_expand) {
+                orderToFree++;
+            } else {
+                break;
+            }
+        } while (1);
+        
+
+        BUDDY_DEBUG("addrToFree =%p orderToFree = %d\n", addrToFree, orderToFree);
+
+        buddy_free(mp, (void *) addrToFree, orderToFree);
+        addrToFree += (1UL << orderToFree);
+    }
 }
 
 
