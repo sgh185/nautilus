@@ -315,7 +315,7 @@ buddy_alloc (struct buddy_mempool *mp, ulong_t order, addr_t lb, addr_t ub)
 	block = 0;
 	list_for_each_entry(search_block,list,link) {
         addr_t block_start = (addr_t) search_block;
-        addr_t block_end = (addr_t)search_block + (1ULL<<(search_block->order));
+        addr_t block_end = (addr_t)search_block + (1ULL<<(order));
         BUDDY_DEBUG("Considering block [%p,%p) for match against [%p,%p)\n",
                 block_start, block_end, lb,ub);
         if (block_start>=lb && block_end<=ub) {
