@@ -71,7 +71,7 @@ framework_low_level.o: framework_low_level.S
 
 framework.o : framework.c
 	$(CC) $(CFLAGS)  -I../../include -c framework.c
-	$(CC) -c -S -emit-llvm -O1 -Xclang -disable-llvm-passes -mcmodel=large -fPIC framework_link.c
+	$(CC) -c -emit-llvm -O1 -Xclang -disable-llvm-passes -mcmodel=large -fPIC framework_link.c
 
 glue.o : glue.c
 	$(CC) $(CFLAGS) -c glue.c

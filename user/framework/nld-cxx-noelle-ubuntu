@@ -27,9 +27,9 @@ if [[ $* != *-nokarat* ]]; then
   USER_OBJ=target.o
   BLOB_OBJ=blob.o
   BLOB_BC=blob.bc
-  BLOB_SIMPLIFY_BC=blob_simplify.ll
+  BLOB_SIMPLIFY_BC=blob_simplify.bc
   BLOB_OPT_BC=blob_opt.ll
-  FRAMEWORK_LINK_BC=$DIRNAME/framework_link.ll
+  FRAMEWORK_LINK_BC=$DIRNAME/framework_link.bc
   KARAT_OUT=karat.out
   BLOB_KOBJ=blob.kobj.o
   LD=ld
@@ -45,15 +45,17 @@ if [[ $* != *-nokarat* ]]; then
   # Extract the bitcode
   ${EXTRACTBC} ${BLOB_OBJ}
   mv ${BLOB_OBJ}.bc ${BLOB_BC}
+  llvm-dis ${BLOB_BC}
 
   # Run LICM, normalize code for Noelle + pass (NOTE --- noelle-enable normalizes automatically)
   opt -O1 ${BLOB_BC} -o ${BLOB_BC}
-  ${NORM} -S ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
-  noelle-enable ${BLOB_BC} ${BLOB_BC} -S -noelle-disable-inliner -noelle-disable-scev-simplification -noelle-disable-whilifier -noelle-disable-loop-distribution
+  ${NORM} ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
+  noelle-enable ${BLOB_SIMPLIFY_BC} ${BLOB_SIMPLIFY_BC} -noelle-disable-inliner -noelle-disable-scev-simplification -noelle-disable-whilifier -noelle-disable-loop-distribution
 
   # Link framework bitcode 
-  llvm-link -S ${BLOB_SIMPLIFY_BC} ${FRAMEWORK_LINK_BC} -o ${BLOB_SIMPLIFY_BC} 
-  ${NORM} -S ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
+  llvm-link ${BLOB_SIMPLIFY_BC} ${FRAMEWORK_LINK_BC} -o ${BLOB_SIMPLIFY_BC} 
+  # ${NORM} ${BLOB_BC} -o ${BLOB_SIMPLIFY_BC}
+  llvm-dis ${BLOB_SIMPLIFY_BC}
 
   # Run the KARAT pass
 if [[ ${CMD} == "-fall" ]]
