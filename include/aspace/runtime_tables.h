@@ -194,9 +194,6 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
         CARAT_PRINT("CARAT: Attempted to free this address, corresponding allocation entry not found: %p\n", (void *) key); \
 	}
 
-		// DS("CARAT: Attempted to free this address, corresponding allocation entry not found: "); \
-        // DHQ(((uint64_t) key)); \
-        // DS("\n"); \
 
 /*
  * Macro expansion utility --- fetch the current CARAT context
