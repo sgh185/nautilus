@@ -1009,6 +1009,10 @@ static int switch_to(void *state)
     
     DEBUG("switching in address space %s from thread %d (%s)\n", ASPACE_NAME(carat),thread->tid,THREAD_NAME(thread));
     
+    uint64_t default_cr3 = nk_paging_default_cr3();
+    DEBUG("use default cr3 = %lx\n", default_cr3);
+    
+    write_cr3(default_cr3);
     return 0;
 }
 
