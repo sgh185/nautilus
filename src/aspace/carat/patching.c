@@ -531,6 +531,14 @@ int nk_carat_move_region(
      */ 
     CARAT_PRINT("CARAT: move_region (%p,%lu) -> %p\n", region_start, region_length, new_region_start);
    
+    /*
+     * create an array to hold all the addresses we want to move
+     * Note - this will most likely end up being larger than it needs to be, as we only want 
+     * to move a subset of the allocations in the map, but this conservative solution will work
+     */
+    uint64_t size_of_map = CARAT_ALLOCATION_MAP_SIZE(the_context);
+    void* old_addresses[size_of_map];
+    uint64_t old_lengths[size_of_map];
 
     /*
      * Pauses all execution so we can perform a series of move
@@ -547,8 +555,9 @@ int nk_carat_move_region(
     /*
      * Iterate through the allocation map, searching for allocations within the region
      */ 
-    void *current_destination = new_region_start;
-    CARAT_ALLOCATION_MAP_ITERATE(the_context)
+    
+    uint64_t count = 0;
+    CARAT_ALLOCATION_MAP_ITERATE(the_context) // TODO: this is inserting as it is iterating. This is a problem...
     {        
         /*
          * Fetch [key : val]
@@ -559,15 +568,26 @@ int nk_carat_move_region(
 
         /*
          * If the current allocation is within the old region, 
-         * move it to the next availible spot in the new region  
+         * move it to the next available spot in the new region  
          */ 
         if (true
             && (the_address >= region_start) 
             && (the_address < (region_start + region_length))) 
         {
-            if (_move_allocation(the_context, the_address, current_destination)) { goto out_bad; }
-            current_destination += the_entry->size;
+            old_addresses[count] = the_address;
+            old_lengths[count] = the_entry->size;
+            count++;
+            
         }
+    }
+
+    void *current_destination = new_region_start;
+    for (uint64_t i = 0; i < count; i++) {
+        if (_move_allocation(the_context, old_addresses[i], current_destination)) {
+            goto out_bad;
+        };
+        //free(old_addresses[i]); TODO maybe do this
+        current_destination += old_lengths[i];
     }
 
 
@@ -591,6 +611,74 @@ out_bad:
     CARAT_PRINT("nk_carat_move_region: failed to move");
     return -1;
 }
+
+NO_CARAT
+int nk_carat_defrag_allocation_table(nk_carat_context *the_context) 
+{ 
+    /*
+     * Debugging
+     */ 
+    CARAT_PRINT("CARAT: defrag_allocation_table\n");
+
+    /*
+     * create an array to hold all the addresses we want to move
+     */
+    uint64_t size_of_map = CARAT_ALLOCATION_MAP_SIZE(the_context);
+    void* old_addresses[size_of_map];
+    uint64_t old_lengths[size_of_map];
+   
+
+    /*
+     * Pauses all execution so we can perform a series of moves
+     */
+	if (!(nk_sched_stop_world())) 
+    {
+        CARAT_PRINT("CARAT: nk_sched_stop_world failed\n");
+        goto out_bad;
+    }
+
+    CARAT_READY_OFF(the_context);
+
+    
+    /*
+     * Iterate through the allocation map, searching for all allocations 
+     */ 
+    uint64_t count = 0;
+    CARAT_ALLOCATION_MAP_ITERATE(the_context)
+    {        
+        /*
+         * Fetch the address
+         */ 
+        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        void *the_address = CARAT_ALLOCATION_MAP_CURRENT_ADDRESS;
+
+        old_addresses[count] = the_address;
+        old_lengths[count] = the_entry->size;
+        count++;
+    }
+
+    for (uint64_t i = 0; i < size_of_map; i++) {
+        // NOTE - CARAT is off
+        void* new_location = malloc(old_lengths[i]);
+        _move_allocation(the_context, old_addresses[i], new_location);
+        free(old_addresses[i]);
+    }
+
+    /*
+     * We did the damn thing, turn everything on
+     */ 
+    CARAT_READY_ON(the_context);
+    nk_sched_start_world();
+    CARAT_PRINT("CARAT: Region move succeeded.\n");
+
+    return 0;
+
+
+out_bad:
+    CARAT_PRINT("defrag_allocation_table: failed to move");
+    return -1;
+}
+
 
 
 /* ---------- ALLOCATION MAP DEBUGGING ---------- */
@@ -815,6 +903,24 @@ static int handle_carat_test(char *buf, void *priv)
     return 0;
 }
 
+
+/* 
+ * Shell command handler
+ */
+static int handle_kernel_defrag_test(char *buf, void *priv)
+{
+    /*
+     * Fetch the current CARAT context
+     */ 
+    nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+
+    /*
+     * "Defrag" the allocation table
+     */ 
+    nk_carat_defrag_allocation_table(the_context);
+    return 0;
+}
+
 static struct shell_cmd_impl carat_test_impl = {
     .cmd = "carat_test",
     .help_str = "carat_test",
@@ -822,3 +928,11 @@ static struct shell_cmd_impl carat_test_impl = {
 };
 
 nk_register_shell_cmd(carat_test_impl);
+
+static struct shell_cmd_impl kernel_defrag_test_impl = {
+    .cmd = "kernel_defrag_test",
+    .help_str = "kernel_defrag_test",
+    .handler = handle_kernel_defrag_test,
+};
+
+nk_register_shell_cmd(kernel_defrag_test_impl);
