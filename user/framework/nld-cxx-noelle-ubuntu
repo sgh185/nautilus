@@ -21,7 +21,8 @@ CRTBE_DIR=/usr/lib/gcc/x86_64-linux-gnu/8
 OUT_FLAG=$(echo "$@" | grep -Poe "-o\ .*?(\ |$)")
 echo $OUT_FLAG
 
-make framework CC=gclang++ -C $DIRNAME
+make clean -C $DIRNAME
+make framework -C $DIRNAME
 
 if [[ $* != *-nokarat* ]]; then
   USER_OBJ=target.o
@@ -92,6 +93,6 @@ ld -static -pie --no-dynamic-linker \
   $CRTGEN_DIR/rcrt1.o $CRTGEN_DIR/crti.o $CRTBE_DIR/crtbeginS.o \
   -L$CRTBE_DIR/ -L$CRTGEN_DIR -L/usr/lib \
   $DIRNAME/glue.o $DIRNAME/framework.o target.o $DIRNAME/framework_low_level.o \
-  -lm -ldl --start-group -lgcc -lpthread -lc -lrt --end-group \
+  -lm -lstdc++ -ldl --start-group -lgcc -lgcc_eh -lpthread -lc -lrt --end-group \
   $CRTBE_DIR/crtendS.o $CRTGEN_DIR/crtn.o \
   $OUT_FLAG
