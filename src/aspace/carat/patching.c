@@ -47,6 +47,9 @@ int _carat_patch_escapes(
      * Iterate over the escapes of @entry --- NOTE --- the iteration 
      * macro provides a variable "val," indicating the current element 
      */ 
+    if(entry->escapes_set == NULL) {
+        return 0;
+    }
     CARAT_ESCAPES_SET_ITERATE((entry->escapes_set))
     {
         /*
@@ -87,17 +90,37 @@ int _carat_patch_escapes(
 }
 
 
+void _reinstrument_contained_escapes(allocation_entry *new_entry) {
+
+    /*
+     * Iterate over the contained_escapes of @new_entry --- NOTE --- the iteration 
+     * macro provides a variable "val," indicating the current element 
+     */ 
+    if (new_entry->contained_escapes == NULL) {
+        return;
+    }
+    CARAT_ESCAPES_SET_ITERATE((new_entry->contained_escapes))
+    {
+        /*
+         * val is the offset
+         * new_entry->pointer is the allocation location
+         * add the allocation location and the offset and we get the location of the current contained_escape
+         */ 
+		void *escape_location = (void *) (((uint64_t) val) + ((uint64_t) new_entry->pointer));
+
+        nk_carat_instrument_escapes(escape_location);
+    }
+    
+}
 
 
-
-// DEPRECATED
-#if 0
-void _carat_update_entry(allocation_entry *old_entry, void *allocation_target) 
+allocation_entry *_carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void *allocation_target) 
 {
     /*
      * Create a new entry for @allocation_target
      */ 
     CREATE_ENTRY_AND_ADD (
+        the_context,
         allocation_target,
         (old_entry->size),
         "carat_update_entry: CREATE_ENTRY_AND_ADD failed on allocation_target"
@@ -109,6 +132,7 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
      * NOTE --- "new_entry" is a variable generated from CREATE_ENTRY_AND_ADD
      */
     new_entry->escapes_set = old_entry->escapes_set;
+    new_entry->contained_escapes = old_entry->contained_escapes;
 
 
 	/*
@@ -116,14 +140,14 @@ void _carat_update_entry(allocation_entry *old_entry, void *allocation_target)
      * allocation map
      */ 
     REMOVE_ENTRY (
+        the_context,
         (old_entry->pointer),
         "carat_update_entry: REMOVE_ENTRY failed on old_entry->pointer"
-    )
+    );
 
 
-    return 0;
+    return new_entry;
 }
-#endif
 
 
 /*
@@ -342,10 +366,28 @@ int _move_allocation(
     }
 
     /*
+     * Update the allocation entry
+     */
+    allocation_entry *new_entry = _carat_update_entry(the_context, entry, allocation_target);
+
+
+    /*
      * Move the contents pointed to by @allocation_to_move to the 
      * location @allocation_target (this is the "actual" move)
      */
     memmove(allocation_target, allocation_to_move, entry->size);
+
+    /*
+     * all of the escapes contained in our entry need to be resintrumented, 
+     * as they are now new escapes
+     */
+    _reinstrument_contained_escapes(new_entry);
+
+    /*
+     * We need to process those resinstrumented escapes before we continue
+     */
+    _carat_process_escape_window(the_context);
+
     return 0;
 
 
@@ -571,6 +613,10 @@ static void _print_table(nk_carat_context *the_context)
     CARAT_ALLOCATION_MAP_ITERATE(the_context)
     {        
         allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        uint64_t num_escapes = 0;
+        if (the_entry->escapes_set != NULL) {
+            num_escapes = CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set);
+        }
 		nk_vc_printf(
             "%p : (%p : %p --- (ptr: %p, len: %lu), es : %d)\n", 
 			iterator, 
@@ -578,7 +624,7 @@ static void _print_table(nk_carat_context *the_context)
 			the_entry, 
 			the_entry->pointer, 
 			the_entry->size,
-            CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set)
+            num_escapes
         );
     }
     
@@ -729,8 +775,9 @@ static int handle_carat_test(char *buf, void *priv)
 
 
 			/* 
-             * ***NOTE*** --- this malloc will be instrumented by the compiler 
+             * ***NOTE*** --- this malloc *must not* be instrumented by the compiler 
              */
+            CARAT_READY_OFF(the_context);
             nk_vc_printf("Attempting to move address %p, size %lu\n", old, size);
            	void *new = CARAT_MALLOC(size);
             nk_vc_printf("Attempting to move from %p to %p, size %lu\n", old, new, size);
@@ -753,10 +800,11 @@ static int handle_carat_test(char *buf, void *priv)
 			
         
             /* 
-             * ***NOTE*** --- this free will be instrumented by
+             * ***NOTE*** --- this free *must not* be instrumented by
 			 * the compiler 
              */
             free(old);
+            CARAT_READY_ON(the_context);
             nk_vc_printf("Free succeeded.\n");
         }
 

@@ -82,7 +82,8 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	 */ 
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
-	new_entry->escapes_set = CARAT_ESCAPE_SET_BUILD; 
+	new_entry->escapes_set = NULL; //CARAT_ESCAPE_SET_BUILD; 
+	new_entry->contained_escapes = NULL;//CARAT_ESCAPE_SET_BUILD; 
 
 
 	/*
@@ -459,14 +460,13 @@ void nk_carat_instrument_free(void *address)
 	/*
 	 * Remove @address from the allocation map
 	 */ 
-	DS("RE: ");
-	DHQ(((uint64_t) address));
-	DS("\n");
+	//DS("RE: ");
+	//DHQ(((uint64_t) address));
+	//DS("\n");
 	
-	REMOVE_ENTRY (
-        the_context,
-		address,
-		"nk_carat_instrument_free: REMOVE_ENTRY failed on address"
+	REMOVE_ENTRY_SILENT (
+    		the_context,
+		address
 	);
 
 
@@ -610,7 +610,31 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 		 * current escape should be recorded --- save this state to the 
 		 * corresponding entry and continue
 		 */  
+		
+		if(corresponding_entry->escapes_set == NULL){
+			corresponding_entry->escapes_set = CARAT_ESCAPE_SET_BUILD;
+		}
 		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
+
+
+		/*
+		 * We have processed the escape, but now we need to find the allocation 
+		 * where that escape is stored (if it exists), and add the offset to that allocation's 
+		 * "contained escapes" set.
+		 */ 
+		allocation_entry *container_for_escape = _carat_find_allocation_entry(the_context, escape_address);
+
+		if (container_for_escape) {
+
+			uint64_t offset = ((uint64_t) escape_address) - ((uint64_t) container_for_escape->pointer);
+			
+			if(corresponding_entry->contained_escapes == NULL){
+				corresponding_entry->contained_escapes = CARAT_ESCAPE_SET_BUILD;
+			}
+			
+			CARAT_ESCAPE_SET_ADD((container_for_escape->contained_escapes), (void**) offset);
+		}
+
 	}
 	DS("me: ");
 	DHQ(missed_escapes_counter);
@@ -978,7 +1002,7 @@ nk_carat_context * initialize_new_carat_context(void)
 	 * is a hack/precursor for tracking stack allocations
 	 * 
 	 * Add the stack and its allocation_entry object to the allocation map
-	 */ 
+	 */	
 	uint64_t allocation_size = THIRTY_TWO_GB;
 	void *rsp_as_void_ptr = ((void *)(rsp - allocation_size));
  

@@ -905,7 +905,7 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 //expand or contract the region
 //new_phys, if not zero, means the physical address of the additional part(for expansion)
 //alloc=1 means "allocate the physical memory for me"
-static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_size){
+static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size){
 
     if (region == NULL){
         ERROR("input region == NULL\n");
@@ -937,30 +937,57 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
         return align_check;
     }
 
-
-
-    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
-    nk_aspace_region_t * target_region = mm_update_region(p->paging_mm_struct, region, &new_region, check_flag);
-
-    if (target_region == NULL){
-        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+    nk_aspace_region_t * matched_region = mm_contains(p->paging_mm_struct, region, all_eq_flag);
+    if (matched_region == NULL) {
         ASPACE_UNLOCK(p);
         return -1;
     }
 
 
-
     //enlarging
     if(old_size < new_size){
 
+        int hasOverlap = 0;
+
         DEBUG("enlarging the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
         
+        /**
+         *  next_smallest == NULL if carat->mm doesn't contain region
+         *  next_smallest == region if region is the largest in the carat->mm
+         * */
+       	nk_aspace_region_t * next_smallest = mm_get_next_smallest(p->paging_mm_struct, region);
+        
+        if (next_smallest == NULL) {
+            ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
+            ASPACE_UNLOCK(p);
+            return -1;
+        }
+        
+        if (next_smallest != region) {
+            hasOverlap = overlap_helper(&new_region, next_smallest);
+        }
+
+        if (hasOverlap && !by_force) {
+            ERROR("The region "REGION_FORMAT" cannot update length to %lx due to existed overlapping regiong" REGION_FORMAT "\n", 
+                    REGION(region), 
+                    new_size,
+                    REGION(next_smallest)
+                );
+            ASPACE_UNLOCK(p);
+            return -1;
+        } 
+        else if (hasOverlap && by_force) 
+        {   
+            ERROR("No suport for paging to expand by force!\n");
+            ASPACE_UNLOCK(p);
+            return -1;
+        }
         //drill if this is an eager region
-        if (NK_ASPACE_GET_EAGER(target_region->protect.flags)) {
+        if (NK_ASPACE_GET_EAGER(new_region.protect.flags)) {
 
             // DRILL THE PAGE TABLES HERE
             DEBUG("eager region, drilling!\n");
-            int ret = eager_drill_wrapper_with_offset(p, target_region, old_size);
+            int ret = eager_drill_wrapper_with_offset(p, &new_region, old_size);
 
             if (ret < 0) {
                 ERROR("eager drilling of expanded region fails!\n");
@@ -974,7 +1001,8 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
             DEBUG("lazy drilling!\n");
         }
     }
-    else{
+    else
+    {
         DEBUG("Shrinking the region"REGION_FORMAT"in the address space %s to length of %lx\n", REGION(region), ASPACE_NAME(p), new_size);
         //free for the abandon Physical addresses?
         // DEBUG("truncating the region %s in the address space %s\n", region_buf, ASPACE_NAME(p));
@@ -983,6 +1011,17 @@ static int trunc_region(void *state, nk_aspace_region_t *region, uint64_t new_si
     }
 
     uint64_t diff = old_size > new_size ? old_size - new_size : new_size - old_size;
+    
+    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
+    nk_aspace_region_t * target_region = mm_update_region(p->paging_mm_struct, region, &new_region, check_flag);
+
+    if (target_region == NULL){
+        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+        ASPACE_UNLOCK(p);
+        return -1;
+    }
+
+    
     clear_cache(p, region, THRESH);
 
     ASPACE_UNLOCK(p);
@@ -1247,7 +1286,7 @@ static nk_aspace_interface_t paging_interface = {
     .remove_region = remove_region,
     .protect_region = protect_region,
     .move_region = move_region,
-    .trunc_region = trunc_region,
+    .resize_region = resize_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
@@ -1968,7 +2007,8 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test expanding lazy region
      * */
-    if (nk_aspace_trunc_region(mas, &target_region, LEN_6MB)) {
+    uint64_t actual_size;
+    if (nk_aspace_resize_region(mas, &target_region, LEN_6MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT
@@ -1979,7 +2019,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     }
     
     /**
-     *  trunc nk_aspace_trunc_region doesn't change the value of region passed into it.
+     *  trunc nk_aspace_resize_region doesn't change the value of region passed into it.
      * */
     target_region.len_bytes = LEN_6MB;
 
@@ -1992,7 +2032,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Expected to fail as the expanded region will overlap with next_region
      * */
-    if (!nk_aspace_trunc_region(mas, &target_region, LEN_16MB)) {
+    if (!nk_aspace_resize_region(mas, &target_region, LEN_16MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("Extend region target_region"
                     REGION_FORMAT
@@ -2013,7 +2053,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test expanding earger region
      * */
-    if (nk_aspace_trunc_region(mas, &next_region, LEN_16MB)) {
+    if (nk_aspace_resize_region(mas, &next_region, LEN_16MB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region next_region"
                     REGION_FORMAT
@@ -2035,7 +2075,7 @@ static int paging_sanity(char *_buf, void* _priv) {
     /**
      *  Test shrinking lazy region
      * */
-    if (nk_aspace_trunc_region(mas, &target_region, LEN_2MB + LEN_16KB)) {
+    if (nk_aspace_resize_region(mas, &target_region, LEN_2MB + LEN_16KB,0, &actual_size)) {
         test_failed = 1;
         nk_vc_printf("failed to extend region target_region"
                     REGION_FORMAT

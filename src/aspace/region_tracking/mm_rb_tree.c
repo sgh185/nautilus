@@ -666,6 +666,7 @@ mm_rb_node_t * new_bound(
     find lowest upper bound for key among the elements in tree
     return tree->NIL if key is larger than all elements in the tree
     AKA, no upper bound
+    Note: this helper function differs from next_smallest because this is NOT strict upper bound
 */
 mm_rb_node_t * rb_tree_LUB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
     mm_rb_node_t * curr = tree->root;
@@ -686,6 +687,32 @@ mm_rb_node_t * rb_tree_LUB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
     }
 
     return upper_bound;
+}
+/*
+    find greatest lower bound for key among the elements in tree
+    return tree->NIL if key is samller than all elements in the tree
+    AKA, no lower bound
+    Note: this helper function differs from prev_largest because this is NOT strict lower bound
+*/
+mm_rb_node_t * rb_tree_GLB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
+    mm_rb_node_t * curr = tree->root;
+    mm_rb_node_t * lower_bound = tree->NIL;
+
+    while (curr != tree->NIL) {
+        int comp = (*tree->compf) (node, curr);
+        if (comp == 0){
+            lower_bound = curr;
+            break;
+        } else if (comp > 0) {
+            lower_bound = new_bound(tree, lower_bound, curr, -1);
+            curr = curr->right;
+        } else {
+
+            curr = curr->left;
+        }
+    }
+
+    return lower_bound;
 }
 
 
@@ -722,31 +749,56 @@ mm_rb_node_t * rb_tree_prev_largest(mm_rb_tree_t * tree, mm_rb_node_t * node) {
     return node->parent;
 }
 
-/*
-    find greatest lower bound for key among the elements in tree
-    return tree->NIL if key is larger than all elements in the tree
-    AKA, no upper bound
-*/
-mm_rb_node_t * rb_tree_GLB(mm_rb_tree_t * tree, mm_rb_node_t * node) {
-    mm_rb_node_t * curr = tree->root;
-    mm_rb_node_t * lower_bound = tree->NIL;
-
-    while (curr != tree->NIL) {
-        int comp = (*tree->compf) (node, curr);
-        if (comp == 0){
-            lower_bound = curr;
-            break;
-        } else if (comp > 0) {
-            lower_bound = new_bound(tree, lower_bound, curr, -1);
-            curr = curr->right;
-        } else {
-
-            curr = curr->left;
-        }
+nk_aspace_region_t * rb_tree_next_smallest_wrap ( mm_struct_t * self, nk_aspace_region_t * cur_region) {
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+    
+    mm_rb_node_t node;
+    node.region = *cur_region;
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    
+    if (target == tree->NIL) {
+        /* no such region */
+        DEBUG_RB("input region is not found"REGION_FORMAT"\n", REGION(cur_region));
+        return NULL;
+    }
+    
+    mm_rb_node_t * next_smallest = rb_tree_next_smallest(tree, target);
+    
+    if (next_smallest == tree->NIL) {
+        /* the input region is the largest in the tree */
+        DEBUG_RB("the input region (" REGION_FORMAT ") is the largest\n", REGION(cur_region));
+        return cur_region;
     }
 
-    return lower_bound;
+    return &next_smallest->region;
+    
 }
+
+nk_aspace_region_t * rb_tree_prev_largest_wrap (mm_struct_t * self, nk_aspace_region_t * cur_region){
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+    mm_rb_node_t node;
+    node.region = *cur_region;
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    
+    if(target == tree->NIL){
+         /* no such region */
+        DEBUG_RB("input region is not found"REGION_FORMAT"\n", REGION(cur_region));
+        return NULL;
+    }
+
+    mm_rb_node_t * prev_largest = rb_tree_prev_largest(tree,target);
+
+    if(prev_largest == tree->NIL){
+        /* the input region is the smallest in the tree*/
+        DEBUG_RB("the input region (" REGION_FORMAT ") is the smallest\n", REGION(cur_region));
+        return cur_region;
+    }
+
+    return &prev_largest->region;
+}
+
 
 /*
 nk_aspace_region_t * mm_rb_tree_check_overlap(mm_struct_t * self, nk_aspace_region_t * region) {
@@ -865,35 +917,35 @@ nk_aspace_region_t * rb_tree_update_region (
     int eq = region_equal(target_region, cur_region, all_eq_flag);
     if (!eq) return NULL;
 
-    // region_update(target_region, new_region, eq_flag);
+    region_update(target_region, new_region, eq_flag);
 
-    if (!(eq_flag & PA_CHECK)) {
-        target_region->pa_start = new_region->pa_start;
-    }
+    // if (!(eq_flag & PA_CHECK)) {
+    //     target_region->pa_start = new_region->pa_start;
+    // }
 
-    if (!(eq_flag & LEN_CHECK)) {
-        if (new_region->len_bytes > target_region->len_bytes) {
-            /**
-             *  We have to take care here if new region has longer length
-             *  Expanding current region might lead to overlapping
-             * */
-            mm_rb_node_t * next_node = rb_tree_next_smallest(tree, target_node);
-            int new_region_overlap = overlap_helper(new_region, &next_node->region);
+    // if (!(eq_flag & LEN_CHECK)) {
+    //     if (new_region->len_bytes > target_region->len_bytes) {
+    //         /**
+    //          *  We have to take care here if new region has longer length
+    //          *  Expanding current region might lead to overlapping
+    //          * */
+    //         mm_rb_node_t * next_node = rb_tree_next_smallest(tree, target_node);
+    //         int new_region_overlap = overlap_helper(new_region, &next_node->region);
             
-            if (new_region_overlap){
-                /**
-                 *  If new region overlaps with existed region, the update the is not valid, and we have to undo the deletion
-                 * */
-                return NULL;
-            } 
-        } 
+    //         if (new_region_overlap){
+    //             /**
+    //              *  If new region overlaps with existed region, the update the is not valid, and we have to undo the deletion
+    //              * */
+    //             return NULL;
+    //         } 
+    //     } 
 
-        target_region->len_bytes = new_region->len_bytes;  
-    }
+    //     target_region->len_bytes = new_region->len_bytes;  
+    // }
 
-    if (!(eq_flag & PROTECT_CHECK)) {
-        target_region->protect = new_region->protect;
-    }
+    // if (!(eq_flag & PROTECT_CHECK)) {
+    //     target_region->protect = new_region->protect;
+    // }
 
     return target_region;
 }
@@ -1010,6 +1062,9 @@ mm_struct_t * mm_rb_tree_create() {
     rbtree->super.vptr->update_region = &rb_tree_update_region;
     rbtree->super.vptr->remove = &rb_tree_remove;
     rbtree->super.vptr->contains = &rb_tree_contains;
+    rbtree->super.vptr->next_smallest = &rb_tree_next_smallest_wrap;
+    rbtree->super.vptr->prev_largest = &rb_tree_prev_largest_wrap;
+
     rbtree->super.vptr->destroy = &mm_rb_tree_destroy;
 
     rbtree->NIL = create_rb_NIL();

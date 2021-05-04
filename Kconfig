@@ -1251,11 +1251,11 @@ config DEBUG_PMC
                 Turn on debug prints for the performance counter (PMC) subsystem
 
 config DEBUG_PROCESSES
-      bool "Debug base process abstraction"
+      bool "Debug processes"
       depends on DEBUG_PRINTS
       default n
       help
-                Turn on debug prints for processes
+        Turn on debug prints for processes
 
 config DEBUG_LINUX_SYSCALLS
       bool "Debug Linux Syscalls"

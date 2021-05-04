@@ -196,6 +196,8 @@ static int remove_thread(void *state)
     return failed;
 }
 
+
+/* region->pa = kmem_speicific_malloc(n) */
 static int add_region(void *state, nk_aspace_region_t *region)
 {
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
@@ -624,7 +626,16 @@ static int defragment_region(
      *  Note: we are using the malloc macro defined in mm.h here,
      *      but it's really kmem_malloc which is sperate from Alex's allocator. 
      * */
+
+    /*
+     * Note from Drew - The patching implementation has been adjusted. 
+     * We now *CANNOT* instrument this malloc, as patching will interally 
+     * update the allocation entries 
+     */
+    CARAT_READY_OFF(carat->context);
     void * new_region_chunk = kmem_sys_malloc_specific(new_size,my_cpu_id(),0);
+    CARAT_READY_ON(carat->context);
+    
 
     if (!new_region_chunk) {
       ASPACE_UNLOCK(carat);
@@ -659,12 +670,19 @@ static int defragment_region(
     *cur_region = new_region;
     
     ASPACE_UNLOCK(carat);
+
     return 0;
 }
 
 
 static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_region_t *new_region) 
 {
+    DEBUG("move region\n"
+            "src = "REGION_FORMAT "\n"
+            "dest = " REGION_FORMAT "\n",
+            REGION(cur_region), REGION(new_region)  
+        );
+
     nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
@@ -692,6 +710,19 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
         return -1;
     }
 
+    if (NK_ASPACE_GET_PIN(cur_region->protect.flags)) {
+        DEBUG("Cannot remove pinned region"REGION_FORMAT"\n", REGION(cur_region));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    nk_aspace_region_t * matched_region = mm_contains(carat->mm, cur_region, all_eq_flag);
+    if (matched_region == NULL) {
+        DEBUG("No matched region "REGION_FORMAT"\n", REGION(cur_region));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
     void *free_space_start; // don't care
     // call CARAT runtime
     int res = nk_carat_move_region(carat->context, cur_region->pa_start, new_region->pa_start, cur_region->len_bytes, &free_space_start);
@@ -702,6 +733,260 @@ static int move_region(void *state, nk_aspace_region_t *cur_region, nk_aspace_re
 
     // TODO: ask Peter if we need remove and insert new regions here or expect user to make those calls?
 
+    /**
+     * update the region tracking data structure
+     * */
+
+    ASPACE_UNLOCK(carat);
+    
+    int remove_failed = mm_remove(carat->mm, cur_region, all_eq_flag);
+
+    ASPACE_LOCK(carat);
+    
+    if (remove_failed) {
+        DEBUG("Remove region"REGION_FORMAT" Failed\n", REGION(cur_region));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    } 
+
+    int insert_failed =  mm_insert(carat->mm, new_region);
+    
+    if (insert_failed) {
+        DEBUG("Insert region"REGION_FORMAT" Failed\n", REGION(new_region));
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    mm_show(carat->mm);
+    
+    ASPACE_UNLOCK(carat);
+    return 0;
+}
+
+/**
+ *  region contains old va/pa_start, lenbytes
+ *  new_size is the new lenbytes
+ *  say we are growing,new_size > old_size
+ *  
+ *  [pa_start, pa_start + old_size] assume already already allocated by kmem
+ *  [pa_start + old_size, pa_start + new_size] is this allocated completely? 
+ *  However, kmem_specific cannot garantee where is the new allocation
+ * */
+
+
+
+static int resize_region(void *state, nk_aspace_region_t *region, uint64_t new_size, int by_force, uint64_t * actual_size){
+    
+    DEBUG("resize region " REGION_FORMAT " to size %lx, by_force = %d\n", REGION(region), new_size, by_force);
+    
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *)state;
+    ASPACE_LOCK_CONF;
+    ASPACE_LOCK(carat);
+
+    if (CARAT_INVALID(region)) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    if (region->len_bytes == new_size) {
+        // size equal nothing to do
+        ASPACE_UNLOCK(carat);
+        return 0;
+    }
+
+
+    uint64_t old_size = region->len_bytes;
+    nk_aspace_region_t new_region = *region;
+    new_region.len_bytes = new_size;
+
+    nk_aspace_region_t * matched_region = mm_contains(carat->mm, region, all_eq_flag);
+    if (matched_region == NULL) {
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+
+    if (new_size > old_size) {
+        /**
+         * expanding
+         * */
+	
+        int hasOverlap = 0;
+        
+        DEBUG("Expanding from size: %lx to size:%lx\n", old_size,new_size);
+
+        /**
+         *  next_smallest == NULL if carat->mm doesn't contain region
+         *  next_smallest == region if region is the largest in the carat->mm
+         * */
+       	nk_aspace_region_t * next_smallest = mm_get_next_smallest(carat->mm, region);
+        // DEBUG("next_smallest = ")
+
+        if (next_smallest == NULL) {
+            ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
+            ASPACE_UNLOCK(carat);
+            return -1;
+        }
+
+        if (next_smallest != region) {
+            hasOverlap = overlap_helper(&new_region, next_smallest);
+        }
+    
+        if (hasOverlap && !by_force) {
+            ERROR("The region "REGION_FORMAT" cannot update length to %lx due to existed overlapping regiong" REGION_FORMAT "\n", 
+                    REGION(region), 
+                    new_size,
+                    REGION(next_smallest)
+                );
+            ASPACE_UNLOCK(carat);
+            return -1;
+        } 
+        else if (hasOverlap && by_force) 
+        {
+            /**
+             *  move by force
+             * */
+
+            DEBUG("Overlapped! and we are moving the blocking regions by force!\n");
+            
+            do {
+                /**
+                 *  try to move the region away from the new region
+                 * */
+                void * move_target_addr = NULL;
+                CARAT_READY_OFF(carat->context);
+                move_target_addr = kmem_sys_malloc_restrict(
+                                        next_smallest->len_bytes,
+                                        (addr_t) new_region.va_start + new_region.len_bytes, /* lower bound */
+                                        -1ULL                                                  /* upper bound */
+                                    );
+                CARAT_READY_ON(carat->context);
+
+                if (move_target_addr == NULL) {
+                    CARAT_READY_OFF(carat->context);
+                    move_target_addr = kmem_sys_malloc_restrict(
+                                        next_smallest->len_bytes,
+                                        0,                          /* lower bound */
+                                        (addr_t) new_region.va_start        /* upper bound */
+                                    );
+                    CARAT_READY_ON(carat->context);
+                    if (move_target_addr == NULL) {
+                        ERROR("cannot move" REGION_FORMAT " way from " REGION_FORMAT, REGION(next_smallest), REGION(&new_region));
+                        ASPACE_UNLOCK(carat);
+                        return -1;
+                    }
+                }
+
+                
+
+                DEBUG("succeeded allocating the move away target region\n");
+
+                nk_aspace_region_t move_target = {
+                    .va_start = move_target_addr,
+                    .pa_start = move_target_addr,
+                    .len_bytes = next_smallest->len_bytes,
+                    .protect = next_smallest->protect,
+                    .requested_permissions = next_smallest->requested_permissions
+                };
+
+
+                memcpy(move_target_addr, next_smallest->va_start, next_smallest->len_bytes);
+                /**
+                 *  note here we need to unlock before entering move region since move_region also requires the lock.
+                 * */
+                void * saved_vastart = next_smallest->va_start;
+
+
+                ASPACE_UNLOCK(carat); 
+                if (move_region(state, next_smallest, &move_target)) {
+                    ERROR("Fail to move region from "REGION_FORMAT" to "REGION_FORMAT"\n", REGION(next_smallest), REGION(&move_target) );
+                    // move_region calls ASPACE_UNLOCK, so we don't need to do it before this return
+                    return -1;
+                }
+                /**
+                 *  WARNING: next_smallest points to garbage rn, because move_region deletes the region in data structure 
+                 *      like rb_tree and next_smallest is from the rb_tree.
+                 * */
+
+                /**
+                 *  xxxxxxxxxxxxxxx------xxx-----xxxxxxxxx
+                 *  region1               2       3
+                 *                                  new length
+                 * */
+
+                /**
+                 *  Also don't forget to lock it back.
+                 * */
+                ASPACE_LOCK(carat);
+                
+                // DEBUG("free %p\n", saved_vastart);
+
+                kmem_sys_free(saved_vastart); // suspicious 
+
+                
+                // DEBUG("succeeded move the blocking region away, starts at %lx with length: %lx\n", move_target_addr, next_smallest->len_bytes);
+
+                next_smallest = mm_get_next_smallest(carat->mm, region);
+                // DEBUG("Done:mm_get_next_smallest\n");
+                
+                if (next_smallest == NULL) {
+                    ERROR("Cannot find" REGION_FORMAT " in data strucutre", REGION(region));
+                    ASPACE_UNLOCK(carat);
+                    return -1;
+                }
+
+                if (next_smallest != region) {
+                    hasOverlap = overlap_helper(&new_region, next_smallest);
+                } else {
+                    hasOverlap = 0;
+                }
+                
+            
+                DEBUG("hasOverlap = %d\n", hasOverlap);
+            }  while (hasOverlap);
+        }
+        
+        /**
+         *  we are done with every preprocessing, safe to update the region in the data structure
+         * */
+        
+    } 
+    else 
+    {
+        /**
+         * shrinking，just update the region directly
+         * */
+    }
+
+    /**
+     * update
+     * */
+    uint64_t actual_size_for_kmem;
+    CARAT_READY_OFF(carat->context);
+    int res = kmem_sys_realloc_in_place(new_region.va_start, new_region.len_bytes, &actual_size_for_kmem);
+    CARAT_READY_ON(carat->context);
+    if (res) {
+        ERROR("Cannot expand region starts at %16lx to length %lx res = %d\n" ,new_region.va_start,  new_region.len_bytes, res);
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+    
+    // ASSERT(actual_size_for_kmem >= new_region.len_bytes);
+    DEBUG("Try to expand to %lx actual size = %lx\n", new_region.len_bytes, actual_size_for_kmem);
+    new_region.len_bytes = actual_size_for_kmem;
+
+    uint8_t check_flag = VA_CHECK | PA_CHECK | PROTECT_CHECK;
+    nk_aspace_region_t * target_region = mm_update_region(carat->mm, region, &new_region, check_flag);
+    
+
+    if (target_region == NULL){
+        ERROR("The region "REGION_FORMAT" cannot update length to %lx\n", REGION(region), new_size );
+        ASPACE_UNLOCK(carat);
+        return -1;
+    }
+
+    *actual_size = actual_size_for_kmem;
+    mm_show(carat->mm); 
     
     ASPACE_UNLOCK(carat);
     return 0;
@@ -724,6 +1009,10 @@ static int switch_to(void *state)
     
     DEBUG("switching in address space %s from thread %d (%s)\n", ASPACE_NAME(carat),thread->tid,THREAD_NAME(thread));
     
+    uint64_t default_cr3 = nk_paging_default_cr3();
+    DEBUG("use default cr3 = %lx\n", default_cr3);
+    
+    write_cr3(default_cr3);
     return 0;
 }
 
@@ -784,6 +1073,7 @@ static nk_aspace_interface_t carat_interface = {
     .request_permission = request_permission,
     .move_region = move_region,
     .defragment_region = defragment_region,
+    .resize_region = resize_region,
     .switch_from = switch_from,
     .switch_to = switch_to,
     .exception = exception,
@@ -1073,6 +1363,21 @@ static int CARAT_Protection_sanity(char *_buf, void* _priv) {
 
 
 
+    // r5: [400,1200] (old region)  => [400,1800] expanding:
+    // r6: [800,900]  r7:[1000 1200] r8:[]
+    // nk_aspace_region_t carat_r5, carat_r6, carat_r7, carat_r8, carat_r9;
+    // create a 1-1 region mapping all of physical memory
+    // so that the kernel can work when that thread is active
+    // carat_r0.va_start = 0;
+    // carat_r0.pa_start = 0;
+    // carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+    // set protections for kernel
+    // use EAGER to tell paging implementation that it needs to build all these PTs right now
+    // carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+
+
+
     nk_vc_printf("Before Destroy\n");
     nk_aspace_destroy(carat_aspace);
 
@@ -1083,12 +1388,162 @@ test_fail:
     return 0;
 }
 
+
+static int CARAT_Resize_sanity(char *_buf, void* _priv){
+
+    #define LEN_1KB (0x400UL)
+    #define LEN_4KB (0x1000UL)
+    #define LEN_16KB (0x4000UL)
+    #define LEN_256KB (0x40000UL)
+    #define LEN_512KB (0x80000UL)
+
+    #define LEN_1MB (0x100000UL)
+    #define LEN_2MB (0x200000UL)
+    #define LEN_4MB (0x400000UL)
+    #define LEN_6MB (0x600000UL)
+    #define LEN_16MB (0x1000000UL)
+
+    #define LEN_1GB (0x40000000UL)
+    #define LEN_4GB (0x100000000UL)
+
+    #define ADDR_4GB ((void *) 0x100000000UL)
+    #define ADDR_8GB ((void *) 0x200000000UL)
+    #define ADDR_12GB ((void *) 0x300000000UL)
+    #define ADDR_16GB ((void *) 0x400000000UL)
+    #define ADDR_UPPER ((void *) 0xffff800000000000UL)
+    
+
+    nk_vc_printf("Start: CARAT Resize check sanity test.\n");
+
+    nk_aspace_characteristics_t c;
+    if (nk_aspace_query("carat",&c)) {
+        nk_vc_printf("failed to find carat implementation\n");
+        goto test_fail;
+    }
+    nk_aspace_t *carat_aspace = nk_aspace_create("carat", "carat resize check",&c);
+
+
+
+    nk_aspace_region_t carat_r0, carat_r1, carat_r2, carat_r3;
+    
+    carat_r0.va_start = 0;
+    carat_r0.pa_start = 0;
+    carat_r0.len_bytes = 0x100000000UL;  // first 4 GB are mapped
+    // set protections for kernel
+    // use EAGER to tell paging implementation that it needs to build all these PTs right now
+    carat_r0.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_PIN | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    // now add the region
+    // if (nk_aspace_add_region(carat_aspace, &carat_r0)) {
+    //     DEBUG("failed! to add initial eager region to address space\n");
+    //     goto test_fail;
+    // }
+    uint64_t* VA1 = NULL;
+    uint64_t* VA2 = NULL;
+    uint64_t* VA3 = NULL;
+    uint64_t len = LEN_1MB;
+
+
+    // uint64_t* VA1 = kmem_sys_malloc_specific(len,my_cpu_id(),0);
+    
+    nk_aspace_carat_t *carat = (nk_aspace_carat_t *) carat_aspace->state;
+    CARAT_READY_OFF(carat->context);
+    VA1 =  kmem_sys_malloc_restrict(len, LEN_4GB, -1);
+    VA2 =  kmem_sys_malloc_restrict(LEN_16MB, LEN_4GB, -1);
+    VA3 =  kmem_sys_malloc_restrict(LEN_4MB, LEN_4GB, -1);
+    CARAT_READY_ON(carat->context);
+
+    
+
+    carat_r1.va_start = VA1;
+    carat_r1.pa_start = VA1;
+    carat_r1.len_bytes = len;
+    carat_r1.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC  | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    carat_r2.va_start = VA2;
+    carat_r2.pa_start = VA2;
+    carat_r2.len_bytes = LEN_16MB,
+    carat_r2.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+    	
+
+    carat_r3.va_start = VA3;
+    carat_r3.pa_start = VA3;
+    carat_r3.len_bytes = LEN_4MB;
+    carat_r3.protect.flags =  NK_ASPACE_READ | NK_ASPACE_WRITE | NK_ASPACE_EXEC | NK_ASPACE_KERN | NK_ASPACE_EAGER;
+
+    nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
+         
+    if(nk_aspace_add_region(carat_aspace,&carat_r1)){
+	DEBUG("failed! to add r1 region to address space\n");
+        goto test_fail;
+    }
+    
+    if(nk_aspace_add_region(carat_aspace,&carat_r2)){
+    	DEBUG("failed! to add r2 region to address space\n");
+    }
+
+    if(nk_aspace_add_region(carat_aspace,&carat_r3)){
+    	DEBUG("failed! to add r3 region to address space\n");
+    }
+   
+
+    nk_aspace_region_t * toExpand = &carat_r2;
+
+    // DEBUG("now resize region_1 starting at %p from length of %lx bytes to %lx bytes\n", carat_r2.va_start, carat_r2.len_bytes, LEN_16MB);
+    
+    for (int i = 0; i < 3; i++) {
+        uint64_t actual_size;
+        if(nk_aspace_resize_region(carat_aspace, toExpand, toExpand->len_bytes * 2, 1, &actual_size )){
+            nk_vc_printf("Failed to resize the region\n");
+            goto test_fail;
+        }
+
+        DEBUG("Resize succeeded!\n"); 
+
+        toExpand->len_bytes = actual_size;
+    }
+
+    kmem_sys_free(VA1);
+    kmem_sys_free(VA2);
+    kmem_sys_free(VA3);
+    nk_vc_printf("Free all regions\n");
+
+    CARAT_READY_OFF(carat->context);
+    VA1 =  kmem_sys_malloc_restrict(len, LEN_4GB, -1);
+    VA2 =  kmem_sys_malloc_restrict(LEN_16MB, LEN_4GB, -1);
+    VA3 =  kmem_sys_malloc_restrict(LEN_4MB, LEN_4GB, -1);
+    CARAT_READY_ON(carat->context);
+
+    nk_vc_printf("The VA for region_1 is %p, region_2 %p,and region_3 %p\n",VA1,VA2,VA3);
+    
+    kmem_sys_free(VA1);
+    kmem_sys_free(VA2);
+    kmem_sys_free(VA3);
+
+    nk_vc_printf("Before Destroy\n");
+    //nk_aspace_destroy(carat_aspace);
+
+    nk_vc_printf("CARAT Protection resize sanity test Passed!\n");
+    return 0;
+test_fail:
+    nk_vc_printf("CARAT Protection resize sanity test failed!\n");
+    return 0;
+}
+
+
 static struct shell_cmd_impl carat_protect_sanity = {
     .cmd      = "carat-protect-sanity",
     .help_str = "Sanity check for CARAT protection",
     .handler  = CARAT_Protection_sanity,
 };
 
+static struct shell_cmd_impl carat_resize_sanity = {
+    .cmd    = "carat-resize-sanity",
+    .help_str = "Sanity check for CARAT protection",
+    .handler = CARAT_Resize_sanity,
+};
+
+nk_register_shell_cmd(carat_resize_sanity);
 nk_register_shell_cmd(carat_protect_sanity);
 
 

@@ -14,6 +14,7 @@
 #define PROT_WRITE 0x2
 #define PROT_EXEC 0x4
 
+__attribute__((used, annotate("nocarat")))
 uint64_t sys_mmap(uint64_t addr_, uint64_t length, uint64_t prot_,
                   uint64_t flags_, uint64_t fd_, uint64_t offset_) {
 

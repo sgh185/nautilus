@@ -186,6 +186,14 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 		panic(str" %p\n", key); \
 	}
 
+#define REMOVE_ENTRY_SILENT(ctx, key) \
+	/*
+	 * Delete the @##key from the allocation map
+	 */ \
+	if (!(CARAT_ALLOCATION_MAP_REMOVE(ctx, key))) { \
+        CARAT_PRINT("CARAT: Attempted to free this address, corresponding allocation entry not found: %p\n", (void *) key); \
+	}
+
 
 /*
  * Macro expansion utility --- fetch the current CARAT context

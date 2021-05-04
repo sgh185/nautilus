@@ -79,7 +79,7 @@
 /*
  * Printing
  */ 
-#define DO_CARAT_PRINT 1
+#define DO_CARAT_PRINT 0
 #if DO_CARAT_PRINT
 #define CARAT_PRINT(...) nk_vc_printf(__VA_ARGS__)
 #else
@@ -206,6 +206,16 @@ typedef struct allocation_entry_t {
      * allocation, the pointer -> void **
      */ 
     nk_carat_escape_set *escapes_set;
+
+    /*
+     * If this allocation contains an escape to another allocation,
+     * keep track of that escape here, in case this allocation moves.
+     * This will be a set of numbers representing the offset into the allocation 
+     * where an escape is contained.
+     * 
+     * NOTE - this is a bit of a hack. We are storing uints in this "escape set", but they are actually just numbers. 
+     */ 
+    nk_carat_escape_set *contained_escapes;
 
 } allocation_entry;
 

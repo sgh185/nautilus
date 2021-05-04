@@ -76,6 +76,7 @@ static void proc_mmap_print_allocations(nk_process_t* proc) {
   }
 }
 
+__attribute__((used, annotate("nocarat")))
 void proc_mmap_add_region(nk_process_t* proc,
                           nk_aspace_region_t* aspace_region) {
   // This part is easy; just add the region to our tracking
