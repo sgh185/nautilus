@@ -82,8 +82,8 @@ allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocat
 	 */ 
 	new_entry->pointer = address;
 	new_entry->size = allocation_size;
-	new_entry->escapes_set = NULL; //CARAT_ESCAPE_SET_BUILD; 
-	new_entry->contained_escapes = NULL;//CARAT_ESCAPE_SET_BUILD; 
+	new_entry->escapes_set = NULL; // CARAT_ESCAPE_SET_BUILD; 
+	new_entry->contained_escapes = NULL; // CARAT_ESCAPE_SET_BUILD; 
 
 
 	/*
@@ -156,35 +156,21 @@ allocation_entry * _carat_find_allocation_entry(
 {
 	// CONV [brian] -> [better than brian] 	
 	/*
-	 * Find a prospective object (skiplist node) in the allocation map 
+	 * Find a prospective object in the allocation map 
 	 * based on @address --- using "better_lower_bound"
 	 * 
 	 * "better_lower_bound" returns the node containing the
 	 * address that is the closest to @address AND <= @address
 	 */
-	__auto_type *lower_bound_node = 
+    allocation_entry *prospective_entry =
         CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(
             the_context,
             address
         );
 
 
-	/* 
-	 * Possible exists --- [prospective] -> [_carat_find_allocation_entry return]:
-	 * 1) the left sentinal (nk_slist_node, see below) -> NULL
-	 * 2) an allocation_entry that does contain the address -> allocation_entry *
-	 * 3) a allocation_entry that does NOT contain the address -> NULL
-	 */ 
-
-	// skiplist node -> data -> second == allocation_entry object from [address : allocation_entry *]
-	allocation_entry *prospective_entry = ((allocation_entry *) lower_bound_node->data->second);
-
 	/*
-	 * CONDITION 1 --- better_lower_bound may return the left sential if  
-	 * the address is lower than all addresses that exist in the skip list 
-	 * (edge case)
-	 * 
-	 * Handle with a check against the left sentinal
+	 * Sanity check the returned value 
 	 */
 	if (!prospective_entry) { return NULL; }
 	
@@ -194,7 +180,7 @@ allocation_entry * _carat_find_allocation_entry(
 	 * the prospective's allocation, and CHECK if @address aliases this allocation
 	 */ 
 	uint64_t prospective_size = prospective_entry->size; 
-	void *prospective_address = ((void *) lower_bound_node->data->first);
+	void *prospective_address = prospective_entry->pointer; 
 	if (!(_carat_does_alias(address, prospective_address, prospective_size))) { return NULL; }
 
 
@@ -274,7 +260,7 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
 	/*
 	 * Create an entry and add the mapping to the allocation_map
 	 */ 
-	CREATE_ENTRY_AND_ADD_SILENT (
+	CREATE_ENTRY_AND_ADD (
         the_context,
 		address, 
 		allocation_size
@@ -341,8 +327,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 	CREATE_ENTRY_AND_ADD (
         the_context,
 		address, 
-		allocation_size,
-		"nk_carat_instrument_malloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		allocation_size
 	);
 
 
@@ -382,8 +367,7 @@ void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_
 	CREATE_ENTRY_AND_ADD (
         the_context,
 		address, 
-		allocation_size,
-		"nk_carat_instrument_calloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		allocation_size
 	);
 
 
@@ -425,8 +409,7 @@ void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, vo
 	CREATE_ENTRY_AND_ADD (
         the_context,
 		new_address, 
-		allocation_size,
-		"nk_carat_instrument_realloc: CARAT_ALLOCATION_MAP_INSERT failed on address"
+		allocation_size
 	);
 
 	
@@ -460,12 +443,14 @@ void nk_carat_instrument_free(void *address)
 	/*
 	 * Remove @address from the allocation map
 	 */ 
-	//DS("RE: ");
-	//DHQ(((uint64_t) address));
-	//DS("\n");
+#if 0
+	DS("RE: ");
+	DHQ(((uint64_t) address));
+	DS("\n");
+#endif
 	
 	REMOVE_ENTRY_SILENT (
-    		the_context,
+    	the_context,
 		address
 	);
 
@@ -533,11 +518,13 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
     /*
      * Debugging
      */ 
-    // DS("ES: ");
-	// DHQ((global_carat_context.total_escape_entries));
-	// DS("\n");
+#if 0
+    DS("ES: ");
+	DHQ((global_carat_context.total_escape_entries));
+	DS("\n");
+#endif
+   
 
-    
     /*
      * Turn on CARAT upon exit
      */ 
@@ -565,6 +552,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	 * ignore it
 	 */  
 	nk_carat_escape_set *processed_escapes = CARAT_ESCAPE_SET_BUILD;
+    CARAT_ESCAPE_SET_SETUP(processed_escapes);
 
 
 	/*
@@ -599,10 +587,10 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 			|| (!escape_address) /* Condition 1 */
 			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
 			|| (!(corresponding_entry = _carat_find_allocation_entry(the_context, *escape_address)))) /* Condition 3 */
-			{ 
-				missed_escapes_counter++;
-				continue; 
-            }
+        { 
+            missed_escapes_counter++;
+            continue; 
+        }
 
 		
 		/*
@@ -611,9 +599,11 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 		 * corresponding entry and continue
 		 */  
 		
-		if(corresponding_entry->escapes_set == NULL){
+		if (!(corresponding_entry->escapes_set)) {
 			corresponding_entry->escapes_set = CARAT_ESCAPE_SET_BUILD;
+            CARAT_ESCAPE_SET_SETUP((corresponding_entry->escapes_set));
 		}
+
 		CARAT_ESCAPE_SET_ADD((corresponding_entry->escapes_set), escape_address);
 
 
@@ -628,17 +618,27 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 
 			uint64_t offset = ((uint64_t) escape_address) - ((uint64_t) container_for_escape->pointer);
 			
-			if(corresponding_entry->contained_escapes == NULL){
+			if (!(corresponding_entry->contained_escapes)) {
 				corresponding_entry->contained_escapes = CARAT_ESCAPE_SET_BUILD;
+                CARAT_ESCAPE_SET_SETUP((corresponding_entry->contained_escapes));
 			}
 			
 			CARAT_ESCAPE_SET_ADD((container_for_escape->contained_escapes), (void**) offset);
 		}
 
 	}
+
+
+    /*
+     * Debugging
+     */
+#if 0
 	DS("me: ");
 	DHQ(missed_escapes_counter);
 	DS("\n");
+#endif
+
+
 	/*
 	 * Reset the escapes counter for @the_context
 	 */ 
@@ -995,6 +995,7 @@ nk_carat_context * initialize_new_carat_context(void)
 	 * Set up global allocation map
 	 */ 
 	new_context->allocation_map = CARAT_ALLOCATION_MAP_BUILD;
+    CARAT_ALLOCATION_MAP_SETUP;
 
 	
 	/*
@@ -1009,8 +1010,7 @@ nk_carat_context * initialize_new_carat_context(void)
 	CREATE_ENTRY_AND_ADD (
         new_context,
 		rsp_as_void_ptr,
-		allocation_size,
-		"CARATInit: nk_map_insert failed on rsp_as_void_ptr"
+		allocation_size
 	);
 
 

@@ -50,12 +50,14 @@ int _carat_patch_escapes(
     if(entry->escapes_set == NULL) {
         return 0;
     }
+
+      
     CARAT_ESCAPES_SET_ITERATE((entry->escapes_set))
     {
         /*
          * Set up the escape
          */ 
-		void **curr_escape = ((void **) val);
+		void **curr_escape = FETCH_ESCAPE_FROM_ITERATOR;
         void *curr_escape_value = *curr_escape;
 
 
@@ -99,6 +101,8 @@ void _reinstrument_contained_escapes(allocation_entry *new_entry) {
     if (new_entry->contained_escapes == NULL) {
         return;
     }
+
+
     CARAT_ESCAPES_SET_ITERATE((new_entry->contained_escapes))
     {
         /*
@@ -106,7 +110,8 @@ void _reinstrument_contained_escapes(allocation_entry *new_entry) {
          * new_entry->pointer is the allocation location
          * add the allocation location and the offset and we get the location of the current contained_escape
          */ 
-		void *escape_location = (void *) (((uint64_t) val) + ((uint64_t) new_entry->pointer));
+        uint64_t offset = ((uint64_t) FETCH_ESCAPE_FROM_ITERATOR); /* HACK */
+		void *escape_location = (void *) (offset + ((uint64_t) new_entry->pointer));
 
         nk_carat_instrument_escapes(escape_location);
     }
@@ -562,8 +567,8 @@ int nk_carat_move_region(
         /*
          * Fetch [key : val]
          */ 
-        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-        void *the_address = CARAT_ALLOCATION_MAP_CURRENT_ADDRESS;
+        allocation_entry *the_entry = FETCH_ALLOCATION_ENTRY_FROM_ITERATOR;
+        void *the_address = the_entry->pointer;
 
 
         /*
@@ -649,8 +654,8 @@ int nk_carat_defrag_allocation_table(nk_carat_context *the_context)
         /*
          * Fetch the address
          */ 
-        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
-        void *the_address = CARAT_ALLOCATION_MAP_CURRENT_ADDRESS;
+        allocation_entry *the_entry = FETCH_ALLOCATION_ENTRY_FROM_ITERATOR;
+        void *the_address = the_entry->pointer;
 
         old_addresses[count] = the_address;
         old_lengths[count] = the_entry->size;
@@ -700,7 +705,7 @@ static void _print_table(nk_carat_context *the_context)
      */ 
     CARAT_ALLOCATION_MAP_ITERATE(the_context)
     {        
-        allocation_entry *the_entry = CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        allocation_entry *the_entry = FETCH_ALLOCATION_ENTRY_FROM_ITERATOR;
         uint64_t num_escapes = 0;
         if (the_entry->escapes_set != NULL) {
             num_escapes = CARAT_ESCAPE_SET_SIZE(the_entry->escapes_set);
@@ -708,7 +713,7 @@ static void _print_table(nk_carat_context *the_context)
 		nk_vc_printf(
             "%p : (%p : %p --- (ptr: %p, len: %lu), es : %d)\n", 
 			iterator, 
-			CARAT_ALLOCATION_MAP_CURRENT_ADDRESS, 
+			the_entry->pointer, 
 			the_entry, 
 			the_entry->pointer, 
 			the_entry->size,
@@ -804,8 +809,8 @@ allocation_entry *_carat_find_random_alloc(nk_carat_context *the_context)
     CARAT_ALLOCATION_MAP_ITERATE(the_context)
     {
         if (false
-            || (CARAT_ALLOCATION_MAP_CURRENT_ENTRY->size != 24656)
-            || !(((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)) { continue; }
+            || (FETCH_ALLOCATION_ENTRY_FROM_ITERATOR->size != 24656)
+            || !(((addr_t) FETCH_ALLOCATION_ENTRY_FROM_ITERATOR->pointer) > min_addr)) { continue; }
 #if 0
         if ((count >= target) 
         //&& (((addr_t) CARAT_ALLOCATION_MAP_CURRENT_ADDRESS) > min_addr)
@@ -813,7 +818,7 @@ allocation_entry *_carat_find_random_alloc(nk_carat_context *the_context)
         ){ return CARAT_ALLOCATION_MAP_CURRENT_ENTRY; }
         count++;
 #endif
-        return CARAT_ALLOCATION_MAP_CURRENT_ENTRY;
+        return FETCH_ALLOCATION_ENTRY_FROM_ITERATOR;
     }
      
 

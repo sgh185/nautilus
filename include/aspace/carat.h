@@ -41,6 +41,8 @@
 // DATA structure go outside
 #include <nautilus/list.h>
 
+#include <aspace/region_tracking/mm_rb_tree.h>
+
 
 /*
  * Region structure
@@ -122,15 +124,16 @@
  * Interface for 5. can be found in ___FILL IN LATER___ 
  */ 
 
-
+#define USE_SKIPLIST 0
 #define FULL_CARAT 0
 
 
 /*
  * Typedefs for CARAT data structures
  */ 
-typedef nk_slist_uintptr_t nk_carat_escape_set;
-typedef nk_slist_uintptr_t_uintptr_t nk_carat_allocation_map;
+typedef mm_struct_t nk_carat_escape_set;
+typedef mm_struct_t nk_carat_allocation_map;
+
 
 /*
  * carat_context

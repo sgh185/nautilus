@@ -1547,4 +1547,125 @@ nk_register_shell_cmd(carat_resize_sanity);
 nk_register_shell_cmd(carat_protect_sanity);
 
 
+/*
+ * RB Tree Bologna
+ */ 
+int rb_comp_alloc_entry(mm_rb_node_t * n1, mm_rb_node_t * n2) {
+
+    /*
+     * HACK --- We're going to save as much of the current
+     * implementation as possible --- cast each of @n1 and
+     * @n2's region field as an allocation_entry
+     */ 
+
+    allocation_entry *n1_ae = ((allocation_entry *) (n1->region));
+    allocation_entry *n2_ae = ((allocation_entry *) (n2->region));
+
+    if (n1_ae->pointer < n2_ae->pointer) {
+        return -1;
+    } else if (n1_ae->pointer > n2_ae->pointer) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int rb_comp_escape(mm_rb_node_t * n1, mm_rb_node_t * n2) {
+
+    /*
+     * HACK --- We're going to save as much of the current
+     * implementation as possible --- cast each of @n1 and
+     * @n2's region field as an void ** (representing an 
+     * actual escape)
+     */ 
+
+    void **n1_escape = ((void **) (n1->region));
+    void **n2_escape = ((void **) (n2->region));
+
+    if (n1_escape < n2_escape) {
+        return -1;
+    } else if (n1_escape > n2_escape) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
+int rb_tree_remove_alloc(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags) {
+    
+    /*
+     * HACK --- Ignore @check_flags
+     */ 
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+    
+    allocation_entry fake_entry = {
+        .pointer = (void *) region
+    } ;
+   
+    node.region = *((nk_aspace_region_t *) &fake_entry);
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    if (target == tree->NIL) return -1;
+    // --- NOTE --- removed region_equal functionality
+
+    rb_tree_delete_node(tree,target);
+
+    return 0;
+}
+
+
+int rb_tree_remove_escape(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags) {
+    
+    /*
+     * HACK --- Ignore @check_flags
+     */ 
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+   
+    void **escape = (void **) region;
+    node.region = ((nk_aspace_region_t *) escape); 
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    if (target == tree->NIL) return -1;
+    // --- NOTE --- removed region_equal functionality
+
+    rb_tree_delete_node(tree,target);
+
+    return 0;
+}
+
+
+nk_aspace_region_t * rb_tree_find_allocation_entry_from_addr(mm_struct_t * self, addr_t address) {
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+    allocation_entry fake_entry = {
+        .pointer = (void *) region
+    } ;
+   
+    node.region = *((nk_aspace_region_t *) &fake_entry);
+
+    mm_rb_node_t * GLB = rb_tree_GLB(tree, &node);
+
+    if (GLB == tree->NIL) return NULL;
+    
+    nk_aspace_region_t * curr_region_ptr = &GLB->region;
+    allocation_entry *real_returned_entry = ((allocation_entry *) curr_region_ptr);
+    void *returned_entry_pointer = real_returned_entry->pointer;
+    uint64_t returned_entry_size = real_returned_entry->size;
+
+    if (true
+        && (address >= returned_entry_pointer)
+        && (address < (((uint64_t) returned_entry_pointer) + returned_entry_size))) {
+        return curr_region_ptr;
+    }
+
+    return NULL;
+    
+}
+
 

@@ -65,6 +65,9 @@
 #define CARAT_READY_OFF(c) c->carat_ready = 0
 
 
+#define USE_SKIPLIST 0
+#if USE_SKIPLIST
+
 /* 
  * Interface for "nk_carat_escape_set" --- generic
  */ 
@@ -82,7 +85,9 @@
  * Interface for "nk_carat_allocation_map" --- specifically for the
  * per nk_carat_context (i.e. @c) "allocation_map" data structure
  */ 
+
 #define CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
+#define CARAT_ALLOCATION_MAP_SETUP(map) if (0) { printf("CARAT: shouldn't be calling this\n"); } 
 #define CARAT_ALLOCATION_MAP_SIZE(c) nk_map_get_size((c->allocation_map))
 #define CARAT_ALLOCATION_MAP_INSERT(c, key, val) (nk_map_insert((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
 #define CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(c, key, val) (nk_map_insert_by_force((c->allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
@@ -94,36 +99,80 @@
     \
     nk_slist_foreach((c->allocation_map), pair, iterator)
 
-#define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (pair->first)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
+#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR ((allocation_entry *) iterator->region)
+#define CARAT_ALLOCATION_MAP_CURRENT_ADDRESS ((void *) (FETCH_ALLOCATION_ENTRY_FROM_ITERATOR)->pointer) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
 #define CARAT_ALLOCATION_MAP_CURRENT_ENTRY ((allocation_entry *) (pair->second)) // Only to be used within CARAT_ALLOCATION_MAP_ITERATE
 
 
-#define USE_GLOBAL_CARAT 0
+#else
 
-#if USE_GLOBAL_CARAT
+// --- RB TREE VARIANT ---
+
+
+#define rb_tree_foreach(tree, iterator) \
+    /* typeof(@tree) = mm_rb_tree_t */ \
+    iterator = rb_tree_minimum(tree, tree->root); \
+    for (; iterator != tree->NIL ; iterator = rb_tree_next_smallest(tree, iterator)) \
+
 /*
- * Conditions check 
- */ 
-#define CHECK_GLOBAL_CARAT_READY if (!(global_carat_context.carat_ready)) { return; }
-#define GLOBAL_CARAT_READY_ON global_carat_context.carat_ready = 1
-#define GLOBAL_CARAT_READY_OFF global_carat_context.carat_ready = 0
+ * IMPORTANT NOTE --- We perform extreme hackery to get the
+ * RB tree as is to work with our allocation tables and escapes
+ * sets. Part of this is the assumption that the size of an 
+ * nk_aspace_region_t is ***necessarily larger*** than the size
+ * of an allocation entry. Otherwise this scheme will not work.
+ *
+ */
+
+#define CARAT_ESCAPE_SET_BUILD mm_rb_tree_create(); 
+
+#define CARAT_ESCAPE_SET_SETUP(set) \
+    if (1) \
+    { \
+        set->compf = &rb_comp_escape; \
+        set->super.vptr->remove = &rb_tree_remove_escape; \
+    }
+
+#define CARAT_ESCAPE_SET_SIZE(set) set->super.size
+
+#define CARAT_ESCAPE_SET_ADD(set, key) /* typeof(key)=(void **) */ \
+    (mm_insert(set, ((nk_aspace_region_t *) key))) 
+
+#define CARAT_ESCAPES_SET_ITERATE(set) \
+    mm_rb_node_t *iterator = NULL; \
+    rb_tree_foreach(set, iterator)
+
+#define FETCH_ESCAPE_FROM_ITERATOR ((void **) iterator->region)
 
 
-/*
- * Interface for "nk_carat_allocation_map" --- specifically for the
- * global "allocation_map" data structure
- */ 
-#define GLOBAL_CARAT_ALLOCATION_MAP_BUILD nk_map_build(uintptr_t, uintptr_t)
-#define GLOBAL_CARAT_ALLOCATION_MAP_SIZE nk_map_get_size((global_carat_context.allocation_map))
-#define GLOBAL_CARAT_ALLOCATION_MAP_INSERT(key, val) (nk_map_insert((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val))) 
-#define GLOBAL_CARAT_ALLOCATION_MAP_INSERT_OR_ASSIGN(key, val) (nk_map_insert_by_force((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key), ((uintptr_t) val)))
-#define GLOBAL_CARAT_ALLOCATION_MAP_REMOVE(key) nk_map_remove((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define GLOBAL_CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(key) nk_map_better_lower_bound((global_carat_context.allocation_map), uintptr_t, uintptr_t, ((uintptr_t) key))
-#define GLOBAL_CARAT_ALLOCATION_MAP_ITERATE \
-	nk_slist_node_uintptr_t_uintptr_t *iterator; \
-	nk_pair_uintptr_t_uintptr_t *pair; \
-    \
-    nk_slist_foreach((global_carat_context.allocation_map), pair, iterator)
+// ---
+
+
+#define CARAT_ALLOCATION_MAP_BUILD mm_rb_tree_create()
+
+#define CARAT_ALLOCATION_MAP_SETUP(map) \
+    if (1) \
+    { \
+        map->compf = &rb_comp_alloc_entry; \
+        map->super.vptr->remove = &rb_tree_remove_alloc; \
+        map->super.vptr->find_reg_at_addr = &rb_tree_find_allocation_entry_from_addr; \
+    }
+
+#define CARAT_ALLOCATION_MAP_SIZE(c) (c->allocation_map->super.size)  
+
+#define CARAT_ALLOCATION_MAP_INSERT(c, key) /* typeof(@key)=(allocation_entry *) */ \
+    (mm_insert(c->allocation_map, ((nk_aspace_region_t *) key))) 
+
+#define CARAT_ALLOCATION_MAP_REMOVE(c, key) /* @key is a simple pointer, typeof(@key)=void * */ \
+    (mm_remove(c->allocation_map, ((nk_aspace_region_t *) key), 0))
+
+#define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(c, key) \
+    ((allocation_entry *) (mm_find_reg_at_addr((c->allocation_map), key)))
+
+#define CARAT_ALLOCATION_MAP_ITERATE(c) \
+    mm_rb_node_t *iterator = NULL; \
+    rb_tree_foreach((c->allocation_map), iterator)
+
+#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR ((allocation_entry *) iterator->region)
 
 #endif
 
@@ -138,7 +187,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  * Macro expansion utility --- creating allocation_entry objects
  * and adding them to the allocation map
  */ 
-#define CREATE_ENTRY_AND_ADD(ctx, key, size, str) \
+#define CREATE_ENTRY_AND_ADD(ctx, key, size) \
 	/*
 	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
@@ -148,31 +197,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	/*
 	 * Add the mapping [@##key : newEntry] to the allocation_map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_INSERT(ctx, key, new_entry))) { \
-		panic(str" %p\n", key); \
-	}
-
-
-/*
- * Macro expansion utility --- creating allocation_entry objects
- * and adding them to the allocation map
- */ 
-#define CREATE_ENTRY_AND_ADD_SILENT(ctx, key, size) \
-	/*
-	 * Create a new allocation_entry object for the new_address to be added
-	 */ \
-	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
-    \
-    \
-	/*
-	 * Add the mapping [@##key : newEntry] to the allocation_map BUT do
-     * not panic if the entry already exists in the allocation_map
-	 */ \
-	if (!(CARAT_ALLOCATION_MAP_INSERT(ctx, key, new_entry))) { \
-        DS("dup: "); \
-        DHQ(((uint64_t) key)); \
-        DS("\n"); \
-    }
+    CARAT_ALLOCATION_MAP_INSERT(ctx, new_entry); 
 
 
 /*
@@ -182,15 +207,16 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	/*
 	 * Delete the @##key from the allocation map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_REMOVE(ctx, key))) { \
+	if (CARAT_ALLOCATION_MAP_REMOVE(ctx, key) == -1) { \
 		panic(str" %p\n", key); \
 	}
+
 
 #define REMOVE_ENTRY_SILENT(ctx, key) \
 	/*
 	 * Delete the @##key from the allocation map
 	 */ \
-	if (!(CARAT_ALLOCATION_MAP_REMOVE(ctx, key))) { \
+	if (CARAT_ALLOCATION_MAP_REMOVE(ctx, key) == -1) { \
         CARAT_PRINT("CARAT: Attempted to free this address, corresponding allocation entry not found: %p\n", (void *) key); \
 	}
 
@@ -400,4 +426,6 @@ void nk_carat_pin_pointer(void *address);
  * Explicitly pin the pointer/address stored within an escape 
  */ 
 void nk_carat_pin_escaped_pointer(void *escape);
+
+
 

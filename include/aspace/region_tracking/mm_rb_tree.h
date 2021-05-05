@@ -31,4 +31,12 @@ typedef struct rb_tree
 mm_struct_t * mm_rb_tree_create();
 int rb_tree_check(mm_struct_t * self);
 
+
+/*
+ * HACK --- expose certain internal methods for compliance purposes
+ */ 
+mm_rb_node_t * rb_tree_minimum(mm_rb_tree_t * tree, mm_rb_node_t * node);
+mm_rb_node_t * rb_tree_next_smallest(mm_rb_tree_t * tree, mm_rb_node_t * node);
+
+
 #endif
