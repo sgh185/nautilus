@@ -185,7 +185,7 @@
 /*
  * Setup/constructor for an allocation_entry object
  */ 
-allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_size);
+allocation_entry _carat_create_allocation_entry(void *ptr, uint64_t allocation_size);
 
 
 /*
@@ -197,14 +197,14 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
     CARAT_HACK_PRINT("before new_entry\n"); \
-	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
-    CARAT_HACK_PRINT("new_entry: %p\n", new_entry); \
+	allocation_entry new_entry = _carat_create_allocation_entry(key, size); \
+    CARAT_HACK_PRINT("new_entry: %p\n", &new_entry); \
     \
     \
 	/*
 	 * Add the mapping [@##key : newEntry] to the allocation_map
 	 */ \
-    CARAT_ALLOCATION_MAP_INSERT(ctx, new_entry); 
+    CARAT_ALLOCATION_MAP_INSERT(ctx, &new_entry); 
 
 
 /*

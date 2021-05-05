@@ -67,23 +67,21 @@ void *non_canonical = ((void *) 0x22DEADBEEF22);
  * Setup for allocations
  */ 
 NO_CARAT_NO_INLINE
-allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocation_size)
+allocation_entry _carat_create_allocation_entry(void *address, uint64_t allocation_size)
 {
 	/*
-	 * Allocate an allocation_entry object
-	 */
-	allocation_entry *new_entry = (allocation_entry *) CARAT_MALLOC(sizeof(allocation_entry));
+	 * Create an allocation_entry object
 
-
-	/*
 	 * Save the address (@address) and the size (@allocation_size), 
 	 * build a new escapes map for the new allocation_entry object,
      * set the pin status to the default (false=not pinned)
 	 */ 
-	new_entry->pointer = address;
-	new_entry->size = allocation_size;
-	new_entry->escapes_set = NULL; // CARAT_ESCAPE_SET_BUILD; 
-	new_entry->contained_escapes = NULL; // CARAT_ESCAPE_SET_BUILD; 
+	allocation_entry new_entry = {
+        .pointer = address,
+        .size = allocation_size,
+        .escapes_set = NULL,
+        .contained_escapes = NULL
+    };
 
 
 	/*

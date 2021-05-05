@@ -119,28 +119,31 @@ void _reinstrument_contained_escapes(allocation_entry *new_entry) {
 }
 
 
-allocation_entry *_carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void *allocation_target) 
+allocation_entry _carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void *allocation_target) 
 {
     /*
-     * Create a new entry for @allocation_target
+     * Create a new entry for @allocation_target, set the
+     * escapes_set and contained_escapes to that of the
+     * @old_entry
      */ 
-    CREATE_ENTRY_AND_ADD (
-        the_context,
-        allocation_target,
-        (old_entry->size)
-    );
+	allocation_entry new_entry = 
+        _carat_create_allocation_entry(
+            allocation_target, 
+            (old_entry->size)
+        );
 
-
-    /*
-     * Set the new entry's escapes set to @old_entry's escapes set
-     * NOTE --- "new_entry" is a variable generated from CREATE_ENTRY_AND_ADD
-     */
-    new_entry->escapes_set = old_entry->escapes_set;
-    new_entry->contained_escapes = old_entry->contained_escapes;
+    new_entry.escapes_set = old_entry->escapes_set;
+    new_entry.contained_escapes = old_entry->contained_escapes;
 
 
 	/*
-     * Remove the address corresponding to @old_entry from the global
+	 * Add the mapping to the allocation_map
+	 */
+    CARAT_ALLOCATION_MAP_INSERT(the_context, &new_entry); 
+
+
+	/*
+     * Remove the address corresponding to @old_entry from the
      * allocation map
      */ 
     REMOVE_ENTRY (
@@ -368,11 +371,12 @@ int _move_allocation(
         CARAT_PRINT("CARAT: Unable to patch threads\n");
         goto out_bad;
     }
+    
 
     /*
      * Update the allocation entry
      */
-    allocation_entry *new_entry = _carat_update_entry(the_context, entry, allocation_target);
+    allocation_entry new_entry = _carat_update_entry(the_context, entry, allocation_target);
 
 
     /*
@@ -381,16 +385,19 @@ int _move_allocation(
      */
     memmove(allocation_target, allocation_to_move, entry->size);
 
+
     /*
      * all of the escapes contained in our entry need to be resintrumented, 
      * as they are now new escapes
      */
-    _reinstrument_contained_escapes(new_entry);
+    _reinstrument_contained_escapes(&new_entry);
+
 
     /*
      * We need to process those resinstrumented escapes before we continue
      */
     _carat_process_escape_window(the_context);
+
 
     return 0;
 

@@ -132,5 +132,5 @@ static void _carat_patch_thread_registers_stack(struct nk_thread *t, void *state
  * by explicitly removing @entry's allocation_entry object and adding an object
  * for @allocation_target
  */ 
-allocation_entry *_carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void* allocation_target);
+allocation_entry _carat_update_entry(nk_carat_context *the_context, allocation_entry *old_entry, void* allocation_target);
 
