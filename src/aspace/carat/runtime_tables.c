@@ -942,10 +942,14 @@ void nk_carat_init(void)
     }
 
 
+#if 0
     /*
      * Build context for new CARAT aspace
+     *
+     * --- DEPRECATED --- a duplicate
      */ 
     ((nk_aspace_carat_t *) the_aspace->state)->context = initialize_new_carat_context(); 
+#endif
 
     
     /*
@@ -1002,8 +1006,11 @@ nk_carat_context * initialize_new_carat_context(void)
 	new_context->allocation_map = CARAT_ALLOCATION_MAP_BUILD;
     CARAT_ALLOCATION_MAP_SETUP(new_context->allocation_map);
 
-	
+
+#if 0
 	/*
+     * ---- DISASTROUS SECTION OF CODE --- AVOID AT ALL COSTS
+     *
 	 * Block 32 GB worth of "stack space" --- to "handle" the stack --- this
 	 * is a hack/precursor for tracking stack allocations
 	 * 
@@ -1017,6 +1024,7 @@ nk_carat_context * initialize_new_carat_context(void)
 		rsp_as_void_ptr,
 		allocation_size
 	);
+#endif
 
 
 	/*
