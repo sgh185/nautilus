@@ -131,8 +131,8 @@
 /*
  * Typedefs for CARAT data structures
  */ 
-typedef mm_struct_t nk_carat_escape_set;
-typedef mm_struct_t nk_carat_allocation_map;
+typedef mm_rb_tree_t nk_carat_escape_set;
+typedef mm_rb_tree_t nk_carat_allocation_map;
 
 
 /*
@@ -304,7 +304,6 @@ void add_thread_to_carat_aspace(
     nk_aspace_carat_t *carat_aspace,
     nk_thread_t *t
 );
-    
 
 /*
  * =================== Profiling State ===================

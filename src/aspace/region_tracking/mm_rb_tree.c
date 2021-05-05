@@ -18,6 +18,9 @@
 #define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
 #define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
 
+// HACK for carat integration
+#include <aspace/carat.h>
+
 /*
          |                    |   
          x                    y
@@ -1074,3 +1077,157 @@ mm_struct_t * mm_rb_tree_create() {
     return &rbtree->super;
 }
 
+mm_rb_tree_t * mm_rb_tree_create_actual_rb_tree() {
+    // mm_rb_tree_t * rbtree = (mm_rb_tree_t *) MALLOC_RB(sizeof(mm_rb_tree_t));
+    mm_rb_tree_t * rbtree = (mm_rb_tree_t *) malloc(sizeof(mm_rb_tree_t));
+
+    if (!rbtree) {
+        ERROR_RB("Failed to allocate rbtree with size of %d\n", sizeof(mm_rb_tree_t));
+        panic("Failed to allocate rbtree with size of %d\n", sizeof(mm_rb_tree_t));
+    }
+
+    DEBUG_RB("allocate rbtree at %p with size of %d\n",rbtree,  sizeof(mm_rb_tree_t));
+    mm_struct_init(&rbtree->super);
+    
+    rbtree->super.vptr->insert = &rb_tree_insert;
+    rbtree->super.vptr->show = &rb_tree_inorder;
+    // rbtree->super.vptr->show = &rb_tree_level_order;
+    rbtree->super.vptr->check_overlap = &mm_rb_tree_check_overlap;
+    rbtree->super.vptr->find_reg_at_addr = &rb_tree_find_reg_at_addr;
+    rbtree->super.vptr->update_region = &rb_tree_update_region;
+    rbtree->super.vptr->remove = &rb_tree_remove;
+    rbtree->super.vptr->contains = &rb_tree_contains;
+    rbtree->super.vptr->next_smallest = &rb_tree_next_smallest_wrap;
+    rbtree->super.vptr->prev_largest = &rb_tree_prev_largest_wrap;
+
+    rbtree->super.vptr->destroy = &mm_rb_tree_destroy;
+
+    rbtree->NIL = create_rb_NIL();
+    rbtree->root = rbtree->NIL;
+    // rbtree->compf = &rb_comp_region;
+
+    return rbtree;
+}
+
+
+
+/*
+ * RB Tree Bologna
+ */ 
+int rb_comp_alloc_entry(mm_rb_node_t * n1, mm_rb_node_t * n2) {
+
+    /*
+     * HACK --- We're going to save as much of the current
+     * implementation as possible --- cast each of @n1 and
+     * @n2's region field as an allocation_entry
+     */ 
+
+    allocation_entry *n1_ae = *((allocation_entry **) &(n1->region));
+    allocation_entry *n2_ae = *((allocation_entry **) &(n2->region));
+
+    if (n1_ae->pointer < n2_ae->pointer) {
+        return -1;
+    } else if (n1_ae->pointer > n2_ae->pointer) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int rb_comp_escape(mm_rb_node_t * n1, mm_rb_node_t * n2) {
+
+    /*
+     * HACK --- We're going to save as much of the current
+     * implementation as possible --- cast each of @n1 and
+     * @n2's region field as an void ** (representing an 
+     * actual escape)
+     */ 
+
+    void **n1_escape = *((void ***) &(n1->region));
+    void **n2_escape = *((void ***) &(n2->region));
+
+    if (n1_escape < n2_escape) {
+        return -1;
+    } else if (n1_escape > n2_escape) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
+int rb_tree_remove_alloc(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags) {
+    
+    /*
+     * HACK --- Ignore @check_flags
+     */ 
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+    
+    allocation_entry fake_entry = {
+        .pointer = (void *) region
+    } ;
+   
+    node.region = *((nk_aspace_region_t *) &fake_entry);
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    if (target == tree->NIL) return -1;
+    // --- NOTE --- removed region_equal functionality
+
+    rb_tree_delete_node(tree,target);
+
+    return 0;
+}
+
+
+int rb_tree_remove_escape(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags) {
+    
+    /*
+     * HACK --- Ignore @check_flags
+     */ 
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+   
+    void **escape = (void **) region;
+    node.region = *((nk_aspace_region_t *) &escape); 
+    
+    mm_rb_node_t * target = rb_tree_search(tree, &node);
+    if (target == tree->NIL) return -1;
+    // --- NOTE --- removed region_equal functionality
+
+    rb_tree_delete_node(tree,target);
+
+    return 0;
+}
+
+
+nk_aspace_region_t * rb_tree_find_allocation_entry_from_addr(mm_struct_t * self, addr_t address) {
+    mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
+
+    mm_rb_node_t node;
+    allocation_entry fake_entry = {
+        .pointer = (void *) address
+    } ;
+   
+    node.region = *((nk_aspace_region_t *) &fake_entry);
+
+    mm_rb_node_t * GLB = rb_tree_GLB(tree, &node);
+
+    if (GLB == tree->NIL) return NULL;
+    
+    nk_aspace_region_t * curr_region_ptr = &GLB->region;
+    allocation_entry *real_returned_entry = ((allocation_entry *) curr_region_ptr);
+    void *returned_entry_pointer = real_returned_entry->pointer;
+    uint64_t returned_entry_size = real_returned_entry->size;
+
+    if (true
+        && (address >= ((addr_t) returned_entry_pointer))
+        && (address < (((uint64_t) returned_entry_pointer) + returned_entry_size))) {
+        return curr_region_ptr;
+    }
+
+    return NULL;
+    
+}

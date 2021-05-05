@@ -12,11 +12,11 @@ enum rb_tree_node_color {
 };
 
 typedef struct mm_rb_node {
-    enum rb_tree_node_color color;
     nk_aspace_region_t region;
     struct mm_rb_node * parent;
     struct mm_rb_node * left;
     struct mm_rb_node * right;
+    enum rb_tree_node_color color;
 } mm_rb_node_t;
 
 typedef struct rb_tree
@@ -29,6 +29,7 @@ typedef struct rb_tree
 } mm_rb_tree_t;
 
 mm_struct_t * mm_rb_tree_create();
+mm_rb_tree_t * mm_rb_tree_create_actual_rb_tree();
 int rb_tree_check(mm_struct_t * self);
 
 
@@ -38,5 +39,16 @@ int rb_tree_check(mm_struct_t * self);
 mm_rb_node_t * rb_tree_minimum(mm_rb_tree_t * tree, mm_rb_node_t * node);
 mm_rb_node_t * rb_tree_next_smallest(mm_rb_tree_t * tree, mm_rb_node_t * node);
 
+
+/*
+ * ========== Definitions --- functions for carat allocation map ========== 
+ */ 
+
+int rb_comp_alloc_entry(mm_rb_node_t * n1, mm_rb_node_t * n2);
+int rb_comp_escape(mm_rb_node_t * n1, mm_rb_node_t * n2);
+int rb_tree_remove_alloc(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags);
+int rb_tree_remove_escape(mm_struct_t * self, nk_aspace_region_t * region, uint8_t check_flags);
+nk_aspace_region_t * rb_tree_find_allocation_entry_from_addr(mm_struct_t * self, addr_t address);
+    
 
 #endif
