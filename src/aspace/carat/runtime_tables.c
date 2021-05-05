@@ -66,7 +66,7 @@ void *non_canonical = ((void *) 0x22DEADBEEF22);
 /*
  * Setup for allocations
  */ 
-NO_CARAT
+NO_CARAT_NO_INLINE
 allocation_entry *_carat_create_allocation_entry(void *address, uint64_t allocation_size)
 {
 	/*
@@ -242,6 +242,7 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
      */
     CHECK_CARAT_BOOTSTRAP_FLAG; 
     nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    CARAT_HACK_PRINT("global\n");
 
 
 	/*
@@ -300,6 +301,7 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
      */ 
     CHECK_CARAT_BOOTSTRAP_FLAG; 
     nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    CARAT_HACK_PRINT("malloc\n");
 
 
     /*
@@ -425,6 +427,7 @@ void nk_carat_instrument_free(void *address)
      */
     CHECK_CARAT_BOOTSTRAP_FLAG; 
     nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    CARAT_HACK_PRINT("free\n");
 
 
 	/*
@@ -482,6 +485,7 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
      */ 
     CHECK_CARAT_BOOTSTRAP_FLAG; 
     nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+    CARAT_HACK_PRINT("escape\n");
 
 
 	/*
@@ -964,6 +968,7 @@ void nk_carat_init(void)
      * per used context). 
      */ 
     karat_ready |= 1;
+    CARAT_HACK_PRINT("CARAT: karat_ready is on!\n");
 
 
     /*
@@ -995,7 +1000,7 @@ nk_carat_context * initialize_new_carat_context(void)
 	 * Set up global allocation map
 	 */ 
 	new_context->allocation_map = CARAT_ALLOCATION_MAP_BUILD;
-    CARAT_ALLOCATION_MAP_SETUP;
+    CARAT_ALLOCATION_MAP_SETUP(new_context->allocation_map);
 
 	
 	/*
@@ -1004,7 +1009,7 @@ nk_carat_context * initialize_new_carat_context(void)
 	 * 
 	 * Add the stack and its allocation_entry object to the allocation map
 	 */	
-	uint64_t allocation_size = THIRTY_TWO_GB;
+	uint64_t allocation_size = THIRTY_TWO_GB; // TODO TODO TODO FIX FIX FIX
 	void *rsp_as_void_ptr = ((void *)(rsp - allocation_size));
  
 	CREATE_ENTRY_AND_ADD (

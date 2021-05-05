@@ -59,7 +59,9 @@
 /*
  * Conditions check 
  */ 
-#define CHECK_CARAT_BOOTSTRAP_FLAG if (!karat_ready) { return; } 
+#define CARAT_HACK 0
+#define CARAT_HACK_PRINT if (CARAT_HACK) nk_vc_printf
+#define CHECK_CARAT_BOOTSTRAP_FLAG if (!karat_ready) { return; } else { if (CARAT_HACK) { printf("on!\n"); } } 
 #define CHECK_CARAT_READY(c) if (!(c->carat_ready)) { return; }
 #define CARAT_READY_ON(c) c->carat_ready = 1
 #define CARAT_READY_OFF(c) c->carat_ready = 0
@@ -123,7 +125,7 @@
  *
  */
 
-#define CARAT_ESCAPE_SET_BUILD mm_rb_tree_create(); 
+#define CARAT_ESCAPE_SET_BUILD mm_rb_tree_create_actual_rb_tree(); 
 
 #define CARAT_ESCAPE_SET_SETUP(set) \
     if (1) \
@@ -135,19 +137,19 @@
 #define CARAT_ESCAPE_SET_SIZE(set) set->super.size
 
 #define CARAT_ESCAPE_SET_ADD(set, key) /* typeof(key)=(void **) */ \
-    (mm_insert(set, ((nk_aspace_region_t *) key))) 
+    (mm_insert(&(set->super), ((nk_aspace_region_t *) key))) 
 
 #define CARAT_ESCAPES_SET_ITERATE(set) \
     mm_rb_node_t *iterator = NULL; \
     rb_tree_foreach(set, iterator)
 
-#define FETCH_ESCAPE_FROM_ITERATOR ((void **) iterator->region)
+#define FETCH_ESCAPE_FROM_ITERATOR (*((void ***) &(iterator->region)))
 
 
 // ---
 
 
-#define CARAT_ALLOCATION_MAP_BUILD mm_rb_tree_create()
+#define CARAT_ALLOCATION_MAP_BUILD mm_rb_tree_create_actual_rb_tree()
 
 #define CARAT_ALLOCATION_MAP_SETUP(map) \
     if (1) \
@@ -160,19 +162,22 @@
 #define CARAT_ALLOCATION_MAP_SIZE(c) (c->allocation_map->super.size)  
 
 #define CARAT_ALLOCATION_MAP_INSERT(c, key) /* typeof(@key)=(allocation_entry *) */ \
-    (mm_insert(c->allocation_map, ((nk_aspace_region_t *) key))) 
+    CARAT_HACK_PRINT("c->allocation_map: %p\n", c->allocation_map); \
+    CARAT_HACK_PRINT("&(c->allocation_map->super): %p\n", &(c->allocation_map->super)); \
+    CARAT_HACK_PRINT("((nk_aspace_region_t *) key): %p\n", ((nk_aspace_region_t *) key)); \
+    (mm_insert(&(c->allocation_map->super), ((nk_aspace_region_t *) key))) 
 
 #define CARAT_ALLOCATION_MAP_REMOVE(c, key) /* @key is a simple pointer, typeof(@key)=void * */ \
-    (mm_remove(c->allocation_map, ((nk_aspace_region_t *) key), 0))
+    (mm_remove(&(c->allocation_map->super), ((nk_aspace_region_t *) key), 0))
 
 #define CARAT_ALLOCATION_MAP_BETTER_LOWER_BOUND(c, key) \
-    ((allocation_entry *) (mm_find_reg_at_addr((c->allocation_map), key)))
+    ((allocation_entry *) (mm_find_reg_at_addr(&(c->allocation_map->super), ((addr_t) key))))
 
 #define CARAT_ALLOCATION_MAP_ITERATE(c) \
     mm_rb_node_t *iterator = NULL; \
     rb_tree_foreach((c->allocation_map), iterator)
 
-#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR ((allocation_entry *) iterator->region)
+#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR (*((allocation_entry **) &(iterator->region)))
 
 #endif
 
@@ -191,7 +196,9 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
 	/*
 	 * Create a new allocation_entry object for the new_address to be added
 	 */ \
+    CARAT_HACK_PRINT("before new_entry\n"); \
 	allocation_entry *new_entry = _carat_create_allocation_entry(key, size); \
+    CARAT_HACK_PRINT("new_entry: %p\n", new_entry); \
     \
     \
 	/*
@@ -244,7 +251,7 @@ allocation_entry *_carat_create_allocation_entry(void *ptr, uint64_t allocation_
  * Debugging
  */
 #define PRINT_ASPACE_INFO \
-    if (DO_CARAT_PRINT) \
+    if (CARAT_HACK) \
     { \
         DS("gct: "); \
         DHQ(((uint64_t) get_cur_thread())); \

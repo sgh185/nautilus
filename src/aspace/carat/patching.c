@@ -127,8 +127,7 @@ allocation_entry *_carat_update_entry(nk_carat_context *the_context, allocation_
     CREATE_ENTRY_AND_ADD (
         the_context,
         allocation_target,
-        (old_entry->size),
-        "carat_update_entry: CREATE_ENTRY_AND_ADD failed on allocation_target"
+        (old_entry->size)
     );
 
 
