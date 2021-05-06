@@ -566,10 +566,16 @@ nk_start_exec (struct nk_exec *exec, void *in, void **out)
     __nk_func_table[NK_ASPACE_PTR] = (void *) get_cur_thread()->aspace;
 #endif
 
+#ifdef NAUT_CONFIG_CARAT_PROFILE
+    start_carat_profiles = 1;
+    ERROR("Turned on CARAT profiles.\n");
+#endif
+
     int rc =  start(in, out, __nk_func_table);
 
     DEBUG("Executable %p has returned with rc=%d and *out=%p\n", exec, rc, out ? *out : 0);
     
+
     return rc;
 }
 

@@ -548,6 +548,7 @@ int nk_process_destroy(nk_process_t *p) {
     destroying_curr_process = 1;
   }
 
+
   // Destroy process allocator
   nk_alloc_t *alloc = p->allocator;
   if (nk_alloc_destroy(alloc)) {
