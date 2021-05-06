@@ -30,17 +30,34 @@
 
 
 
-protections_profile global_protections_profile = {
-    .guard_address_calls = 0,
-    .guard_stack_calls = 0,
-    .cur_thread_time = 0,
-    .region_find_time = 0,
-    .lock_time = 0,
-    .request_permission_time = 0,
-    .process_permissions_time = 0,
-    .cache_check_time = 0
-};
+// protections_profile global_protections_profile = {
+//     .guard_address_calls = 0,
+//     .guard_stack_calls = 0,
+//     .cur_thread_time = 0,
+//     .region_find_time = 0,
+//     .lock_time = 0,
+//     .request_permission_time = 0,
+//     .process_permissions_time = 0,
+//     .cache_check_time = 0
+// };
 
+uint64_t num_mi = 0;
+uint64_t total_mi_time = 0;
+
+carat_profile global_carat_profile  = {
+    
+    .num_rb_mallocs = 0,
+    .num_rb_frees = 0,
+    .rb_malloc_time = 0,
+    .rb_free_time = 0,
+    .guard_address_calls = 0,
+    .guard_address_time = 0,
+    .guard_stack_calls = 0,
+    .guard_stack_time = 0
+
+} ;
+
+int start_carat_profiles = 0;
 
 /*
  * =================== Setting Necessary Global State ===================
@@ -227,13 +244,18 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
      * for debugging and differentiating between each global
      */ 
 
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, tracking_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
     /*
      * Debugging
      */ 
+#if 0
     DS("gID: ");
     DHQ(global_ID);
     DS("\n");
-
+#endif
     
     /*
      * Fetch the current thread's carat context 
@@ -272,6 +294,9 @@ void nk_carat_instrument_global(void *address, uint64_t allocation_size, uint64_
     CARAT_READY_ON(the_context);
 
 
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, tracking_call_time, 0);
+
+
     return;
 }
 
@@ -294,6 +319,11 @@ thread 1:
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 {
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, tracking_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
+
     /*
      * Fetch the current thread's carat context 
      */ 
@@ -336,6 +366,10 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
      */ 
     CARAT_READY_ON(the_context);
 
+        
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, tracking_call_time, 0);
+
+
 
 	return;
 }
@@ -344,6 +378,10 @@ void nk_carat_instrument_malloc(void *address, uint64_t allocation_size)
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_t num_elements)
 {
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, tracking_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
     /*
      * Fetch the current thread's carat context 
      */ 
@@ -371,6 +409,9 @@ void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_
 	);
 
 
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, tracking_call_time, 0);
+
+
 	return;
 }
 
@@ -378,6 +419,10 @@ void nk_carat_instrument_calloc(void *address, uint64_t size_of_element, uint64_
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, void *old_address)
 {
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, tracking_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
     /*
      * Fetch the current thread's carat context 
      */ 
@@ -413,6 +458,9 @@ void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, vo
 	);
 
 	
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, tracking_call_time, 0);
+
+
 	return;
 }
 
@@ -420,6 +468,10 @@ void nk_carat_instrument_realloc(void *new_address, uint64_t allocation_size, vo
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_free(void *address)
 {
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, tracking_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
     /*
      * Fetch the current thread's carat context 
      */
@@ -462,6 +514,9 @@ void nk_carat_instrument_free(void *address)
     CARAT_READY_ON(the_context);
 
 
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, tracking_call_time, 0);
+
+
 	return;
 }
 
@@ -478,6 +533,10 @@ void nk_carat_instrument_free(void *address)
 NO_CARAT_NO_INLINE
 void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
 {
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, escape_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    
     /*
      * Fetch the current thread's carat context 
      */ 
@@ -531,6 +590,9 @@ void nk_carat_instrument_escapes(void *new_destination_of_escaping_address)
      * Turn on CARAT upon exit
      */ 
     CARAT_READY_ON(the_context);
+
+
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, escape_call_time, 0);
 
 
 	return;
@@ -716,23 +778,20 @@ void nk_carat_guard_address(void *address, int is_write) {
      */ 
     CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_address_calls);
     CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
 
 
     /*
      * 2. Fetch the current aspace
      */ 
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     nk_aspace_t *aspace = FETCH_THREAD->aspace;
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cur_thread_time, 0);
     
 
     /*
  	 * 3. Check to see if the requested memory access is valid. 
 	 * Also, the requested_permissions field of the region associated with @memory_address is updated to include this access.
 	 */
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
     int res = nk_aspace_request_permission(aspace, address, is_write);
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, request_permission_time, 0);
 
 
     /*
@@ -742,9 +801,10 @@ void nk_carat_guard_address(void *address, int is_write) {
         panic("Tried to make an illegal memory access with %p! \n", address);
 	}
 
-
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, guard_address_time, 0);
 	return;
 }
+
 
 #endif
 
@@ -757,6 +817,9 @@ NO_CARAT_NO_INLINE
 void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
 
     CARAT_PROFILE_INCR(CARAT_DO_PROFILE, guard_stack_calls);
+    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+
 	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
 
 	// check if the new stack is still within the region
@@ -767,6 +830,7 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
 		panic("Stack has grown outside of valid memory! \n");
 	}
 
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, guard_stack_time, 0);
 	return;
 }
 
@@ -1059,8 +1123,72 @@ void _results(void)
 NO_CARAT
 static int handle_protections_profile(char *buf, void *priv)
 {
-    nk_vc_printf("---handle_protections_profile---\n");
-    
+    nk_vc_printf("---carat profile---\n");
+
+    nk_vc_printf("num_rb_mallocs: %lu\n", global_carat_profile.num_rb_mallocs);
+    nk_vc_printf("num_rb_frees: %lu\n", global_carat_profile.num_rb_frees);
+    nk_vc_printf("guard_address_calls: %lu\n", global_carat_profile.guard_address_calls);
+    nk_vc_printf("guard_stack_calls: %lu\n", global_carat_profile.guard_stack_calls);
+    nk_vc_printf("tracking_calls: %lu\n", global_carat_profile.tracking_calls);
+    nk_vc_printf("escape_calls: %lu\n", global_carat_profile.escape_calls);
+
+    if (global_carat_profile.num_rb_mallocs)
+    {
+        nk_vc_printf(
+            "average rb_malloc_time: %lu\n", 
+            global_carat_profile.rb_malloc_time / global_carat_profile.num_rb_mallocs
+        );
+    }
+
+    if (global_carat_profile.num_rb_frees)
+    {
+        nk_vc_printf(
+            "average rb_free_time: %lu\n", 
+            global_carat_profile.rb_free_time / global_carat_profile.num_rb_frees
+        );
+    }
+
+    if (global_carat_profile.guard_address_calls)
+    {
+        nk_vc_printf(
+            "average guard_address_time: %lu\n", 
+            global_carat_profile.guard_address_time / global_carat_profile.guard_address_calls
+        );
+    }
+
+    if (global_carat_profile.guard_stack_calls)
+    {
+        nk_vc_printf(
+            "average guard_stack_time: %lu\n", 
+            global_carat_profile.guard_stack_time / global_carat_profile.guard_stack_calls
+        );
+    }
+
+
+    if (global_carat_profile.tracking_calls)
+    {
+        nk_vc_printf(
+            "average tracking_call_time: %lu\n", 
+            global_carat_profile.tracking_call_time / global_carat_profile.tracking_calls
+        );
+    }
+
+    if (global_carat_profile.escape_calls)
+    {
+        nk_vc_printf(
+            "average escape_call_time: %lu\n", 
+            global_carat_profile.escape_call_time / global_carat_profile.escape_calls
+        );
+    }
+
+  
+#if 0
+
+    nk_vc_printf(
+        "average CREATE_ENTRY_AND_ADD time: %lu\n", 
+        total_mi_time / num_mi
+    );
+ 
     nk_vc_printf("guard_address_calls: %lu\n", global_protections_profile.guard_address_calls);
     
     nk_vc_printf("guard_stack_calls: %lu\n", global_protections_profile.guard_stack_calls);
@@ -1094,7 +1222,7 @@ static int handle_protections_profile(char *buf, void *priv)
         "average cache_check_time: %lu\n", 
         global_protections_profile.cache_check_time / global_protections_profile.guard_address_calls
     );
-
+#endif
 
     uint64_t start = rdtsc(); 
     uint64_t interval = rdtsc() - start;
@@ -1108,8 +1236,8 @@ static int handle_protections_profile(char *buf, void *priv)
 }
 
 static struct shell_cmd_impl handle_protections_profile_impl = {
-    .cmd = "protection_profile",
-    .help_str = "profile on protections methods",
+    .cmd = "profile",
+    .help_str = "profile carat",
     .handler = handle_protections_profile,
 };
 

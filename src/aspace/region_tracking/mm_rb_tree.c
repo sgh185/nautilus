@@ -9,7 +9,32 @@
 #define ERROR_RB(fmt, args...) ERROR_PRINT("aspace-rbtree: " fmt, ##args)
 #define DEBUG_RB(fmt, args...) DEBUG_PRINT("aspace-rbtree: " fmt, ##args)
 #define INFO_RB(fmt, args...)   INFO_PRINT("aspace-rbtree: " fmt, ##args)
-#define MALLOC_RB(n) ({void *__p = malloc(n); if (!__p) { ERROR_RB("Malloc failed\n"); panic("Malloc failed\n"); } __p;})
+
+#define MALLOC_RB(n) \
+({ \
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, num_rb_mallocs); \
+    CARAT_PROFILE_INIT_TIMING_VAR(0); \
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0); \
+    void *__p = malloc(n); \
+    if (!__p) \
+    { \
+        ERROR_RB("Malloc failed\n"); \
+        panic("Malloc failed\n"); \
+    } \
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, rb_malloc_time, 0); \
+    __p; \
+})
+
+#define RB_FREE(__ptr) \
+({ \
+    CARAT_PROFILE_INCR(CARAT_DO_PROFILE, num_rb_frees); \
+    CARAT_PROFILE_INIT_TIMING_VAR(0); \
+    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0); \
+    free(__ptr); \
+    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, rb_free_time, 0); \
+})
+
+
 
 #define NUM2COLOR(n) (((n) == BLACK) ? 'B' : 'R')
 #define NODE_STR_LEN 128
@@ -409,7 +434,7 @@ void rb_tree_delete_node(mm_rb_tree_t * tree, mm_rb_node_t * z) {
     // If y is originally a black one, we need to call the fixup function to fix the extra blackness. 
     // printf("try to fixup\n");
     if (original_color == BLACK) rb_tree_delete_fixup(tree, x);
-    free(z);
+    RB_FREE(z);
 
     tree->super.size = tree->super.size - 1;
 }
@@ -1016,7 +1041,7 @@ int mm_rb_node_destroy(mm_rb_tree_t * tree, mm_rb_node_t * node) {
         mm_rb_node_destroy(tree, node->left);
         mm_rb_node_destroy(tree, node->right);
 
-        free(node);
+        RB_FREE(node);
     }
     return 0;
 }
@@ -1026,9 +1051,9 @@ int mm_rb_tree_destroy(mm_struct_t * self) {
     mm_rb_tree_t * tree = (mm_rb_tree_t *) self;
 
     mm_rb_node_destroy(tree, tree->root);
-    free(tree->NIL);
+    RB_FREE(tree->NIL);
 
-    free(tree);
+    RB_FREE(tree);
 
     DEBUG_RB("Done: rbtree destroyed!\n");
     return 0;

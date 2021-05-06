@@ -423,7 +423,7 @@ static int request_permission(void * state, void * address, int is_write) {
      *
      * NOTE: "// ---" denotes a profiling section
      */ 
-    CARAT_PROFILE_INIT_TIMING_VAR(0);
+    // CARAT_PROFILE_INIT_TIMING_VAR(0);
 
     
     /*
@@ -432,7 +432,7 @@ static int request_permission(void * state, void * address, int is_write) {
      */ 
     // 1 ---
 #if !USER_REGION_CHECK
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    // CARAT_PROFILE_START_TIMING(0, 0);
 
 
     /*
@@ -450,7 +450,7 @@ static int request_permission(void * state, void * address, int is_write) {
         || (address < (stack->va_start + stack->len_bytes))) 
     {
         region = stack;
-        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        // CARAT_PROFILE_STOP_COMMIT_RESET(0, cache_check_time, 0);
         goto set_request_permissions;
     }
 
@@ -465,13 +465,13 @@ static int request_permission(void * state, void * address, int is_write) {
     )
     { 
         region = blob;
-        CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+        // CARAT_PROFILE_STOP_COMMIT_RESET(0, cache_check_time, 0);
         goto set_request_permissions;
     }
 
 
     
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, cache_check_time, 0);
+    // CARAT_PROFILE_STOP_COMMIT_RESET(0, cache_check_time, 0);
 #endif
     // 1 ---
 
@@ -483,12 +483,12 @@ static int request_permission(void * state, void * address, int is_write) {
      * locking is not necessary for this method
      */ 
     // 2 ---
-    CARAT_PROFILE_START_TIMING(0, 0);
+    // CARAT_PROFILE_START_TIMING(0, 0);
 #if FULL_CARAT
     ASPACE_LOCK_CONF;
     ASPACE_LOCK(carat);
 #endif
-    CARAT_PROFILE_STOP_COMMIT_RESET(0, lock_time, 0);
+    // CARAT_PROFILE_STOP_COMMIT_RESET(0, lock_time, 0);
     // 2 ---
     
 
@@ -498,9 +498,9 @@ static int request_permission(void * state, void * address, int is_write) {
      * region data structure
      */ 
     // 3 ---
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    // CARAT_PROFILE_START_TIMING(0, 0);
     region = mm_find_reg_at_addr(carat->mm, (addr_t) address);
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, region_find_time, 0);
+    // CARAT_PROFILE_STOP_COMMIT_RESET(0, region_find_time, 0);
     // 3 ---
 
 
@@ -509,7 +509,7 @@ static int request_permission(void * state, void * address, int is_write) {
      * @address and @is_write combination is legal
      */ 
     // 4 ---
-    CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
+    // CARAT_PROFILE_START_TIMING(0, 0);
     if (!region) {
 #if FULL_CARAT
         ASPACE_UNLOCK(carat);
@@ -545,7 +545,7 @@ static int request_permission(void * state, void * address, int is_write) {
 	}
     
     
-    CARAT_PROFILE_STOP_COMMIT_RESET(CARAT_DO_PROFILE, process_permissions_time, 0);
+    // CARAT_PROFILE_STOP_COMMIT_RESET(0, process_permissions_time, 0);
     // 4 ---
 
 

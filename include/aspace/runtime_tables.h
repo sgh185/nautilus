@@ -433,6 +433,3 @@ void nk_carat_pin_pointer(void *address);
  * Explicitly pin the pointer/address stored within an escape 
  */ 
 void nk_carat_pin_escaped_pointer(void *escape);
-
-
-
