@@ -301,7 +301,7 @@ static void _carat_cleanup(nk_carat_context *the_context)
      * Process the remaining escapes in @the_context->escape_window
      */ 
     CARAT_PRINT(
-        "CARAT: processesing escape window of size %lu\n", 
+        "CARAT: processing escape window of size %lu\n", 
         the_context->total_escape_entries
     );
 
@@ -568,8 +568,8 @@ int nk_carat_move_region(
      */ 
     
     uint64_t count = 0;
-    CARAT_ALLOCATION_MAP_ITERATE(the_context) // TODO: this is inserting as it is iterating. This is a problem...
-    {        
+    CARAT_ALLOCATION_MAP_ITERATE(the_context) 
+    {  
         /*
          * Fetch [key : val]
          */ 
@@ -619,6 +619,8 @@ int nk_carat_move_region(
 
 
 out_bad:
+    CARAT_READY_ON(the_context);
+    nk_sched_start_world();
     CARAT_PRINT("nk_carat_move_region: failed to move");
     return -1;
 }
