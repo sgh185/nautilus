@@ -27,6 +27,11 @@
 
 extern void syscall_test_main();
 
+int parsec_started = 0;
+uint64_t starting_cycles = 0;
+uint64_t ending_cycles = 0;
+
+
 static int passed_tests;
 static int total_tests;
 
@@ -220,6 +225,16 @@ static int handle_exec(char* buf, void* priv) {
     nk_vc_printf("Failed to create new process\n");
     return -1;
   }
+
+#define PARSEC_TESTING 0
+#if PARSEC_TESTING
+  if(!parsec_started){
+    parsec_started = 1;
+    starting_cycles = rdtsc();
+    nk_vc_printf("Benchmark %s started with #cycles of %llu\n!", argv[1], starting_cycles);
+  }
+#endif
+
   if (nk_process_run(process, 0)) {
     nk_vc_printf("Failed to run process\n");
     return -1;

@@ -354,7 +354,7 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
 
 #ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
   if (!irqs_enabled()) {
-    panic("Start syscall with interrupts off!");
+    // panic("Start syscall with interrupts off!");
   }
 #endif
 
@@ -374,7 +374,7 @@ uint64_t nk_syscall_handler(struct nk_regs* r) {
 
 #ifdef NAUT_CONFIG_DEBUG_LINUX_SYSCALLS
   if (!irqs_enabled()) {
-    panic("Return from syscall with interrupts off!");
+    // panic("Return from syscall with interrupts off!");
   }
 #endif
 

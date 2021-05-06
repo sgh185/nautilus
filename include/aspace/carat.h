@@ -308,6 +308,7 @@ void add_thread_to_carat_aspace(
 /*
  * =================== Profiling State ===================
  */ 
+#if 0
 typedef struct {
     
     uint64_t guard_address_calls ;
@@ -321,9 +322,31 @@ typedef struct {
 
 } protections_profile ;
 
-
 extern protections_profile global_protections_profile;
 
+#endif
+
+
+typedef struct {
+    
+    uint64_t num_rb_mallocs ;
+    uint64_t num_rb_frees ;
+    uint64_t rb_malloc_time ;
+    uint64_t rb_free_time ;
+    uint64_t guard_address_calls ;
+    uint64_t guard_address_time ;
+    uint64_t guard_stack_calls ;
+    uint64_t guard_stack_time ;
+    uint64_t tracking_calls ;
+    uint64_t tracking_call_time ;
+    uint64_t escape_calls ;
+    uint64_t escape_call_time ;
+
+} carat_profile ;
+
+extern carat_profile global_carat_profile;
+
+extern int start_carat_profiles;
 
 /*
  * Profiling helpers, assume the existence of a 
@@ -334,6 +357,33 @@ extern protections_profile global_protections_profile;
 #else
 #define CARAT_DO_PROFILE 0
 #endif
+
+
+#define CARAT_PROFILE_INIT_TIMING_VAR(level) uint64_t _carat_profile_timing_##level = 0
+
+#define CARAT_PROFILE_RESET_TIMING_VAR(do_task, level) \
+    if (do_task && start_carat_profiles) { _carat_profile_timing_##level = 0 ; }
+
+#define CARAT_PROFILE_INCR(do_task, field) \
+    if (do_task && start_carat_profiles) { global_carat_profile.field += 1; }
+
+#define CARAT_PROFILE_START_TIMING(do_task, level) \
+    if (do_task && start_carat_profiles) { _carat_profile_timing_##level = rdtsc(); }
+
+#define CARAT_PROFILE_STOP_TIMING(do_task, level) \
+    if (do_task && start_carat_profiles) { _carat_profile_timing_##level = rdtsc() - _carat_profile_timing_##level; }
+
+#define CARAT_PROFILE_COMMIT_TIME(do_task, field, level) \
+    if (do_task && start_carat_profiles) { global_carat_profile.field += _carat_profile_timing_##level ; }
+ 
+#define CARAT_PROFILE_STOP_COMMIT_RESET(do_task, field, level) \
+    CARAT_PROFILE_STOP_TIMING(do_task, level); \
+    CARAT_PROFILE_COMMIT_TIME(do_task, field, level); \
+    CARAT_PROFILE_RESET_TIMING_VAR(do_task, level); 
+
+
+
+#if 0
 
 #define CARAT_PROFILE_INIT_TIMING_VAR(level) uint64_t _carat_profile_timing_##level = 0
 
@@ -357,4 +407,4 @@ extern protections_profile global_protections_profile;
     CARAT_PROFILE_COMMIT_TIME(do_task, field, level); \
     CARAT_PROFILE_RESET_TIMING_VAR(do_task, level); 
 
-
+#endif
