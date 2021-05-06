@@ -157,7 +157,7 @@ continue_context_switch:
     movq (%rax), %rsp   /* load its stack pointer */
 
 TL_check_pending_signals:
-#if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
+#if 0 /* Processes/signals enabled. Do we have pending signals? */
     /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi

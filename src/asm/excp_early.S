@@ -197,7 +197,7 @@ skip_cat_entry:
     jmp nk_thread_switch_intr_entry    
 
 EE_check_pending_signals:
-#if NAUT_CONFIG_PROCESSES /* Processes/signals enabled. Do we have pending signals? */
+#if 0 /* Processes/signals enabled. Do we have pending signals? */
     /* TODO MAC: Should we enable interrupts? */
     pushq %rdi
     pushq %rsi
