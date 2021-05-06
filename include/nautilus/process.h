@@ -122,6 +122,8 @@ typedef struct nk_process {
   char **argv_virt;
   uint64_t envc;
   char **envp;
+
+  void* giga_blob;
   
   // process id
   unsigned long pid;
