@@ -18,6 +18,11 @@
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
+
+#define REGION_FORMAT "(VA=0x%p to PA=0x%p, len=%lx, prot=%lx)"
+#define REGION(r) (r)->va_start, (r)->pa_start, (r)->len_bytes, (r)->protect.flags
+
+
 /// @param brk The process's requested new max data segment address, or zero.
 /// @return If param brk is 0, returns the beginning of the data segment,
 /// creating one if it doesn't exist. If param brk is non-zero, return the
@@ -42,6 +47,9 @@ uint64_t sys_brk(const uint64_t brk) {
     void* new_heap = kmem_sys_malloc_restrict(
         HEAP_SIZE_INCREMENT, (addr_t)MAX(current_process->exe->blob, get_cur_thread()->stack),
         0x0000000800000000); // TODO: maybe eventually turn off carat for this
+
+    ERROR("new_heap: %p\n", new_heap);
+
     if (!new_heap) {
       // Something terrible has happened. This may not be the correct response,
       // but the program will fail anyway.
@@ -58,15 +66,24 @@ uint64_t sys_brk(const uint64_t brk) {
     heap_expand.protect.flags = NK_ASPACE_READ | NK_ASPACE_WRITE |
                                 NK_ASPACE_EXEC | NK_ASPACE_PIN |
                                 NK_ASPACE_EAGER;
+
     if (nk_aspace_add_region(syscall_get_proc()->aspace, &heap_expand)) {
       nk_vc_printf("Fail to allocate initial heap to aspace\n");
       free(new_heap);
       goto out;
     }
+
     current_process->heap_begin = heap_expand.va_start;
     current_process->heap_end =
         current_process->heap_begin + HEAP_SIZE_INCREMENT;
     current_process->heap_region = heap_expand;
+      ERROR("heap_expand.va_start: %p\n", heap_expand.va_start);
+      ERROR("heap_expand.pa_start: %p\n", heap_expand.pa_start);
+      ERROR("heap_expand.len_bytes: %p\n", heap_expand.len_bytes);
+      ERROR("current_process->heap_begin: %p\n", current_process->heap_begin);
+      ERROR("current_process->heap_end: %p\n", current_process->heap_end);
+      ERROR("current_process->heap_region: "REGION_FORMAT"\n", REGION(&(current_process->heap_region)));
+
   } else {
     // Some memory has already been allocated
 #ifdef NAUT_CONFIG_CARAT_PROCESS
@@ -76,14 +93,29 @@ uint64_t sys_brk(const uint64_t brk) {
       uint64_t actual_size = 0;
       uint64_t new_size =
           current_process->heap_region.len_bytes + HEAP_SIZE_INCREMENT;
+      ERROR("actual_size: %lu\n", actual_size);
+      ERROR("new_size: %lu\n", new_size);
       if (nk_aspace_resize_region(current_process->aspace, &heap_expand,
                                   new_size, 1, &actual_size)) {
         ERROR("Could not expand region\n");
         goto out;
       }
+
+      ERROR("actual_size: %lu\n", actual_size);
+      ERROR("new_size: %lu\n", new_size);
+
+
       heap_expand.len_bytes = actual_size;
       current_process->heap_end = current_process->heap_begin + actual_size;
       current_process->heap_region = heap_expand;
+    
+      ERROR("heap_expand.va_start: %p\n", heap_expand.va_start);
+      ERROR("heap_expand.pa_start: %p\n", heap_expand.pa_start);
+      ERROR("heap_expand.len_bytes: %p\n", heap_expand.len_bytes);
+      ERROR("current_process->heap_begin: %p\n", current_process->heap_begin);
+      ERROR("current_process->heap_end: %p\n", current_process->heap_end);
+      ERROR("current_process->heap_region: "REGION_FORMAT"\n", REGION(&(current_process->heap_region)));
+
 #else
     if ((void*)brk > current_process->heap_end) {
       void* new_heap = malloc(HEAP_SIZE_INCREMENT);

@@ -612,6 +612,10 @@ _kmem_sys_malloc (size_t size, int cpu, int zero, addr_t lb, addr_t ub)
 
     NK_GPIO_OUTPUT_MASK(~0x20,GPIO_AND);
 
+    if (!block) {
+        KMEM_ERROR("Going to return 0\n");
+    }
+
     /* Return address of the block */
     return block;
 }
