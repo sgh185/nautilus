@@ -95,22 +95,40 @@ void* realloc(void* p, size_t s) {
 
 #endif
 
+#define USER_TIMING 0
+
 __attribute__((noinline, used, annotate("nocarat")))
 void * nk_func_table_access(volatile int entry_no, void *arg1, void *arg2) {
   BACKSTOP NULL;
   return __nk_func_table[entry_no]((char*)arg1, arg2);
 }
 
+
+uint64_t num_mallocs = 0;
+uint64_t total_malloc_time = 0;
+uint64_t num_escapes= 0;
+uint64_t total_escape_time = 0;
+
+
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_global(void *ptr, uint64_t size, uint64_t global_ID) {
     BACKSTOP;
     __nk_func_table[NK_CARAT_INSTRUMENT_GLOBAL](ptr, size, global_ID);
+    return;
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_malloc(void *ptr, uint64_t size) {
     BACKSTOP;
+#if USER_TIMING
+    num_mallocs++;
+    uint64_t malloc_timing_start = rdtsc();
+#endif
     __nk_func_table[NK_CARAT_INSTRUMENT_MALLOC](ptr, size);
+#if USER_TIMING
+    total_malloc_time += rdtsc() - malloc_timing_start;
+#endif
+
 }
 
 __attribute__((noinline, used, annotate("nocarat")))
@@ -134,14 +152,22 @@ void nk_carat_instrument_free(void *ptr) {
 __attribute__((noinline, used, annotate("nocarat")))
 void nk_carat_instrument_escapes(void *ptr) {
     BACKSTOP;
+#if USER_TIMING
+    num_escapes++;
+    uint64_t escape_timing_start = rdtsc();
+#endif
     __nk_func_table[NK_CARAT_INSTRUMENT_ESCAPE](ptr);
+#if USER_TIMING
+    total_escape_time += rdtsc() - escape_timing_start;
+#endif
+
 }
 
 
 // ---
 #if USER_TIMING
-static uint64_t total_time = 0;
-static uint64_t num_calls = 0;
+static uint64_t total_guard_time = 0;
+static uint64_t num_guards = 0;
 #endif
 
 __attribute__((destructor, used, optnone, noinline, annotate("nocarat")))
@@ -151,10 +177,20 @@ void _results(void)
      * HACK
      */
     rand();
+    return;
 #if USER_TIMING
-    printf("results: %lu\n", total_time / num_calls);
+    printf("---results---\n");
+#if USER_REGION_CHECK
+    printf("num_guards: %lu\n", num_guards);
+    printf("average guard time: %lu\n", total_guard_time / num_guards);
+#endif
+    printf("num_mallocs: %lu\n", num_mallocs);
+    if (num_mallocs) printf("average malloc instrument time: %lu\n", total_malloc_time / num_mallocs);
+    printf("num_escapes: %lu\n", num_escapes);
+    if (num_escapes) printf("average escapes instrument time: %lu\n", total_escape_time / num_escapes);
     fflush(stdout);
 #endif
+
     return;
 }
 
@@ -177,7 +213,7 @@ void nk_carat_guard_address(void *address, int is_write) {
 
 #if USER_TIMING
     uint64_t timing_start = rdtsc();
-    num_calls++;
+    num_guards++;
 #endif
 
     
@@ -191,7 +227,7 @@ void nk_carat_guard_address(void *address, int is_write) {
         region = stack;
         region->requested_permissions |= is_write + 1;
 #if USER_TIMING
-        total_time += rdtsc() - timing_start;
+        total_guard_time += rdtsc() - timing_start;
 #endif
         return;
     }
@@ -209,7 +245,7 @@ void nk_carat_guard_address(void *address, int is_write) {
         region = blob;
         region->requested_permissions |= is_write + 1;
 #if USER_TIMING
-        total_time += rdtsc() - timing_start;
+        total_guard_time += rdtsc() - timing_start;
 #endif
         return;
     }
@@ -218,7 +254,7 @@ void nk_carat_guard_address(void *address, int is_write) {
     __nk_func_table[NK_CARAT_GENERIC_PROTECT](address, is_write, (void *) aspace);
 
 #if USER_TIMING
-    total_time += rdtsc() - timing_start;
+    total_guard_time += rdtsc() - timing_start;
 #endif
 
 #else
