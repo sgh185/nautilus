@@ -155,30 +155,52 @@ char **copy_argv_or_envp(char *arr[], uint64_t count, uint64_t len, void **stack
 void __nk_process_wrapper(void *i, void **o) {
   nk_process_t *p = (nk_process_t*)i;
   PROCESS_DEBUG("Entering process wrapper.\n");
-  
+
+  PROCESS_INFO("Swapping to new stack!\n");
+
   // current thread belongs to a process now
   // TODO MAC: May need to acquire lock
   nk_thread_t *me = get_cur_thread();
-  me->process = p;
+  
+  const uint64_t giga_blob_size = 0x800000000;
+  p->giga_blob = kmem_sys_malloc(giga_blob_size);
 
+  if (!p->giga_blob) {
+    PROCESS_ERROR("Could not allocate the giga blob! Why!?\n");
+  }
 
-#ifdef NAUT_CONFIG_CARAT_PROCESS
+  PROCESS_INFO("The addr of giga_blob is [%p, %p]\n", p->giga_blob, p->giga_blob + giga_blob_size);
 
   /*
-   * Add the process' thread stack to the process address space
-   */ 
+  * Add the process' thread stack to the process address space
+  */ 
+  const uint64_t new_stack_size = 0x10000000;
   nk_aspace_t *process_aspace = p->aspace;
   nk_aspace_region_t r_stack;
-  r_stack.va_start = me->stack; // (void *)PSTACK_START;
-  r_stack.pa_start = me->stack;
-  r_stack.len_bytes = (uint64_t)(me->stack_size); 
+  r_stack.va_start = p->giga_blob; // (void *)PSTACK_START;
+  r_stack.pa_start = p->giga_blob;
+  r_stack.len_bytes = new_stack_size; 
   r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
-  
   if (nk_aspace_add_region(process_aspace, &r_stack)) {
-    PROCESS_ERROR("failed to add initial process aspace stack region\n");
+    PROCESS_ERROR("failed to add initial process stack region (from gigablob)\n");
     nk_aspace_destroy(process_aspace);
     return;
   }
+  
+  const uint64_t stack_offset = 0x11000000;
+  nk_aspace_region_t h_stack;
+  h_stack.va_start = p->giga_blob + stack_offset; // (void *)PSTACK_START;
+  h_stack.pa_start = h_stack.va_start;
+  h_stack.len_bytes = 0x800000000 - stack_offset;
+  h_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE |
+                          NK_ASPACE_PIN | NK_ASPACE_EAGER;
+  if (nk_aspace_add_region(process_aspace, &h_stack)) {
+    PROCESS_ERROR("failed to add initial process heap region (from gigablob)\n");
+    nk_aspace_destroy(process_aspace);
+    return;
+  }
+  
+  me->process = p;
 
 
   /*
@@ -186,9 +208,6 @@ void __nk_process_wrapper(void *i, void **o) {
    */ 
   nk_aspace_carat_t *carat = ((nk_aspace_carat_t *) process_aspace->state);
   carat->initial_stack = &r_stack; 
-
-
-#endif
 
 
   //set virtual console so we can print to shell
@@ -234,6 +253,7 @@ void __nk_process_wrapper(void *i, void **o) {
   proc_args.argv = args;
   proc_args.envp = envp;
   proc_args.argc = argc;
+
   nk_start_exec(exe, &proc_args, NULL);
   PROCESS_INFO("Got past start exec crt\n");
 }
@@ -514,7 +534,7 @@ int nk_process_name(nk_process_id_t proc, char *name)
 int nk_process_run(nk_process_t *p, int target_cpu) {
   nk_thread_id_t tid;
   p->last_cpu_thread = target_cpu;
-  return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 4096 * 4096 * 32, &tid, target_cpu);
+  return nk_thread_start(__nk_process_wrapper, (void*)p, 0, 0, 0x1000, &tid, target_cpu);
 }
 
 int nk_process_start(char *exe_name, char *argv[], char *envp[], char *aspace_type, nk_process_t **p, int target_cpu) {

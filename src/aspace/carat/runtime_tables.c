@@ -820,11 +820,11 @@ void nk_carat_guard_callee_stack(uint64_t stack_frame_size) {
     CARAT_PROFILE_INIT_TIMING_VAR(0);
     CARAT_PROFILE_START_TIMING(CARAT_DO_PROFILE, 0);
 
-	void *new_rsp = (void *) (_carat_get_rsp() + stack_frame_size);
+	void *new_rsp = (void *) (_carat_get_rsp() - stack_frame_size);
 
 	// check if the new stack is still within the region
 	nk_thread_t *thread = FETCH_THREAD;
-	int stack_too_large = new_rsp > (thread->stack + thread->stack_size);
+	int stack_too_large = new_rsp < thread->stack;
 	if (stack_too_large) {
 		// TODO: expand stack instead of panicking 
 		panic("Stack has grown outside of valid memory! \n");
