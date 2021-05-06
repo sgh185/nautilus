@@ -1122,8 +1122,8 @@ int rb_comp_alloc_entry(mm_rb_node_t * n1, mm_rb_node_t * n2) {
      * @n2's region field as an allocation_entry
      */ 
 
-    allocation_entry *n1_ae = *((allocation_entry **) &(n1->region));
-    allocation_entry *n2_ae = *((allocation_entry **) &(n2->region));
+    allocation_entry *n1_ae = ((allocation_entry *) &(n1->region));
+    allocation_entry *n2_ae = ((allocation_entry *) &(n2->region));
 
     if (n1_ae->pointer < n2_ae->pointer) {
         return -1;
@@ -1143,8 +1143,8 @@ int rb_comp_escape(mm_rb_node_t * n1, mm_rb_node_t * n2) {
      * actual escape)
      */ 
 
-    void **n1_escape = *((void ***) &(n1->region));
-    void **n2_escape = *((void ***) &(n2->region));
+    void **n1_escape = ((void **) &(n1->region));
+    void **n2_escape = ((void **) &(n2->region));
 
     if (n1_escape < n2_escape) {
         return -1;

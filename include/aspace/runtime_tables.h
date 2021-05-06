@@ -143,7 +143,7 @@
     mm_rb_node_t *iterator = NULL; \
     rb_tree_foreach(set, iterator)
 
-#define FETCH_ESCAPE_FROM_ITERATOR (*((void ***) &(iterator->region)))
+#define FETCH_ESCAPE_FROM_ITERATOR (((void **) &(iterator->region)))
 
 
 // ---
@@ -177,7 +177,7 @@
     mm_rb_node_t *iterator = NULL; \
     rb_tree_foreach((c->allocation_map), iterator)
 
-#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR (*((allocation_entry **) &(iterator->region)))
+#define FETCH_ALLOCATION_ENTRY_FROM_ITERATOR (((allocation_entry *) &(iterator->region)))
 
 #endif
 
