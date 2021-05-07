@@ -28,6 +28,7 @@
 
 
 #include <aspace/patching.h>
+#include <nautilus/cpu.h>
 
 /*
  * Handler for patching escapes upon moving @entry->pointer to @allocation_target 
@@ -44,14 +45,17 @@ int _carat_patch_escapes(
      */ 
 
     /*
-     * Iterate over the escapes of @entry --- NOTE --- the iteration 
-     * macro provides a variable "val," indicating the current element 
+     * If the escapes_set is NULL, there are no escapes to patch. Return success. 
      */ 
     if(entry->escapes_set == NULL) {
-        return 0;
+        return 1;
     }
 
-      
+    /*
+     * Iterate over the escapes of @entry --- NOTE --- the iteration 
+     * macro provides a variable "val," indicating the current element 
+     * 
+     */
     CARAT_ESCAPES_SET_ITERATE((entry->escapes_set))
     {
         /*
@@ -307,6 +311,8 @@ static void _carat_cleanup(nk_carat_context *the_context)
 
     _carat_process_escape_window(the_context);
 
+    CARAT_PRINT("CARAT: processed escape window\n");
+
 
     /*
      * TODO: if we implement batch freeing, process frees here 
@@ -324,10 +330,13 @@ int _move_allocation(
     void *allocation_target
 ) 
 {
+
+
     /*
      * Perform any leftover/cleanup processing for @the_context 
      * before moving anything related to @allocation_to_move
      */ 
+    CARAT_PRINT("PATCH: 1. _carat_cleanup \n");
     _carat_cleanup(the_context);
 
 
@@ -335,6 +344,7 @@ int _move_allocation(
      * Find the entry for the @allocation_to_move addr in the 
      * allocation_map --- if not found, return -1
      */
+    CARAT_PRINT("PATCH: 2. finding entry \n");
     allocation_entry *entry = 
         _carat_find_allocation_entry(
             the_context,
@@ -343,18 +353,18 @@ int _move_allocation(
 
     if (!entry) 
     {
-        CARAT_PRINT("CARAT: Cannot find entry!\n");
+        CARAT_PRINT("PATCH: Cannot find entry!\n");
         goto out_bad;
     }
 
-
+    CARAT_PRINT("PATCH: 3. patching escapes \n");
 	/*
      * Patch all of @allocation_to_move’s escapes (in @allocation_to_moves->escapes_set)
      * to use the address of @allocation_target
      */
     if (!_carat_patch_escapes(entry, allocation_target)) 
     {
-        CARAT_PRINT("CARAT: The patch is toast --- can't patch escapes!\n");
+        CARAT_PRINT("PATCH: The patch is toast --- can't patch escapes!\n");
         goto out_bad;
     }
 
@@ -364,11 +374,12 @@ int _move_allocation(
      * that currently contain references to @allocation_target. 
      * In order to patch each thread, all necessary info is packaged into a move_context struct
      */
+    CARAT_PRINT("PATCH: 4. patching registers and stack \n");
     struct move_context package = { allocation_to_move, allocation_target, entry->size, 0 };
     nk_sched_map_threads(-1, _carat_patch_thread_registers_and_stack, &package);
     if (package.failed) 
     {
-        CARAT_PRINT("CARAT: Unable to patch threads\n");
+        CARAT_PRINT("PATCH: Unable to patch threads\n");
         goto out_bad;
     }
     
@@ -376,6 +387,7 @@ int _move_allocation(
     /*
      * Update the allocation entry
      */
+    CARAT_PRINT("PATCH: 5. updating allocation entry \n");
     allocation_entry new_entry = _carat_update_entry(the_context, entry, allocation_target);
 
 
@@ -383,28 +395,31 @@ int _move_allocation(
      * Move the contents pointed to by @allocation_to_move to the 
      * location @allocation_target (this is the "actual" move)
      */
-    memmove(allocation_target, allocation_to_move, entry->size);
+    CARAT_PRINT("PATCH: 6. moving memory from %p to %p of size %lu (old size) %lu (new size) \n", allocation_to_move, allocation_target, entry->size, new_entry.size);
+    memmove(allocation_target, allocation_to_move, new_entry.size);
 
 
     /*
      * all of the escapes contained in our entry need to be resintrumented, 
      * as they are now new escapes
      */
+    CARAT_PRINT("PATCH: 7. reinstrumenting contained escapes \n");
     _reinstrument_contained_escapes(&new_entry);
 
 
     /*
      * We need to process those resinstrumented escapes before we continue
      */
+    CARAT_PRINT("PATCH: 8. patching escape window again \n");
     _carat_process_escape_window(the_context);
 
-
+    CARAT_PRINT("PATCH: 9. successful patch \n");
     return 0;
 
 
 out_bad:
     CARAT_PRINT(
-        "_move_allocation: failed. allocation to move: %p, allocation target: %p", 
+        "_move_allocation: failed. allocation to move: %p, allocation target: %p\n", 
         allocation_to_move, 
         allocation_target
     );
@@ -548,7 +563,7 @@ int nk_carat_move_region(
      * to move a subset of the allocations in the map, but this conservative solution will work
      */
     uint64_t size_of_map = CARAT_ALLOCATION_MAP_SIZE(the_context);
-    void* old_addresses[size_of_map];
+    void *old_addresses[size_of_map];
     uint64_t old_lengths[size_of_map];
 
     /*
@@ -621,7 +636,7 @@ int nk_carat_move_region(
 out_bad:
     CARAT_READY_ON(the_context);
     nk_sched_start_world();
-    CARAT_PRINT("nk_carat_move_region: failed to move");
+    CARAT_PRINT("nk_carat_move_region: failed to move\n");
     return -1;
 }
 
@@ -934,6 +949,181 @@ static int handle_kernel_defrag_test(char *buf, void *priv)
     return 0;
 }
 
+
+typedef struct node_t {
+    struct node_t *next;
+} node;
+
+static uint64_t get_linked_list_size(node *head) {
+    node *curr_node = head;
+    volatile uint64_t num_nodes = 0;
+    while (curr_node != NULL) {
+        num_nodes++;
+        curr_node = curr_node->next;
+    }
+
+    return num_nodes;
+}
+
+/* 
+ * Shell command handler
+ */
+// arguments:
+// uint64_t time_between_movements
+// uint64_t number_allocations
+// uint64_t region_size
+#define BACKSTOP_TEST 0
+static int handle_controlled_movement_test(char *buf, void *priv)
+{
+    uint64_t time_between_movements, number_allocations, region_size;
+    if (sscanf(buf, "controlled_movement_test %lu %lu %lu", &time_between_movements, &number_allocations, &region_size) == 3) 
+    {
+        /*
+        * Disable the real carat context
+        */ 
+        nk_carat_context *the_context = FETCH_CARAT_CONTEXT;
+        CARAT_READY_OFF(the_context);
+
+        /*
+        * Create test carat context
+        */ 
+        nk_carat_context *new_controlled_context = initialize_new_carat_context();
+        
+        
+        /*
+        * Create two regions, we will pass allocations back and forth
+        */ 
+
+        void *region1 = kmem_sys_malloc(region_size);
+        nk_vc_printf("region1: %p, size: %lu\n", region1, region_size);
+        void *region2 = kmem_sys_malloc(region_size);
+        nk_vc_printf("region2: %p, size: %lu\n", region2, region_size);
+        nk_vc_printf("\n\n");
+
+
+        
+
+        /*
+        * Populate region 1 with some "allocations" of size region_size/number_allocations
+        */ 
+
+        uint64_t allocation_size = region_size/number_allocations;
+        nk_vc_printf("Region size: %lu \n", region_size);
+        nk_vc_printf("Number of allocations: %lu \n", number_allocations);
+        nk_vc_printf("Allocation size: %lu \n\n\n", allocation_size);
+
+#if BACKSTOP_TEST
+        CARAT_READY_ON(the_context);
+        return 0;
+#endif
+
+
+        node *prev_address = NULL;
+        node *curr_address;
+        uint64_t count = 0;
+        for (uint64_t i = 0; i < number_allocations; i++) {
+            /*
+            * Create an entry and add the mapping to the allocation_map
+            */ 
+
+            CARAT_READY_OFF(new_controlled_context);
+
+            curr_address = (node *) (region1 + i*allocation_size);
+
+            //nk_vc_printf("pointer to add: %p\n", curr_address);
+            
+            CREATE_ENTRY_AND_ADD (
+                new_controlled_context,
+                curr_address, 
+                allocation_size
+            );
+
+
+            /*
+             * Create an escape of prev_address to curr_address
+             */
+            curr_address->next = prev_address;
+
+            // Skip the first iteration, there will only be (allocations) - 1 escapes
+            if (prev_address != 0) {
+                ADD_ESCAPE_TO_WINDOW (
+                    new_controlled_context,
+                    curr_address
+                );
+            }
+
+            /*
+             * store the curr address as the prev address for the next iteration
+             */
+            prev_address = curr_address;
+            count++;
+
+            CARAT_READY_ON(new_controlled_context);
+
+        }
+        nk_vc_printf("Number of allocations created: %lu\n", count);
+        nk_vc_printf("Allocations and Escapes are now created and tracked.\n");
+
+        //mm_show(&(new_controlled_context->allocation_map->super));
+
+        /*
+         * Traverse through the linked list, computing it's size to assert that it is correctly built
+         */
+
+        nk_vc_printf("Head of linked list: %p\n", (void *) curr_address);
+        nk_vc_printf("Size of linked list: %lu\n", get_linked_list_size(curr_address));
+
+        /*
+        * Turn on CARAT after creating our regions
+        * NOTE - if we do anything else that might get tracked, turn off CARAT again
+        */ 
+        CARAT_READY_ON(the_context);
+
+        /*
+        * Move allocations back and forth from one region to another
+        */ 
+
+        node *region2_head = (node *) (region2 + (count-1)*allocation_size);
+
+        uint8_t curr_region = 1;
+        for (uint64_t i = 0; i < 10; i++) {
+            /*
+            * Create an entry and add the mapping to the allocation_map
+            */ 
+            void *free_start;
+            if (curr_region == 1) {
+                nk_vc_printf("Moving from 1 to 2\n");
+                nk_carat_move_region(new_controlled_context, region1, region2, region_size, &free_start);
+                curr_region = 2;
+                
+                nk_vc_printf("Head of linked list: %p\n", (void *) region2_head);
+                nk_vc_printf("Size of linked list: %lu\n", get_linked_list_size(region2_head));
+
+                break;
+                
+            } else {
+                nk_vc_printf("Moving from 2 to 1\n");
+                nk_carat_move_region(new_controlled_context, region2, region1, region_size, &free_start);
+                curr_region = 1;
+
+                nk_vc_printf("Head of linked list: %p\n", (void *) curr_address);
+                nk_vc_printf("Size of linked list: %lu\n", get_linked_list_size(curr_address));
+            }
+            
+            nk_vc_printf("Waiting for %lu microseconds. \n\n\n", time_between_movements);
+            udelay(time_between_movements);
+        }
+
+        nk_vc_printf("Moves done!\n\n");
+    } else {
+        nk_vc_printf("Invalid Command.\n");
+    }
+    
+        
+	return 0;
+}
+
+
 static struct shell_cmd_impl carat_test_impl = {
     .cmd = "carat_test",
     .help_str = "carat_test",
@@ -949,3 +1139,12 @@ static struct shell_cmd_impl kernel_defrag_test_impl = {
 };
 
 nk_register_shell_cmd(kernel_defrag_test_impl);
+
+
+static struct shell_cmd_impl controlled_movement_test_impl = {
+    .cmd = "controlled_movement_test",
+    .help_str = "controlled_movement_test",
+    .handler = handle_controlled_movement_test,
+};
+
+nk_register_shell_cmd(controlled_movement_test_impl);
