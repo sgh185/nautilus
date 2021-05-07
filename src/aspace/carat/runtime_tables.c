@@ -1231,6 +1231,7 @@ static int handle_protections_profile(char *buf, void *priv)
         interval
     );
 
+    for (int i = 0; i < 100; i++) nk_vc_printf("done!\n");
 
     return 0;
 }
