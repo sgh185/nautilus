@@ -281,13 +281,14 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }
   memset(p_addr_start, 0, PSTACK_SIZE);
- 
-
-#ifndef NAUT_CONFIG_CARAT_PROCESS
 
   // add stack to address space
   nk_aspace_region_t r_stack;
+#ifdef NAUT_CONFIG_CARAT_PROCESS
+  r_stack.va_start = p_addr_start;
+#else
   r_stack.va_start = (void *)PSTACK_START;
+#endif
   r_stack.pa_start = p_addr_start;
   r_stack.len_bytes = (uint64_t)PSTACK_SIZE; 
   r_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE | NK_ASPACE_PIN | NK_ASPACE_EAGER;
@@ -299,6 +300,7 @@ int create_process_aspace(nk_process_t *p, char *aspace_type, char *exe_name, nk
     return -1;
   }
 
+#ifndef NAUT_CONFIG_CARAT_PROCESS
 
   // add kernel to address space
   nk_aspace_region_t r_kernel;
