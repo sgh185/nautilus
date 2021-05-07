@@ -605,18 +605,18 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 	/*
 	 * TOP --- perform batch processing of escapes in the escape window
 	 */ 
-	DS("CARAT: pew\n");
+	CARAT_PRINT("CARAT: pew\n");
 	uint64_t num_entries = FETCH_TOTAL_ESCAPES(the_context);
 	void ***the_escape_window = FETCH_ESCAPE_WINDOW(the_context);
 
 
-	/*
-	 * Build a set of escapes that are already processed --- if we encounter
-	 * another escape that is part of this set, the batch processing will
-	 * ignore it
-	 */  
-	nk_carat_escape_set *processed_escapes = CARAT_ESCAPE_SET_BUILD;
-    CARAT_ESCAPE_SET_SETUP(processed_escapes);
+	// /*
+	//  * Build a set of escapes that are already processed --- if we encounter
+	//  * another escape that is part of this set, the batch processing will
+	//  * ignore it
+	//  */  
+	// nk_carat_escape_set *processed_escapes = CARAT_ESCAPE_SET_BUILD;
+    // CARAT_ESCAPE_SET_SETUP(processed_escapes);
 
 
 	/*
@@ -649,7 +649,7 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 
 		if (false 
 			|| (!escape_address) /* Condition 1 */
-			|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
+			//|| (!(CARAT_ESCAPE_SET_ADD(processed_escapes, escape_address))) /* Condition 2, marking */
 			|| (!(corresponding_entry = _carat_find_allocation_entry(the_context, *escape_address)))) /* Condition 3 */
         { 
             missed_escapes_counter++;
@@ -682,9 +682,9 @@ void _carat_process_escape_window(nk_carat_context *the_context)
 
 			uint64_t offset = ((uint64_t) escape_address) - ((uint64_t) container_for_escape->pointer);
 			
-			if (!(corresponding_entry->contained_escapes)) {
-				corresponding_entry->contained_escapes = CARAT_ESCAPE_SET_BUILD;
-                CARAT_ESCAPE_SET_SETUP((corresponding_entry->contained_escapes));
+			if (!(container_for_escape->contained_escapes)) {
+				container_for_escape->contained_escapes = CARAT_ESCAPE_SET_BUILD;
+                CARAT_ESCAPE_SET_SETUP((container_for_escape->contained_escapes));
 			}
 			
 			CARAT_ESCAPE_SET_ADD((container_for_escape->contained_escapes), (void**) offset);
