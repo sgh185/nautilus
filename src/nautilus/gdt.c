@@ -35,7 +35,7 @@ void set_tss_descriptor(struct tss64_descriptor* entry, void* base,
 
 void setup_tss(struct tss64* tss) {
   memset(tss, 0, sizeof(struct tss64));
-  void* stack = kmem_sys_malloc(IST_SIZE);
+  void* stack = kmem_sys_malloc_specific(IST_SIZE, 0, 0);
   if (!stack) {
     panic("Failed to allocate a stack for TSS\n");
   } else if (stack > (void*)0x100000000UL) {
