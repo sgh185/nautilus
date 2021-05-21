@@ -6,9 +6,9 @@
 #include "impl_preamble.h"
 
 #define HEAP_BOT \
-  (void*)0x10000000000UL /* Lowest virtual address for the process heap */
+  (void*)KERNEL_ADDRESS_END /* Lowest virtual address for the process heap */
 #define HEAP_SIZE_INCREMENT \
-  0x1400000UL /* Heap is increased by a multiple of this amount */
+  0x2000000UL /* Heap is increased by a multiple of this amount */
 
 #ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))

@@ -3,6 +3,7 @@
 #include <nautilus/mm.h>
 #include <nautilus/printk.h>
 #include <nautilus/smp.h>
+#include <nautilus/process.h>
 
 extern struct gdt_desc64 gdtr64;
 extern uint64_t gdt64[];
@@ -35,12 +36,15 @@ void set_tss_descriptor(struct tss64_descriptor* entry, void* base,
 
 void setup_tss(struct tss64* tss) {
   memset(tss, 0, sizeof(struct tss64));
-  void* stack = kmem_sys_malloc_specific(IST_SIZE, 0, 0);
+  void* stack = kmem_sys_malloc(IST_SIZE);
   if (!stack) {
     panic("Failed to allocate a stack for TSS\n");
-  } else if (stack > (void*)0x100000000UL) {
-    panic("Allocated interrupt stack outside of lower 4G\n");
   }
+#ifdef NAUT_CONFIG_PROCESSES
+  if (stack > (void*)KERNEL_ADDRESS_END) {
+    panic("Allocated interrupt stack outside of the identity mapped kernel region\n");
+  }
+#endif
   tss->ist1 = (uint64_t)stack + IST_SIZE; // Must offset
   tss->iopb_offset = 0x68;                // Size does not include offset itself
 }
