@@ -481,6 +481,11 @@ __associate_domains_adhoc (struct nk_locality_info * loc)
             if (j == i) continue;
 
             struct domain_adj_entry * new_dom_ent = mm_boot_alloc(sizeof(struct domain_adj_entry));
+	    if (!new_dom_ent) {
+		NUMA_ERROR("Unable to allocate domain entry - skipping association\n");
+		continue;
+	    }
+	    INIT_LIST_HEAD(&new_dom_ent->list_ent);
             new_dom_ent->domain = loc->domains[j];
             NUMA_DEBUG("Adding domain %u to adjacency list of domain %u\n", j, i);
             list_add(&(new_dom_ent->list_ent), &(loc->domains[i]->adj_list));
@@ -747,6 +752,20 @@ nk_numa_init (void)
             sys->cpus[i]->domain = domain;
         }
     }
+
+
+    // now deal with weird situations where they start counting domains at 1
+    // should ideally find all "missing" domains and create fakes for them
+    if (!sys->locality_info.domains[0]) {
+	NUMA_WARN("Faking domain 0 because of crack monkeys\n");
+	struct numa_domain *n = nk_numa_domain_create(sys,0);
+	if (!n) {
+	    NUMA_ERROR("Cannot allocate fake domain 0\n");
+	    return -1;
+	}
+	// domain 0 should be zero size, 0 regions, no adjacency
+    }
+
     
     /* we now construct a list of adjacent domains for each domain, 
      * ordered by distances obtained in the SLIT. If we didn't see a SLIT,
