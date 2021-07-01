@@ -10,8 +10,8 @@
 #define SYSCALL_NAME "sys_timeofday"
 #include "impl_preamble.h"
 
-#define NSEC_PER_SEC (uint64_t)1000000000
-#define NSEC_PER_USEC (uint64_t)1000U
+#define NSEC_PER_SEC 1000000000UL
+#define NSEC_PER_USEC 1000UL
 
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
@@ -57,6 +57,8 @@ uint64_t sys_gettimeofday(uint64_t timeval_ptr, uint64_t timezone_ptr) {
 
     tv->tv_sec = now / NSEC_PER_SEC;
     tv->tv_usec = (now % NSEC_PER_SEC) / NSEC_PER_USEC;
+
+    ASSERT(tv->tv_usec < 1000000);
 
     DEBUG("Setting user time of day struct time to %d sec, %d usec\n",
           tv->tv_sec, tv->tv_usec);
