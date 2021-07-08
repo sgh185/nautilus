@@ -341,6 +341,15 @@ typedef struct {
     uint64_t tracking_call_time ;
     uint64_t escape_calls ;
     uint64_t escape_call_time ;
+    uint64_t move_calls ;
+    uint64_t cleanup_time ;
+    uint64_t find_entry_time ;
+    uint64_t patch_escapes_time ;
+    uint64_t patch_stack_regs_time ;
+    uint64_t update_entry_time ;
+    uint64_t memmove_time ;
+    uint64_t reinstrument_contained_time ;
+    uint64_t process_window_2_time ;
 
 } carat_profile ;
 

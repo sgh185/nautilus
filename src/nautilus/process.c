@@ -162,7 +162,7 @@ void __nk_process_wrapper(void *i, void **o) {
   // TODO MAC: May need to acquire lock
   nk_thread_t *me = get_cur_thread();
   
-  const uint64_t giga_blob_size = 0x800000000;
+  const uint64_t giga_blob_size = 0x40000000;
   p->giga_blob = kmem_sys_malloc(giga_blob_size);
 
   if (!p->giga_blob) {
@@ -191,7 +191,7 @@ void __nk_process_wrapper(void *i, void **o) {
   nk_aspace_region_t h_stack;
   h_stack.va_start = p->giga_blob + stack_offset; // (void *)PSTACK_START;
   h_stack.pa_start = h_stack.va_start;
-  h_stack.len_bytes = 0x800000000 - stack_offset;
+  h_stack.len_bytes = giga_blob_size - stack_offset;
   h_stack.protect.flags = NK_ASPACE_READ | NK_ASPACE_EXEC | NK_ASPACE_WRITE |
                           NK_ASPACE_PIN | NK_ASPACE_EAGER;
   if (nk_aspace_add_region(process_aspace, &h_stack)) {

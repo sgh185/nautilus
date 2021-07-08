@@ -13,7 +13,7 @@ Entry point for syscall handler
 
 ENTRY(syscall_entry)
     leaq -256(%rsp), %rsp // To avoid mangling redzone
-    pushf 
+    pushq %r11 // syscall instruction saves the caller's RFLAGS in R11
     SAVE_GPRS_SYSCALL()
     movq %rsp, %rdi
     movq %rsp, %r13

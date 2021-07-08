@@ -53,7 +53,16 @@ carat_profile global_carat_profile  = {
     .guard_address_calls = 0,
     .guard_address_time = 0,
     .guard_stack_calls = 0,
-    .guard_stack_time = 0
+    .guard_stack_time = 0,
+    .move_calls = 0,
+    .cleanup_time = 0,
+    .find_entry_time = 0,
+    .patch_escapes_time = 0,
+    .patch_stack_regs_time = 0,
+    .update_entry_time = 0,
+    .memmove_time = 0,
+    .reinstrument_contained_time = 0,
+    .process_window_2_time = 0
 
 } ;
 
@@ -1131,6 +1140,7 @@ static int handle_protections_profile(char *buf, void *priv)
     nk_vc_printf("guard_stack_calls: %lu\n", global_carat_profile.guard_stack_calls);
     nk_vc_printf("tracking_calls: %lu\n", global_carat_profile.tracking_calls);
     nk_vc_printf("escape_calls: %lu\n", global_carat_profile.escape_calls);
+    nk_vc_printf("move_calls: %lu\n", global_carat_profile.move_calls);
 
     if (global_carat_profile.num_rb_mallocs)
     {
@@ -1179,6 +1189,51 @@ static int handle_protections_profile(char *buf, void *priv)
             "average escape_call_time: %lu\n", 
             global_carat_profile.escape_call_time / global_carat_profile.escape_calls
         );
+    }
+
+    if (global_carat_profile.move_calls)
+    {
+
+        nk_vc_printf(
+            "average cleanup_time: %lu\n", 
+            global_carat_profile.cleanup_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average find_entry_time: %lu\n", 
+            global_carat_profile.find_entry_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average patch_escapes_time: %lu\n", 
+            global_carat_profile.patch_escapes_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average patch_stack_regs_time: %lu\n", 
+            global_carat_profile.patch_stack_regs_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average update_entry_time: %lu\n", 
+            global_carat_profile.update_entry_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average memmove_time: %lu\n", 
+            global_carat_profile.memmove_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average reinstrument_contained_time: %lu\n", 
+            global_carat_profile.reinstrument_contained_time / global_carat_profile.move_calls
+        );
+
+        nk_vc_printf(
+            "average process_window_2_time: %lu\n", 
+            global_carat_profile.process_window_2_time / global_carat_profile.move_calls
+        );
+
     }
 
   

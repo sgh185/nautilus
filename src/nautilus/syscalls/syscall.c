@@ -392,6 +392,11 @@ int syscall_setup() {
 
   /* target address */
   msr_write(AMD_MSR_LSTAR, (uint64_t)syscall_entry);
+
+  /* Don't clear RFLAGS bits on syscall entry.
+     Consider: trap, direction (possible attack vector), resume, virtual 8086, alignment check, VIF, VIP */
+  msr_write(AMD_MSR_SFMASK, 0ULL);
+
   return 0;
 }
 
