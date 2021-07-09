@@ -491,30 +491,19 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
 )
 {
     /*
+     * Debugging
+     */
+    errs() << "_optimizeForInductionVariableAnalysis\n";
+    errs() << "\t" << *PointerOfMemoryInstruction << "\n";
+
+
+    /*
      * If @NestedLoop is not valid, we cannot optimize for loop invariance
      */
     if (!NestedLoop) { 
+        errs() << "\tNestedLoop not valid!\n";
         return false; 
     }
-
-
-    /*
-     * Check if @NestedLoop has a known compile time trip count --- if it 
-     * doesn't, then we cannot compute the end address of the hoisted guard
-     */
-    if (!(NestedLoop->doesHaveCompileTimeKnownTripCount())) {
-        errs() << "_optimizeForInductionVariableAnalysis: No compile time trip count!\n";
-        return false;
-    }
-
-
-    /*
-     * Setup --- fetch the loop structure and IV manager for @NestedLoop,
-     * fetch the compile time trip count
-     */
-    LoopStructure *NestedLoopStructure = NestedLoop->getLoopStructure();
-    InductionVariableManager *IVManager = NestedLoop->getInductionVariableManager();
-    uint64_t TripCount = NestedLoop->getCompileTimeTripCount();
 
 
     /*
@@ -522,15 +511,18 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
      */
     Instruction *PointerOfMemoryInstructionAsInst = dyn_cast<Instruction>(PointerOfMemoryInstruction);
     if (!PointerOfMemoryInstructionAsInst) { 
+        errs() << "\tPointerOfMemoryInstructionAsInst not valid!\n";
         return false; 
     }
 
 
     /*
-     * Check if @PointerOfMemoryInstruction contributes to an induction 
-     * variable --- if not, there's no optimization we can do
+     * Fetch the induction variable manager and check if @PointerOfMemoryInstruction 
+     * contributes to an induction variable --- if not, there's no optimization we can do
      */
+    InductionVariableManager *IVManager = NestedLoop->getInductionVariableManager();
     if (!(IVManager->doesContributeToComputeAnInductionVariable(PointerOfMemoryInstructionAsInst))) {
+        errs() << "\tPointerOfMemoryInstructionAsInst does not contribute to IV computation!\n";
         return false;
     }
 
@@ -541,42 +533,112 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
      * hoisted outside the loop where the boundaries used in the check can range from
      * start to end address of the scalar evolution
      * 
-     * Compute this start and end address from the induction variable
+     * Fetch the IV for @PointerOfMemoryInstruction, and begin using this to compute
+     * this start and end address from this IV
      */
     bool Hoisted = false;
+    LoopStructure *NestedLoopStructure = NestedLoop->getLoopStructure();
     InductionVariable *IV = 
         IVManager->getInductionVariable(
             *NestedLoopStructure,
             PointerOfMemoryInstructionAsInst
         );
+    assert(IV && "_optimizeForInductionVariableAnalysis: Invalid induction variable object!");
 
-    assert(
-        true
-        && !!IV
-        && "_optimizeForInductionVariableAnalysis: Invalid induction variable object!"
-    );
+
+    /*
+     * Check that the step value of this IV is loop invariant
+     */
+    if (!(IV->isStepValueLoopInvariant())) {
+        errs() << "\tIV related to PointerOfMemoryInstructionAsInst does not have a loop invariant step value!\n";
+        return false; 
+    }
+
+
+    /*
+     * Now switch to analyzing the loop governing IV
+     *
+     * Fetch the loop governing IV attribution and check its validity
+     */
+    LoopGoverningIVAttribution *LGIVAttr = IVManager->getLoopGoverningIVAttribution(*NestedLoopStructure);
+    if (!LGIVAttr) { 
+        errs() << "\tLoop Governing IV attribution is invalid!\n";
+        return false; 
+    }
+    assert(LGIVAttr->isSCCContainingIVWellFormed());
+    
+    
+    /*
+     * Fetch the loop governing induction variable (LGIV) and 
+     * ensure that its step value is loop invariant
+     */
+    InductionVariable *LGIV = &(LGIVAttr->getInductionVariable());
+    if (!(LGIV->isStepValueLoopInvariant())) {
+        errs() << "\tLoop Governing IV does not have a loop invariant step value!\n";
+        return false;
+    }
+
+
+    /*
+     * Fetch the loop governing IV utility
+     */
+    LoopGoverningIVUtility GIVUtility(*LGIVAttr);
+
+
+    /*
+     * Generate the code to compute the total number of iterations for the current loop invocation, 
+     * and fetch the resulting loop iterations value
+     */
+    Instruction *PreHeaderTerminator = NestedLoopStructure->getPreHeader()->getTerminator();
+    IRBuilder<> NumIterationsBuilder = 
+        Utils::GetBuilder(
+            PreHeaderTerminator->getFunction(),
+            PreHeaderTerminator
+        );
+
+    Value *NumIterations = GIVUtility.generateCodeToComputeTheTripCount(NumIterationsBuilder);
+    if (!NumIterations) {
+        errs() << "\tCan't generate code to compute total number of iterations!\n";
+        return false;
+    }
+    errs() << "\tNumIterations: " << *NumIterations << "\n";
 
 
     /*
      * Fetch the start address and step value from the IV
+     * related to the pointer, check its validity
      */
     Value *StartAddress = IV->getStartValue(),
           *StepValue = IV->getSingleComputedStepValue();
 
-
-    /*
-     * Check if the start address and step value are valid
-     */
     if (false
         || !StartAddress
-        || !StepValue) return false;
+        || !StepValue) {
+        errs() << "\tStartAddress or StepValue is invalid!\n";
+        return false;
+    }
 
     errs() << "StartAddress: " << *StartAddress << "\n";
     errs() << "StepValue: " << *StepValue << "\n";
 
 
+
+#if 0
     /*
-     * Compute ONLY (Step * TripCount) + StartAddress and inject 
+     * NOTE --- DO WE NEED TO CHECK IF THE BOUNDS VALUE (THE VALUE THAT
+     * IS ESSENTIALLY (LGIVAttr->getIntermediateValueUsedInCompare()) 
+     * IS LOOP INVARIANT? 
+     */
+    Value *BoundsValue = LGIVAttr->getIntermediateValueUsedInCompare();
+    InvariantManager *InvManager = NestedLoop->getInvariantManager();
+    if (!(InvManager->isLoopInvariant(BoundsValue))) {
+        return false;
+    }
+#endif
+
+
+    /*
+     * Compute ONLY (Step * NumIterations) + StartAddress and inject 
      * this into the preheader of the loop directly --- HACK
      * 
      * First, set up injection locations and builders
@@ -591,12 +653,12 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
 
     
     /*
-     * Compute Offset = Step * TripCount
+     * Compute Offset = Step * NumIterations
      */
     Value *Offset = 
         Builder.CreateMul(
             StepValue,
-            Builder.getInt64(TripCount)
+            NumIterations
         );
 
     
@@ -619,6 +681,8 @@ bool ProtectionsInjector::_optimizeForInductionVariableAnalysis(
             StartAddress->getType()
         );
 
+    errs() << "\tOffset: " << *Offset << "\n";
+    errs() << "\tEndAddress: " << *EndAddress << "\n";
 
 
     /*
@@ -1082,7 +1146,7 @@ void ProtectionsInjector::_printGuards(void)
     /*
      * Print where to put the guards
      */
-    errs() << "GUARDS\n";
+    errs() << "GUARDS for " << F->getName() << "\n";
     for (auto &Guard : InjectionLocations)
         errs() << " " << *(Guard.first) << "\n";
 
