@@ -4654,7 +4654,38 @@ static struct shell_cmd_impl burn_impl = {
 };
 nk_register_shell_cmd(burn_impl);
 
+static int 
+test_timed_stop (char * buf, void * priv)
+{
+    uint64_t i;
+    uint64_t start, end;
+    uint64_t sum, sum2, min, max;
+    uint64_t count = 0;
+    if (sscanf(buf, "timed_stop %lu", &count) != 1) { 
+        nk_vc_printf("Incorrect number of arguments! (only requires a single unsigned long)\n");
+        return -1;
+    } 
+   
+    nk_vc_printf("Starting and stopping the world %lu times\n", count);
+    start = rdtsc();
+    for (i = 0; i < count; i++) { 
+        nk_sched_stop_world();
+        nk_sched_start_world();
+    }
+    end = rdtsc();
+    nk_vc_printf("Total time: %lu\n Per-iteration time: %lu\n", end-start, (end-start)/count);
 
+    return 0;
+}
+
+
+static struct shell_cmd_impl timed_stop = {
+    .cmd      = "timed_stop",
+    .help_str = "timed_stop",
+    .handler  = test_timed_stop,
+};
+
+nk_register_shell_cmd(timed_stop);
 static int 
 test_stop (char * buf, void * priv)
 {
